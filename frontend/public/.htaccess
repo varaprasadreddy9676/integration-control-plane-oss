@@ -1,0 +1,17 @@
+RewriteEngine On
+RewriteBase /integration-gateway/
+RewriteRule ^index\.html$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /integration-gateway/index.html [L]
+
+# index.html has no Cache-Control header otherwise, so browsers apply heuristic
+# caching to it — a deploy can silently keep serving the old app shell (and the old,
+# content-hashed JS bundle it references) to a browser well after the new build is
+# live. Everything under /assets/ is content-hashed and safe to cache hard; only the
+# HTML entry point needs to always be revalidated.
+<IfModule mod_headers.c>
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>

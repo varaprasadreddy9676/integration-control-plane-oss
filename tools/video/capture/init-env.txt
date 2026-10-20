@@ -1,0 +1,2 @@
+Created .env with random secrets.
+Next: docker compose up -d --build

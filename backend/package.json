@@ -1,0 +1,74 @@
+{
+  "name": "integration-control-plane-backend",
+  "version": "1.0.0",
+  "description": "Integration Gateway - Backend API service for delivering events to external systems",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "nodemon",
+    "start": "node --max-old-space-size=4096 --max-semi-space-size=64 src/index.js",
+    "start:production": "node --max-old-space-size=8192 --max-semi-space-size=128 --optimize-for-size --gc-interval=100 src/index.js",
+    "start:high-memory": "node --max-old-space-size=16384 --max-semi-space-size=256 src/index.js",
+    "lint": "biome lint ./src",
+    "lint:fix": "biome lint --write ./src",
+    "format": "biome format ./src",
+    "format:write": "biome format --write ./src",
+    "check": "biome lint ./src",
+    "check:fix": "biome lint --write ./src",
+    "seed:schemas": "node src/data/seed-event-schemas.js && node src/data/mark-inactive-events.js",
+    "db:ensure-indexes": "node src/scripts/ensure-mongodb-indexes.js",
+    "seed:ui-config": "node src/data/seed-ui-config.js",
+    "backfill:dashboard-analytics-rollups": "node src/scripts/backfill-dashboard-analytics-rollups.js",
+    "test": "cd test && npm install && npm test",
+    "test:ci": "cd test && npm install --prefer-offline && npm run test:ci",
+    "test:install": "cd test && npm install",
+    "prepare": "husky || true"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "abort-controller": "^3.0.0",
+    "archiver": "^5.3.2",
+    "axios": "^1.20.0",
+    "bcryptjs": "3.0.3",
+    "cors": "2.8.5",
+    "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.22.3",
+    "jsonwebtoken": "^9.0.2",
+    "kafkajs": "^2.2.4",
+    "mongodb": "7.7.0",
+    "morgan": "^1.12.1",
+    "multer": "^2.4.0",
+    "mysql2": "^3.24.4",
+    "node-cron": "^3.0.3",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^10.1.6",
+    "puppeteer": "^25.1.0",
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "nodemon": "3.0.1"
+  },
+  "lint-staged": {
+    "src/**/*.js": [
+      "biome check --write"
+    ]
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    },
+    "node-cron": {
+      "uuid": "^9.0.1"
+    }
+  }
+}

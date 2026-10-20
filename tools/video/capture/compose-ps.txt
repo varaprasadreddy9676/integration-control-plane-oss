@@ -1,0 +1,4 @@
+SERVICE    STATUS                    PORTS
+backend    Up 8 seconds (healthy)    0.0.0.0:3545->3545/tcp, [::]:3545->3545/tcp
+frontend   Up 8 seconds (healthy)    0.0.0.0:80->80/tcp, [::]:80->80/tcp
+mongodb    Up 19 seconds (healthy)   27017/tcp

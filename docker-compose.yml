@@ -1,0 +1,107 @@
+services:
+  # MongoDB - Primary database
+  mongodb:
+    image: mongo:9.0
+    container_name: integration-gateway-mongodb
+    restart: unless-stopped
+    # Not published: the backend reaches MongoDB on the internal network, and
+    # this MongoDB runs without authentication. To inspect it, use
+    #   docker compose exec mongodb mongosh integration_gateway
+    environment:
+      MONGO_INITDB_DATABASE: integration_gateway
+      # MongoDB 8.x/9.x refuse to start on Linux kernels 6.19.0-7.0.13
+      # (SERVER-121912). Letting glibc own rseq avoids the incompatibility; on
+      # other kernels this is glibc's default and changes nothing.
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - integration-gateway-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/integration_gateway --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: integration-control-plane-backend:local
+    container_name: integration-control-plane-backend
+    restart: unless-stopped
+    ports:
+      - "3545:3545"
+    environment:
+      NODE_ENV: production
+      PORT: 3545
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/integration_gateway}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-integration_gateway}
+      # Secrets come from .env — run ./scripts/init-env.sh once to generate them.
+      # A known default would let anyone forge sign-ins on an exposed install.
+      API_KEY: ${API_KEY:?Run ./scripts/init-env.sh first to create .env with secrets}
+      API_KEY_ORG_IDS: ${API_KEY_ORG_IDS:-}
+      JWT_SECRET: ${JWT_SECRET:?Run ./scripts/init-env.sh first to create .env with secrets}
+      # Keep it stable once set: credentials encrypted with one key cannot be
+      # read with another.
+      GATEWAY_SECRET_KEY: ${GATEWAY_SECRET_KEY:?Run ./scripts/init-env.sh first to create .env with secrets}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      API_RATE_LIMIT_ENABLED: ${API_RATE_LIMIT_ENABLED:-true}
+      API_RATE_LIMIT_MAX_REQUESTS: ${API_RATE_LIMIT_MAX_REQUESTS:-100}
+      API_RATE_LIMIT_WINDOW_SECONDS: ${API_RATE_LIMIT_WINDOW_SECONDS:-60}
+      INBOUND_MINIMAL_LOGGING: ${INBOUND_MINIMAL_LOGGING:-false}
+    volumes:
+      # Optional: Mount logs directory
+      - backend_logs:/app/logs
+    networks:
+      - integration-gateway-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const req=require('http').get('http://127.0.0.1:3545/', (r) => process.exit(r.statusCode < 500 ? 0 : 1)); req.on('error', () => process.exit(1));"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Relative: the frontend's nginx forwards /api to the backend, so the
+        # console works from any host name without rebuilding.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Integration Gateway}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-2.0.0}
+    image: integration-control-plane-frontend:local
+    container_name: integration-control-plane-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - integration-gateway-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  backend_logs:
+    driver: local
+
+networks:
+  integration-gateway-network:
+    driver: bridge

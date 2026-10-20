@@ -1,0 +1,119 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Github, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../../hooks/useTheme';
+import { LANDING_PUBLIC_MODE, GITHUB_URL } from '../landing-config';
+
+const PUBLIC_LINKS: Array<[string, string]> = [
+  ['#how-it-works', 'How it works'],
+  ['#features', 'Features'],
+  ['#mcp', 'MCP'],
+  ['#quickstart', 'Quickstart'],
+];
+
+interface NavigationProps {
+  onLoginClick: () => void;
+}
+
+export default function Navigation({ onLoginClick }: NavigationProps) {
+  const { theme, toggleTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <nav
+      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${
+        scrolled
+          ? 'bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--card-border)] shadow-sm'
+          : 'bg-transparent border-b border-transparent'
+      }`}
+    >
+      <div className="flex items-center justify-between px-[4vw] py-4">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <span className="font-heading font-bold text-lg whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+            Integration Gateway
+          </span>
+          <span
+            className="hidden sm:inline"
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase' as const,
+              color: 'var(--accent-color)',
+              border: '1px solid var(--accent-color)',
+              borderRadius: 4,
+              padding: '1px 6px',
+              opacity: 0.85,
+            }}
+          >
+            BETA
+          </span>
+        </div>
+
+        {/* Nav Links */}
+        <div className="flex items-center gap-3 md:gap-6">
+          <div className="hidden md:flex items-center gap-6">
+            {LANDING_PUBLIC_MODE &&
+              PUBLIC_LINKS.map(([href, label]) => (
+                <a
+                  key={href}
+                  href={href}
+                  className="text-sm transition-colors"
+                  style={{ color: 'var(--text-secondary)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                >
+                  {label}
+                </a>
+              ))}
+            <Link
+              to="/docs"
+              className="text-sm transition-colors"
+              style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            >
+              Docs
+            </Link>
+            {LANDING_PUBLIC_MODE && (
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+              >
+                <Github className="w-4 h-4" />
+                GitHub
+              </a>
+            )}
+          </div>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="theme-toggle"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+
+          <button className="btn-primary text-sm py-2 px-4 whitespace-nowrap" onClick={onLoginClick}>
+            Sign in
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+}

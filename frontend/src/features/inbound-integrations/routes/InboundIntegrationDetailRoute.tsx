@@ -1,0 +1,2480 @@
+import { useEffect, useMemo, useState } from 'react';
+import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
+import { useLocation, useParams } from 'react-router-dom';
+import { useNavigateWithParams } from '../../../utils/navigation';
+import { useTenant } from '../../../app/tenant-context';
+import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
+import {
+  Form,
+  Card,
+  Space,
+  Button,
+  Input,
+  Typography,
+  Divider,
+  Alert,
+  Switch,
+  Modal,
+  App,
+  Collapse,
+  Tabs,
+  Badge,
+  Tooltip,
+  Tag,
+  Select,
+  Radio,
+} from 'antd';
+import {
+  SaveOutlined,
+  ArrowLeftOutlined,
+  ApiOutlined,
+  LockOutlined,
+  CodeOutlined,
+  SendOutlined,
+  CopyOutlined,
+  ThunderboltOutlined,
+  CheckCircleOutlined,
+  EyeOutlined,
+  InfoCircleOutlined,
+  CaretRightOutlined,
+  SafetyOutlined,
+  MailOutlined,
+  MessageOutlined,
+  WhatsAppOutlined,
+  BellOutlined,
+} from '@ant-design/icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Editor from '@monaco-editor/react';
+import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { MetaWhatsAppConfigFields } from '../components/MetaWhatsAppConfigFields';
+import { FcmConfigFields } from '../components/FcmConfigFields';
+import { SmsConfigFields } from '../components/SmsConfigFields';
+import {
+  getInboundIntegration,
+  createInboundIntegration,
+  updateInboundIntegration,
+  getUIConfig,
+  testInboundRuntime,
+  listSenderProfiles,
+  getInboundIntegrationCredentials,
+  getApiBaseUrl,
+} from '../../../services/api';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { ConfigSection } from '../../../components/common/ConfigSection';
+import { ConfigGrid } from '../../../components/common/ConfigGrid';
+import { ConfigFieldHelp } from '../../../components/common/ConfigFieldHelp';
+import { AuthenticationFields, HttpConfigFields } from '../../../shared/integration-forms';
+import { RequestPolicySection } from '../../integrations/components/detail/RequestPolicySection';
+import { copyTextToClipboard } from '../../../utils/clipboard';
+
+const { Text, Paragraph } = Typography;
+
+export const InboundIntegrationDetailRoute = () => {
+  // The name the list passed along, shown until the record loads (title morph target).
+  const passedTitle = (useLocation().state as { title?: string } | null)?.title;
+  const { id } = useParams();
+  const navigate = useNavigateWithParams();
+  const queryClient = useQueryClient();
+  const { spacing } = useDesignTokens();
+  const colors = cssVar.legacy;
+  const { message: messageApi, modal } = App.useApp();
+  const { orgId } = useTenant();
+  const isCreate = !id || id === 'new';
+
+  const [form] = Form.useForm();
+  const [isSaving, setIsSaving] = useState(false);
+  // This form is long enough that losing it to a stray refresh or a mis-clicked
+  // Cancel is a real cost. Cancel now asks first, and the browser warns on exit.
+  const hasUnsavedChanges = () => form.isFieldsTouched();
+  const [requestTransformEnabled, setRequestTransformEnabled] = useState(false);
+  const [responseTransformEnabled, setResponseTransformEnabled] = useState(false);
+
+  // Watch form fields to trigger re-render and unlock tabs dynamically
+  const formName = Form.useWatch('name', form);
+  const formType = Form.useWatch('type', form);
+  const formTargetUrl = Form.useWatch('targetUrl', form);
+  const formHttpMethod = Form.useWatch('httpMethod', form);
+  const inboundAuthTypeValue = Form.useWatch('inboundAuthType', form);
+  const outgoingAuthTypeValue = Form.useWatch('outgoingAuthType', form);
+  const streamResponse = Form.useWatch('streamResponse', form);
+  const actionType = Form.useWatch('actionType', form); // NEW: HTTP or COMMUNICATION
+  const communicationChannel = Form.useWatch(['communicationConfig', 'channel'], form); // EMAIL, SMS, etc.
+  const communicationProvider = Form.useWatch(['communicationConfig', 'provider'], form); // SMTP, GMAIL_OAUTH, etc.
+  const senderRoutingEnabled = communicationProvider === 'ROUTED_EMAIL';
+
+  const runtimeUrlPreview = useMemo(() => {
+    const apiBase = getApiBaseUrl();
+    const base = apiBase.replace(/\/$/, '');
+    const typedType = typeof formType === 'string' ? formType.trim() : '';
+    const typeSegment = typedType ? encodeURIComponent(typedType) : '<type>';
+    const runtimePath =
+      !inboundAuthTypeValue || inboundAuthTypeValue === 'NONE' || inboundAuthTypeValue === 'HMAC'
+        ? 'public/integrations'
+        : 'integrations';
+    return `${base}/${runtimePath}/${typeSegment}?orgId=<orgId>`;
+  }, [formType, inboundAuthTypeValue]);
+
+  // Watch SMTP fields for reactive button enabling
+  const smtpHost = Form.useWatch(['communicationConfig', 'smtp', 'host'], form);
+  const smtpPort = Form.useWatch(['communicationConfig', 'smtp', 'port'], form);
+  const smtpUsername = Form.useWatch(['communicationConfig', 'smtp', 'username'], form);
+  const smtpPassword = Form.useWatch(['communicationConfig', 'smtp', 'password'], form);
+  const smtpFromEmail = Form.useWatch(['communicationConfig', 'smtp', 'fromEmail'], form);
+  const defaultSenderProfileId = Form.useWatch(['communicationConfig', 'senderRouting', 'defaultProfileId'], form);
+  const metaPhoneNumberId = Form.useWatch(['communicationConfig', 'meta', 'phoneNumberId'], form);
+  const metaAccessToken = Form.useWatch(['communicationConfig', 'meta', 'accessToken'], form);
+  const fcmProjectId = Form.useWatch(['communicationConfig', 'fcm', 'projectId'], form);
+  const fcmClientEmail = Form.useWatch(['communicationConfig', 'fcm', 'clientEmail'], form);
+  const fcmPrivateKey = Form.useWatch(['communicationConfig', 'fcm', 'privateKey'], form);
+  const msg91AuthKey = Form.useWatch(['communicationConfig', 'msg91', 'authKey'], form);
+  const msg91SenderId = Form.useWatch(['communicationConfig', 'msg91', 'senderId'], form);
+
+  const { data: senderProfiles = [] } = useQuery({
+    queryKey: ['senderProfiles', orgId],
+    queryFn: listSenderProfiles,
+    enabled: !!orgId,
+    staleTime: 30_000,
+  });
+
+  // Automatically disable response transformation when streaming is enabled
+  useEffect(() => {
+    if (streamResponse && responseTransformEnabled) {
+      setResponseTransformEnabled(false);
+    }
+  }, [streamResponse, responseTransformEnabled]);
+
+  const [curlModalOpen, setCurlModalOpen] = useState(false);
+  const [curlApiKey, setCurlApiKey] = useState('');
+  const [curlInboundKey, setCurlInboundKey] = useState('');
+  const [curlQueryParams, setCurlQueryParams] = useState<Array<{ name: string; value: string }>>([]);
+  // Never prefill a real key: examples show a placeholder; callers use their own
+  // integration-only key (Settings → API Keys).
+  const defaultApiKey = '';
+  const [testEmailModalOpen, setTestEmailModalOpen] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [testFromEmail, setTestFromEmail] = useState('');
+  const [testEmailSubject, setTestEmailSubject] = useState('Test Email from Integration Gateway');
+  const [testEmailBody, setTestEmailBody] = useState(
+    '<h1>Test Email</h1><p>This is a test email sent from the Integration Gateway.</p>'
+  );
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [activeTab, setActiveTab] = useState('basic');
+  const splitPolicyLines = (value: unknown) =>
+    String(value || '')
+      .split(/\r?\n|,/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  const getDefaultRequestTransformScript = (actionType: string) => {
+    if (actionType === 'COMMUNICATION') {
+      return `/**
+ * Email Transformation - Client Request → Email Format
+ *
+ * Transform incoming request data into email format.
+ * Required fields: to, subject, html
+ * Optional fields: text, attachments
+ */
+
+// Simple email transformation
+return {
+  to: payload.email || payload.email,
+  subject: \`Appointment Confirmed - \${payload.appointmentDate}\`,
+  html: \`
+    <h1>Hello \${payload.name}!</h1>
+    <p>Your appointment has been confirmed.</p>
+    <p><strong>Date:</strong> \${payload.appointmentDate}</p>
+    <p><strong>Doctor:</strong> \${payload.doctorName}</p>
+  \`,
+  text: \`Hello \${payload.name}! Your appointment is confirmed for \${payload.appointmentDate}\`
+};
+
+/*
+Example 2: Multiple recipients
+return {
+  to: [payload.email, payload.guardianEmail],
+  subject: 'Test Results Available',
+  html: '<h1>Your test results are ready</h1><p>Please visit the portal to view.</p>'
+};
+
+Example 3: Email with attachment (base64 encoded)
+return {
+  to: payload.email,
+  subject: 'Invoice Attached',
+  html: '<h1>Invoice</h1><p>Please find your invoice attached.</p>',
+  attachments: [
+    {
+      filename: 'invoice.pdf',
+      content: payload.pdfBase64,
+      encoding: 'base64',
+      contentType: 'application/pdf'
+    }
+  ]
+};
+
+Example 4: Fetch patient data and compose email
+const patient = await http.get(\`https://api.yourserver.com/entities/\${payload.entityId}\`);
+
+if (patient.status !== 200) {
+  throw new Error('Failed to fetch patient data');
+}
+
+return {
+  to: patient.data.email,
+  subject: \`Welcome, \${patient.data.firstName}!\`,
+  html: \`
+    <h1>Welcome to Our Hospital</h1>
+    <p>Dear \${patient.data.firstName} \${patient.data.lastName},</p>
+    <p>Your registration is complete. Your patient ID is: \${patient.data.id}</p>
+  \`
+};
+*/`;
+    }
+
+    // Default HTTP transformation
+    return `/**
+ * Request Transformation - Client App → External API
+ *
+ * IMPORTANT: Paste function BODY only (not the full function declaration)
+ * The code is automatically wrapped in: async function transform(payload, context) { ... }
+ *
+ * Available globals:
+ * - http.get(url, options), http.post(url, data, options), etc.
+ * - context.http (same as http)
+ * - epoch(dateStr), datetime(date, time, tz), trim(str), uppercase(str), etc.
+ *
+ * Returns: Transformed request body (or the original payload)
+ */
+
+// Default: pass-through (no transformation)
+return payload;
+
+/*
+Example 1: Simple field mapping
+return {
+  entity_id: payload.entityId,
+  full_name: payload.name,
+  email: payload.email
+};
+
+Example 2: Fetch additional data from external API
+const response = await http.get(
+  \`https://api.example.com/entities/\${payload.entityId}\`,
+  { headers: { 'Authorization': 'Bearer TOKEN' }, timeout: 15000 }
+);
+
+if (response.status !== 200) {
+  throw new Error(\`Failed to fetch patient: \${response.status}\`);
+}
+
+return {
+  ...payload,
+  externalData: response.data
+};
+
+Example 3: Loop through list and enrich each item
+const patients = payload.patientList || [];
+const enriched = [];
+
+for (const patient of patients) {
+  const res = await http.get(\`https://api.example.com/entities/\${patient.id}\`);
+  if (res.status === 200) {
+    enriched.push({ ...patient, details: res.data });
+  }
+}
+
+return { patients: enriched };
+
+Example 4: Sequential API calls with conditional logic
+const eligCheck = await http.post(
+  'https://api.insurance.com/eligibility',
+  { memberId: payload.memberId, serviceDate: payload.date }
+);
+
+if (eligCheck.status !== 200 || !eligCheck.data.isEligible) {
+  return { status: 'INELIGIBLE', reason: eligCheck.data.reason };
+}
+
+const auth = await http.post(
+  'https://api.insurance.com/authorization',
+  { memberId: payload.memberId, referenceId: eligCheck.data.refId }
+);
+
+return {
+  status: 'AUTHORIZED',
+  authNumber: auth.data.authNumber,
+  validUntil: auth.data.validUntil
+};
+*/`;
+  };
+
+  const [requestTransformScript, setRequestTransformScript] = useState(getDefaultRequestTransformScript('HTTP'));
+  const [responseTransformScript, setResponseTransformScript] = useState(`/**
+ * Response Transformation - External API → Client App
+ *
+ * IMPORTANT: Paste function BODY only (not the full function declaration)
+ * The code is automatically wrapped in: async function transform(payload, context) { ... }
+ *
+ * Input 'payload' shape: { data, status, headers }
+ * - payload.data: Response body from external API
+ * - payload.status: HTTP status code (e.g., 200, 404)
+ * - payload.headers: Response headers object
+ *
+ * Available: http.get/post/etc, context.http, epoch(), datetime(), etc.
+ */
+
+// Default: pass-through (no transformation)
+return payload.data;
+
+/*
+Example 1: Extract and map specific fields
+return {
+  success: payload.status === 200,
+  externalId: payload.data.id,
+  message: payload.data.message || 'Success',
+  timestamp: new Date().toISOString()
+};
+
+Example 2: Make additional API call based on response
+if (payload.status === 200 && payload.data.requiresFollowup) {
+  const followup = await http.post(
+    'https://api.example.com/followup',
+    { referenceId: payload.data.id }
+  );
+
+  return {
+    ...payload.data,
+    followup: followup.data,
+    followupStatus: followup.status
+  };
+}
+
+return payload.data;
+
+Example 3: Handle errors gracefully
+if (payload.status >= 400) {
+  return {
+    success: false,
+    error: payload.data.error || 'External API error',
+    httpStatus: payload.status
+  };
+}
+
+return {
+  success: true,
+  data: payload.data
+};
+*/`);
+
+  // Watch form values
+  const authType = Form.useWatch('inboundAuthType', form);
+
+  // HTTP method → color mapping
+  const getMethodColor = (method: string) => {
+    const m = (method || '').toUpperCase();
+    if (m === 'GET') return 'green';
+    if (m === 'POST') return 'blue';
+    if (m === 'PUT') return 'orange';
+    if (m === 'PATCH') return 'gold';
+    if (m === 'DELETE') return 'red';
+    return 'default';
+  };
+
+  // Security posture based on auth type
+  const getSecurityPosture = (auth: string) => {
+    if (!auth || auth === 'NONE')
+      return { label: 'Low', color: 'orange', tip: 'No authentication — any caller can invoke this endpoint' };
+    if (auth === 'API_KEY') return { label: 'Medium', color: 'blue', tip: 'API key required' };
+    if (auth === 'BASIC') return { label: 'Medium', color: 'blue', tip: 'Basic auth required' };
+    if (auth === 'HMAC')
+      return { label: 'High', color: 'green', tip: 'Signed requests with replay protection required' };
+    return { label: 'High', color: 'green', tip: 'Strong authentication configured' };
+  };
+
+  // Fetch UI config
+  const { data: uiConfig } = useQuery({
+    queryKey: ['ui-config'],
+    queryFn: getUIConfig,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch integration if editing
+  const { data: integration, isLoading } = useQuery({
+    queryKey: ['inbound-integration', id],
+    queryFn: () => getInboundIntegration(id!),
+    enabled: !isCreate,
+    staleTime: 30_000,
+  });
+
+  // Update transformation script template when action type changes
+  useEffect(() => {
+    if (actionType && !integration) {
+      // Only update template for new integrations
+      setRequestTransformScript(getDefaultRequestTransformScript(actionType));
+    }
+  }, [actionType, integration]);
+
+  const inferCurlQueryParams = (integrationConfig: any) => {
+    if (!integrationConfig) return [];
+    const httpMethod = (integrationConfig.httpMethod || 'POST').toUpperCase();
+    if (httpMethod !== 'GET') return [];
+
+    const extractQueryParamsFromTemplate = (template?: string) => {
+      const params = new Set<string>();
+      if (!template || typeof template !== 'string') return params;
+      const re = /\{\{\s*query\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+      let match = re.exec(template);
+      while (match) {
+        params.add(match[1]);
+        match = re.exec(template);
+      }
+      return params;
+    };
+
+    const addDestructuredKeys = (params: Set<string>, source: string) => {
+      source
+        .split(',')
+        .map((part) => part.trim())
+        .forEach((part) => {
+          if (!part) return;
+          const withoutDefault = part.replace(/=.*$/, '').trim();
+          const withoutSpread = withoutDefault.replace(/^\.\.\./, '').trim();
+          const key = withoutSpread.split(':')[0]?.trim();
+          if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+            params.add(key);
+          }
+        });
+    };
+
+    const extractQueryParamsFromScript = (script?: string) => {
+      const params = new Set<string>();
+      if (!script || typeof script !== 'string') return params;
+
+      const dotPatterns = [
+        /\b(?:context|ctx)(?:\s*\?\.)?\s*\.\s*query(?:\s*\?\.)?\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g,
+        /\bquery(?:\s*\?\.)?\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g,
+      ];
+      for (const pattern of dotPatterns) {
+        let match = pattern.exec(script);
+        while (match) {
+          params.add(match[1]);
+          match = pattern.exec(script);
+        }
+      }
+
+      const destructurePatterns = [/\{([^}]+)\}\s*=\s*(?:context|ctx)\s*\.\s*query\b/g, /\{([^}]+)\}\s*=\s*query\b/g];
+      for (const pattern of destructurePatterns) {
+        let match = pattern.exec(script);
+        while (match) {
+          addDestructuredKeys(params, match[1]);
+          match = pattern.exec(script);
+        }
+      }
+
+      return params;
+    };
+
+    const orgId = integrationConfig.orgId;
+    const paramNames = new Set<string>();
+    extractQueryParamsFromTemplate(integrationConfig.targetUrl).forEach((param) => paramNames.add(param));
+    extractQueryParamsFromScript(integrationConfig.requestTransformation?.script).forEach((param) =>
+      paramNames.add(param)
+    );
+
+    if ((paramNames.has('entityName') || paramNames.has('identifier')) && !paramNames.has('entityId')) {
+      paramNames.add('entityId');
+    }
+    paramNames.delete('orgId');
+
+    const defaultSampleValue = (name: string) => {
+      if (name === 'entityId') return String(orgId ?? 84);
+      if (name === 'entityName') return 'PAPPAMPATTI';
+      if (name === 'identifier') return 'SEHPAP-3045';
+      return `sample_${name}`;
+    };
+
+    const preferredOrder = ['entityId', 'entityName', 'identifier'];
+    const orderedNames = Array.from(paramNames).sort((a, b) => {
+      const aIdx = preferredOrder.indexOf(a);
+      const bIdx = preferredOrder.indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    return orderedNames.map((name) => ({ name, value: defaultSampleValue(name) }));
+  };
+
+  const buildInboundCurl = (
+    integrationConfig: any,
+    options?: { apiKey?: string; inboundKey?: string; queryParams?: Record<string, string> }
+  ) => {
+    if (!integrationConfig) return '';
+    const apiBase = getApiBaseUrl();
+    const base = apiBase.replace(/\/$/, '');
+    const httpMethod = (integrationConfig.httpMethod || 'POST').toUpperCase();
+    const orgId = integrationConfig.orgId;
+    const headers: string[] = [];
+    const apiKey = options?.apiKey?.trim();
+    const inboundKey = options?.inboundKey?.trim();
+    const inferredParams = inferCurlQueryParams(integrationConfig);
+
+    const queryEntries: Array<[string, string]> = [['orgId', String(orgId ?? 84)]];
+    if (httpMethod === 'GET') {
+      inferredParams.forEach((param) => {
+        const customValue = options?.queryParams?.[param.name];
+        queryEntries.push([param.name, customValue ?? param.value]);
+      });
+    }
+    const queryString = new URLSearchParams(queryEntries).toString();
+    const usesPublicRuntime =
+      !integrationConfig.inboundAuthType ||
+      integrationConfig.inboundAuthType === 'NONE' ||
+      integrationConfig.inboundAuthType === 'HMAC';
+    const runtimePath = usesPublicRuntime ? 'public/integrations' : 'integrations';
+    const url = `${base}/${runtimePath}/${encodeURIComponent(integrationConfig.type)}?${queryString}`;
+
+    if (integrationConfig.inboundAuthType === 'API_KEY') {
+      const headerName = (integrationConfig.inboundAuthConfig?.headerName || 'x-api-key').toLowerCase();
+      const value = inboundKey || apiKey || '<INBOUND_API_KEY>';
+      headers.push(`-H "${headerName}: ${value}"`);
+    } else if (!usesPublicRuntime) {
+      headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
+    }
+
+    if (httpMethod !== 'GET') {
+      headers.push(`-H "Content-Type: application/json"`);
+    }
+
+    if (integrationConfig.inboundAuthType === 'BEARER') {
+      headers.push(`-H "Authorization: Bearer <INBOUND_TOKEN>"`);
+    } else if (integrationConfig.inboundAuthType === 'BASIC') {
+      headers.push(`-H "Authorization: Basic <BASE64_USER_PASS>"`);
+    } else if (integrationConfig.inboundAuthType === 'HMAC') {
+      const messageIdHeader = integrationConfig.inboundAuthConfig?.messageIdHeader || 'X-Integration-ID';
+      const timestampHeader = integrationConfig.inboundAuthConfig?.timestampHeader || 'X-Integration-Timestamp';
+      const signatureHeader = integrationConfig.inboundAuthConfig?.signatureHeader || 'X-Integration-Signature';
+      headers.push(`-H "${messageIdHeader}: <MESSAGE_ID>"`);
+      headers.push(`-H "${timestampHeader}: <UNIX_TIMESTAMP>"`);
+      headers.push(`-H "${signatureHeader}: <V1_HMAC_SIGNATURE>"`);
+    }
+
+    // Add placeholder headers from customHeaders (e.g. "x-partner-id": "{{partnerId}}" → -H "partnerId: <your-partnerId>")
+    const customHeaders = (integrationConfig as any).customHeaders || {};
+    const seenPlaceholders = new Set<string>();
+    Object.values(customHeaders).forEach((value: any) => {
+      const matches = String(value).match(/\{\{(\w+)\}\}/g);
+      if (matches) {
+        matches.forEach((match: string) => {
+          const placeholder = match.replace(/\{\{|\}\}/g, '');
+          if (!seenPlaceholders.has(placeholder)) {
+            seenPlaceholders.add(placeholder);
+            headers.push(`-H "${placeholder}: <your-${placeholder}>"`);
+          }
+        });
+      }
+    });
+
+    const communicationAction = integrationConfig.actions?.find((a: any) => a.kind === 'COMMUNICATION');
+    const communicationConfig = communicationAction?.communicationConfig || {};
+    const isEmailCommunication =
+      integrationConfig.type === 'EMAIL' ||
+      communicationConfig.channel === 'EMAIL' ||
+      integrationConfig.actions?.some((a: any) => a.kind === 'COMMUNICATION');
+    const isRoutedEmail =
+      communicationConfig.provider === 'ROUTED_EMAIL' && communicationConfig.senderRouting?.enabled === true;
+    const senderField = communicationConfig.senderRouting?.sourceField || 'from';
+    const defaultProfile =
+      senderProfiles.find((profile) => profile.id === communicationConfig.senderRouting?.defaultProfileId) ||
+      senderProfiles.find((profile) => profile.isDefault);
+    const fixedFromEmail = communicationConfig.smtp?.fromEmail || communicationConfig.fromEmail;
+
+    let dataPart = '';
+    if (httpMethod !== 'GET') {
+      if (isEmailCommunication) {
+        const sampleBody = {
+          ...(isRoutedEmail
+            ? { [senderField]: defaultProfile?.fromEmail || '<CONFIGURED_SENDER_EMAIL>' }
+            : fixedFromEmail
+              ? { from: fixedFromEmail }
+              : {}),
+          to: 'recipient@example.com',
+          subject: 'Test Email',
+          html: '<h1>Test</h1><p>This is a test email.</p>',
+          attachments: [
+            {
+              filename: 'document.pdf',
+              content: '<BASE64_ENCODED_PDF>',
+              encoding: 'base64',
+              contentType: 'application/pdf',
+            },
+          ],
+        };
+        dataPart = ` \\\n  --data-raw '${JSON.stringify(sampleBody, null, 2)}'`;
+      } else {
+        dataPart = ` \\\n  -d '{}'`;
+      }
+    }
+
+    return `curl -X ${httpMethod} "${url}" \\\n  ${headers.join(' \\\n  ')}${dataPart}`;
+  };
+
+  const handleCopyCurl = () => {
+    if (!integration) return;
+    setCurlApiKey(defaultApiKey);
+    setCurlInboundKey('');
+    setCurlQueryParams(inferCurlQueryParams(integration));
+    setCurlModalOpen(true);
+  };
+
+  const handleConfirmCopyCurl = async () => {
+    if (!integration) return;
+    const queryParams = Object.fromEntries(curlQueryParams.map((param) => [param.name, param.value]));
+    const curl = buildInboundCurl(integration, { apiKey: curlApiKey, inboundKey: curlInboundKey, queryParams });
+    if (!curl) return;
+    const copied = await copyTextToClipboard(curl);
+    if (copied) {
+      messageApi.success('Curl command copied');
+      setCurlModalOpen(false);
+    } else {
+      messageApi.error('Failed to copy curl command — select and copy the text manually');
+    }
+  };
+
+  const handleTestRuntime = async () => {
+    if (!integration) return;
+    const hide = messageApi.loading('Testing runtime endpoint...', 0);
+    try {
+      await testInboundRuntime({
+        type: integration.type,
+        httpMethod: integration.httpMethod,
+      });
+      hide();
+      messageApi.success('Runtime call succeeded');
+    } catch (error: any) {
+      hide();
+      messageApi.error(error.message || 'Runtime call failed');
+    }
+  };
+
+  const handleOpenTestEmailModal = () => {
+    setTestEmailAddress('');
+    setTestFromEmail('');
+    setTestEmailSubject('Test Email from Integration Gateway');
+    setTestEmailBody('<h1>Test Email</h1><p>This is a test email sent from the Integration Gateway.</p>');
+    setTestEmailModalOpen(true);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!integration || !testEmailAddress) return;
+
+    try {
+      setIsSendingTest(true);
+      const { testInboundIntegration } = await import('../../../services/api');
+
+      const payload: Record<string, string> = {
+        to: testEmailAddress,
+        subject: testEmailSubject,
+        html: testEmailBody,
+      };
+      if (senderRoutingEnabled && testFromEmail) {
+        payload.from = testFromEmail;
+      }
+
+      const response = (await testInboundIntegration(integration._id, payload)) as any;
+
+      if (response.success) {
+        const messageId = response.messageId || response.response?.messageId;
+        messageApi.success(
+          messageId
+            ? `Test email sent successfully! Message ID: ${messageId}`
+            : response.message || 'Test email sent successfully!'
+        );
+        setTestEmailModalOpen(false); // Close modal on success
+      } else {
+        messageApi.error(response.error || 'Test email failed');
+      }
+    } catch (error: any) {
+      const errorMsg =
+        error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to send test email';
+      messageApi.error(errorMsg);
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  // Populate form when editing
+  useEffect(() => {
+    if (integration && !isCreate) {
+      const requestScript = integration.requestTransformation?.script;
+      const responseScript = integration.responseTransformation?.script;
+
+      // Detect action type based on presence of actions array
+      const detectedActionType = integration.actions && integration.actions.length > 0 ? 'COMMUNICATION' : 'HTTP';
+
+      form.setFieldsValue({
+        name: integration.name,
+        type: integration.type,
+        actionType: detectedActionType,
+        inboundAuthType: integration.inboundAuthType,
+        inboundAuthConfig: integration.inboundAuthConfig,
+        outgoingAuthType: integration.outgoingAuthType || 'NONE',
+        outgoingAuthConfig: integration.outgoingAuthConfig || {},
+        targetUrl: integration.targetUrl,
+        httpMethod: integration.httpMethod || 'POST',
+        timeout: integration.timeout || 10000,
+        retryCount: integration.retryCount || 3,
+        contentType: integration.contentType || 'application/json',
+        maxInboundFileSizeMb: integration.maxInboundFileSizeMb || 50,
+        streamResponse: integration.streamResponse || false,
+        customHeaders:
+          integration.customHeaders && typeof integration.customHeaders === 'object'
+            ? JSON.stringify(integration.customHeaders, null, 2)
+            : integration.customHeaders || undefined,
+        requestPolicy: {
+          rateLimit: integration.requestPolicy?.rateLimit ||
+            integration.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
+          allowedIpCidrsText: (integration.requestPolicy?.allowedIpCidrs || []).join('\n'),
+          allowedBrowserOriginsText: (integration.requestPolicy?.allowedBrowserOrigins || []).join('\n'),
+        },
+        communicationConfig: integration.actions?.[0]?.communicationConfig || {
+          channel: 'EMAIL',
+          provider: 'SMTP',
+          senderRouting: {
+            enabled: false,
+            sourceField: 'from',
+            defaultProfileId: undefined,
+            fallbackToDefaultOnMissingFrom: true,
+            fallbackToDefaultOnUnknownFrom: false,
+          },
+        },
+      });
+
+      // Set request and response transformation scripts
+      if (requestScript) {
+        setRequestTransformScript(requestScript);
+      }
+      if (responseScript) {
+        setResponseTransformScript(responseScript);
+      }
+
+      setRequestTransformEnabled(Boolean(requestScript && requestScript.trim()));
+      setResponseTransformEnabled(Boolean(responseScript && responseScript.trim()));
+    }
+  }, [integration, isCreate, form]);
+
+  // Custom form validation
+  const validateForm = async () => {
+    const currentActionType = form.getFieldValue('actionType');
+
+    // For COMMUNICATION integrations, bypass HTTP field validation
+    if (currentActionType === 'COMMUNICATION') {
+      // Temporarily set dummy values for HTTP fields to pass their required validation
+      const originalValues = form.getFieldsValue();
+      form.setFieldsValue({
+        targetUrl: 'https://dummy.communication.placeholder',
+        httpMethod: 'POST',
+        timeout: 10000,
+        retryCount: 3,
+        contentType: 'application/json',
+        streamResponse: false,
+      });
+
+      // Clear any errors on HTTP-specific fields
+      form.setFields([
+        { name: 'targetUrl', errors: [] },
+        { name: 'httpMethod', errors: [] },
+        { name: 'timeout', errors: [] },
+        { name: 'retryCount', errors: [] },
+        { name: 'contentType', errors: [] },
+        { name: 'streamResponse', errors: [] },
+      ]);
+
+      // Validate only COMMUNICATION-specific fields
+      await form.validateFields([
+        'name',
+        'type',
+        'actionType',
+        ['communicationConfig', 'channel'],
+        ['communicationConfig', 'provider'],
+        ...(communicationProvider === 'ROUTED_EMAIL'
+          ? [['communicationConfig', 'senderRouting', 'defaultProfileId']]
+          : [
+              ['communicationConfig', 'smtp', 'host'],
+              ['communicationConfig', 'smtp', 'port'],
+              ['communicationConfig', 'smtp', 'username'],
+              ['communicationConfig', 'smtp', 'password'],
+              ['communicationConfig', 'smtp', 'fromEmail'],
+            ]),
+      ]);
+
+      // Restore original values (remove dummy HTTP values)
+      form.setFieldsValue({
+        targetUrl: originalValues.targetUrl,
+        httpMethod: originalValues.httpMethod,
+        timeout: originalValues.timeout,
+        retryCount: originalValues.retryCount,
+        contentType: originalValues.contentType,
+        streamResponse: originalValues.streamResponse,
+      });
+    } else {
+      // For HTTP integrations, validate all fields normally
+      await form.validateFields();
+    }
+
+    return form.getFieldsValue();
+  };
+
+  // Handle form submission
+  useUnsavedChangesWarning(hasUnsavedChanges);
+
+  const handleCancel = () => {
+    if (!hasUnsavedChanges()) {
+      navigate('/inbound-integrations');
+      return;
+    }
+    modal.confirm({
+      title: 'Discard unsaved changes?',
+      content: 'Your edits to this inbound integration have not been saved. Leaving now discards them.',
+      okText: 'Discard changes',
+      okButtonProps: { danger: true },
+      cancelText: 'Keep editing',
+      onOk: () => navigate('/inbound-integrations'),
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (isSaving) return;
+
+    try {
+      setIsSaving(true);
+
+      // Validate form with custom logic
+      await validateForm();
+      const values = form.getFieldsValue(true);
+
+      // Build payload based on action type
+      let payload: any = {
+        name: values.name,
+        type: values.type,
+        direction: 'INBOUND',
+        inboundAuthType: values.inboundAuthType,
+        inboundAuthConfig: values.inboundAuthConfig,
+        requestTransformation: {
+          mode: 'SCRIPT',
+          script: requestTransformEnabled ? requestTransformScript : '',
+        },
+        isActive: true,
+      };
+
+      const requestPolicy = {
+        rateLimit: values.requestPolicy?.rateLimit || { enabled: false, maxRequests: 100, windowSeconds: 60 },
+        allowedIpCidrs: splitPolicyLines(values.requestPolicy?.allowedIpCidrsText),
+        allowedBrowserOrigins: splitPolicyLines(values.requestPolicy?.allowedBrowserOriginsText),
+      };
+      payload.requestPolicy = requestPolicy;
+      payload.rateLimits = requestPolicy.rateLimit;
+
+      if (values.actionType === 'COMMUNICATION') {
+        const communicationConfig = {
+          ...values.communicationConfig,
+          senderRouting:
+            values.communicationConfig?.provider === 'ROUTED_EMAIL'
+              ? {
+                  ...values.communicationConfig?.senderRouting,
+                  enabled: true,
+                }
+              : {
+                  ...values.communicationConfig?.senderRouting,
+                  enabled: false,
+                },
+        };
+        // COMMUNICATION integration
+        payload.actions = [
+          {
+            name: `Send ${communicationConfig.channel}`,
+            kind: 'COMMUNICATION',
+            communicationConfig,
+          },
+        ];
+        // Response transformation not used for COMMUNICATION
+      } else {
+        // HTTP integration
+        payload.targetUrl = values.targetUrl;
+        payload.outgoingAuthType = values.outgoingAuthType || 'NONE';
+        payload.outgoingAuthConfig = values.outgoingAuthConfig || {};
+        payload.httpMethod = values.httpMethod || 'POST';
+        payload.timeout = values.timeout || 10000;
+        payload.retryCount = values.retryCount || 3;
+        payload.contentType = values.contentType || 'application/json';
+        payload.maxInboundFileSizeMb =
+          Number(values.maxInboundFileSizeMb) > 0 ? Number(values.maxInboundFileSizeMb) : 50;
+        payload.streamResponse = values.streamResponse || false;
+        payload.responseTransformation = {
+          mode: 'SCRIPT',
+          script: responseTransformEnabled && !values.streamResponse ? responseTransformScript : '',
+        };
+        if (values.customHeaders) {
+          try {
+            payload.customHeaders = JSON.parse(values.customHeaders);
+          } catch {
+            // invalid JSON — form validator already caught this
+          }
+        } else {
+          payload.customHeaders = {};
+        }
+      }
+
+      if (isCreate) {
+        await createInboundIntegration(payload);
+        messageApi.success('Inbound integration created successfully');
+      } else {
+        await updateInboundIntegration(id!, payload);
+        messageApi.success('Inbound integration updated successfully');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] });
+      navigate('/inbound-integrations');
+    } catch (error: any) {
+      messageApi.error(error.message || 'Failed to save inbound integration');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Helper function to check if a tab is complete (uses watched values for reactivity)
+  const isTabComplete = (tabKey: string): boolean => {
+    switch (tabKey) {
+      case 'basic':
+        if (actionType === 'COMMUNICATION') {
+          // SMS picks provider inside the Provider Config tab (SmsConfigFields) — only require channel here
+          if (communicationChannel === 'SMS') {
+            return !!(formName && formType && communicationChannel);
+          }
+          return !!(formName && formType && communicationChannel && communicationProvider);
+        }
+        return !!(formName && formType);
+      case 'http':
+        if (actionType === 'COMMUNICATION') {
+          // Check if SMTP config is complete
+          if (communicationProvider === 'SMTP') {
+            return !!(smtpHost && smtpPort && smtpUsername && smtpPassword && smtpFromEmail);
+          }
+          if (communicationProvider === 'ROUTED_EMAIL') {
+            return !!defaultSenderProfileId;
+          }
+          if (communicationProvider === 'META') {
+            return !!(metaPhoneNumberId && metaAccessToken);
+          }
+          if (communicationProvider === 'FCM') {
+            return !!(fcmProjectId && fcmClientEmail && fcmPrivateKey);
+          }
+          if (communicationProvider === 'MSG91') {
+            return !!(msg91AuthKey && msg91SenderId && msg91SenderId.length === 6);
+          }
+          return true;
+        }
+        return !!(formTargetUrl && formHttpMethod);
+      case 'policy':
+        return true; // Policy is optional
+      case 'auth':
+        return true; // Auth is optional (can be NONE)
+      case 'request-transform':
+        return true; // Transformation is optional
+      case 'response-transform':
+        return true; // Transformation is optional
+      default:
+        return false;
+    }
+  };
+
+  // Check completion status for progressive disclosure
+  const basicComplete = isTabComplete('basic');
+  const httpComplete = isTabComplete('http');
+
+  return (
+    <div style={{ background: cssVar.bg.base, paddingBottom: spacing[4] }}>
+      {/* Page Header */}
+      <PageHeader
+        title={isCreate ? 'Create Inbound Integration' : integration?.name || passedTitle || 'Edit Inbound Integration'}
+        morphTitle={!isCreate}
+        breadcrumb={[
+          { label: 'Configuration', path: '/integrations' },
+          { label: 'Inbound Integrations', path: '/inbound-integrations' },
+          { label: isCreate ? 'New' : integration?.name || 'Edit' },
+        ]}
+        dense
+        actions={
+          <RevealCredentialsButton
+            integrationId={isCreate ? undefined : id}
+            form={form}
+            fetchCredentials={getInboundIntegrationCredentials}
+            toFormValues={(document) => ({
+              inboundAuthConfig: document.inboundAuthConfig,
+              outgoingAuthConfig: document.outgoingAuthConfig,
+              customHeaders: document.customHeaders,
+              communicationConfig: document.actions?.[0]?.communicationConfig,
+            })}
+          />
+        }
+      />
+
+      {/* Form */}
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        // The form runs well past one screen; without this a failed required
+        // field just turns red somewhere out of sight.
+        scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
+        onFinishFailed={({ errorFields }) =>
+          messageApi.error(
+            errorFields.length === 1
+              ? 'One field needs attention before this can be saved.'
+              : `${errorFields.length} fields need attention before this can be saved.`
+          )
+        }
+        style={{ margin: `0 ${spacing[3]} ${spacing[4]}` }}
+        initialValues={{
+          actionType: 'HTTP', // NEW: HTTP or COMMUNICATION
+          httpMethod: 'POST',
+          timeout: 10000,
+          retryCount: 3,
+          contentType: 'application/json',
+          maxInboundFileSizeMb: 50,
+          inboundAuthType: 'NONE',
+          requestPolicy: {
+            rateLimit: {
+              enabled: false,
+              maxRequests: 100,
+              windowSeconds: 60,
+            },
+            allowedIpCidrsText: '',
+            allowedBrowserOriginsText: '',
+          },
+          communicationConfig: {
+            channel: 'EMAIL',
+            provider: 'SMTP',
+            senderRouting: {
+              enabled: false,
+              sourceField: 'from',
+              defaultProfileId: undefined,
+              fallbackToDefaultOnMissingFrom: true,
+              fallbackToDefaultOnUnknownFrom: false,
+            },
+          },
+        }}
+      >
+        <Tabs
+          className="inbound-integration-tabs"
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          size="middle"
+          tabBarStyle={{ marginBottom: spacing[2] }}
+          style={{
+            background: cssVar.bg.surface,
+            border: `1px solid ${cssVar.border.default}`,
+            borderRadius: 8,
+          }}
+          items={[
+            {
+              key: 'basic',
+              label: (
+                <Space size={6}>
+                  <ApiOutlined />
+                  Basic Info
+                  {basicComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
+                </Space>
+              ),
+              disabled: false, // First tab always enabled
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 720 }}>
+                    <ConfigGrid columns={2}>
+                      <Form.Item
+                        name="name"
+                        label="Integration Name"
+                        rules={[{ required: true, message: 'Name is required' }]}
+                      >
+                        <Input placeholder="e.g., CleverTap Real-time Sync" />
+                      </Form.Item>
+
+                      <Form.Item
+                        name="type"
+                        label={
+                          <Space size={6}>
+                            Integration Type
+                            <Tooltip
+                              title={
+                                <div>
+                                  This value becomes the runtime endpoint path:
+                                  <br />
+                                  <code>{runtimeUrlPreview}</code>
+                                </div>
+                              }
+                            >
+                              <InfoCircleOutlined />
+                            </Tooltip>
+                          </Space>
+                        }
+                        extra={
+                          <ConfigFieldHelp>
+                            Unique identifier for this integration type (e.g., 'clevertap', 'zoho-crm')
+                          </ConfigFieldHelp>
+                        }
+                        rules={[
+                          { required: true, message: 'Type is required' },
+                          ...(isCreate
+                            ? [
+                                {
+                                  pattern: /^[a-z0-9-]+$/,
+                                  message: 'Type must be lowercase alphanumeric with hyphens only',
+                                },
+                              ]
+                            : []),
+                        ]}
+                      >
+                        <Input placeholder="e.g., clevertap" />
+                      </Form.Item>
+                    </ConfigGrid>
+
+                    <Form.Item
+                      name="actionType"
+                      label="Action Type"
+                      extra={
+                        <ConfigFieldHelp>
+                          HTTP: Proxy to external API | COMMUNICATION: Send emails, SMS, WhatsApp, etc.
+                        </ConfigFieldHelp>
+                      }
+                      rules={[{ required: true, message: 'Action type is required' }]}
+                    >
+                      <Radio.Group>
+                        <Radio.Button value="HTTP">
+                          <Space>
+                            <ApiOutlined />
+                            HTTP Proxy
+                          </Space>
+                        </Radio.Button>
+                        <Radio.Button value="COMMUNICATION">
+                          <Space>
+                            <MailOutlined />
+                            Communication
+                          </Space>
+                        </Radio.Button>
+                      </Radio.Group>
+                    </Form.Item>
+
+                    {actionType === 'COMMUNICATION' && (
+                      <ConfigGrid columns={2}>
+                        <Form.Item
+                          name={['communicationConfig', 'channel']}
+                          label="Communication Channel"
+                          rules={[{ required: true, message: 'Channel is required' }]}
+                        >
+                          <Select
+                            placeholder="Select channel"
+                            onChange={() => {
+                              // Reset provider when channel changes
+                              form.setFieldValue(['communicationConfig', 'provider'], undefined);
+                            }}
+                          >
+                            <Select.Option value="EMAIL">
+                              <Space>
+                                <MailOutlined />
+                                Email
+                              </Space>
+                            </Select.Option>
+                            <Select.Option value="WHATSAPP">
+                              <Space>
+                                <WhatsAppOutlined />
+                                WhatsApp
+                              </Space>
+                            </Select.Option>
+                            <Select.Option value="PUSH">
+                              <Space>
+                                <BellOutlined />
+                                Push Notification
+                              </Space>
+                            </Select.Option>
+                            <Select.Option value="SMS">
+                              <Space>
+                                <MessageOutlined />
+                                SMS
+                              </Space>
+                            </Select.Option>
+                          </Select>
+                        </Form.Item>
+
+                        {/* SMS manages its own provider select inside SmsConfigFields (multi-vendor). */}
+                        {communicationChannel !== 'SMS' && (
+                          <Form.Item
+                            name={['communicationConfig', 'provider']}
+                            label={
+                              communicationChannel === 'WHATSAPP'
+                                ? 'WhatsApp Provider'
+                                : communicationChannel === 'PUSH'
+                                  ? 'Push Provider'
+                                  : 'Email Provider'
+                            }
+                            rules={[{ required: true, message: 'Provider is required' }]}
+                          >
+                            {communicationChannel === 'WHATSAPP' ? (
+                              <Select placeholder="Select provider">
+                                <Select.Option value="META">
+                                  <Space>
+                                    <WhatsAppOutlined />
+                                    Meta WhatsApp Business (Cloud API)
+                                  </Space>
+                                </Select.Option>
+                              </Select>
+                            ) : communicationChannel === 'PUSH' ? (
+                              <Select placeholder="Select provider">
+                                <Select.Option value="FCM">
+                                  <Space>
+                                    <BellOutlined />
+                                    Firebase Cloud Messaging (FCM v1)
+                                  </Space>
+                                </Select.Option>
+                              </Select>
+                            ) : (
+                              <Select placeholder="Select provider">
+                                <Select.Option value="SMTP">SMTP (Gmail, Outlook, Custom)</Select.Option>
+                                <Select.Option value="ROUTED_EMAIL">Sender Profiles (Generic Email)</Select.Option>
+                                <Select.Option value="GMAIL_OAUTH" disabled>
+                                  Gmail OAuth 2.0 (Coming Soon)
+                                </Select.Option>
+                                <Select.Option value="OUTLOOK_OAUTH" disabled>
+                                  Outlook OAuth 2.0 (Coming Soon)
+                                </Select.Option>
+                              </Select>
+                            )}
+                          </Form.Item>
+                        )}
+                      </ConfigGrid>
+                    )}
+
+                    <Divider style={{ margin: `${spacing[2]} 0` }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        type="primary"
+                        onClick={() => setActiveTab('http')}
+                        disabled={!basicComplete}
+                      >
+                        {actionType === 'COMMUNICATION' ? 'Continue to Provider' : 'Continue to Target API'}
+                      </Button>
+                    </div>
+                  </Space>
+                </Card>
+              ),
+            },
+            {
+              key: 'http',
+              label: (
+                <Space size={6}>
+                  {actionType === 'COMMUNICATION' ? <MailOutlined /> : <SendOutlined />}
+                  {actionType === 'COMMUNICATION' ? 'Provider Config' : 'Target API'}
+                  {httpComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
+                </Space>
+              ),
+              disabled: !basicComplete, // Requires Basic Info to be complete
+              // Force this pane's Form.Items to mount immediately so Form.useWatch('targetUrl'/'httpMethod')
+              // reflects loaded data right away — otherwise editing an existing integration keeps every
+              // downstream tab (Request Policy, Authentication, Transforms, Review) disabled until the
+              // user manually visits this tab once, even though the record is already fully configured.
+              forceRender: true,
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  {actionType === 'COMMUNICATION' ? (
+                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                      {communicationChannel === 'WHATSAPP' ? (
+                        <Alert
+                          type="info"
+                          showIcon
+                          message="WhatsApp Business Configuration"
+                          description="Configure your Meta WhatsApp Business credentials. Get these from Meta Business Manager → WhatsApp → API Setup."
+                        />
+                      ) : communicationChannel === 'PUSH' ? (
+                        <Alert
+                          type="info"
+                          showIcon
+                          message="Firebase Cloud Messaging Configuration"
+                          description="Configure your Firebase service account credentials. The gateway uses FCM HTTP v1 API with OAuth2 — no legacy server keys."
+                        />
+                      ) : communicationChannel === 'SMS' ? (
+                        <Alert
+                          type="info"
+                          showIcon
+                          message="SMS Gateway Configuration"
+                          description="Select your SMS provider and configure credentials. Multiple providers are supported — switch vendors by changing the provider without touching your application code."
+                        />
+                      ) : (
+                        <Alert
+                          type="info"
+                          showIcon
+                          message="Email Provider Configuration"
+                          description="Configure your SMTP credentials to send emails through the Integration Gateway."
+                        />
+                      )}
+
+                      {communicationChannel === 'WHATSAPP' && communicationProvider === 'META' && (
+                        <MetaWhatsAppConfigFields
+                          spacing={spacing}
+                          httpComplete={httpComplete}
+                          onBack={() => setActiveTab('basic')}
+                          onNext={() => setActiveTab('policy')}
+                        />
+                      )}
+
+                      {communicationChannel === 'PUSH' && communicationProvider === 'FCM' && (
+                        <FcmConfigFields
+                          spacing={spacing}
+                          httpComplete={httpComplete}
+                          onBack={() => setActiveTab('basic')}
+                          onNext={() => setActiveTab('policy')}
+                        />
+                      )}
+
+                      {communicationChannel === 'SMS' && (
+                        <SmsConfigFields
+                          spacing={spacing}
+                          httpComplete={httpComplete}
+                          smsProvider={communicationProvider}
+                          onBack={() => setActiveTab('basic')}
+                          onNext={() => setActiveTab('policy')}
+                        />
+                      )}
+
+                      {senderRoutingEnabled && (
+                        <>
+                          <Alert
+                            type="info"
+                            showIcon
+                            message="Sender-profile routing"
+                            description="Use one generic inbound email endpoint. The request body can send a from address, and the gateway will resolve the matching configured sender profile."
+                          />
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'defaultProfileId']}
+                            label="Default Sender Profile"
+                            rules={[{ required: true, message: 'Default sender profile is required' }]}
+                            extra="Used when the request does not send a from address."
+                          >
+                            <Select
+                              size="middle"
+                              placeholder="Select default sender profile"
+                              options={senderProfiles.map((profile) => ({
+                                label: `${profile.name} · ${profile.fromEmail}`,
+                                value: profile.id,
+                              }))}
+                            />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'sourceField']}
+                            label="Payload Sender Field"
+                            extra="Field name from the request body used to resolve the sender profile."
+                          >
+                            <Input size="middle" placeholder="from" />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'fallbackToDefaultOnMissingFrom']}
+                            label="Missing from field"
+                            valuePropName="checked"
+                            extra="If enabled, requests without a from field will use the default sender profile."
+                          >
+                            <Switch checkedChildren="Use default" unCheckedChildren="Reject" />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'fallbackToDefaultOnUnknownFrom']}
+                            label="Unknown from value"
+                            valuePropName="checked"
+                            extra="If disabled, unknown sender addresses are rejected instead of silently falling back."
+                          >
+                            <Switch checkedChildren="Use default" unCheckedChildren="Reject" />
+                          </Form.Item>
+
+                          <Alert
+                            type={senderProfiles.length > 0 ? 'success' : 'warning'}
+                            showIcon
+                            message={
+                              senderProfiles.length > 0
+                                ? `${senderProfiles.length} sender profile${senderProfiles.length === 1 ? '' : 's'} available`
+                                : 'No sender profiles configured'
+                            }
+                            description={
+                              senderProfiles.length > 0
+                                ? 'Manage mailbox-specific credentials centrally and keep the inbound integration generic.'
+                                : 'Create sender profiles first, then return here to enable generic email routing.'
+                            }
+                            action={
+                              <Button size="small" onClick={() => navigate('/settings/sender-profiles')}>
+                                Open Sender Profiles
+                              </Button>
+                            }
+                          />
+
+                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button size="middle" onClick={() => setActiveTab('basic')}>
+                              Back to Basic Info
+                            </Button>
+                            <Button
+                              type="primary"
+                              size="middle"
+                              onClick={() => setActiveTab('policy')}
+                              disabled={!httpComplete}
+                            >
+                              Continue to Request Policy
+                            </Button>
+                          </div>
+                        </>
+                      )}
+
+                      {communicationProvider === 'SMTP' && (
+                        <>
+                          <ConfigGrid columns={2}>
+                            <Form.Item
+                              name={['communicationConfig', 'smtp', 'host']}
+                              label="SMTP Host"
+                              rules={[{ required: true, message: 'SMTP host is required' }]}
+                              extra={
+                                <ConfigFieldHelp>
+                                  e.g., smtp.gmail.com, smtp-mail.outlook.com, smtp.yourserver.com
+                                </ConfigFieldHelp>
+                              }
+                            >
+                              <Input placeholder="smtp.gmail.com" />
+                            </Form.Item>
+
+                            <Form.Item
+                              name={['communicationConfig', 'smtp', 'port']}
+                              label="SMTP Port"
+                              rules={[{ required: true, message: 'SMTP port is required' }]}
+                              extra={<ConfigFieldHelp>Common ports: 587 (TLS), 465 (SSL), 25 (Plain)</ConfigFieldHelp>}
+                              normalize={(value) => {
+                                const num = parseInt(value, 10);
+                                return isNaN(num) ? value : num;
+                              }}
+                            >
+                              <Input type="number" placeholder="587" />
+                            </Form.Item>
+
+                            <Form.Item
+                              name={['communicationConfig', 'smtp', 'username']}
+                              label="SMTP Username"
+                              rules={[{ required: true, message: 'SMTP username is required' }]}
+                              extra={<ConfigFieldHelp>Usually your email address</ConfigFieldHelp>}
+                            >
+                              <Input placeholder="your-email@gmail.com" />
+                            </Form.Item>
+
+                            <Form.Item
+                              name={['communicationConfig', 'smtp', 'password']}
+                              label="SMTP Password"
+                              rules={[{ required: true, message: 'SMTP password is required' }]}
+                              extra={
+                                <ConfigFieldHelp>
+                                  For Gmail, use an App Password (not your regular password)
+                                </ConfigFieldHelp>
+                              }
+                            >
+                              <Input.Password placeholder="your-app-password" />
+                            </Form.Item>
+                          </ConfigGrid>
+
+                          <Form.Item
+                            name={['communicationConfig', 'smtp', 'fromEmail']}
+                            label="From Email Address"
+                            rules={[
+                              { required: true, message: 'From email is required' },
+                              { type: 'email', message: 'Please enter a valid email' },
+                            ]}
+                            extra={<ConfigFieldHelp>Email address that will appear as sender</ConfigFieldHelp>}
+                          >
+                            <Input placeholder="noreply@yourcompany.com" />
+                          </Form.Item>
+
+                          <Alert
+                            type="warning"
+                            showIcon
+                            message="Gmail Setup Required"
+                            description={
+                              <div>
+                                <p style={{ marginBottom: 8 }}>To use Gmail as your SMTP provider:</p>
+                                <ol style={{ paddingLeft: 20, marginBottom: 0 }}>
+                                  <li>Enable 2-factor authentication in your Google account</li>
+                                  <li>
+                                    Generate an App Password at{' '}
+                                    <a
+                                      href="https://myaccount.google.com/apppasswords"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      myaccount.google.com/apppasswords
+                                    </a>
+                                  </li>
+                                  <li>Use the 16-character app password above (not your regular password)</li>
+                                </ol>
+                              </div>
+                            }
+                          />
+
+                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button size="middle" onClick={() => setActiveTab('basic')}>
+                              Back to Basic Info
+                            </Button>
+                            <Button
+                              type="primary"
+                              size="middle"
+                              onClick={() => setActiveTab('policy')}
+                              disabled={!httpComplete}
+                            >
+                              Continue to Request Policy
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </Space>
+                  ) : (
+                    <>
+                      <HttpConfigFields
+                        form={form}
+                        uiConfig={uiConfig}
+                        mode="inbound"
+                        spacing={spacing}
+                        colors={colors}
+                      />
+
+                      <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                      <ConfigSection
+                        title="Target API Authentication"
+                        description="Configure how the gateway authenticates when calling the target API"
+                        icon={<LockOutlined />}
+                      >
+                        <AuthenticationFields
+                          form={form}
+                          uiConfig={uiConfig}
+                          selectedAuthType={outgoingAuthTypeValue}
+                          fieldPrefix={['outgoingAuthConfig']}
+                          mode="outbound"
+                          spacing={spacing}
+                          authTypeFieldName="outgoingAuthType"
+                        />
+                      </ConfigSection>
+
+                      <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Button size="middle" onClick={() => setActiveTab('basic')}>
+                          Back to Basic Info
+                        </Button>
+                        <Button
+                          type="primary"
+                          size="middle"
+                          onClick={() => setActiveTab('policy')}
+                          disabled={!httpComplete}
+                        >
+                          Continue to Request Policy
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </Card>
+              ),
+            },
+            {
+              key: 'policy',
+              label: (
+                <Space size={6}>
+                  <SafetyOutlined />
+                  Request Policy
+                  {isTabComplete('policy') && (
+                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                  )}
+                </Space>
+              ),
+              disabled: !basicComplete || !httpComplete,
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <RequestPolicySection form={form} spacing={spacing} />
+
+                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Button size="middle" onClick={() => setActiveTab('http')}>
+                        Back to {actionType === 'COMMUNICATION' ? 'Provider Config' : 'Target API'}
+                      </Button>
+                      <Button type="primary" size="middle" onClick={() => setActiveTab('auth')}>
+                        Continue to Authentication
+                      </Button>
+                    </div>
+                  </Space>
+                </Card>
+              ),
+            },
+            {
+              key: 'auth',
+              label: (
+                <Space size={6}>
+                  <LockOutlined />
+                  Authentication
+                  {isTabComplete('auth') && (
+                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                  )}
+                </Space>
+              ),
+              disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{
+                      width: '100%',
+                      maxWidth: ['NONE', 'API_KEY', 'BASIC', 'BEARER'].includes(authType) ? 720 : undefined,
+                    }}
+                  >
+                    <AuthenticationFields
+                      form={form}
+                      uiConfig={uiConfig}
+                      selectedAuthType={authType}
+                      fieldPrefix={['inboundAuthConfig']}
+                      mode="inbound"
+                      spacing={spacing}
+                      authTypeFieldName="inboundAuthType"
+                    />
+
+                    {/* Security posture indicator */}
+                    {(() => {
+                      const posture = getSecurityPosture(authType);
+                      return (
+                        <Alert
+                          type={authType === 'NONE' ? 'warning' : 'success'}
+                          showIcon
+                          message={
+                            <>
+                              Security posture: <Text strong>{posture.label}</Text>
+                            </>
+                          }
+                          description={posture.tip}
+                        />
+                      );
+                    })()}
+
+                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Button size="middle" onClick={() => setActiveTab('http')}>
+                        Back to Provider Config
+                      </Button>
+                      <Button type="primary" size="middle" onClick={() => setActiveTab('request-transform')}>
+                        Continue to Request Transform
+                      </Button>
+                    </div>
+                  </Space>
+                </Card>
+              ),
+            },
+            {
+              key: 'request-transform',
+              label: (
+                <Space size={6}>
+                  <CodeOutlined />
+                  Request Transform
+                  {isTabComplete('request-transform') && (
+                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                  )}
+                </Space>
+              ),
+              disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: spacing[3],
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Text strong style={{ fontSize: 16 }}>
+                        Request Transform
+                      </Text>
+                      <Space size="small">
+                        <Text type="secondary">Enabled</Text>
+                        <Switch
+                          checked={requestTransformEnabled}
+                          onChange={setRequestTransformEnabled}
+                          size="small"
+                          aria-label="Enable request transformation"
+                        />
+                      </Space>
+                    </div>
+
+                    {!requestTransformEnabled ? (
+                      <Alert
+                        type="info"
+                        showIcon
+                        message="Request transformation is disabled"
+                        description={
+                          actionType === 'COMMUNICATION'
+                            ? 'Requests will be used as-is for email content. Enable to transform incoming data into email format.'
+                            : 'Requests will be forwarded as-is. Enable to add a transformation script.'
+                        }
+                      />
+                    ) : (
+                      <>
+                        {actionType === 'COMMUNICATION' ? (
+                          <Alert
+                            type="success"
+                            showIcon
+                            message="Transform Request to Email Format"
+                            description={
+                              <div>
+                                <Paragraph style={{ marginBottom: spacing[2] }}>
+                                  Transform incoming request data into email format. The Gateway will send the email
+                                  asynchronously via your configured SMTP provider.
+                                </Paragraph>
+                                <Paragraph style={{ marginBottom: 0 }}>
+                                  <Text strong>Required output:</Text> <code>to</code>, <code>subject</code>,{' '}
+                                  <code>html</code>
+                                  <br />
+                                  <Text strong>Optional output:</Text> <code>text</code>, <code>attachments</code>
+                                </Paragraph>
+                              </div>
+                            }
+                          />
+                        ) : (
+                          <Collapse
+                            ghost
+                            size="small"
+                            defaultActiveKey={[]}
+                            expandIconPosition="end"
+                            expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
+                            items={[
+                              {
+                                key: 'advanced-http',
+                                label: (
+                                  <Space size={8}>
+                                    <InfoCircleOutlined />
+                                    <Text strong>Advanced HTTP Transformations</Text>
+                                  </Space>
+                                ),
+                                children: (
+                                  <div>
+                                    <Paragraph style={{ marginBottom: spacing[2] }}>
+                                      Transform incoming requests with full async/await support and HTTP client access.
+                                      Like <strong>Mirth Connect</strong>, you can:
+                                    </Paragraph>
+                                    <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                                      <li>
+                                        <strong>Fetch lists and loop</strong> - Get patient list, iterate through each
+                                        to fetch details
+                                      </li>
+                                      <li>
+                                        <strong>Sequential API calls</strong> - Use response from one API to call
+                                        another
+                                      </li>
+                                      <li>
+                                        <strong>Conditional workflows</strong> - If eligibility passes, call
+                                        authorization API
+                                      </li>
+                                      <li>
+                                        <strong>Data aggregation</strong> - Combine multiple API responses
+                                      </li>
+                                    </ul>
+                                    <Paragraph style={{ marginTop: spacing[2], marginBottom: 0 }}>
+                                      <Text strong>Available:</Text> <code>context.http.get()</code>,{' '}
+                                      <code>context.http.post()</code>, <code>context.http.put()</code>,{' '}
+                                      <code>context.http.patch()</code>, <code>context.http.delete()</code>
+                                    </Paragraph>
+                                  </div>
+                                ),
+                              },
+                            ]}
+                          />
+                        )}
+
+                        <div>
+                          <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                            JavaScript Transformation Function
+                          </Text>
+                          <Editor
+                            height="320px"
+                            language="javascript"
+                            theme="vs-dark"
+                            value={requestTransformScript}
+                            onChange={(value) => setRequestTransformScript(value || '')}
+                            options={{
+                              minimap: { enabled: false },
+                              fontSize: 14,
+                              lineNumbers: 'on',
+                              wordWrap: 'on',
+                              scrollBeyondLastLine: false,
+                              automaticLayout: true,
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Button size="middle" onClick={() => setActiveTab('auth')}>
+                        Back to Authentication
+                      </Button>
+                      <Button
+                        type="primary"
+                        size="middle"
+                        onClick={() => setActiveTab(actionType === 'COMMUNICATION' ? 'review' : 'response-transform')}
+                      >
+                        {actionType === 'COMMUNICATION'
+                          ? 'Continue to Review & Submit'
+                          : 'Continue to Response Transform'}
+                      </Button>
+                    </div>
+                  </Space>
+                </Card>
+              ),
+            },
+            // Hide Response Transform tab for COMMUNICATION integrations
+            ...(actionType !== 'COMMUNICATION'
+              ? [
+                  {
+                    key: 'response-transform',
+                    label: (
+                      <Space size={6}>
+                        <CodeOutlined />
+                        Response Transform
+                        {streamResponse && (
+                          <Tag color="orange" style={{ fontSize: 11, marginLeft: 4 }}>
+                            Disabled
+                          </Tag>
+                        )}
+                        {!streamResponse && isTabComplete('response-transform') && (
+                          <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                        )}
+                      </Space>
+                    ),
+                    disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
+                    children: (
+                      <Card style={{ marginTop: spacing[2] }} size="small">
+                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: spacing[3],
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Text strong style={{ fontSize: 16 }}>
+                              Response Transform
+                            </Text>
+                            <Space size="small">
+                              <Text type="secondary">Enabled</Text>
+                              <Switch
+                                checked={responseTransformEnabled}
+                                onChange={setResponseTransformEnabled}
+                                size="small"
+                                disabled={streamResponse}
+                                aria-label="Enable response transformation"
+                              />
+                            </Space>
+                          </div>
+
+                          {streamResponse ? (
+                            <Alert
+                              type="warning"
+                              showIcon
+                              message="Response Transformation Not Available"
+                              description={
+                                <div>
+                                  <Paragraph style={{ marginBottom: spacing[2] }}>
+                                    Stream Response is enabled in the Target API configuration. Response transformations
+                                    cannot be applied when streaming is enabled because the response is piped directly
+                                    to the client without buffering.
+                                  </Paragraph>
+                                  <Paragraph style={{ marginBottom: 0 }}>
+                                    <Text strong>To enable response transformations:</Text> Go to the Target API tab and
+                                    disable "Stream Response"
+                                  </Paragraph>
+                                </div>
+                              }
+                            />
+                          ) : !responseTransformEnabled ? (
+                            <Alert
+                              type="info"
+                              showIcon
+                              message="Response transformation is disabled"
+                              description="Responses will be returned as-is. Enable to add a transformation script."
+                            />
+                          ) : (
+                            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                              <Alert
+                                type="success"
+                                showIcon
+                                message="Transform Response Back to Client App"
+                                description={
+                                  <div>
+                                    <Paragraph style={{ marginBottom: spacing[2] }}>
+                                      Transform external API responses before returning to the client app. You can also
+                                      make additional API calls if needed (e.g., fetch related data, trigger followup
+                                      actions).
+                                    </Paragraph>
+                                    <Paragraph style={{ marginBottom: 0 }}>
+                                      <Text strong>Input shape:</Text> <code>payload.data</code> (response body),{' '}
+                                      <code>payload.status</code> (HTTP status code), <code>payload.headers</code>{' '}
+                                      (response headers)
+                                    </Paragraph>
+                                  </div>
+                                }
+                              />
+
+                              <div>
+                                <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                                  JavaScript Transformation Function
+                                </Text>
+                                <Editor
+                                  height="320px"
+                                  language="javascript"
+                                  theme="vs-dark"
+                                  value={responseTransformScript}
+                                  onChange={(value) => setResponseTransformScript(value || '')}
+                                  options={{
+                                    minimap: { enabled: false },
+                                    fontSize: 14,
+                                    lineNumbers: 'on',
+                                    wordWrap: 'on',
+                                    scrollBeyondLastLine: false,
+                                    automaticLayout: true,
+                                  }}
+                                />
+                              </div>
+                            </Space>
+                          )}
+
+                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button size="middle" onClick={() => setActiveTab('request-transform')}>
+                              Back to Request Transform
+                            </Button>
+                            <Button type="primary" size="middle" onClick={() => setActiveTab('review')}>
+                              Continue to Review & Submit
+                            </Button>
+                          </div>
+                        </Space>
+                      </Card>
+                    ),
+                  },
+                ]
+              : []),
+            {
+              key: 'review',
+              label: (
+                <Space size={6}>
+                  <EyeOutlined />
+                  Review & Submit
+                  {basicComplete && httpComplete && (
+                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                  )}
+                </Space>
+              ),
+              disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Alert
+                      type="info"
+                      showIcon
+                      message="Review Your Configuration"
+                      description={`Please review all settings before ${isCreate ? 'creating' : 'saving'} the integration. You can click on any tab above to make changes.`}
+                    />
+
+                    {/* Basic Info Summary */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                        <ApiOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                        <Text strong style={{ fontSize: 16 }}>
+                          Basic Information
+                        </Text>
+                      </div>
+                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>
+                            Integration Name:
+                          </Text>
+                          <Text strong>{form.getFieldValue('name') || <Text type="secondary">Not set</Text>}</Text>
+                        </div>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>
+                            Integration Type:
+                          </Text>
+                          <Text strong>
+                            <code>{form.getFieldValue('type') || <Text type="secondary">Not set</Text>}</code>
+                          </Text>
+                        </div>
+                      </Space>
+                    </div>
+
+                    <Divider style={{ margin: 0 }} />
+
+                    {/* Configuration Summary - HTTP or COMMUNICATION */}
+                    {form.getFieldValue('actionType') === 'COMMUNICATION' ? (
+                      <div>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
+                        >
+                          <MailOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>
+                            Communication Configuration
+                          </Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Channel:
+                            </Text>
+                            <Tag color="blue">{form.getFieldValue(['communicationConfig', 'channel']) || 'EMAIL'}</Tag>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Provider:
+                            </Text>
+                            <Tag color="green">{form.getFieldValue(['communicationConfig', 'provider']) || 'SMTP'}</Tag>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              SMTP Host:
+                            </Text>
+                            <Text strong>
+                              {form.getFieldValue(['communicationConfig', 'smtp', 'host']) || (
+                                <Text type="secondary">Not set</Text>
+                              )}
+                            </Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              SMTP Port:
+                            </Text>
+                            <Text>
+                              {form.getFieldValue(['communicationConfig', 'smtp', 'port']) || (
+                                <Text type="secondary">Not set</Text>
+                              )}
+                            </Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              From Email:
+                            </Text>
+                            <Text>
+                              {form.getFieldValue(['communicationConfig', 'smtp', 'fromEmail']) || (
+                                <Text type="secondary">Not set</Text>
+                              )}
+                            </Text>
+                          </div>
+                        </Space>
+                      </div>
+                    ) : (
+                      <div>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
+                        >
+                          <SendOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>
+                            Target API Configuration
+                          </Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Target URL:
+                            </Text>
+                            <Text strong>
+                              {form.getFieldValue('targetUrl') || <Text type="secondary">Not set</Text>}
+                            </Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              HTTP Method:
+                            </Text>
+                            <Tag color={getMethodColor(form.getFieldValue('httpMethod') || 'POST')}>
+                              {form.getFieldValue('httpMethod') || 'POST'}
+                            </Tag>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Timeout:
+                            </Text>
+                            <Text>{form.getFieldValue('timeout') || 10000}ms</Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Retry Count:
+                            </Text>
+                            <Text>{form.getFieldValue('retryCount') || 3}</Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Content-Type:
+                            </Text>
+                            <Text>{form.getFieldValue('contentType') || 'application/json'}</Text>
+                          </div>
+                          {String(form.getFieldValue('contentType') || '')
+                            .toLowerCase()
+                            .includes('multipart/form-data') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>
+                                Max File Size:
+                              </Text>
+                              <Text>{form.getFieldValue('maxInboundFileSizeMb') || 50} MB</Text>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Stream Response:
+                            </Text>
+                            <Tag color={form.getFieldValue('streamResponse') ? 'green' : 'default'}>
+                              {form.getFieldValue('streamResponse') ? 'Enabled' : 'Disabled'}
+                            </Tag>
+                          </div>
+                        </Space>
+                      </div>
+                    )}
+
+                    <Divider style={{ margin: 0 }} />
+
+                    {/* Authentication Summary */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                        <LockOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                        <Text strong style={{ fontSize: 16 }}>
+                          Authentication
+                        </Text>
+                      </div>
+                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>
+                            Inbound Auth Type:
+                          </Text>
+                          <Tag color={authType === 'NONE' ? 'default' : 'blue'}>{authType || 'NONE'}</Tag>
+                        </div>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>
+                            Security Posture:
+                          </Text>
+                          <Tooltip title={getSecurityPosture(authType).tip}>
+                            <Tag color={getSecurityPosture(authType).color}>{getSecurityPosture(authType).label}</Tag>
+                          </Tooltip>
+                        </div>
+                        {form.getFieldValue('actionType') !== 'COMMUNICATION' && (
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Target API Auth Type:
+                            </Text>
+                            <Tag color={outgoingAuthTypeValue && outgoingAuthTypeValue !== 'NONE' ? 'blue' : 'default'}>
+                              {outgoingAuthTypeValue || 'NONE'}
+                            </Tag>
+                          </div>
+                        )}
+                      </Space>
+                    </div>
+
+                    <Divider style={{ margin: 0 }} />
+
+                    {/* Transformation Summary */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                        <CodeOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                        <Text strong style={{ fontSize: 16 }}>
+                          Transformations
+                        </Text>
+                      </div>
+                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>
+                            {form.getFieldValue('actionType') === 'COMMUNICATION'
+                              ? 'Email Content Transform:'
+                              : 'Request Transform:'}
+                          </Text>
+                          <div>
+                            <Tag color={requestTransformEnabled ? 'success' : 'default'}>
+                              {requestTransformEnabled ? 'Enabled' : 'Disabled'}
+                            </Tag>
+                            {requestTransformEnabled && requestTransformScript && (
+                              <div style={{ marginTop: spacing[1] }}>
+                                <Text code style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                                  {requestTransformScript.trim().split('\n').slice(0, 2).join(' ').substring(0, 80)}…
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {form.getFieldValue('actionType') !== 'COMMUNICATION' && (
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>
+                              Response Transform:
+                            </Text>
+                            <div>
+                              <Tag color={responseTransformEnabled ? 'success' : 'default'}>
+                                {responseTransformEnabled ? 'Enabled' : 'Disabled'}
+                              </Tag>
+                              {responseTransformEnabled && responseTransformScript && (
+                                <div style={{ marginTop: spacing[1] }}>
+                                  <Text code style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                                    {responseTransformScript.trim().split('\n').slice(0, 2).join(' ').substring(0, 80)}…
+                                  </Text>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </Space>
+                    </div>
+
+                    <Divider style={{ margin: 0 }} />
+
+                    {/* Rate Limit Summary */}
+                    <ConfigSection icon={<ThunderboltOutlined />} title="Rate Limiting">
+                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>
+                            Status:
+                          </Text>
+                          <Tag color={form.getFieldValue(['rateLimits', 'enabled']) ? 'green' : 'default'}>
+                            {form.getFieldValue(['rateLimits', 'enabled']) ? 'Enabled' : 'Disabled'}
+                          </Tag>
+                        </div>
+                        {form.getFieldValue(['rateLimits', 'enabled']) && (
+                          <>
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>
+                                Max Requests:
+                              </Text>
+                              <Text>{form.getFieldValue(['rateLimits', 'maxRequests']) || 100}</Text>
+                            </div>
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>
+                                Window (seconds):
+                              </Text>
+                              <Text>{form.getFieldValue(['rateLimits', 'windowSeconds']) || 60}</Text>
+                            </div>
+                          </>
+                        )}
+                      </Space>
+                    </ConfigSection>
+                  </Space>
+                </Card>
+              ),
+            },
+          ]}
+        />
+
+        {/* Persistent sticky footer — always visible regardless of active tab */}
+        <div
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10,
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: spacing[2],
+            padding: `${spacing[3]} 0`,
+            marginTop: spacing[2],
+            borderTop: `1px solid ${cssVar.border.default}`,
+            background: cssVar.bg.base,
+            boxShadow: `0 -8px 18px ${withAlpha(colors.neutral[900], 0.08)}`,
+          }}
+        >
+          <Space direction="vertical" size={4}>
+            <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              Testing tools
+            </Text>
+            <Space wrap>
+              <Button size="middle" icon={<CopyOutlined />} onClick={handleCopyCurl} disabled={!integration}>
+                Copy curl
+              </Button>
+
+              {(actionType === 'COMMUNICATION' || integration?.actions?.length > 0) && (
+                <Button size="middle" icon={<MailOutlined />} onClick={handleOpenTestEmailModal} disabled={!integration}>
+                  Send Test Email
+                </Button>
+              )}
+
+              {actionType !== 'COMMUNICATION' && !integration?.actions?.length && (
+                <Button size="middle" icon={<ThunderboltOutlined />} onClick={handleTestRuntime} disabled={!integration}>
+                  Test runtime
+                </Button>
+              )}
+            </Space>
+          </Space>
+          <Space wrap>
+            <Button size="middle" onClick={handleCancel}>
+              Cancel
+            </Button>
+            {activeTab !== 'review' && (
+              <Button size="middle" onClick={() => setActiveTab('review')} icon={<EyeOutlined />}>
+                Review Changes
+              </Button>
+            )}
+            <Button
+              type="primary"
+              size="middle"
+              icon={<SaveOutlined />}
+              onClick={() => form.submit()}
+              loading={isSaving}
+              disabled={isCreate && (!isTabComplete('basic') || !isTabComplete('http'))}
+            >
+              {isCreate ? 'Create Integration' : 'Save Changes'}
+            </Button>
+          </Space>
+        </div>
+      </Form>
+
+      <Modal
+        title="Copy curl command"
+        open={curlModalOpen}
+        onOk={handleConfirmCopyCurl}
+        onCancel={() => setCurlModalOpen(false)}
+        okText="Copy"
+      >
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Text type="secondary">
+            This endpoint is public; add only the integration-level credentials configured for this inbound flow.
+          </Text>
+          {integration?.inboundAuthType === 'API_KEY' && (
+            <Input.Password
+              placeholder="Integration API Key"
+              value={curlApiKey}
+              onChange={(e) => {
+                setCurlApiKey(e.target.value);
+                setCurlInboundKey(e.target.value);
+              }}
+            />
+          )}
+          {curlQueryParams.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary">Sample query parameters (editable):</Text>
+              {curlQueryParams.map((param) => (
+                <Input
+                  key={param.name}
+                  addonBefore={param.name}
+                  value={param.value}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCurlQueryParams((prev) =>
+                      prev.map((item) => (item.name === param.name ? { ...item, value } : item))
+                    );
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </Space>
+      </Modal>
+
+      {/* Test Email Modal */}
+      <Modal
+        title="Send Test Email"
+        open={testEmailModalOpen}
+        onOk={handleSendTestEmail}
+        onCancel={() => setTestEmailModalOpen(false)}
+        okText={isSendingTest ? 'Sending...' : 'Send Email'}
+        confirmLoading={isSendingTest}
+        width={600}
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Alert
+            type="info"
+            showIcon
+            message="Test your email configuration"
+            description="Send a test email to verify your SMTP settings and see how the email will be delivered."
+          />
+
+          {(senderRoutingEnabled || integration?.actions?.[0]?.communicationConfig?.provider === 'ROUTED_EMAIL') && (
+            <div>
+              <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                From Email (Sender Profile)
+              </Text>
+              <Select
+                placeholder="Select sender profile (uses default if not specified)"
+                value={testFromEmail || undefined}
+                onChange={(val) => setTestFromEmail(val)}
+                allowClear
+                size="middle"
+                disabled={isSendingTest}
+                style={{ width: '100%' }}
+                options={senderProfiles.map((p: any) => ({
+                  label: `${p.name} <${p.fromEmail}>`,
+                  value: p.fromEmail,
+                }))}
+              />
+            </div>
+          )}
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Recipient Email *
+            </Text>
+            <Input
+              type="email"
+              placeholder="recipient@example.com"
+              value={testEmailAddress}
+              onChange={(e) => setTestEmailAddress(e.target.value)}
+              size="middle"
+              disabled={isSendingTest}
+            />
+          </div>
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Subject *
+            </Text>
+            <Input
+              placeholder="Email subject"
+              value={testEmailSubject}
+              onChange={(e) => setTestEmailSubject(e.target.value)}
+              size="middle"
+              disabled={isSendingTest}
+            />
+          </div>
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Email Body (HTML) *
+            </Text>
+            <Input.TextArea
+              placeholder="<h1>Hello!</h1><p>This is a test email.</p>"
+              value={testEmailBody}
+              onChange={(e) => setTestEmailBody(e.target.value)}
+              rows={6}
+              disabled={isSendingTest}
+            />
+          </div>
+
+          <Alert
+            type="info"
+            showIcon
+            message="Synchronous Test"
+            description="The test email will be sent immediately using your configured SMTP settings. Check your inbox for delivery."
+          />
+        </Space>
+      </Modal>
+    </div>
+  );
+};

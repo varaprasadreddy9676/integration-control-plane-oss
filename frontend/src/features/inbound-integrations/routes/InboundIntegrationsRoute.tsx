@@ -1,0 +1,940 @@
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigateWithParams } from '../../../utils/navigation';
+import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
+import {
+  Card,
+  Space,
+  Button,
+  Tag,
+  Tooltip,
+  Modal,
+  message,
+  Input,
+  Switch,
+  Typography,
+  App,
+  Divider,
+  Select,
+  Grid,
+} from 'antd';
+import {
+  ApiOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ThunderboltOutlined,
+  CopyOutlined,
+  ReloadOutlined,
+  FilterOutlined,
+  MailOutlined,
+} from '@ant-design/icons';
+import { ModernTable } from '../../../components/common/ModernTable';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import {
+  getInboundIntegrations,
+  deleteInboundIntegration,
+  updateInboundIntegration,
+  testInboundIntegration,
+  listSenderProfiles,
+  getApiBaseUrl,
+} from '../../../services/api';
+import { formatDateTime } from '../../../utils/format';
+import { copyTextToClipboard } from '../../../utils/clipboard';
+import { RequestPolicySummary } from '../../integrations/components/detail/shared/RequestPolicySummary';
+import { markMorphSource } from '../../../design-system/view-transition';
+import { celebrateActivation } from '../../../design-system/delight';
+import { prefetchDetailRoute } from '../../../app/route-prefetch';
+
+const { Text } = Typography;
+
+interface InboundIntegrationsRouteProps {
+  hideHeader?: boolean;
+  isActive?: boolean;
+}
+
+export const InboundIntegrationsRoute = ({
+  hideHeader = false,
+  isActive = true,
+}: InboundIntegrationsRouteProps = {}) => {
+  const navigate = useNavigateWithParams();
+  const queryClient = useQueryClient();
+  const { spacing, token } = useDesignTokens();
+  const colors = cssVar.legacy;
+  const { message: messageApi, modal } = App.useApp();
+  const screens = Grid.useBreakpoint();
+  const isNarrow = !screens.md;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | undefined>();
+  const [curlModalOpen, setCurlModalOpen] = useState(false);
+  const [curlIntegration, setCurlIntegration] = useState<any>(null);
+  const [curlApiKey, setCurlApiKey] = useState('');
+  const [curlInboundKey, setCurlInboundKey] = useState('');
+  const [curlQueryParams, setCurlQueryParams] = useState<Array<{ name: string; value: string }>>([]);
+  // Never prefill a real key: examples show a placeholder; callers use their own
+  // integration-only key (Settings → API Keys).
+  const defaultApiKey = '';
+
+  // Test email modal state
+  const [testEmailModalOpen, setTestEmailModalOpen] = useState(false);
+  const [testEmailIntegration, setTestEmailIntegration] = useState<any>(null);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [testFromEmail, setTestFromEmail] = useState('');
+  const [testEmailSubject, setTestEmailSubject] = useState('Test Email from Integration Gateway');
+  const [testEmailBody, setTestEmailBody] = useState(
+    '<h1>Test Email</h1><p>This is a test email sent from the Integration Gateway.</p>'
+  );
+  const [isSendingTest, setIsSendingTest] = useState(false);
+
+  // Pagination with auto-reset on filter changes
+  const { getPaginationConfig } = usePaginatedTable({
+    defaultPageSize: 20,
+    resetDeps: [searchQuery, statusFilter],
+  });
+
+  const inferCurlQueryParams = (integration: any) => {
+    if (!integration) return [];
+    const httpMethod = (integration.httpMethod || 'POST').toUpperCase();
+    if (httpMethod !== 'GET') return [];
+
+    const extractQueryParamsFromTemplate = (template?: string) => {
+      const params = new Set<string>();
+      if (!template || typeof template !== 'string') return params;
+      const re = /\{\{\s*query\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+      let match = re.exec(template);
+      while (match) {
+        params.add(match[1]);
+        match = re.exec(template);
+      }
+      return params;
+    };
+
+    const addDestructuredKeys = (params: Set<string>, source: string) => {
+      source
+        .split(',')
+        .map((part) => part.trim())
+        .forEach((part) => {
+          if (!part) return;
+          const withoutDefault = part.replace(/=.*$/, '').trim();
+          const withoutSpread = withoutDefault.replace(/^\.\.\./, '').trim();
+          const key = withoutSpread.split(':')[0]?.trim();
+          if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+            params.add(key);
+          }
+        });
+    };
+
+    const extractQueryParamsFromScript = (script?: string) => {
+      const params = new Set<string>();
+      if (!script || typeof script !== 'string') return params;
+
+      const dotPatterns = [
+        /\b(?:context|ctx)(?:\s*\?\.)?\s*\.\s*query(?:\s*\?\.)?\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g,
+        /\bquery(?:\s*\?\.)?\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g,
+      ];
+      for (const pattern of dotPatterns) {
+        let match = pattern.exec(script);
+        while (match) {
+          params.add(match[1]);
+          match = pattern.exec(script);
+        }
+      }
+
+      const destructurePatterns = [/\{([^}]+)\}\s*=\s*(?:context|ctx)\s*\.\s*query\b/g, /\{([^}]+)\}\s*=\s*query\b/g];
+      for (const pattern of destructurePatterns) {
+        let match = pattern.exec(script);
+        while (match) {
+          addDestructuredKeys(params, match[1]);
+          match = pattern.exec(script);
+        }
+      }
+
+      return params;
+    };
+
+    const orgId = integration.orgId;
+    const paramNames = new Set<string>();
+    extractQueryParamsFromTemplate(integration.targetUrl).forEach((param) => paramNames.add(param));
+    extractQueryParamsFromScript(integration.requestTransformation?.script).forEach((param) => paramNames.add(param));
+
+    if ((paramNames.has('entityName') || paramNames.has('identifier')) && !paramNames.has('entityId')) {
+      paramNames.add('entityId');
+    }
+    paramNames.delete('orgId');
+
+    const defaultSampleValue = (name: string) => {
+      if (name === 'entityId') return String(orgId ?? 84);
+      if (name === 'entityName') return 'PAPPAMPATTI';
+      if (name === 'identifier') return 'SEHPAP-3045';
+      return `sample_${name}`;
+    };
+
+    const preferredOrder = ['entityId', 'entityName', 'identifier'];
+    const orderedNames = Array.from(paramNames).sort((a, b) => {
+      const aIdx = preferredOrder.indexOf(a);
+      const bIdx = preferredOrder.indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    return orderedNames.map((name) => ({ name, value: defaultSampleValue(name) }));
+  };
+
+  const buildInboundCurl = (
+    integration: any,
+    options?: { apiKey?: string; inboundKey?: string; queryParams?: Record<string, string> }
+  ) => {
+    if (!integration) return '';
+    const apiBase = getApiBaseUrl();
+    const base = apiBase.replace(/\/$/, '');
+    const httpMethod = (integration.httpMethod || 'POST').toUpperCase();
+    const orgId = integration.orgId;
+    const headers: string[] = [];
+    const apiKey = options?.apiKey?.trim();
+    const inboundKey = options?.inboundKey?.trim();
+    const inferredParams = inferCurlQueryParams(integration);
+    const usesPublicRuntime =
+      !integration.inboundAuthType || integration.inboundAuthType === 'NONE' || integration.inboundAuthType === 'HMAC';
+
+    const queryEntries: Array<[string, string]> = [['orgId', String(orgId ?? 84)]];
+    if (httpMethod === 'GET') {
+      inferredParams.forEach((param) => {
+        const customValue = options?.queryParams?.[param.name];
+        queryEntries.push([param.name, customValue ?? param.value]);
+      });
+    }
+    const queryString = new URLSearchParams(queryEntries).toString();
+    const runtimePath = usesPublicRuntime ? 'public/integrations' : 'integrations';
+    const url = `${base}/${runtimePath}/${encodeURIComponent(integration.type)}?${queryString}`;
+
+    if (integration.inboundAuthType === 'API_KEY') {
+      const headerName = (integration.inboundAuthConfig?.headerName || 'x-api-key').toLowerCase();
+      if (headerName === 'x-api-key') {
+        const value = inboundKey || apiKey || '<API_KEY>';
+        headers.push(`-H "X-API-Key: ${value}"`);
+      } else {
+        headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
+        headers.push(`-H "${headerName}: ${inboundKey || '<INBOUND_API_KEY>'}"`);
+      }
+    } else if (!usesPublicRuntime) {
+      headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
+    }
+
+    if (httpMethod !== 'GET') {
+      headers.push(`-H "Content-Type: application/json"`);
+    }
+
+    if (integration.inboundAuthType === 'BEARER') {
+      headers.push(`-H "Authorization: Bearer <INBOUND_TOKEN>"`);
+    } else if (integration.inboundAuthType === 'BASIC') {
+      headers.push(`-H "Authorization: Basic <BASE64_USER_PASS>"`);
+    } else if (integration.inboundAuthType === 'HMAC') {
+      const messageIdHeader = integration.inboundAuthConfig?.messageIdHeader || 'X-Integration-ID';
+      const timestampHeader = integration.inboundAuthConfig?.timestampHeader || 'X-Integration-Timestamp';
+      const signatureHeader = integration.inboundAuthConfig?.signatureHeader || 'X-Integration-Signature';
+      headers.push(`-H "${messageIdHeader}: <MESSAGE_ID>"`);
+      headers.push(`-H "${timestampHeader}: <UNIX_TIMESTAMP>"`);
+      headers.push(`-H "${signatureHeader}: <V1_HMAC_SIGNATURE>"`);
+    }
+
+    const communicationAction = integration.actions?.find((a: any) => a.kind === 'COMMUNICATION');
+    const communicationConfig = communicationAction?.communicationConfig || {};
+    const isEmailCommunication =
+      integration.type === 'EMAIL' ||
+      communicationConfig.channel === 'EMAIL' ||
+      integration.actions?.some((a: any) => a.kind === 'COMMUNICATION');
+    const isRoutedEmail =
+      communicationConfig.provider === 'ROUTED_EMAIL' && communicationConfig.senderRouting?.enabled === true;
+    const senderField = communicationConfig.senderRouting?.sourceField || 'from';
+    const fixedFromEmail = communicationConfig.smtp?.fromEmail || communicationConfig.fromEmail;
+
+    let dataPart = '';
+    if (httpMethod !== 'GET') {
+      if (isEmailCommunication) {
+        const sampleBody = {
+          ...(isRoutedEmail
+            ? { [senderField]: '<CONFIGURED_SENDER_EMAIL>' }
+            : fixedFromEmail
+              ? { from: fixedFromEmail }
+              : {}),
+          to: 'recipient@example.com',
+          subject: 'Test Email',
+          html: '<h1>Test</h1><p>This is a test email.</p>',
+          attachments: [
+            {
+              filename: 'document.pdf',
+              content: '<BASE64_ENCODED_PDF>',
+              encoding: 'base64',
+              contentType: 'application/pdf',
+            },
+          ],
+        };
+        dataPart = ` \\\n  --data-raw '${JSON.stringify(sampleBody, null, 2)}'`;
+      } else {
+        dataPart = ` \\\n  -d '{}'`;
+      }
+    }
+
+    return `curl -X ${httpMethod} "${url}" \\\n  ${headers.join(' \\\n  ')}${dataPart}`;
+  };
+
+  const handleCopyCurl = (integration: any) => {
+    setCurlIntegration(integration);
+    setCurlApiKey(defaultApiKey);
+    setCurlInboundKey('');
+    setCurlQueryParams(inferCurlQueryParams(integration));
+    setCurlModalOpen(true);
+  };
+
+  const handleConfirmCopyCurl = async () => {
+    if (!curlIntegration) return;
+    const queryParams = Object.fromEntries(curlQueryParams.map((param) => [param.name, param.value]));
+    const curl = buildInboundCurl(curlIntegration, { apiKey: curlApiKey, inboundKey: curlInboundKey, queryParams });
+    if (!curl) return;
+    const copied = await copyTextToClipboard(curl);
+    if (copied) {
+      messageApi.success('Curl command copied');
+      setCurlModalOpen(false);
+    } else {
+      messageApi.error('Failed to copy curl command — select and copy the text manually');
+    }
+  };
+
+  // Fetch inbound integrations
+  const { data: integrations = [], isLoading } = useQuery({
+    queryKey: ['inbound-integrations'],
+    queryFn: () => getInboundIntegrations(),
+    enabled: isActive,
+    staleTime: 60_000,
+  });
+
+  const { data: senderProfiles = [] } = useQuery({
+    queryKey: ['senderProfiles'],
+    queryFn: listSenderProfiles,
+    staleTime: 30_000,
+  });
+
+  // Filter by search query, direction, and status
+  const filteredIntegrations = useMemo(() => {
+    // First filter to only INBOUND integrations
+    let filtered = integrations.filter((integration: any) => integration.direction === 'INBOUND');
+
+    // Apply status filter
+    if (statusFilter === 'active') {
+      filtered = filtered.filter((integration: any) => integration.isActive);
+    } else if (statusFilter === 'inactive') {
+      filtered = filtered.filter((integration: any) => !integration.isActive);
+    }
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((integration: any) => {
+        const nameMatch = integration.name.toLowerCase().includes(query);
+        const typeMatch = integration.type.toLowerCase().includes(query);
+        const urlMatch = integration.targetUrl?.toLowerCase().includes(query) || false;
+
+        // For COMMUNICATION integrations, also search in channel/provider
+        const isCommunication = integration.actions && integration.actions.length > 0;
+        if (isCommunication) {
+          const config = integration.actions[0]?.communicationConfig;
+          const channelMatch = config?.channel?.toLowerCase().includes(query) || false;
+          const providerMatch = config?.provider?.toLowerCase().includes(query) || false;
+          return nameMatch || typeMatch || channelMatch || providerMatch;
+        }
+
+        return nameMatch || typeMatch || urlMatch;
+      });
+    }
+
+    return filtered;
+  }, [integrations, searchQuery, statusFilter]);
+
+  // Delete integration
+  const handleDelete = (integration: any) => {
+    Modal.confirm({
+      title: `Delete "${integration.name}"?`,
+      content: 'This inbound integration will be removed and API calls will fail. This action cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await deleteInboundIntegration(integration.id);
+          messageApi.success('Inbound integration deleted successfully');
+          queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] });
+        } catch (error: any) {
+          messageApi.error(error.message || 'Failed to delete inbound integration');
+        }
+      },
+    });
+  };
+
+  // Quick toggle enable/disable
+  const handleToggle = async (integration: any, checked: boolean) => {
+    if (!checked) {
+      modal.confirm({
+        title: `Disable "${integration.name}"?`,
+        content: 'API calls to this integration will fail when disabled. You can re-enable it anytime.',
+        okText: 'Yes, Disable',
+        okButtonProps: { danger: true },
+        onOk: async () => {
+          try {
+            await updateInboundIntegration(integration.id, { ...integration, isActive: false });
+            messageApi.success('Inbound integration disabled');
+            queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] });
+          } catch (error: any) {
+            messageApi.error(error.message || 'Failed to update inbound integration');
+          }
+        },
+      });
+      return;
+    }
+
+    // Enable - no confirmation needed
+    try {
+      await updateInboundIntegration(integration.id, { ...integration, isActive: checked });
+      celebrateActivation();
+      messageApi.success('Inbound integration enabled');
+      queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] });
+    } catch (error: any) {
+      messageApi.error(error.message || 'Failed to update inbound integration');
+    }
+  };
+
+  // Test integration (HTTP only)
+  const handleTest = async (integration: any) => {
+    const hide = messageApi.loading('Testing inbound integration...', 0);
+    try {
+      await testInboundIntegration(integration.id);
+      hide();
+      messageApi.success('Test request sent successfully');
+    } catch (error: any) {
+      hide();
+      messageApi.error(error.message || 'Failed to test inbound integration');
+    }
+  };
+
+  // Open test email modal (COMMUNICATION only)
+  const handleOpenTestEmailModal = (integration: any) => {
+    setTestEmailIntegration(integration);
+    setTestEmailAddress('');
+    setTestFromEmail('');
+    setTestEmailSubject('Test Email from Integration Gateway');
+    setTestEmailBody('<h1>Test Email</h1><p>This is a test email sent from the Integration Gateway.</p>');
+    setTestEmailModalOpen(true);
+  };
+
+  const isTestSenderRoutingEnabled =
+    testEmailIntegration?.actions?.[0]?.communicationConfig?.provider === 'ROUTED_EMAIL';
+
+  // Send test email
+  const handleSendTestEmail = async () => {
+    if (!testEmailIntegration || !testEmailAddress) return;
+
+    try {
+      setIsSendingTest(true);
+
+      const payload: Record<string, string> = {
+        to: testEmailAddress,
+        subject: testEmailSubject,
+        html: testEmailBody,
+      };
+      if (isTestSenderRoutingEnabled && testFromEmail) {
+        payload.from = testFromEmail;
+      }
+
+      const response = (await testInboundIntegration(testEmailIntegration.id, payload)) as any;
+
+      if (response.success) {
+        const messageId = response.messageId || response.response?.messageId;
+        messageApi.success(
+          messageId
+            ? `Test email sent successfully! Message ID: ${messageId}`
+            : response.message || 'Test email sent successfully!'
+        );
+        setTestEmailModalOpen(false);
+      } else {
+        messageApi.error(response.error || 'Test email failed');
+      }
+    } catch (error: any) {
+      const errorMsg =
+        error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to send test email';
+      messageApi.error(errorMsg);
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  const columns = [
+    {
+      title: 'Integration Name',
+      dataIndex: 'name',
+      key: 'name',
+      sorter: (a: any, b: any) => a.name.localeCompare(b.name),
+      render: (name: string, record: any) => (
+        <Space direction="vertical" size="small">
+          <Typography.Link
+            onClick={(event) => {
+              markMorphSource(event.currentTarget);
+              navigate(`/inbound-integrations/${record.id}`, { state: { title: name } });
+            }}
+            onMouseEnter={() => prefetchDetailRoute('inbound')}
+            onFocus={() => prefetchDetailRoute('inbound')}
+            style={{ fontWeight: 600, fontSize: 14 }}
+          >
+            {name}
+          </Typography.Link>
+          <Space size={6} wrap>
+            <Tag style={{ fontSize: 11 }}>
+              {record.type}
+            </Tag>
+            <RequestPolicySummary policy={record.requestPolicy || null} compact />
+          </Space>
+        </Space>
+      ),
+    },
+    {
+      title: 'Target / Provider',
+      dataIndex: 'targetUrl',
+      key: 'targetUrl',
+      ellipsis: true,
+      render: (url: string, record: any) => {
+        const isCommunication = record.actions && record.actions.length > 0;
+
+        if (isCommunication) {
+          const config = record.actions[0]?.communicationConfig;
+          const channel = config?.channel || 'EMAIL';
+          const provider = config?.provider || 'SMTP';
+          return (
+            <Space size={4}>
+              <Tag style={{ fontSize: 11 }}>
+                {channel}
+              </Tag>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                via {provider}
+              </Text>
+            </Space>
+          );
+        }
+
+        return (
+          <Tooltip title={url}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {url}
+            </Text>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: 'Authentication',
+      dataIndex: 'inboundAuthType',
+      key: 'inboundAuthType',
+      render: (authType: string) => {
+        const colors: Record<string, string> = {
+          NONE: 'orange',
+          API_KEY: 'blue',
+          BEARER: 'cyan',
+          BASIC: 'green',
+          OAUTH1: 'purple',
+          OAUTH2: 'purple',
+          CUSTOM: 'geekblue',
+          CUSTOM_HEADERS: 'magenta',
+        };
+        const labels: Record<string, string> = {
+          NONE: 'No Auth',
+          API_KEY: 'API Key',
+          BEARER: 'Bearer Token',
+          BASIC: 'Basic Auth',
+          OAUTH1: 'OAuth 1.0',
+          OAUTH2: 'OAuth 2.0',
+          CUSTOM: 'Custom',
+          CUSTOM_HEADERS: 'Custom Headers',
+        };
+        const label = labels[authType] || authType;
+        const tag = <Tag color={colors[authType] || 'default'}>{label}</Tag>;
+        return authType === 'NONE' ? (
+          <Tooltip title="No authentication required — anyone with the URL can call this endpoint">{tag}</Tooltip>
+        ) : (
+          tag
+        );
+      },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'isActive',
+      key: 'isActive',
+      filters: [
+        { text: 'Active', value: true },
+        { text: 'Disabled', value: false },
+      ],
+      onFilter: (value: any, record: any) => record.isActive === value,
+      render: (isActive: boolean, record: any) => (
+        <Switch
+          checked={isActive}
+          onChange={(checked) => handleToggle(record, checked)}
+          checkedChildren={<CheckCircleOutlined />}
+          unCheckedChildren={<CloseCircleOutlined />}
+        />
+      ),
+    },
+    {
+      title: 'Last Updated',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      sorter: (a: any, b: any) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
+      render: (date: string) => (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {formatDateTime(date)}
+        </Text>
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 180,
+      render: (_: any, record: any) => {
+        const isCommunication = record.actions && record.actions.length > 0;
+
+        return (
+          <Space size="small">
+            {/* Copy curl for runtime endpoint - works for both HTTP and COMMUNICATION */}
+            <Tooltip title="Copy curl">
+              <Button
+                type="text"
+                size="small"
+                aria-label={`Copy curl for ${record.name}`}
+                icon={<CopyOutlined />}
+                onClick={() => handleCopyCurl(record)}
+              />
+            </Tooltip>
+            <Tooltip title="Edit">
+              <Button
+                type="text"
+                size="small"
+                aria-label={`Edit ${record.name}`}
+                icon={<EditOutlined />}
+                onClick={() => navigate(`/inbound-integrations/${record.id}`)}
+              />
+            </Tooltip>
+            {/* Show different test buttons based on integration type */}
+            {isCommunication ? (
+              <Tooltip title="Send Test Email">
+                <Button
+                  type="text"
+                  size="small"
+                  aria-label={`Send test email for ${record.name}`}
+                  icon={<MailOutlined />}
+                  onClick={() => handleOpenTestEmailModal(record)}
+                  disabled={!record.isActive}
+                />
+              </Tooltip>
+            ) : (
+              <Tooltip title="Test">
+                <Button
+                  type="text"
+                  size="small"
+                  aria-label={`Test ${record.name}`}
+                  icon={<ThunderboltOutlined />}
+                  onClick={() => handleTest(record)}
+                  disabled={!record.isActive}
+                />
+              </Tooltip>
+            )}
+            <Tooltip title="Delete">
+              <Button
+                type="text"
+                size="small"
+                danger
+                aria-label={`Delete ${record.name}`}
+                icon={<DeleteOutlined />}
+                onClick={() => handleDelete(record)}
+              />
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div>
+      {!hideHeader && (
+        <PageHeader
+          title="Inbound Integrations"
+          description="Real-time API proxy integrations that transform and forward requests from the client app to external systems"
+          breadcrumb={[{ label: 'Configuration', path: '/integrations' }, { label: 'Inbound Integrations' }]}
+          compact
+          actions={
+            <Button
+              type="primary"
+              size="middle"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/inbound-integrations/new')}
+            >
+              Create API Integration
+            </Button>
+          }
+        />
+      )}
+
+      {/* Table with Compact Toolbar */}
+      <Card style={{ marginTop: hideHeader ? 0 : spacing[2] }} size="small">
+        {/* Compact Toolbar */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: spacing[2],
+            padding: spacing[2],
+            borderBottom: `1px solid ${cssVar.border.default}`,
+            background: withAlpha(cssVar.bg.subtle, 0.4),
+            alignItems: 'center',
+          }}
+        >
+          {/* Count Tags */}
+          <Space size="small">
+            <Tag
+              style={{
+                borderRadius: 4,
+                padding: `2px ${spacing[2]}`,
+                borderColor: withAlpha(colors.neutral[300], 0.8),
+                background: withAlpha(colors.neutral[100], 0.6),
+                color: cssVar.text.secondary,
+                fontWeight: 600,
+                fontSize: 12,
+                margin: 0,
+              }}
+            >
+              {`${integrations.filter((i: any) => i.direction === 'INBOUND').length} total`}
+            </Tag>
+            <Tag
+              style={{
+                borderRadius: 4,
+                padding: `2px ${spacing[2]}`,
+                borderColor: withAlpha(colors.success[200], 0.8),
+                background: withAlpha(colors.success[50], 1),
+                color: colors.success[700],
+                fontWeight: 600,
+                fontSize: 12,
+                margin: 0,
+              }}
+            >
+              {integrations.filter((i: any) => i.direction === 'INBOUND' && i.isActive).length} active
+            </Tag>
+          </Space>
+
+          <Divider type="vertical" style={{ height: 24, margin: 0 }} />
+
+          {/* Search */}
+          <Input
+            placeholder="Search..."
+            prefix={<SearchOutlined />}
+            suffix={
+              searchQuery ? (
+                <CloseCircleOutlined
+                  onClick={() => setSearchQuery('')}
+                  style={{ cursor: 'pointer', color: token.colorTextSecondary }}
+                />
+              ) : null
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: isNarrow ? '100%' : 200 }}
+            size="small"
+            allowClear
+          />
+
+          {/* Status Filter */}
+          <Select
+            placeholder="Status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            style={{ width: 110 }}
+            size="small"
+            allowClear
+            options={[
+              { label: 'Active', value: 'active' },
+              { label: 'Disabled', value: 'inactive' },
+            ]}
+          />
+
+          {/* Actions */}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: spacing[1] }}>
+            <Button
+              icon={<FilterOutlined />}
+              size="small"
+              type="text"
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter(undefined);
+              }}
+            >
+              Reset
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              size="small"
+              aria-label="Refresh inbound integrations"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] })}
+            />
+          </div>
+        </div>
+
+        <ModernTable
+          columns={columns}
+          dataSource={filteredIntegrations}
+          loading={isLoading}
+          rowKey="id"
+          pagination={{
+            ...getPaginationConfig(filteredIntegrations.length),
+            showTotal: (total) => `${total} inbound integrations`,
+          }}
+          emptyState={{
+            icon: <ApiOutlined style={{ fontSize: 64, color: cssVar.text.muted }} />,
+            title: 'No inbound integrations yet',
+            description: 'Create your first inbound integration to enable real-time API proxy functionality',
+            action: (
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/inbound-integrations/new')}>
+                Create Inbound Integration
+              </Button>
+            ),
+          }}
+        />
+      </Card>
+
+      <Modal
+        title="Copy curl command"
+        open={curlModalOpen}
+        onOk={handleConfirmCopyCurl}
+        onCancel={() => setCurlModalOpen(false)}
+        okText="Copy"
+      >
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Text type="secondary">
+            {!curlIntegration?.inboundAuthType ||
+            curlIntegration?.inboundAuthType === 'NONE' ||
+            curlIntegration?.inboundAuthType === 'HMAC'
+              ? 'This endpoint is public; no gateway API key is required.'
+              : 'Provide the gateway API key to include it in the curl command.'}
+          </Text>
+          {curlIntegration?.inboundAuthType &&
+            curlIntegration?.inboundAuthType !== 'NONE' &&
+            curlIntegration?.inboundAuthType !== 'HMAC' && (
+              <Input.Password
+                placeholder="Gateway API Key (X-API-Key)"
+                value={curlApiKey}
+                onChange={(e) => setCurlApiKey(e.target.value)}
+              />
+            )}
+          {curlIntegration?.inboundAuthType === 'API_KEY' && (
+            <Input.Password
+              placeholder="Inbound API Key (if required by integration)"
+              value={curlInboundKey}
+              onChange={(e) => setCurlInboundKey(e.target.value)}
+            />
+          )}
+          {curlQueryParams.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary">Sample query parameters (editable):</Text>
+              {curlQueryParams.map((param) => (
+                <Input
+                  key={param.name}
+                  addonBefore={param.name}
+                  value={param.value}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCurlQueryParams((prev) =>
+                      prev.map((item) => (item.name === param.name ? { ...item, value } : item))
+                    );
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </Space>
+      </Modal>
+
+      {/* Test Email Modal */}
+      <Modal
+        title="Send Test Email"
+        open={testEmailModalOpen}
+        onOk={handleSendTestEmail}
+        onCancel={() => setTestEmailModalOpen(false)}
+        okText={isSendingTest ? 'Sending...' : 'Send Email'}
+        confirmLoading={isSendingTest}
+        width={600}
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {isTestSenderRoutingEnabled && (
+            <div>
+              <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                From Email (Sender Profile)
+              </Text>
+              <Select
+                placeholder="Select sender profile (uses default if not specified)"
+                value={testFromEmail || undefined}
+                onChange={(val) => setTestFromEmail(val)}
+                allowClear
+                size="large"
+                disabled={isSendingTest}
+                style={{ width: '100%' }}
+                options={(senderProfiles as any[]).map((p) => ({
+                  label: `${p.name} <${p.fromEmail}>`,
+                  value: p.fromEmail,
+                }))}
+              />
+            </div>
+          )}
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Recipient Email *
+            </Text>
+            <Input
+              type="email"
+              placeholder="recipient@example.com"
+              value={testEmailAddress}
+              onChange={(e) => setTestEmailAddress(e.target.value)}
+              size="large"
+              disabled={isSendingTest}
+            />
+          </div>
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Subject *
+            </Text>
+            <Input
+              placeholder="Email subject"
+              value={testEmailSubject}
+              onChange={(e) => setTestEmailSubject(e.target.value)}
+              size="large"
+              disabled={isSendingTest}
+            />
+          </div>
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Email Body (HTML) *
+            </Text>
+            <Input.TextArea
+              placeholder="<h1>Hello!</h1><p>This is a test email.</p>"
+              value={testEmailBody}
+              onChange={(e) => setTestEmailBody(e.target.value)}
+              rows={6}
+              disabled={isSendingTest}
+            />
+          </div>
+        </Space>
+      </Modal>
+    </div>
+  );
+};

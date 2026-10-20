@@ -1,0 +1,262 @@
+import { Form, Input, Select, Row, Col, Space, Switch, Alert } from 'antd';
+import { LinkOutlined, SendOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import type { HttpConfigFieldsProps } from '../types';
+
+/**
+ * HttpConfigFields - HTTP configuration fields
+ *
+ * Handles:
+ * - Target URL
+ * - HTTP Method (GET, POST, PUT, DELETE, PATCH)
+ * - Custom headers (optional)
+ * - Timeout configuration (optional)
+ *
+ * Can be used across outbound integrations, inbound integrations, and scheduled jobs.
+ */
+export const HttpConfigFields = ({
+  form,
+  uiConfig,
+  mode,
+  spacing,
+  colors,
+  isMultiAction = false,
+}: HttpConfigFieldsProps) => {
+  // Watch streamResponse field for inbound mode
+  const streamResponse = Form.useWatch('streamResponse', form);
+  const contentType = Form.useWatch('contentType', form);
+  const isInboundMultipart =
+    mode === 'inbound' &&
+    String(contentType || '')
+      .toLowerCase()
+      .includes('multipart/form-data');
+
+  // Context-aware labels
+  const getLabel = (baseLabel: string) => {
+    if (mode === 'inbound') {
+      return baseLabel.replace('Target', 'Proxy Target');
+    } else if (mode === 'scheduled') {
+      return baseLabel.replace('Target', 'Destination');
+    }
+    return baseLabel;
+  };
+
+  return (
+    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+
+      <Row gutter={[16, 0]}>
+        {/* Target URL */}
+        <Col xs={24}>
+          <Form.Item
+            name="targetUrl"
+            label={
+              <Space size={4}>
+                <LinkOutlined style={{ color: colors.primary[600] }} />
+                <span>{getLabel('Target URL')}</span>
+              </Space>
+            }
+            rules={[
+              { required: true, message: 'Target URL is required' },
+              { type: 'url', message: 'Must be a valid HTTPS URL' },
+              {
+                pattern: /^https:\/\/.+/,
+                message: 'URL must use HTTPS protocol',
+              },
+            ]}
+            extra={
+              mode === 'inbound'
+                ? 'The external API that will receive proxied requests from the client app'
+                : 'The endpoint where data will be sent'
+            }
+          >
+            <Input
+              placeholder="https://api.example.com/integration"
+              prefix={<LinkOutlined style={{ color: 'var(--color-text-muted)' }} />}
+            />
+          </Form.Item>
+        </Col>
+
+        {/* HTTP Method */}
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="httpMethod"
+            label={
+              <Space size={4}>
+                <SendOutlined style={{ color: colors.primary[600] }} />
+                <span>HTTP Method</span>
+              </Space>
+            }
+            rules={[{ required: true, message: 'HTTP method is required' }]}
+            initialValue="POST"
+          >
+            <Select
+              options={
+                uiConfig?.httpMethods || [
+                  { value: 'POST', label: 'POST' },
+                  { value: 'PUT', label: 'PUT' },
+                  { value: 'GET', label: 'GET' },
+                  { value: 'PATCH', label: 'PATCH' },
+                  { value: 'DELETE', label: 'DELETE' },
+                ]
+              }
+            />
+          </Form.Item>
+        </Col>
+
+        {/* Request Timeout */}
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="timeout"
+            label="Request Timeout (ms)"
+            initialValue={10000}
+            rules={[
+              { required: true, message: 'Timeout is required' },
+              {
+                type: 'number',
+                min: 1000,
+                max: 60000,
+                message: 'Timeout must be between 1000ms and 60000ms',
+              },
+            ]}
+            extra="Maximum time to wait for response (1-60 seconds)"
+          >
+            <Input type="number" placeholder="10000" suffix="ms" />
+          </Form.Item>
+        </Col>
+
+        {/* Custom Headers (Optional) */}
+        <Col xs={24}>
+          <Form.Item
+            name="customHeaders"
+            label="Custom Headers (JSON)"
+            extra="Optional: Add custom HTTP headers as JSON object"
+            rules={[
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve();
+                  try {
+                    JSON.parse(value);
+                    return Promise.resolve();
+                  } catch {
+                    return Promise.reject(new Error('Must be valid JSON'));
+                  }
+                },
+              },
+            ]}
+          >
+            <Input.TextArea
+              placeholder={'{\n  "X-Custom-Header": "value",\n  "X-Request-ID": "{{uuid}}"\n}'}
+              rows={4}
+              style={{
+                fontFamily: 'monospace',
+                fontSize: 13,
+              }}
+            />
+          </Form.Item>
+        </Col>
+
+        {/* Content Type (if needed) */}
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="contentType"
+            label="Content-Type"
+            initialValue="application/json"
+            extra="HTTP Content-Type header"
+          >
+            <Select
+              options={[
+                { value: 'application/json', label: 'application/json' },
+                { value: 'application/x-www-form-urlencoded', label: 'application/x-www-form-urlencoded' },
+                { value: 'multipart/form-data', label: 'multipart/form-data' },
+                { value: 'text/plain', label: 'text/plain' },
+                { value: 'text/xml', label: 'text/xml' },
+              ]}
+            />
+          </Form.Item>
+        </Col>
+
+        {/* Retry Configuration */}
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="retryCount"
+            label="Retry Count"
+            initialValue={3}
+            rules={[
+              { required: true, message: 'Retry count is required' },
+              {
+                type: 'number',
+                min: 0,
+                max: 10,
+                message: 'Retry count must be between 0 and 10',
+              },
+            ]}
+            extra="Number of retry attempts on failure"
+          >
+            <Input type="number" placeholder="3" />
+          </Form.Item>
+        </Col>
+
+        {isInboundMultipart && (
+          <Col xs={24} md={12}>
+            <Form.Item
+              name="maxInboundFileSizeMb"
+              label="Max Inbound File Size (MB)"
+              normalize={(value) => {
+                const num = Number(value);
+                return Number.isFinite(num) ? num : value;
+              }}
+              rules={[
+                { required: true, message: 'Max inbound file size is required' },
+                {
+                  validator: (_, value) => {
+                    const num = Number(value);
+                    if (!Number.isFinite(num)) {
+                      return Promise.reject(new Error('Max inbound file size must be a number'));
+                    }
+                    if (num < 1 || num > 100) {
+                      return Promise.reject(new Error('Max inbound file size must be between 1 MB and 100 MB'));
+                    }
+                    return Promise.resolve();
+                  },
+                },
+              ]}
+              extra="Per-integration upload limit for multipart requests (PDF only)."
+            >
+              <Input type="number" placeholder="50" suffix="MB" />
+            </Form.Item>
+          </Col>
+        )}
+
+        {/* Stream Response - Only for Inbound Mode */}
+        {mode === 'inbound' && (
+          <Col xs={24}>
+            <Form.Item
+              name="streamResponse"
+              label={
+                <Space size={4}>
+                  <ThunderboltOutlined style={{ color: colors.primary[600] }} />
+                  <span>Stream Response</span>
+                </Space>
+              }
+              valuePropName="checked"
+              initialValue={false}
+              extra="Enable for very large responses (100+ MB). Streams data directly without buffering."
+            >
+              <Switch />
+            </Form.Item>
+
+            {streamResponse && (
+              <Alert
+                type="warning"
+                showIcon
+                message="Response Transformation Disabled"
+                description="When streaming is enabled, response transformations cannot be applied. The response will be passed through directly to the client."
+                style={{ marginTop: spacing[2] }}
+              />
+            )}
+          </Col>
+        )}
+      </Row>
+
+    </Space>
+  );
+};

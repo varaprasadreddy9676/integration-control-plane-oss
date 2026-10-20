@@ -1,0 +1,392 @@
+# Integration Control Plane (Integration Gateway)
+
+Open-source, multi-tenant integration control plane for outbound webhooks, inbound runtime proxying, scheduling, event-source adapters, observability, RBAC, and MCP-based operations.
+
+[![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Website](https://img.shields.io/badge/Website-icplane.com-blue)](https://icplane.com)
+
+## 💡 Why I Built This (The Origin Story)
+
+If you're building a B2B SaaS platform—especially a growing, multi-tenant one—managing how your system talks to your customers' external systems is a massive pain point. 
+
+I faced this exact problem while building integrations for a large enterprise SaaS platform. I was spending weeks building custom webhook delivery systems, inbound API gateways, rate limiters, and dead-letter queues just so our internal products could integrate reliably with external tools and third-party vendors. 
+
+Enterprise integration platforms like **MuleSoft** or **Kong** cost a fortune and are incredibly heavy to run. On the other hand, hacking together custom scripts per organization was completely unmaintainable as we scaled. 
+
+So, I built precisely what growing multi-tenant companies actually need: a fast, organization-scoped **Integration Control Plane**. 
+
+This system acts as a unified traffic controller. Instead of spending 3-6 months building a reliable webhook and proxy infrastructure from scratch, you can deploy this gateway alongside your MongoDB/MySQL database and instantly have enterprise-grade, multi-tenant integration management. What used to take our team weeks of development per integration now takes minutes.
+
+### 🌟 Why It's Unique
+
+While there are other webhook services (like Svix) or API Gateways (like Kong), this project occupies a highly valuable middle ground:
+1. **The "All-in-One" Approach**: It handles **Outbound Webhooks** (pushing events), **Inbound Proxying** (receiving requests), and **Scheduled Jobs** (batch data fetching) in a single platform. Most competitors only do one.
+2. **Operator-Friendly Automation**: The platform exposes a governed MCP server for external automation clients while keeping validation, permissions, audit, and execution inside the gateway.
+3. **Deep Multi-Tenancy**: Everything is strictly scoped by `orgId` (organization) and supports organizational hierarchies, meaning it is built for B2B scale from day one.
+4. **Built-in Observability**: It doesn't just route traffic; it stores execution traces, manages the Dead Letter Queue (DLQ) for auto-retries, and provides a built-in Alert Center.
+
+## What This Application Does
+
+- Manages integration configurations per organization (`orgId` scoped).
+- Delivers outbound events with retries and dead-letter handling.
+- Exposes inbound integration endpoints with auth, transformation, and optional response streaming.
+- Supports HL7 v2 over MLLP for healthcare integrations, including JSON-to-HL7, HL7-to-JSON, and ACK/NACK handling.
+- Supports communication channels (Email, WhatsApp, Push Notifications) via pluggable adapters.
+- Supports scheduled integrations and scheduled jobs (cron/interval).
+- Tracks logs, execution traces, audit trails, alert center, and daily reporting.
+- Includes an MCP server for governed external operations through supported MCP clients.
+
+## Implemented Feature Set (Code-Verified)
+
+### Integrations and Delivery
+
+- Outbound integrations (`/api/v1/outbound-integrations`)
+  - CRUD, duplicate, bulk update/delete, test delivery, cURL generation.
+  - Script and simple transformation modes.
+  - HL7 MLLP action delivery for HL7 v2 messages with ACK validation and structured logging.
+  - Delivery mode support: `IMMEDIATE`, `DELAYED`, `RECURRING`, `WAIT_FOR_CONDITION` (`WAIT_FOR_EVENT` alias supported).
+  - Generic `subjectExtraction` in `PATHS` or `SCRIPT` mode for rule-driven matching.
+  - Scheduled lifecycle rules with explicit `matchKeys` for follow-up events.
+  - Hold/release condition rules with explicit `matchKeys` for approval/gating flows.
+  - Preview endpoints for extracted subject, scheduled-row impact, and held-row impact.
+  - Signing secret rotation/removal endpoints.
+  - Signing is fail-closed: if signature headers cannot be generated, the outbound request is not sent unsigned.
+  - Target URL validation supports both HTTP and HTTPS, with optional HTTPS-only enforcement and separate private-network blocking.
+- Inbound/runtime integrations (`/api/v1/integrations`)
+  - Runtime trigger endpoints (`GET/POST/PUT /api/v1/integrations/:type`).
+  - Public runtime trigger endpoints (`GET/POST/PUT /api/v1/public/integrations/:type`) with per-integration inbound auth.
+  - Inbound auth checks (`NONE`, `API_KEY`, `BEARER`, `BASIC`, `HMAC`).
+  - Native inbound HMAC verification validates the raw request body plus timestamp replay window and is designed for public webhook-style callers.
+  - Request policy controls:
+    - source IP allowlist (`allowedIpCidrs`)
+    - browser origin allowlist (`allowedBrowserOrigins`)
+    - per-integration rate limiting
+  - HTTP action delivery with auth support (`NONE`, `API_KEY`, `BASIC`, `BEARER`, `OAUTH1`, `OAUTH2`, `CUSTOM`, `CUSTOM_HEADERS`).
+  - Communication action delivery (EMAIL, SMS, WhatsApp, Push Notifications) via pluggable adapters.
+  - Optional streamed upstream response forwarding.
+  - Generic inbound email routing via sender profiles (`ROUTED_EMAIL`) with request-body `from` resolution and default sender fallback.
+
+### Scheduling
+
+- Scheduled integrations (`/api/v1/scheduled-integrations`) for delayed/recurring webhook execution.
+- Scheduled integrations now persist generic lifecycle metadata (`subject`, `subjectExtraction`, `lifecycleRules`) so cancellation and reschedule behavior is config-driven instead of event-shape specific.
+- Held outbound deliveries (`held_outbound_deliveries` collection) support approval-style flows where the transformed payload is stored first and released or discarded by later events.
+- Scheduled jobs (`/api/v1/scheduled-jobs`)
+  - Cron and interval scheduling.
+  - Manual execute endpoint.
+  - Job logs and per-job log detail endpoints.
+  - Data source types currently handled: `SQL`, `MONGODB`, `API`.
+
+### Event Sources
+
+- Per-org event source configuration (`/api/v1/event-sources`).
+- Supported types in code: `mysql`, `kafka`, `http_push`, `hl7_mllp`.
+- Important:
+  - MySQL is optional and should only be configured for organizations that use MySQL as their event source.
+  - Global `eventSource.type` can be left empty.
+  - `http_push` accepts authenticated events at `POST /api/v1/events/push`, queues them durably, and retries failed processing with a configurable attempt limit.
+  - `hl7_mllp` listens for HL7 v2 messages over TCP/MLLP, parses the message into a normal event payload, and responds with HL7 ACK/NACK.
+  - MySQL safety limits are enforced server-side to prevent overload:
+    - Shared pool: `connectionLimit` 1..20, `queueLimit` 0..200
+    - Dedicated pool: `connectionLimit` 1..5, `queueLimit` 0..50
+    - Source tuning: `pollIntervalMs` 1000..300000, `batchSize` 1..100, `dbTimeoutMs` 1000..120000
+
+### Communications
+
+- Pluggable adapter registry for Email, WhatsApp, SMS, Push Notifications, and more.
+- Implemented adapters:
+  - **Email SMTP**: Send emails via any SMTP server (Gmail, Outlook, custom) or routed sender profiles.
+  - **WhatsApp Meta**: Send text and template messages via Meta Cloud API (E.164 phone numbers).
+  - **Firebase FCM**: Send push notifications via FCM HTTP v1 API (device tokens and topics).
+- Communication actions as first-class INBOUND integration type alongside HTTP proxying.
+- Async job queue with worker-based delivery and execution logging.
+- Per-org communication provider configuration with encrypted credential storage.
+
+### Operations and Observability
+
+- Delivery logs, execution logs, system logs, event audit, DLQ endpoints.
+- System logs support rotated application logs, rotated access logs, and raw process log tail (`/api/v1/system-logs/process-tail`).
+- System status supports org-scoped and global admin modes with worker, adapter, process lifecycle, and sender profile visibility.
+- Alert center and analytics/dashboard routes.
+- Audit logs and user activity tracking.
+- Daily report configuration/test/status endpoints.
+- Health endpoint: `GET /health`.
+
+### RBAC and Multi-Tenancy
+
+- Role/feature permission system with org-scoped access control.
+- Built-in roles include `SUPER_ADMIN`, `ADMIN`, `ORG_ADMIN`, `INTEGRATION_EDITOR`, `VIEWER`, `ORG_USER`, `API_KEY`.
+- Org context is passed via JWT claims or `orgId` query param.
+
+### MCP Server
+
+- Optional standalone MCP server for external clients.
+- Uses the same authenticated backend APIs as the web console.
+- Supports governed inspection and operations without embedding a model provider in the gateway.
+
+## Repository Layout
+
+```text
+backend/                    # Express API, workers, adapters, data layer
+frontend/                   # React + TypeScript admin console
+docs/                       # Guides and architecture docs
+docker-compose.yml          # Production-ish local stack (Mongo + backend + frontend)
+docker-compose.dev.yml      # Dev stack with hot reload
+```
+
+## Runtime Requirements
+
+- Docker + Docker Compose (for containerized run), or:
+  - Node.js 26 (24 LTS also works)
+  - MongoDB 9.0 (7.0 or later works). Docker sets `GLIBC_TUNABLES=glibc.pthread.rseq=1` so MongoDB starts on Linux kernels 6.19-7.0.13, which it otherwise refuses (SERVER-121912).
+- Optional, only if your use case needs them:
+  - MySQL (org-specific event source or scheduled SQL source)
+  - Kafka (org-specific event source)
+
+## Run With Docker (Recommended)
+
+You need Docker with Compose. The first build takes about four minutes.
+
+1. Clone the repository.
+
+```bash
+git clone https://github.com/varaprasadreddy9676/integration-control-plane-oss.git
+cd integration-control-plane-oss
+```
+
+2. Generate `.env` with random secrets (JWT signing key, system API key, credential encryption key).
+
+```bash
+./scripts/init-env.sh
+```
+
+Keep `.env` private and backed up: `GATEWAY_SECRET_KEY` encrypts stored credentials, and they cannot be read with a different key.
+
+3. Start MongoDB, the backend and the console.
+
+```bash
+docker compose up -d --build
+```
+
+4. Check that it is up.
+
+```bash
+docker compose ps
+curl http://localhost:3545/        # liveness: {"status":"ok"}
+curl http://localhost:3545/health  # dependency health (may report "warning" for the first minute while workers start)
+```
+
+5. Create the first account, a super admin who can manage every organization.
+
+```bash
+docker compose exec backend node scripts/create-user.js \
+  --email you@example.com \
+  --password 'ChangeMe123!' \
+  --role SUPER_ADMIN
+```
+
+6. Open `http://localhost/integration-gateway/`, sign in, and create your first organization under **Org Directory** (only a name and code are needed). Integrations, logs and users all belong to an organization. Switch to it and its dashboard walks you through the rest: choosing an event source, adding event types and creating the first integration.
+
+The console calls the API through its own `/api` path, so the same setup works when you open it on a server's host name or IP. The API is also published directly at `http://localhost:3545/api/v1`. MongoDB is not exposed outside Docker; open a shell with `docker compose exec mongodb mongosh integration_gateway`.
+
+### Sending events over HTTP
+
+To push events from your own systems, enable the HTTP push source for the organization once (in the console under **Settings → Event Source**, or with the first command below), then post events to it:
+
+```bash
+curl -X PUT  "http://localhost:3545/api/v1/event-sources/<orgId>" -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" -d '{"type":"http_push","config":{}}'
+curl -X POST "http://localhost:3545/api/v1/events/push?orgId=<orgId>" -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" -d '{"eventType":"ORDER_PLACED","payload":{"orderId":1}}'
+```
+
+## Local Development
+
+### Backend
+
+```bash
+cd backend
+npm install
+```
+
+For local (non-Docker), configure either env vars or `backend/config.json`.
+Minimum required:
+
+- `MONGODB_URI=mongodb://localhost:27017/integration_gateway`
+- `JWT_SECRET=<your jwt secret>`
+
+Optional: `API_KEY`, a shared system key for callers that can't use their own. If you set it, also set `API_KEY_ORG_IDS` (for example `33,84`) to the organizations it may act for; otherwise it can act for every organization. Prefer giving each partner system its own key: **Settings → API Keys → Run integrations only**.
+
+Backend env loading order is explicit:
+
+1. repository root `.env`
+2. optional `backend/.env` override
+
+So the backend behaves the same whether you start it from repo root or from `backend/`.
+
+If you prefer file config:
+
+```bash
+cp config.example.json config.json
+```
+
+Start:
+
+```bash
+npm run dev
+```
+
+`npm run dev` uses `nodemon` with source/config watching only. Generated files under `backend/logs/` are ignored so runtime lifecycle markers and rotated logs do not trigger restart loops.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Default local values in `frontend/.env`:
+
+- `VITE_API_BASE_URL=http://localhost:3545/api/v1`
+
+## Configuration Notes
+
+- MongoDB is mandatory. App startup fails without MongoDB.
+- MySQL is optional.
+  - Do not hardcode it unless required.
+  - Prefer per-org event source config via API/UI.
+- Kafka is optional and only needed for orgs configured with Kafka source.
+- Global event source default (`eventSource.type`) is optional.
+  - Leave empty for fully dynamic per-org source setup.
+- Tenant isolation: users and keys that belong to one organization get 403 if a request names another (`?orgId=`). Only `SUPER_ADMIN` and `ADMIN` work across organizations.
+- `/internal/*` endpoints answer only requests made on the server itself (not through a reverse proxy).
+
+## Outbound Lifecycle And Gated Delivery
+
+The outbound engine now supports two generic rule-driven models beyond plain immediate delivery:
+
+1. **Lifecycle invalidation for delayed/recurring rows**
+   - integrations define `resourceType`
+   - `subjectExtraction` derives a flat subject object from the event payload
+   - `lifecycleRules` declare which later events cancel or reschedule matching pending rows
+
+2. **Condition-based hold/release**
+   - integrations using `deliveryMode: WAIT_FOR_CONDITION` transform the payload immediately
+   - the transformed payload is stored in `held_outbound_deliveries`
+   - `conditionConfig.releaseRules` and `conditionConfig.discardRules` decide when a later event releases or discards that held payload
+
+Typical scenarios:
+- appointment reminders cancelled by cancellation events
+- appointment reminders replaced by reschedule events
+- GRN or order created events held until approval/payment success
+
+See:
+- `docs/guides/OUTBOUND-LIFECYCLE.md`
+- `frontend/src/features/landing/docs/outbound-lifecycle.md`
+
+## HL7 Healthcare Integrations
+
+The gateway supports HL7 v2 over MLLP for common healthcare integration flows:
+
+- outbound `HL7_MLLP` actions that send framed HL7 messages over TCP and require accepting ACKs
+- inbound `hl7_mllp` event sources that listen for HL7 messages and return AA, AE, or AR ACKs
+- script transformations that use `http`, `lookup`, and `hl7` together, including async token/API calls before building HL7
+- structured delivery logs with raw HL7 request payloads, raw ACK responses, ACK codes, message control IDs, and DLQ handling
+
+See `docs/guides/HL7-MLLP.md` for examples and Mirth migration notes.
+
+## Current UI Areas
+
+The frontend has 21 feature modules:
+
+| Module | Description |
+|--------|-------------|
+| `dashboard` | KPI cards, delivery trends, latency, errors, inbound, scheduled, outbound tabs |
+| `integrations` | Outbound integration management, detail view, editor, HMAC signing |
+| `inbound-integrations` | Inbound integration (HTTP + Communication) configuration and detail pages |
+| `system-status` | Runtime health, workers, adapters, lifecycle, and sender profile visibility |
+| `scheduled` | Scheduled integration (DELAYED/RECURRING) management |
+| `scheduled-jobs` | CRON/interval batch job config with visual cron builder |
+| `logs` | Delivery log viewer with advanced filtering and cURL export |
+| `events` | Event management, event detail, bulk import |
+| `dlq` | Dead letter queue management, bulk retry |
+| `lookups` | Lookup table CRUD, import/export via XLSX, statistics |
+| `settings` | Event sources, sender profiles, admin request-policy/rate-limit tools |
+| `templates` | Reusable integration template library |
+| `versions` | Integration version history with diff view |
+| `bulk` | Bulk operations (import, export, batch updates) |
+| `alert-center` | Alert management, categories, statistics |
+| `flowBuilder` | Visual drag-and-drop workflow builder (ReactFlow) |
+| `settings` | Org settings, event source settings, MySQL pool settings, communication provider config |
+| `admin` | Super admin: org/user management, storage stats, magic link portal embed |
+| `system-logs` | System-level logging and debugging |
+| `help` | In-app help and lookup guide |
+| `landing` | Public landing page |
+
+## API Route Groups (30 total)
+
+Mounted under `/api/v1`:
+
+- `/auth`, `/users`, `/roles`, `/admin`, `/tenant`
+- `/outbound-integrations`, `/inbound-integrations`, `/integrations`
+- `/scheduled-integrations`, `/scheduled-jobs`
+- `/events`, `/event-sources`, `/lookups`, `/templates`, `/field-schemas`, `/bulk`, `/versions`, `/import-export`
+- `/logs`, `/execution-logs`, `/system-logs`, `/alert-center`, `/dashboard`, `/analytics`, `/dlq`
+- `/mcp-server`
+- `/config`, `/daily-reports`, `/audit`, `/client-errors`
+
+## Security and Open-Source Hygiene
+
+- Do not commit real secrets, `.env` files, private keys, or production data exports.
+- Keep `backend/config.example.json` as template values only.
+- Configure MCP server access using the documented API-key and client configuration flow.
+
+## How ICPlane Compares
+
+See the full [comparison with Svix, Convoy, Hookdeck, and building it yourself](docs/comparison.md).
+
+| | **ICPlane** | **Svix** | **Convoy** | **Hookdeck** |
+|---|---|---|---|---|
+| Outbound + Inbound + Scheduled | All three | Outbound + Ingest | Both | Both (core is SaaS-only) |
+| Self-hosted | Yes (AGPL v3) | Yes (MIT, reduced) | Yes (Elastic, not OSI) | Outpost only |
+| Multi-tenant RBAC | 7 roles, org-scoped | Basic | Basic | Basic |
+| Visual field mapping | Yes | No | No | No |
+| DLQ auto-retry | Yes | Manual only | Manual only | Manual only |
+| Paid tier starts at | Free | $490/mo | $99/mo | $39/mo |
+
+## Documentation
+
+- [docs/README.md](docs/README.md)
+- Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/architecture/REPO_MAP.md](docs/architecture/REPO_MAP.md)
+- [docs/guides/GETTING-STARTED.md](docs/guides/GETTING-STARTED.md)
+- [docs/guides/DOCKER.md](docs/guides/DOCKER.md)
+- [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)
+- [docs/guides/HL7-MLLP.md](docs/guides/HL7-MLLP.md)
+- [docs/guides/RBAC-GUIDE.md](docs/guides/RBAC-GUIDE.md)
+- [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
+- [docs/architecture/SCHEDULED_JOBS.md](docs/architecture/SCHEDULED_JOBS.md)
+- [docs/comparison.md](docs/comparison.md)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+If you discover a vulnerability, follow [SECURITY.md](SECURITY.md) and avoid posting sensitive details in public issues.
+
+## Support and Community
+
+- Website: [icplane.com](https://icplane.com)
+- Email: founder@icplane.com
+- Documentation: [docs/README.md](docs/README.md)
+- Issues: [GitHub Issues](https://github.com/varaprasadreddy9676/integration-control-plane-oss/issues)
+- Discussions: [GitHub Discussions](https://github.com/varaprasadreddy9676/integration-control-plane-oss/discussions)
+
+## License
+
+GNU Affero General Public License v3.0. See [LICENSE](LICENSE).

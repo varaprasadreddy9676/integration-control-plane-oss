@@ -1,0 +1,13 @@
+{
+  "name": "icp-setup-video",
+  "private": true,
+  "description": "Records the setup walkthrough video: a fresh Docker install through outbound, inbound and scheduled examples.",
+  "type": "module",
+  "scripts": {
+    "record": "node record.mjs",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

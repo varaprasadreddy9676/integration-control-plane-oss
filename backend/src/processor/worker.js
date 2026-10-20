@@ -1,0 +1,163 @@
+/**
+ * Delivery Worker
+ *
+ * Thin entry point — delegates all per-org adapter management to
+ * DeliveryWorkerManager. The retry processor and watchdog run here
+ * once (not per-org) since they operate on MongoDB execution_logs.
+ */
+
+const config = require('../config');
+const _data = require('../data');
+const mongodb = require('../mongodb');
+const { log, logError } = require('../logger');
+const {
+  markWorkerRunError,
+  markWorkerRunStart,
+  markWorkerRunSuccess,
+  setWorkerState,
+  stopWorker,
+} = require('../worker-heartbeat');
+const { getDeliveryWorkerManager } = require('./delivery-worker-manager');
+const { processRetries } = require('./retry-handler');
+const { startBase64RedactScheduler, stopBase64RedactScheduler } = require('../services/base64-redact-scheduler');
+
+// Re-export for backward compatibility
+const { startPendingDeliveriesWorker } = require('./pending-deliveries-worker');
+const { replayEvent } = require('./retry-handler');
+
+function startDeliveryWorker() {
+  const enabled = config.worker?.enabled ?? true;
+
+  if (!enabled) {
+    log('info', 'Delivery worker disabled via config');
+    setWorkerState('deliveryWorker', {
+      enabled: false,
+      running: false,
+      intervalMs: null,
+      meta: {
+        retryIntervalMs: null,
+      },
+    });
+    return async () => {};
+  }
+
+  // Start per-org adapter manager (MySQL / Kafka / HTTP Push)
+  const manager = getDeliveryWorkerManager();
+  manager.start().catch((err) => {
+    logError(err, { scope: 'DeliveryWorkerManager.start' });
+  });
+
+  // Retry processor — runs once, processes all orgs' failed deliveries
+  const retryIntervalMs = config.worker?.retryIntervalMs || 60_000;
+  const dbTimeout = config.worker?.dbOperationTimeoutMs || 30_000;
+
+  setWorkerState('deliveryWorker', {
+    enabled: true,
+    running: true,
+    startedAt: new Date(),
+    intervalMs: retryIntervalMs,
+    meta: {
+      retryIntervalMs,
+      dbTimeout,
+    },
+  });
+
+  const retryTimer = setInterval(async () => {
+    try {
+      markWorkerRunStart('deliveryWorker');
+      const retryCount = await processRetries(0, dbTimeout);
+      markWorkerRunSuccess('deliveryWorker', {
+        meta: {
+          lastRetryBatchCount: retryCount,
+        },
+      });
+      if (retryCount > 0) {
+        log('info', 'Processed retry attempts', { retryCount });
+      }
+    } catch (err) {
+      markWorkerRunError('deliveryWorker', err);
+      log('error', 'Retry processing failed', { error: err.message });
+    }
+  }, retryIntervalMs);
+
+  // Watchdog — marks STUCK events (stuck in PROCESSING state)
+  let watchdogTimer = null;
+  if (config.eventAudit?.enabled && config.eventAudit?.watchdogEnabled) {
+    const watchdogIntervalMs = config.eventAudit?.watchdogIntervalMs || 300_000;
+    const stuckThresholdMs = config.eventAudit?.stuckThresholdMs || 300_000;
+
+    watchdogTimer = setInterval(async () => {
+      try {
+        const stuckThreshold = new Date(Date.now() - stuckThresholdMs);
+        const dbClient = await mongodb.getDbSafe();
+
+        const stuckFilter = { status: 'PROCESSING', processingStartedAt: { $lt: stuckThreshold } };
+        const stuckEvents = await dbClient.collection('event_audit').find(stuckFilter).limit(100).toArray();
+
+        if (stuckEvents.length === 0) return;
+
+        log('warn', 'Detected STUCK events', { count: stuckEvents.length });
+
+        const stuckIds = stuckEvents.map((e) => e._id);
+        await dbClient.collection('event_audit').updateMany(
+          { _id: { $in: stuckIds } },
+          {
+            $set: {
+              status: 'STUCK',
+              skipCategory: 'WORKER_ERROR',
+              skipReason: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000}s`,
+              errorMessage: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000} seconds`,
+              processingCompletedAt: new Date(),
+            },
+            $push: {
+              timeline: {
+                ts: new Date(),
+                stage: 'STUCK',
+                details: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000} seconds`,
+              },
+            },
+          }
+        );
+
+        log('info', 'Marked STUCK events', { count: stuckEvents.length });
+      } catch (err) {
+        log('error', 'Watchdog failed', { error: err.message });
+      }
+    }, watchdogIntervalMs);
+
+    log('info', `Watchdog started (interval: ${watchdogIntervalMs}ms, threshold: ${stuckThresholdMs}ms)`);
+  }
+
+  // Base64 redact — daily at 23:00, keeps last 7 days unredacted
+  startBase64RedactScheduler();
+
+  log('info', 'Delivery worker started');
+
+  return async () => {
+    log('info', 'Stopping delivery worker...');
+    clearInterval(retryTimer);
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    stopBase64RedactScheduler();
+    await manager.stop();
+    stopWorker('deliveryWorker');
+    log('info', 'Delivery worker stopped');
+  };
+}
+
+module.exports = {
+  startDeliveryWorker,
+  replayEvent,
+  startPendingDeliveriesWorker,
+};
+
+// Exported for tests only
+const eventUtils = require('../utils/event-utils');
+const eventDedup = require('./event-deduplication');
+
+module.exports.__test = {
+  generateEventKey: eventUtils.generateEventKey,
+  isEventProcessed: eventDedup.isEventProcessed,
+  markEventProcessed: eventDedup.markEventProcessed,
+  cleanupDedupCache: eventDedup.cleanupDedupCache,
+  _processedEvents: eventDedup.getProcessedEventsMap(),
+};

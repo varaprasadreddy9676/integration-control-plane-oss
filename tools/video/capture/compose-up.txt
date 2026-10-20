@@ -1,0 +1,4 @@
+Container integration-gateway-mongodb Started 
+Container integration-gateway-mongodb Healthy 
+Container integration-control-plane-backend Started 
+Container integration-control-plane-frontend Started 

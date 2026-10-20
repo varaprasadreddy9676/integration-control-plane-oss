@@ -1,0 +1,1370 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Empty,
+  Grid,
+  List,
+  Row,
+  Space,
+  Statistic,
+  Switch,
+  Tabs,
+  Tag,
+  Typography,
+} from 'antd';
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  DatabaseOutlined,
+  ExclamationCircleOutlined,
+  ReloadOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
+import { PortalScopeBadge } from '../../../components/portal/PortalScopeBadge';
+import { useAuth } from '../../../app/auth-context';
+import { useTenant } from '../../../app/tenant-context';
+import { useDesignTokens } from '../../../design-system/utils';
+import {
+  getSystemStatus,
+  type SystemStatusAdapter,
+  type SystemStatusOrganizationRow,
+  type SystemStatusResponse,
+  type SystemStatusWorker,
+} from '../../../services/api';
+import {
+  formatAgeLabel,
+  formatBytes,
+  formatDateTime,
+  formatDuration,
+  formatPercentage,
+  getAdapterStatusPresentation,
+  getEventSourceConfigurationPresentation,
+  getOverallStatusPresentation,
+  getProcessLifecyclePresentation,
+  getWorkerStatusPresentation,
+} from '../system-status-utils';
+import { useSearchParams } from 'react-router-dom';
+import { ModernTable } from '../../../components/common/ModernTable';
+
+const { Text, Paragraph } = Typography;
+
+const TAB_KEYS = ['overview', 'workers', 'event-sources', 'runtime', 'traffic', 'alerts'] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+
+const AUTO_REFRESH_INTERVAL_MS = 30000;
+
+function statusTag(label: string, color: string) {
+  return <Tag color={color}>{label}</Tag>;
+}
+
+function DataAgeLabel({ timestamp }: { timestamp?: string | null }) {
+  return <Text type="secondary">{formatAgeLabel(timestamp)}</Text>;
+}
+
+function humanizeKey(value?: string | null) {
+  if (!value) return 'Unknown';
+  return String(value)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function KeyValueTable({ rows }: { rows: Array<{ label: string; value: React.ReactNode }> }) {
+  return (
+    <Descriptions size="small" column={1} bordered>
+      {rows.map((row) => (
+        <Descriptions.Item key={row.label} label={row.label}>
+          {row.value}
+        </Descriptions.Item>
+      ))}
+    </Descriptions>
+  );
+}
+
+function WorkerTable({ workers }: { workers: SystemStatusWorker[] }) {
+  return (
+    <ModernTable
+      size="small"
+      rowKey={(worker) => worker.workerName}
+      pagination={false}
+      dataSource={workers}
+      columns={[
+        {
+          title: 'Worker',
+          key: 'worker',
+          render: (_, worker) => (
+            <Space direction="vertical" size={0}>
+              <Text strong>{worker.displayName}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {worker.workerName}
+              </Text>
+            </Space>
+          ),
+        },
+        {
+          title: 'Status',
+          key: 'status',
+          render: (_, worker) => {
+            const presentation = getWorkerStatusPresentation(worker);
+            return statusTag(presentation.label, presentation.color === 'orange' ? 'warning' : presentation.color);
+          },
+        },
+        {
+          title: 'Heartbeat',
+          key: 'heartbeat',
+          render: (_, worker) => <DataAgeLabel timestamp={worker.lastHeartbeat} />,
+        },
+        {
+          title: 'Last Success',
+          key: 'success',
+          render: (_, worker) => <DataAgeLabel timestamp={worker.lastSuccessAt} />,
+        },
+        {
+          title: 'Last Error',
+          key: 'error',
+          render: (_, worker) => worker.lastErrorMessage || '—',
+        },
+        {
+          title: 'Metadata',
+          key: 'meta',
+          render: (_, worker) => {
+            const entries = Object.entries(worker.meta || {});
+            if (!entries.length) return '—';
+            return (
+              <Space size={[4, 4]} wrap>
+                {entries.slice(0, 4).map(([key, value]) => (
+                  <Tag key={key}>{`${key}: ${String(value)}`}</Tag>
+                ))}
+              </Space>
+            );
+          },
+        },
+      ]}
+    />
+  );
+}
+
+function EventSourceTable({ adapters }: { adapters: SystemStatusAdapter[] }) {
+  const showOrgColumn = adapters.some((adapter) => Number.isFinite(Number(adapter.orgId)));
+  return (
+    <ModernTable
+      size="small"
+      rowKey={(adapter) => `${adapter.orgId}-${adapter.sourceType}-${adapter.name}`}
+      pagination={false}
+      dataSource={adapters}
+      columns={[
+        ...(showOrgColumn
+          ? [
+              {
+                title: 'Org',
+                dataIndex: 'orgId',
+                key: 'orgId',
+                render: (value: number) => value || '—',
+              },
+            ]
+          : []),
+        {
+          title: 'Source',
+          key: 'source',
+          render: (_, adapter) => (
+            <Space direction="vertical" size={0}>
+              <Text strong>{adapter.sourceType?.toUpperCase() || 'Unknown'}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {adapter.name}
+              </Text>
+            </Space>
+          ),
+        },
+        {
+          title: 'Connection',
+          key: 'status',
+          render: (_, adapter) => {
+            const presentation = getAdapterStatusPresentation(adapter);
+            return statusTag(presentation.label, presentation.color === 'orange' ? 'warning' : presentation.color);
+          },
+        },
+        {
+          title: 'Last Activity',
+          key: 'activity',
+          render: (_, adapter) => (
+            <DataAgeLabel
+              timestamp={
+                adapter.lastMessageAt || adapter.lastSuccessAt || adapter.lastPollFinishedAt || adapter.lastConnectAt
+              }
+            />
+          ),
+        },
+        {
+          title: 'Probe / Runtime',
+          key: 'probe',
+          render: (_, adapter) => {
+            if (adapter.connectionProbe?.ok) {
+              return `Probe OK${adapter.connectionProbe.responseTimeMs ? ` (${adapter.connectionProbe.responseTimeMs} ms)` : ''}`;
+            }
+            if (adapter.connectionProbe?.error) return adapter.connectionProbe.error;
+            if (adapter.lastReconnectReason) return adapter.lastReconnectReason;
+            if (adapter.note) return adapter.note;
+            return '—';
+          },
+        },
+        {
+          title: 'Details',
+          key: 'details',
+          render: (_, adapter) => {
+            const tags: string[] = [];
+            if (adapter.topic) tags.push(`topic: ${adapter.topic}`);
+            if (adapter.groupId) tags.push(`group: ${adapter.groupId}`);
+            if (adapter.table) tags.push(`table: ${adapter.table}`);
+            if (adapter.reconnectAttempt) tags.push(`retries: ${adapter.reconnectAttempt}`);
+            if (adapter.lastBackoffMs) tags.push(`backoff: ${adapter.lastBackoffMs}ms`);
+            if (adapter.lastRowsFetched !== undefined) tags.push(`rows: ${adapter.lastRowsFetched}`);
+            if (adapter.lastCheckpoint !== null && adapter.lastCheckpoint !== undefined)
+              tags.push(`checkpoint: ${String(adapter.lastCheckpoint)}`);
+            return tags.length ? (
+              <Space size={[4, 4]} wrap>
+                {tags.map((tag) => (
+                  <Tag key={tag}>{tag}</Tag>
+                ))}
+              </Space>
+            ) : (
+              '—'
+            );
+          },
+        },
+      ]}
+    />
+  );
+}
+
+function OrganizationStatusTable({ organizations }: { organizations: SystemStatusOrganizationRow[] }) {
+  return (
+    <ModernTable<SystemStatusOrganizationRow>
+      size="small"
+      rowKey={(row) => row.orgId}
+      pagination={false}
+      dataSource={organizations}
+      columns={[
+        {
+          title: 'Organization',
+          key: 'org',
+          render: (_, row) => (
+            <Space direction="vertical" size={0}>
+              <Text strong>{row.name || `Org ${row.orgId}`}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {row.code || `Org ${row.orgId}`}
+              </Text>
+            </Space>
+          ),
+        },
+        {
+          title: 'Status',
+          key: 'status',
+          render: (_, row) => {
+            const presentation = getOverallStatusPresentation(row.status);
+            return statusTag(presentation.label, presentation.color === 'orange' ? 'warning' : presentation.color);
+          },
+        },
+        {
+          title: 'Deliveries (24h)',
+          dataIndex: ['summary', 'deliveries24h'],
+          key: 'deliveries24h',
+        },
+        {
+          title: 'Success Rate',
+          key: 'successRate24h',
+          render: (_, row) => formatPercentage(row.summary?.successRate24h),
+        },
+        {
+          title: 'P95',
+          key: 'p95ResponseTimeMs',
+          render: (_, row) => formatDuration(row.summary?.p95ResponseTimeMs),
+        },
+        {
+          title: 'Event Source',
+          key: 'eventSources',
+          render: (_, row) => {
+            if (!row.eventSources?.configured) {
+              return statusTag('Not Configured', 'blue');
+            }
+            const adapterLabel = row.eventSources?.adapterStatus || row.eventSources?.state || 'configured';
+            return statusTag(
+              String(adapterLabel).replace(/_/g, ' '),
+              adapterLabel === 'connected' ? 'green' : 'warning'
+            );
+          },
+        },
+      ]}
+    />
+  );
+}
+
+function SenderProfilesTable({ items }: { items: SystemStatusResponse['senderProfiles']['items'] }) {
+  return (
+    <ModernTable
+      size="small"
+      rowKey={(row) => row.id}
+      pagination={false}
+      dataSource={items}
+      columns={[
+        {
+          title: 'Sender',
+          key: 'sender',
+          render: (_, row) => (
+            <Space direction="vertical" size={0}>
+              <Text strong>{row.name}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {row.fromEmail || '—'}
+              </Text>
+            </Space>
+          ),
+        },
+        {
+          title: 'Provider',
+          dataIndex: 'provider',
+          key: 'provider',
+          render: (value: string) => <Tag color="blue">{value || 'UNKNOWN'}</Tag>,
+        },
+        {
+          title: 'Flags',
+          key: 'flags',
+          render: (_, row) => (
+            <Space size={[4, 4]} wrap>
+              {row.isDefault && <Tag color="green">Default</Tag>}
+              {!row.isActive && <Tag color="red">Inactive</Tag>}
+              {row.key && <Tag>{row.key}</Tag>}
+            </Space>
+          ),
+        },
+        {
+          title: 'Aliases',
+          key: 'aliases',
+          render: (_, row) =>
+            row.aliases?.length ? (
+              <Space size={[4, 4]} wrap>
+                {row.aliases.map((alias) => (
+                  <Tag key={alias}>{alias}</Tag>
+                ))}
+              </Space>
+            ) : (
+              '—'
+            ),
+        },
+      ]}
+    />
+  );
+}
+
+function AlertsList({ data }: { data: SystemStatusResponse }) {
+  const alertItems = data.alerts || [];
+  const checkEntries = Object.entries(data.checks || {});
+
+  return (
+    <Row gutter={[16, 16]}>
+      <Col xs={24} lg={12}>
+        <Card title="Alerts" size="small">
+          {alertItems.length === 0 ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active alerts" />
+          ) : (
+            <List
+              dataSource={alertItems}
+              renderItem={(alert) => (
+                <List.Item>
+                  <List.Item.Meta
+                    title={
+                      <Space>
+                        {statusTag(
+                          String(alert.severity || 'unknown'),
+                          alert.severity === 'critical'
+                            ? 'red'
+                            : alert.severity === 'warning'
+                              ? 'warning'
+                              : alert.severity === 'info'
+                                ? 'blue'
+                                : 'default'
+                        )}
+                        <Text strong>{alert.type}</Text>
+                      </Space>
+                    }
+                    description={alert.message}
+                  />
+                </List.Item>
+              )}
+            />
+          )}
+        </Card>
+      </Col>
+      <Col xs={24} lg={12}>
+        <Card title="Checks" size="small">
+          {checkEntries.length === 0 ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No check data" />
+          ) : (
+            <List
+              dataSource={checkEntries}
+              renderItem={([key, value]) => (
+                <List.Item>
+                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                    <Text>{key}</Text>
+                    {statusTag(
+                      String(value),
+                      value === 'warning'
+                        ? 'warning'
+                        : value === 'healthy'
+                          ? 'green'
+                          : value === 'error'
+                            ? 'red'
+                            : 'default'
+                    )}
+                  </Space>
+                </List.Item>
+              )}
+            />
+          )}
+        </Card>
+      </Col>
+    </Row>
+  );
+}
+
+function getOverallHealthFactors(data?: SystemStatusResponse | null) {
+  if (!data) return [];
+
+  const factors: Array<{ key: string; severity: 'critical' | 'warning' | 'info'; label: string; detail: string }> = [];
+  const pushFactor = (key: string, severity: 'critical' | 'warning' | 'info', label: string, detail: string) => {
+    if (!factors.some((factor) => factor.key === key)) {
+      factors.push({ key, severity, label, detail });
+    }
+  };
+
+  const criticalAlerts = (data.alerts || []).filter((alert) => String(alert.severity).toLowerCase() === 'critical');
+  const warningAlerts = (data.alerts || []).filter((alert) => String(alert.severity).toLowerCase() === 'warning');
+  if (criticalAlerts.length > 0) {
+    pushFactor(
+      'critical-alerts',
+      'critical',
+      'Critical alerts active',
+      `${criticalAlerts.length} critical alert${criticalAlerts.length === 1 ? '' : 's'} currently active.`
+    );
+  }
+  if (warningAlerts.length > 0) {
+    pushFactor(
+      'warning-alerts',
+      'warning',
+      'Warning alerts active',
+      `${warningAlerts.length} warning alert${warningAlerts.length === 1 ? '' : 's'} currently active.`
+    );
+  }
+
+  Object.entries(data.checks || {}).forEach(([key, value]) => {
+    const normalized = String(value || '').toLowerCase();
+    if (normalized === 'critical' || normalized === 'error') {
+      pushFactor(
+        `check-${key}`,
+        'critical',
+        `${humanizeKey(key)} check failing`,
+        `The ${humanizeKey(key).toLowerCase()} check is reporting ${normalized}.`
+      );
+    } else if (normalized === 'warning' || normalized === 'degraded') {
+      pushFactor(
+        `check-${key}`,
+        'warning',
+        `${humanizeKey(key)} check degraded`,
+        `The ${humanizeKey(key).toLowerCase()} check is reporting ${normalized}.`
+      );
+    }
+  });
+
+  if (data.scope === 'global') {
+    const criticalOrgs = Number(data.globalSummary?.organizationStatusCounts?.critical || 0);
+    const warningOrgs = Number(data.globalSummary?.organizationStatusCounts?.warning || 0);
+    if (criticalOrgs > 0) {
+      pushFactor(
+        'critical-orgs',
+        'critical',
+        'Critical organizations present',
+        `${criticalOrgs} organization${criticalOrgs === 1 ? '' : 's'} currently report critical status.`
+      );
+    }
+    if (warningOrgs > 0) {
+      pushFactor(
+        'warning-orgs',
+        'warning',
+        'Degraded organizations present',
+        `${warningOrgs} organization${warningOrgs === 1 ? '' : 's'} currently report degraded or warning status.`
+      );
+    }
+  }
+
+  const workerSummary = data.workers?.summary;
+  if (Number(workerSummary?.stopped || 0) > 0) {
+    pushFactor(
+      'stopped-workers',
+      'critical',
+      'Stopped workers detected',
+      `${workerSummary?.stopped} background worker${workerSummary?.stopped === 1 ? '' : 's'} are stopped.`
+    );
+  }
+  if (Number(workerSummary?.stale || 0) > 0) {
+    pushFactor(
+      'stale-workers',
+      'warning',
+      'Stale workers detected',
+      `${workerSummary?.stale} background worker${workerSummary?.stale === 1 ? '' : 's'} are stale.`
+    );
+  }
+
+  if (data.logs?.app?.status === 'error' || data.logs?.access?.status === 'error') {
+    pushFactor(
+      'log-errors',
+      'critical',
+      'Runtime log collection failing',
+      'One or more runtime log files are reporting an error state.'
+    );
+  } else if (data.logs?.app?.status === 'stale' || data.logs?.access?.status === 'stale') {
+    pushFactor('log-stale', 'warning', 'Runtime logs are stale', 'Recent log files are not being updated as expected.');
+  }
+
+  if (data.scope !== 'global') {
+    if (Number(data.overall?.summary?.failed24h || 0) > 0) {
+      pushFactor(
+        'failed-deliveries',
+        'warning',
+        'Recent delivery failures present',
+        `${data.overall.summary.failed24h} failed deliver${data.overall.summary.failed24h === 1 ? 'y' : 'ies'} in the last 24 hours.`
+      );
+    }
+    if (Number(data.overall?.summary?.pendingCount || 0) > 0) {
+      pushFactor(
+        'pending-deliveries',
+        'warning',
+        'Pending deliveries queued',
+        `${data.overall.summary.pendingCount} pending deliver${data.overall.summary.pendingCount === 1 ? 'y remains' : 'ies remain'} in backlog.`
+      );
+    }
+    if (String(data.eventSources?.configuration?.state || '').toLowerCase() === 'error') {
+      pushFactor(
+        'event-source-config',
+        'critical',
+        'Event source configuration error',
+        'The configured event source is in an error state.'
+      );
+    }
+  }
+
+  if (data.processLifecycle?.abruptRestart?.detected) {
+    pushFactor(
+      'abrupt-restart',
+      'warning',
+      'Abrupt previous restart detected',
+      'The previous process ended without a clean shutdown record.'
+    );
+  }
+
+  return factors.slice(0, 6);
+}
+
+export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standalone' }) {
+  const { spacing } = useDesignTokens();
+  const { user } = useAuth();
+  const { orgId, tenant, clearOrgId } = useTenant();
+  const screens = Grid.useBreakpoint();
+  const isStandalone = mode === 'standalone';
+  const isPortalSession = !!(user as any)?.isPortalSession;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
+  const activeTab = (searchParams.get('tab') || 'overview') as TabKey;
+  const allowedViews = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('integration_gateway_user');
+      return stored ? (JSON.parse(stored)?.allowedViews ?? []) : [];
+    } catch {
+      return [] as string[];
+    }
+  }, []);
+  const canViewPortalStatus = !isPortalSession || allowedViews.length === 0 || allowedViews.includes('system_status');
+
+  const effectiveOrgId = orgId > 0 ? orgId : Number(searchParams.get('orgId') || 0);
+  const isGlobalAdminMode = !isStandalone && !isPortalSession && effectiveOrgId <= 0;
+
+  const { data, isLoading, error, dataUpdatedAt, refetch } = useQuery({
+    queryKey: ['systemStatus', isGlobalAdminMode ? 'global' : effectiveOrgId],
+    queryFn: () => getSystemStatus(isGlobalAdminMode ? null : effectiveOrgId),
+    enabled: canViewPortalStatus && (effectiveOrgId > 0 || isGlobalAdminMode),
+    staleTime: 20000,
+    refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL_MS : false,
+  });
+
+  // The countdown lives in <RefreshCountdown>, a leaf that re-renders itself
+  // once a second rather than re-rendering this route and everything on it.
+
+  const handleManualRefresh = async () => {
+    setManualRefreshPending(true);
+    try {
+      await refetch();
+    } finally {
+      setManualRefreshPending(false);
+    }
+  };
+
+  const setTab = (key: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', key);
+    setSearchParams(next, { replace: true });
+  };
+
+  const lastUpdatedAge = dataUpdatedAt ? Math.floor((Date.now() - dataUpdatedAt) / 1000) : null;
+  const dataStale = !!(autoRefresh && dataUpdatedAt && Date.now() - dataUpdatedAt > AUTO_REFRESH_INTERVAL_MS * 2);
+
+  const overallStatus = useMemo(() => getOverallStatusPresentation(data?.overall?.status), [data?.overall?.status]);
+  const lifecycleStatus = useMemo(
+    () => getProcessLifecyclePresentation(data?.processLifecycle?.current),
+    [data?.processLifecycle?.current]
+  );
+  const workerSummary = data?.workers?.summary;
+  const configurationPresentation = useMemo(
+    () => getEventSourceConfigurationPresentation(data?.eventSources?.configuration),
+    [data?.eventSources?.configuration]
+  );
+  const isGlobalScope = data?.scope === 'global';
+  const organizations = data?.organizations || [];
+  const canReturnToGlobal = !isStandalone && !isPortalSession && effectiveOrgId > 0;
+  const viewingLabel = isGlobalScope
+    ? 'Viewing: All Organizations'
+    : effectiveOrgId > 0
+      ? `Viewing: ${tenant?.tenantName || `Org ${effectiveOrgId}`}`
+      : 'Viewing: Scope Unknown';
+  const overallHealthFactors = useMemo(() => getOverallHealthFactors(data), [data]);
+
+  const directionMix = data?.traffic?.directionMixLast60m || {};
+  const backlogRows = [
+    {
+      label: 'Pending Deliveries',
+      value: Object.values(data?.backlogs?.pendingDeliveries || {}).reduce((sum, count) => sum + count, 0),
+    },
+    { label: 'DLQ', value: Object.values(data?.backlogs?.dlq || {}).reduce((sum, count) => sum + count, 0) },
+    {
+      label: 'Scheduled Integrations',
+      value: Object.values(data?.backlogs?.scheduledIntegrations || {}).reduce((sum, count) => sum + count, 0),
+    },
+  ];
+
+  if (isPortalSession && !canViewPortalStatus) {
+    return (
+      <div style={{ padding: spacing[6] }}>
+        <Alert
+          type="error"
+          showIcon
+          message="System Status is not allowed for this portal profile"
+          description="Ask your administrator to add the System Status view to this portal profile."
+        />
+      </div>
+    );
+  }
+
+  const tabItems = [
+    {
+      key: 'overview',
+      label: 'Overview',
+      children: (
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Card size="small" title="Health Drivers">
+            {overallHealthFactors.length > 0 ? (
+              <List
+                size="small"
+                dataSource={overallHealthFactors}
+                renderItem={(factor) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          {statusTag(
+                            factor.severity === 'critical'
+                              ? 'Critical'
+                              : factor.severity === 'warning'
+                                ? 'Warning'
+                                : 'Info',
+                            factor.severity === 'critical' ? 'red' : factor.severity === 'warning' ? 'warning' : 'blue'
+                          )}
+                          <Text strong>{factor.label}</Text>
+                        </Space>
+                      }
+                      description={factor.detail}
+                    />
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Text type="secondary">No warning or critical factors are currently driving the overall status.</Text>
+            )}
+          </Card>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Overall Health"
+                  value={overallStatus.label}
+                  prefix={
+                    overallStatus.color === 'green' ? (
+                      <CheckCircleOutlined />
+                    ) : overallStatus.color === 'red' ? (
+                      <ExclamationCircleOutlined />
+                    ) : (
+                      <WarningOutlined />
+                    )
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Process State"
+                  value={lifecycleStatus.label}
+                  prefix={
+                    lifecycleStatus.color === 'green' ? (
+                      <CheckCircleOutlined />
+                    ) : lifecycleStatus.color === 'orange' ? (
+                      <WarningOutlined />
+                    ) : (
+                      <ClockCircleOutlined />
+                    )
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic title="Alerts" value={data?.overall?.alertCount?.total ?? 0} />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title={isGlobalScope ? 'Organizations' : 'Deliveries (24h)'}
+                  value={
+                    isGlobalScope
+                      ? (data?.globalSummary?.organizationCount ?? 0)
+                      : (data?.overall?.summary?.deliveries24h ?? 0)
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title={isGlobalScope ? 'Critical Orgs' : 'Success Rate'}
+                  value={
+                    isGlobalScope
+                      ? (data?.globalSummary?.organizationStatusCounts?.critical ?? 0)
+                      : formatPercentage(data?.overall?.summary?.successRate24h)
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title={isGlobalScope ? 'Warning Orgs' : 'P95 Response'}
+                  value={
+                    isGlobalScope
+                      ? (data?.globalSummary?.organizationStatusCounts?.warning ?? 0)
+                      : formatDuration(data?.overall?.summary?.p95ResponseTimeMs)
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Uptime"
+                  value={data?.process?.uptime?.formatted || '—'}
+                  prefix={<ClockCircleOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={8}>
+              <Card size="small" title="Traffic Windows">
+                <KeyValueTable
+                  rows={[
+                    { label: 'Deliveries · 5m', value: data?.traffic?.deliveries?.last5m ?? 0 },
+                    { label: 'Deliveries · 15m', value: data?.traffic?.deliveries?.last15m ?? 0 },
+                    { label: 'Deliveries · 60m', value: data?.traffic?.deliveries?.last60m ?? 0 },
+                    { label: 'Inbound Events · 60m', value: data?.traffic?.inboundEvents?.last60m ?? 0 },
+                    { label: 'Inbound Events · 24h', value: data?.traffic?.inboundEvents?.last24h ?? 0 },
+                  ]}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Card size="small" title="Backlog Snapshot">
+                <KeyValueTable rows={backlogRows.map((row) => ({ label: row.label, value: row.value }))} />
+              </Card>
+            </Col>
+            <Col xs={24} xl={8}>
+              <Card size="small" title="Log Freshness">
+                <KeyValueTable
+                  rows={[
+                    {
+                      label: 'App Log',
+                      value: `${data?.logs?.app?.status || 'unknown'} · ${formatAgeLabel(data?.logs?.app?.modifiedAt)}`,
+                    },
+                    {
+                      label: 'Access Log',
+                      value: `${data?.logs?.access?.status || 'unknown'} · ${formatAgeLabel(data?.logs?.access?.modifiedAt)}`,
+                    },
+                    {
+                      label: 'Abrupt Restart',
+                      value: data?.processLifecycle?.abruptRestart?.detected
+                        ? `Yes · ${formatAgeLabel(data?.processLifecycle?.abruptRestart?.detectedAt)}`
+                        : 'No',
+                    },
+                    {
+                      label: isGlobalScope ? 'Configured Event Sources' : 'Event Source Config',
+                      value: isGlobalScope
+                        ? `${data?.globalSummary?.eventSourceConfiguredCount ?? 0}/${data?.globalSummary?.organizationCount ?? 0}`
+                        : configurationPresentation.label,
+                    },
+                    {
+                      label: 'Workers Healthy',
+                      value: workerSummary ? `${workerSummary.healthy}/${workerSummary.total}` : '—',
+                    },
+                    {
+                      label: 'Sender Profiles',
+                      value: isGlobalScope
+                        ? `${data?.senderProfiles?.summary?.total ?? 0} across ${data?.senderProfiles?.summary?.organizationCount ?? 0} orgs`
+                        : `${data?.senderProfiles?.summary?.active ?? 0}/${data?.senderProfiles?.summary?.total ?? 0} active`,
+                    },
+                  ]}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {isGlobalScope && (
+            <Card size="small" title="Organization Health">
+              <OrganizationStatusTable organizations={organizations} />
+            </Card>
+          )}
+        </Space>
+      ),
+    },
+    {
+      key: 'workers',
+      label: 'Workers',
+      children: <WorkerTable workers={data?.workers?.items || []} />,
+    },
+    {
+      key: 'event-sources',
+      label: 'Event Sources',
+      children: (
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Card size="small" title="Configuration">
+            <KeyValueTable
+              rows={
+                isGlobalScope
+                  ? [
+                      { label: 'View', value: 'Global' },
+                      { label: 'Configured Orgs', value: data?.globalSummary?.eventSourceConfiguredCount ?? 0 },
+                      { label: 'Not Configured Orgs', value: data?.globalSummary?.eventSourceNotConfiguredCount ?? 0 },
+                      { label: 'Running Adapters', value: data?.eventSources?.manager?.adapterCount ?? 0 },
+                      { label: 'Manager Sync Error', value: data?.eventSources?.manager?.lastSyncErrorMessage || '—' },
+                      {
+                        label: 'Sender Profiles',
+                        value: `${data?.senderProfiles?.summary?.total ?? 0} across ${data?.senderProfiles?.summary?.organizationCount ?? 0} orgs`,
+                      },
+                    ]
+                  : [
+                      { label: 'State', value: configurationPresentation.label },
+                      { label: 'Configured', value: data?.eventSources?.configuration?.configured ? 'Yes' : 'No' },
+                      { label: 'Source Type', value: data?.eventSources?.configuration?.sourceType || '—' },
+                      { label: 'Config Origin', value: data?.eventSources?.configuration?.configOrigin || '—' },
+                      {
+                        label: 'Configuration Error',
+                        value: data?.eventSources?.configuration?.error?.errorMessage || '—',
+                      },
+                      { label: 'Sender Profiles', value: data?.senderProfiles?.summary?.total ?? 0 },
+                      { label: 'Default Sender', value: data?.senderProfiles?.defaultProfile?.fromEmail || '—' },
+                    ]
+              }
+            />
+          </Card>
+          <Card size="small" title="Sender Profiles">
+            {isGlobalScope ? (
+              <KeyValueTable
+                rows={[
+                  { label: 'Total Profiles', value: data?.senderProfiles?.summary?.total ?? 0 },
+                  { label: 'Active Profiles', value: data?.senderProfiles?.summary?.active ?? 0 },
+                  { label: 'Inactive Profiles', value: data?.senderProfiles?.summary?.inactive ?? 0 },
+                  { label: 'Default Profiles', value: data?.senderProfiles?.summary?.defaultCount ?? 0 },
+                  {
+                    label: 'Organizations Using Profiles',
+                    value: data?.senderProfiles?.summary?.organizationCount ?? 0,
+                  },
+                  {
+                    label: 'Providers',
+                    value: Object.keys(data?.senderProfiles?.summary?.providers || {}).length ? (
+                      <Space size={[4, 4]} wrap>
+                        {Object.entries(data?.senderProfiles?.summary?.providers || {}).map(([provider, count]) => (
+                          <Tag key={provider}>{`${provider}: ${count}`}</Tag>
+                        ))}
+                      </Space>
+                    ) : (
+                      '—'
+                    ),
+                  },
+                ]}
+              />
+            ) : (data?.senderProfiles?.items?.length || 0) > 0 ? (
+              <SenderProfilesTable items={data?.senderProfiles?.items || []} />
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No sender profiles configured" />
+            )}
+          </Card>
+          {!isGlobalScope &&
+          (data?.eventSources?.configuration?.state === 'not_configured' ||
+            (data?.eventSources?.orgAdapters?.length || 0) === 0) ? (
+            <Alert
+              type="info"
+              showIcon
+              message="No event source configured"
+              description="This org does not currently have a running event source adapter. That is different from a failed adapter."
+            />
+          ) : (
+            <EventSourceTable adapters={data?.eventSources?.orgAdapters || []} />
+          )}
+        </Space>
+      ),
+    },
+    {
+      key: 'runtime',
+      label: 'Runtime',
+      children: (
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={12}>
+            <Card size="small" title="Application Runtime">
+              <KeyValueTable
+                rows={[
+                  { label: 'Version', value: data?.process?.appVersion || '—' },
+                  { label: 'Node', value: data?.process?.nodeVersion || '—' },
+                  { label: 'Environment', value: data?.process?.environment || '—' },
+                  { label: 'PID', value: data?.process?.pid ?? '—' },
+                  { label: 'Started', value: formatDateTime(data?.process?.startedAt) },
+                  { label: 'Lifecycle Status', value: lifecycleStatus.label },
+                  { label: 'Lifecycle Updated', value: formatDateTime(data?.processLifecycle?.current?.updatedAt) },
+                  { label: 'Drain Reason', value: data?.processLifecycle?.current?.reason || '—' },
+                  { label: 'MySQL', value: data?.process?.mysql?.status || '—' },
+                ]}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} xl={12}>
+            <Card size="small" title="Memory & Host">
+              <KeyValueTable
+                rows={[
+                  {
+                    label: 'Node Heap Used',
+                    value:
+                      data?.process?.memory?.stats?.nodeHeapUsedMB !== undefined
+                        ? `${data.process.memory.stats.nodeHeapUsedMB} MB`
+                        : '—',
+                  },
+                  {
+                    label: 'Node Heap Limit',
+                    value:
+                      data?.process?.memory?.stats?.nodeHeapLimitMB !== undefined
+                        ? `${data.process.memory.stats.nodeHeapLimitMB} MB`
+                        : '—',
+                  },
+                  {
+                    label: 'Node Heap Usage',
+                    value:
+                      data?.process?.memory?.stats?.nodeHeapUsagePercent !== undefined
+                        ? formatPercentage(data.process.memory.stats.nodeHeapUsagePercent, 0)
+                        : '—',
+                  },
+                  {
+                    label: 'RSS',
+                    value:
+                      data?.process?.memory?.stats?.processRssMB !== undefined
+                        ? `${data.process.memory.stats.processRssMB} MB`
+                        : data?.process?.memory?.stats?.rss !== undefined
+                          ? `${data.process.memory.stats.rss} MB`
+                          : '—',
+                  },
+                  {
+                    label: 'Host Memory Usage',
+                    value:
+                      data?.process?.memory?.stats?.hostUsagePercent !== undefined
+                        ? formatPercentage(data.process.memory.stats.hostUsagePercent, 0)
+                        : '—',
+                  },
+                  { label: 'Host Free Memory', value: formatBytes(data?.process?.host?.freeMemoryBytes) },
+                  { label: 'Host Total Memory', value: formatBytes(data?.process?.host?.totalMemoryBytes) },
+                  {
+                    label: 'Host Load',
+                    value: Array.isArray(data?.process?.host?.loadAverage)
+                      ? data?.process?.host?.loadAverage?.map((value) => value.toFixed(2)).join(' / ')
+                      : '—',
+                  },
+                  { label: 'Hostname', value: data?.process?.host?.hostname || '—' },
+                ]}
+              />
+            </Card>
+          </Col>
+          <Col xs={24}>
+            <Card size="small" title="Lifecycle Diagnostics">
+              <KeyValueTable
+                rows={[
+                  { label: 'Current Status', value: lifecycleStatus.label },
+                  { label: 'Current PID', value: data?.processLifecycle?.current?.pid ?? '—' },
+                  { label: 'Current Started', value: formatDateTime(data?.processLifecycle?.current?.startedAt) },
+                  { label: 'Current Updated', value: formatDateTime(data?.processLifecycle?.current?.updatedAt) },
+                  { label: 'Current Stopped', value: formatDateTime(data?.processLifecycle?.current?.stoppedAt) },
+                  { label: 'Current Error', value: data?.processLifecycle?.current?.error?.message || '—' },
+                  {
+                    label: 'Abrupt Previous Restart',
+                    value: data?.processLifecycle?.abruptRestart?.detected ? 'Detected' : 'Not detected',
+                  },
+                  {
+                    label: 'Abrupt Restart Detected At',
+                    value: formatDateTime(data?.processLifecycle?.abruptRestart?.detectedAt),
+                  },
+                  { label: 'Previous PID', value: data?.processLifecycle?.abruptRestart?.previousPid ?? '—' },
+                  { label: 'Previous Status', value: data?.processLifecycle?.abruptRestart?.previousStatus || '—' },
+                  {
+                    label: 'Previous Started',
+                    value: formatDateTime(data?.processLifecycle?.abruptRestart?.previousStartedAt),
+                  },
+                  {
+                    label: 'Previous Updated',
+                    value: formatDateTime(data?.processLifecycle?.abruptRestart?.previousUpdatedAt),
+                  },
+                  { label: 'Previous Reason', value: data?.processLifecycle?.abruptRestart?.previousReason || '—' },
+                ]}
+              />
+            </Card>
+          </Col>
+          <Col xs={24}>
+            <Card size="small" title="Log Files">
+              <ModernTable
+                size="small"
+                pagination={false}
+                rowKey={(row) => row.key}
+                dataSource={[
+                  { key: 'app', label: 'App Log', ...data?.logs?.app },
+                  { key: 'access', label: 'Access Log', ...data?.logs?.access },
+                ]}
+                columns={[
+                  { title: 'Log', dataIndex: 'label', key: 'label' },
+                  {
+                    title: 'Status',
+                    key: 'status',
+                    render: (_, row) =>
+                      statusTag(
+                        String(row.status || 'unknown'),
+                        row.status === 'fresh'
+                          ? 'green'
+                          : row.status === 'stale'
+                            ? 'warning'
+                            : row.status === 'error'
+                              ? 'red'
+                              : 'default'
+                      ),
+                  },
+                  { title: 'Modified', key: 'modifiedAt', render: (_, row) => formatDateTime(row.modifiedAt) },
+                  {
+                    title: 'Age',
+                    key: 'age',
+                    render: (_, row) => (row.modifiedAt ? formatAgeLabel(row.modifiedAt) : '—'),
+                  },
+                  { title: 'Size', key: 'size', render: (_, row) => formatBytes(row.sizeBytes) },
+                  { title: 'File', dataIndex: 'fileName', key: 'fileName', render: (value: string) => value || '—' },
+                ]}
+              />
+            </Card>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'traffic',
+      label: 'Traffic & Backlog',
+      children: (
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={12}>
+            <Card size="small" title="Direction Mix (60m)">
+              {Object.keys(directionMix).length === 0 ? (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No direction mix data" />
+              ) : (
+                <Space size={[8, 8]} wrap>
+                  {Object.entries(directionMix).map(([direction, count]) => (
+                    <Tag key={direction}>{`${direction}: ${count}`}</Tag>
+                  ))}
+                </Space>
+              )}
+            </Card>
+          </Col>
+          <Col xs={24} xl={12}>
+            <Card size="small" title="Backlog Breakdown">
+              <Descriptions size="small" bordered column={1}>
+                <Descriptions.Item label="Pending Deliveries">
+                  <Space size={[4, 4]} wrap>
+                    {Object.entries(data?.backlogs?.pendingDeliveries || {}).map(([key, value]) => (
+                      <Tag key={key}>{`${key}: ${value}`}</Tag>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+                <Descriptions.Item label="DLQ">
+                  <Space size={[4, 4]} wrap>
+                    {Object.entries(data?.backlogs?.dlq || {}).map(([key, value]) => (
+                      <Tag key={key}>{`${key}: ${value}`}</Tag>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+                <Descriptions.Item label="Scheduled Integrations">
+                  <Space size={[4, 4]} wrap>
+                    {Object.entries(data?.backlogs?.scheduledIntegrations || {}).map(([key, value]) => (
+                      <Tag key={key}>{`${key}: ${value}`}</Tag>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </Col>
+          <Col xs={24}>
+            <Card size="small" title="Scheduled Jobs">
+              <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col xs={24} md={8}>
+                  <Statistic title="Total" value={data?.scheduledJobs?.summary?.total ?? 0} />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Statistic title="Active" value={data?.scheduledJobs?.summary?.active ?? 0} />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Statistic title="Loaded Tasks" value={data?.scheduledJobs?.worker?.loadedTasks ?? 0} />
+                </Col>
+              </Row>
+              <ModernTable
+                size="small"
+                rowKey={(row) => `${row.integrationId}-${row.correlationId}`}
+                pagination={false}
+                dataSource={data?.scheduledJobs?.recentExecutions || []}
+                columns={[
+                  { title: 'Job', dataIndex: 'integrationName', key: 'integrationName' },
+                  {
+                    title: 'Status',
+                    key: 'status',
+                    render: (_, row) =>
+                      statusTag(
+                        String(row.status || 'unknown'),
+                        row.status === 'success' ? 'green' : row.status === 'failed' ? 'red' : 'default'
+                      ),
+                  },
+                  { title: 'Started', key: 'startedAt', render: (_, row) => formatDateTime(row.startedAt) },
+                  { title: 'Duration', key: 'durationMs', render: (_, row) => formatDuration(row.durationMs) },
+                  { title: 'Records', dataIndex: 'recordsFetched', key: 'recordsFetched' },
+                ]}
+              />
+            </Card>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'alerts',
+      label: 'Alerts',
+      children: <AlertsList data={data as SystemStatusResponse} />,
+    },
+  ];
+
+  return (
+    <div style={{ padding: isStandalone ? spacing[4] : spacing[6] }}>
+      <PageHeader
+        title="System Status"
+        description={
+          dataUpdatedAt
+            ? `Last updated ${lastUpdatedAge}s ago`
+            : isGlobalAdminMode
+              ? 'Global application health across all organizations.'
+              : 'Live application health, worker status, traffic, and runtime visibility.'
+        }
+        titleSuffix={isPortalSession ? <PortalScopeBadge /> : undefined}
+        statusChips={[
+          { label: viewingLabel, color: isGlobalScope ? '#1677ff' : undefined },
+          {
+            label: overallStatus.label,
+            color:
+              overallStatus.color === 'orange'
+                ? '#faad14'
+                : overallStatus.color === 'green'
+                  ? '#52c41a'
+                  : overallStatus.color === 'red'
+                    ? '#ff4d4f'
+                    : undefined,
+          },
+          {
+            label: lifecycleStatus.label,
+            color:
+              lifecycleStatus.color === 'orange'
+                ? '#faad14'
+                : lifecycleStatus.color === 'green'
+                  ? '#52c41a'
+                  : lifecycleStatus.color === 'red'
+                    ? '#ff4d4f'
+                    : lifecycleStatus.color === 'blue'
+                      ? '#1677ff'
+                      : undefined,
+          },
+          {
+            label: `${data?.overall?.alertCount?.total ?? 0} alerts`,
+            color: (data?.overall?.alertCount?.total || 0) > 0 ? '#faad14' : undefined,
+          },
+          { label: data?.processLifecycle?.abruptRestart?.detected ? 'Abrupt restart detected' : 'No abrupt restart' },
+          isGlobalScope
+            ? { label: `${data?.globalSummary?.organizationCount ?? 0} orgs`, color: '#1677ff' }
+            : {
+                label: configurationPresentation.label,
+                color:
+                  configurationPresentation.color === 'orange'
+                    ? '#faad14'
+                    : configurationPresentation.color === 'green'
+                      ? '#52c41a'
+                      : configurationPresentation.color === 'red'
+                        ? '#ff4d4f'
+                        : configurationPresentation.color === 'blue'
+                          ? '#1677ff'
+                          : undefined,
+              },
+          {
+            label: workerSummary
+              ? `${workerSummary.healthy}/${workerSummary.total} workers healthy`
+              : 'Workers unknown',
+          },
+        ]}
+        actions={
+          <Space wrap>
+            <Space size={8}>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                {autoRefresh ? (
+                  <RefreshCountdown intervalMs={AUTO_REFRESH_INTERVAL_MS} lastRefreshAt={dataUpdatedAt} />
+                ) : (
+                  'Auto-refresh off'
+                )}
+              </Text>
+              <Switch size="small" checked={autoRefresh} onChange={setAutoRefresh} />
+            </Space>
+            <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={manualRefreshPending}>
+              {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          </Space>
+        }
+      />
+
+      {isGlobalScope && (
+        <Alert
+          type="info"
+          showIcon
+          message="Global Scope"
+          description="This view aggregates application and organization status across all orgs. Use the org switcher in the header to move into a single org's detailed diagnostics."
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {canReturnToGlobal && (
+        <Alert
+          type="info"
+          showIcon
+          message={`Org Scope Active${tenant?.tenantName ? `: ${tenant.tenantName}` : ''}`}
+          description="You are viewing detailed status for one organization. Clear the current org selection to return to the global all-organizations view."
+          action={
+            <Button size="small" onClick={() => clearOrgId()}>
+              Return to Global View
+            </Button>
+          }
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          message="Failed to load system status"
+          description={(error as Error).message}
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {data?.processLifecycle?.current?.status === 'draining' && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          message="Application is draining"
+          description={
+            data?.processLifecycle?.current?.reason
+              ? `New traffic should be routed away from this instance. Drain reason: ${data.processLifecycle.current.reason}`
+              : 'New traffic should be routed away from this instance while background work winds down.'
+          }
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {data?.processLifecycle?.abruptRestart?.detected && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<ExclamationCircleOutlined />}
+          message="Abrupt previous restart detected"
+          description={`The previous process did not record a clean stop. Detected ${formatAgeLabel(data.processLifecycle.abruptRestart.detectedAt)}.`}
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {dataStale && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          message="Status data is stale"
+          description="Auto-refresh is enabled, but the last successful update is older than expected. The data below may no longer reflect the current system state."
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {isLoading && !data ? (
+        <Card>
+          <Paragraph type="secondary" style={{ margin: 0 }}>
+            Loading system status…
+          </Paragraph>
+        </Card>
+      ) : !data ? (
+        <Card>
+          <Empty description="No system status data" />
+        </Card>
+      ) : (
+        <Tabs
+          activeKey={TAB_KEYS.includes(activeTab) ? activeTab : 'overview'}
+          onChange={setTab}
+          items={tabItems}
+          tabBarGutter={screens.md ? 24 : 12}
+        />
+      )}
+    </div>
+  );
+}
+
+export default SystemStatusRoute;

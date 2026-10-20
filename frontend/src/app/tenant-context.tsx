@@ -1,0 +1,230 @@
+import { createContext, useContext, useMemo, useState, useEffect, useCallback, startTransition } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useLocation } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { getTenantInfo, setCurrentOrgId } from '../services/api';
+import type { TenantInfo } from '../mocks/types';
+import { useAuth } from './auth-context';
+
+interface TenantContextValue {
+  tenant?: TenantInfo;
+  orgId: number;
+  isLoading: boolean;
+  error?: Error | null;
+  /** Re-runs the tenant fetch — used by the retry action on the boot gate. */
+  retryTenant: () => void;
+  setManualOrgId: (orgId: number, destination?: string) => void;
+  /** Forget the selected organization; optionally go to `destination` (an org-free path). */
+  clearOrgId: (destination?: string) => void;
+}
+
+const TenantContext = createContext<TenantContextValue | undefined>(undefined);
+
+const STORAGE_KEY = 'integration_gateway_org_id';
+const LEGACY_STORAGE_KEY = 'integration_gateway_entity_rid';
+
+/**
+ * Get orgId from multiple sources (in priority order):
+ * 1. URL query parameter
+ * 2. SessionStorage (persists across refresh in same tab)
+ * 3. LocalStorage (persists across tabs/sessions - fallback)
+ */
+const resolveOrgIdFromContext = (): number => {
+  // 1. Try URL parameter first (highest priority)
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = Number(params.get('orgId') || '0');
+  if (Number.isFinite(fromUrl) && fromUrl > 0) {
+    // Found in URL - save to storage for future refreshes
+    sessionStorage.setItem(STORAGE_KEY, fromUrl.toString());
+    localStorage.setItem(STORAGE_KEY, fromUrl.toString());
+    return fromUrl;
+  }
+
+  // 2. Try sessionStorage (survives refresh in same tab)
+  const fromSession = sessionStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(LEGACY_STORAGE_KEY);
+  if (fromSession) {
+    const rid = Number(fromSession);
+    if (Number.isFinite(rid) && rid > 0) {
+      sessionStorage.setItem(STORAGE_KEY, rid.toString());
+      return rid;
+    }
+  }
+
+  // 3. Try localStorage (survives across tabs/sessions)
+  const fromLocal = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (fromLocal) {
+    const rid = Number(fromLocal);
+    if (Number.isFinite(rid) && rid > 0) {
+      // Move to sessionStorage for this session
+      sessionStorage.setItem(STORAGE_KEY, rid.toString());
+      localStorage.setItem(STORAGE_KEY, rid.toString());
+      return rid;
+    }
+  }
+
+  // No orgId found anywhere
+  return 0;
+};
+
+/**
+ * Save orgId to both storages
+ */
+const saveOrgId = (orgId: number) => {
+  sessionStorage.setItem(STORAGE_KEY, orgId.toString());
+  localStorage.setItem(STORAGE_KEY, orgId.toString());
+  // Keep legacy key during transition window
+  sessionStorage.setItem(LEGACY_STORAGE_KEY, orgId.toString());
+  localStorage.setItem(LEGACY_STORAGE_KEY, orgId.toString());
+  setCurrentOrgId(orgId);
+};
+
+export const TenantProvider = ({ children }: { children: ReactNode }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const [orgId, setOrgId] = useState(() => {
+    const resolvedOrgId = resolveOrgIdFromContext();
+    if (resolvedOrgId > 0) {
+      setCurrentOrgId(resolvedOrgId);
+    } else {
+      setCurrentOrgId(null);
+    }
+    return resolvedOrgId;
+  });
+
+  // Keep browser history and the active request context in lockstep. Without
+  // this, back/forward navigation could display one orgId in the URL while
+  // requests continued to use the previously selected organization.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlOrgId = Number(params.get('orgId') || '0');
+    if (!Number.isFinite(urlOrgId) || urlOrgId <= 0) return;
+
+    const scopedUserOrgId = user?.orgId && Number.isFinite(user.orgId) ? user.orgId : null;
+    const nextOrgId = scopedUserOrgId || urlOrgId;
+
+    if (urlOrgId !== nextOrgId) {
+      params.set('orgId', String(nextOrgId));
+      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+    }
+
+    if (orgId !== nextOrgId) {
+      saveOrgId(nextOrgId);
+      setOrgId(nextOrgId);
+    }
+  }, [location.pathname, location.search, navigate, orgId, user?.orgId]);
+
+  // If user is org-scoped, ensure orgId matches their user.orgId
+  // This prevents stale orgId from localStorage when switching users
+  useEffect(() => {
+    if (user?.orgId && Number.isFinite(user.orgId)) {
+      const current = resolveOrgIdFromContext();
+      // Update orgId if missing OR if it doesn't match the user's orgId
+      if (!current || current <= 0 || current !== user.orgId) {
+        saveOrgId(user.orgId);
+        setOrgId(user.orgId);
+      }
+    }
+  }, [user?.orgId]);
+
+  // SUPER_ADMIN doesn't need a default orgId - they can navigate to admin routes without one
+  // They will explicitly select an org when needed via the org switcher dropdown
+
+  // Sync URL with orgId if missing from URL but present in storage
+  // Skip on the landing page — orgId has no meaning there and should not appear in the URL
+  useEffect(() => {
+    if (orgId > 0 && location.pathname !== '/') {
+      const params = new URLSearchParams(location.search);
+      const urlRid = params.get('orgId');
+
+      // If URL doesn't have orgId, add it
+      if (!urlRid) {
+        params.set('orgId', orgId.toString());
+        // Replace current URL without creating new history entry
+        navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+      }
+    }
+  }, [orgId, location.pathname, location.search, navigate]);
+
+  // Function to manually set orgId (for recovery/development)
+  const setManualOrgId = useCallback(
+    (nextOrgId: number, destination?: string) => {
+      if (Number.isFinite(nextOrgId) && nextOrgId > 0) {
+        saveOrgId(nextOrgId);
+        setOrgId(nextOrgId);
+
+        const [nextPathname, destinationSearch = ''] = destination
+          ? destination.split('?', 2)
+          : [location.pathname, location.search];
+        const params = new URLSearchParams(destinationSearch);
+        params.set('orgId', nextOrgId.toString());
+        navigate(`${nextPathname}?${params.toString()}`, { replace: true });
+      }
+    },
+    [location.search, location.pathname, navigate]
+  );
+
+  const clearOrgId = useCallback((destination?: string) => {
+    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    setCurrentOrgId(null);
+
+    const params = new URLSearchParams(location.search);
+    params.delete('orgId');
+    const query = params.toString();
+    navigate(destination ?? (query ? `${location.pathname}?${query}` : location.pathname), { replace: true });
+    // React Router applies navigations as transitions. Clearing the org in the
+    // same transition makes both land in one render; otherwise the URL-sync
+    // effect sees orgId=0 next to the old URL and restores the old org.
+    startTransition(() => setOrgId(0));
+  }, [location.search, location.pathname, navigate]);
+
+  // Load tenant info when orgId is set (for all roles, including SUPER_ADMIN when they switch orgs)
+  const shouldFetchTenant = orgId > 0;
+
+  const {
+    data,
+    isLoading,
+    error: queryError,
+    refetch: refetchTenant,
+  } = useQuery({
+    queryKey: ['tenant', orgId],
+    queryFn: () => getTenantInfo(),
+    enabled: shouldFetchTenant,
+    retry: 1, // Don't retry indefinitely if the server is offline
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const value = useMemo<TenantContextValue>(() => {
+    return {
+      tenant: data,
+      orgId,
+      isLoading,
+      error: queryError || (!shouldFetchTenant && orgId === 0 ? new Error('Missing orgId parameter') : null),
+      retryTenant: () => {
+        void refetchTenant();
+      },
+      setManualOrgId,
+      clearOrgId,
+    };
+  }, [data, orgId, isLoading, queryError, shouldFetchTenant, refetchTenant, setManualOrgId, clearOrgId]);
+
+  const tenantBoundaryKey = `${orgId || 'global'}:${JSON.stringify(user || 'anonymous')}`;
+
+  return (
+    <TenantContext.Provider key={tenantBoundaryKey} value={value}>
+      {children}
+    </TenantContext.Provider>
+  );
+};
+
+export const useTenant = () => {
+  const ctx = useContext(TenantContext);
+  if (!ctx) {
+    throw new Error('useTenant must be used within TenantProvider');
+  }
+  return ctx;
+};

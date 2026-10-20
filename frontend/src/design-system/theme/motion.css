@@ -1,0 +1,171 @@
+/* ============================================================================
+   Motion language
+
+   One easing family, one rhythm, and motion only where it says something:
+   - a page arrives section by section, so the eye lands on the title first;
+   - a number that changes counts to its new value, so the change is noticed;
+   - the sidebar highlight travels to the page you chose.
+
+   Nothing here loops.
+   ========================================================================= */
+
+:root {
+  /* Critically damped spring: physical settle, never overshoots. */
+  --motion-spring: linear(0, 0.076, 0.228, 0.391, 0.538, 0.658, 0.752, 0.823, 0.875, 0.913, 0.94, 0.959, 0.972, 0.981, 0.988, 0.992, 0.995, 0.997, 0.998, 0.999, 1);
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-press: 90ms;
+  --motion-enter: 360ms;
+  --motion-stagger: 45ms;
+}
+
+/* ── Page entrance ───────────────────────────────────────────────────────
+   Each section of a newly mounted route rises in, in order. CSS rather than
+   JS so it fires exactly when a lazy route's DOM lands, with no timers.
+   `backwards` (not `both`) so no transform is left behind afterwards to
+   become a containing block for fixed or sticky descendants. */
+.content-stack > * > * {
+  animation: motion-section-enter var(--motion-enter) var(--motion-ease-out) backwards;
+}
+
+.content-stack > * > :nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
+.content-stack > * > :nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
+.content-stack > * > :nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
+.content-stack > * > :nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
+.content-stack > * > :nth-child(n + 6) { animation-delay: calc(var(--motion-stagger) * 5); }
+
+@keyframes motion-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* ── Press feedback ─────────────────────────────────────────────────────── */
+.ant-btn:not(:disabled):active {
+  transform: scale(0.97);
+  transition-duration: var(--motion-press);
+}
+
+/* ── Page transitions (View Transitions API) ──────────────────────────────
+   Only the content area moves between pages; the sidebar and header are the
+   frame and stay still. The outgoing page leaves faster than the new one
+   arrives. A clicked name (markMorphSource) flies into the detail page's
+   title, so it is clear which record opened. */
+.content-stack {
+  view-transition-name: page;
+}
+
+.vt-entity-title {
+  view-transition-name: entity-title;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(page) {
+  animation: motion-page-out 120ms var(--motion-ease-in-out) both;
+}
+
+::view-transition-new(page) {
+  animation: motion-page-in 220ms var(--motion-ease-out) both;
+}
+
+::view-transition-group(entity-title) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--motion-ease-out);
+}
+
+::view-transition-old(entity-title),
+::view-transition-new(entity-title) {
+  height: 100%;
+  object-fit: none;
+  object-position: left center;
+}
+
+@keyframes motion-page-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes motion-page-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ── Toasts ──────────────────────────────────────────────────────────────
+   A compact pill that grows open from its centre on a damped spring, the
+   way a status island expands, and closes faster than it opened. */
+.ant-message .ant-message-notice-wrapper .ant-message-notice-content {
+  border-radius: 999px !important;
+  padding: 8px 16px;
+  background: var(--color-text-primary);
+  color: var(--color-bg-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.ant-message .ant-message-notice-wrapper .ant-message-notice-content .ant-message-custom-content > .anticon {
+  filter: saturate(1.2) brightness(1.15);
+}
+
+.ant-message .ant-message-move-up-appear,
+.ant-message .ant-message-move-up-enter {
+  animation-name: motion-island-in !important;
+  animation-duration: 420ms !important;
+  animation-timing-function: var(--motion-spring) !important;
+}
+
+.ant-message .ant-message-move-up-leave {
+  animation-name: motion-island-out !important;
+  animation-duration: 160ms !important;
+  animation-timing-function: var(--motion-ease-in-out) !important;
+}
+
+@keyframes motion-island-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.92);
+    clip-path: inset(0 35% round 999px);
+  }
+  40% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 round 999px);
+  }
+}
+
+@keyframes motion-island-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+/* ── Reduced motion: every vignette settles on its final frame ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  .content-stack > * > * {
+    animation: none;
+  }
+
+  .ant-btn:not(:disabled):active {
+    transform: none;
+  }
+
+  .ant-message .ant-message-move-up-appear,
+  .ant-message .ant-message-move-up-enter {
+    animation-name: motion-page-in !important;
+    animation-duration: 120ms !important;
+  }
+
+  .ant-message .ant-message-move-up-leave {
+    animation-name: motion-page-out !important;
+    animation-duration: 120ms !important;
+  }
+}

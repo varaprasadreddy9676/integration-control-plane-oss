@@ -1,0 +1,8 @@
+{
+  "ICP_ENV": "validation",
+  "ICP_API_BASE_URL": "https://validation.example.com/integration-gateway-server/api/v1",
+  "ICP_API_KEY": "replace-with-a-personal-access-token",
+  "ICP_MCP_CLIENT_NAME": "my-mcp-client",
+  "ICP_REQUEST_TIMEOUT_MS": "30000",
+  "ICP_MAX_RETRIES": "2"
+}

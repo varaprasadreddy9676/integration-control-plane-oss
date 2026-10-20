@@ -1,0 +1,99 @@
+/* ============================================================================
+   Surfaces
+
+   Quieter chrome so the data reads first: soft tags instead of outlined pills,
+   and a cursor spotlight that shows which card the pointer is over.
+   Loaded after global.css so these win without !important.
+   ========================================================================= */
+
+/* ── Tags ────────────────────────────────────────────────────────────────
+   Soft fill, no outline, compact. Status colors keep their tinted fill.
+   !important on shape and outline only: ~90 tags across the app set a pill
+   radius and border inline, and this is the one place that should decide. */
+.ant-tag {
+  border-color: transparent !important;
+  border-radius: 6px !important;
+  padding: 1px 8px;
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.ant-tag:not([class*='ant-tag-']),
+.ant-tag.ant-tag-default {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+/* ── Spotlight ───────────────────────────────────────────────────────────
+   spotlight.ts writes the pointer position into --spot-x / --spot-y on the
+   card under the cursor. A soft glow follows it, and the card's border
+   brightens only near the pointer. Pointer devices only. */
+@media (hover: hover) and (pointer: fine) {
+  .ant-card,
+  .dashboard-metric-tile,
+  [data-spotlight] {
+    --spot-x: 50%;
+    --spot-y: 50%;
+  }
+
+  .ant-card::after,
+  .dashboard-metric-tile::after,
+  [data-spotlight]::after {
+    content: '';
+    position: absolute;
+    /* Inside the border, not on it: many cards clip their overflow. */
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 1px;
+    background:
+      radial-gradient(
+        320px circle at var(--spot-x) var(--spot-y),
+        color-mix(in srgb, var(--color-primary-500) 45%, transparent),
+        transparent 70%
+      )
+      border-box;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    opacity: 0;
+    transition: opacity 200ms var(--motion-ease-out);
+    z-index: 1;
+  }
+
+  .ant-card::before,
+  .dashboard-metric-tile::before,
+  [data-spotlight]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(
+      480px circle at var(--spot-x) var(--spot-y),
+      color-mix(in srgb, var(--color-primary-500) 8%, transparent),
+      transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 200ms var(--motion-ease-out);
+  }
+
+  .ant-card:hover::after,
+  .ant-card:hover::before,
+  .dashboard-metric-tile:hover::after,
+  .dashboard-metric-tile:hover::before,
+  [data-spotlight]:hover::after,
+  [data-spotlight]:hover::before {
+    opacity: 1;
+  }
+
+  .dashboard-metric-tile,
+  [data-spotlight] {
+    position: relative;
+  }
+}

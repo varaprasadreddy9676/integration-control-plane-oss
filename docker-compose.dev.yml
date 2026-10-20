@@ -1,0 +1,81 @@
+# Development docker-compose with hot reloading and development tools
+services:
+  # MongoDB - Primary database
+  mongodb:
+    image: mongo:9.0
+    container_name: integration-gateway-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: integration_gateway
+      # MongoDB 8.x/9.x refuse to start on Linux kernels 6.19.0-7.0.13
+      # (SERVER-121912). Letting glibc own rseq avoids the incompatibility; on
+      # other kernels this is glibc's default and changes nothing.
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
+    volumes:
+      - mongodb_data_dev:/data/db
+    networks:
+      - integration-gateway-dev-network
+
+  # Backend API with nodemon for hot reloading
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: integration-gateway-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3545:3545"
+      - "9229:9229"  # Node.js debugger port
+    environment:
+      NODE_ENV: development
+      DEBUG: "app:*"
+      PORT: 3545
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/integration_gateway}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-integration_gateway}
+      API_KEY: ${API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-change_me_dev_jwt_secret}
+      API_RATE_LIMIT_ENABLED: ${API_RATE_LIMIT_ENABLED:-true}
+      API_RATE_LIMIT_MAX_REQUESTS: ${API_RATE_LIMIT_MAX_REQUESTS:-100}
+      API_RATE_LIMIT_WINDOW_SECONDS: ${API_RATE_LIMIT_WINDOW_SECONDS:-60}
+      INBOUND_MINIMAL_LOGGING: ${INBOUND_MINIMAL_LOGGING:-false}
+    volumes:
+      # Mount source code for hot reloading
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - integration-gateway-dev-network
+    depends_on:
+      - mongodb
+    command: npm run dev
+
+  # Frontend with Vite dev server for hot reloading
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: integration-gateway-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "5175:5175"  # Vite dev server port
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://localhost:3545/api/v1
+    volumes:
+      # Mount source code for hot reloading
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - integration-gateway-dev-network
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  mongodb_data_dev:
+    driver: local
+
+networks:
+  integration-gateway-dev-network:
+    driver: bridge

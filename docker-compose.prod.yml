@@ -1,0 +1,119 @@
+# Production Docker Compose — Integration Control Plane
+#
+# Usage:
+#   1. Copy .env.prod.example → .env.prod and fill in your values
+#   2. Build images:
+#        sudo docker compose -f docker-compose.prod.yml --env-file .env.prod build
+#   3. Start:
+#        sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Architecture (typical deployment):
+#   Reverse proxy / ALB → /api-path/*        → backend container (BACKEND_PORT)
+#   Reverse proxy / ALB → /frontend-path/*   → frontend container (FRONTEND_PORT)
+#
+# MongoDB:
+#   If your MongoDB runs on the host (not in Docker), set MONGODB_URI to use
+#   "host.docker.internal" instead of "localhost". The extra_hosts entry below
+#   makes that hostname resolve correctly on Linux.
+
+services:
+  # ── Backend API ────────────────────────────────────────────────────────────
+  backend:
+    image: integration-control-plane-backend:prod
+    container_name: integration-control-plane-backend
+    restart: unless-stopped
+    # The app drains workers on SIGTERM and exits within ~10s after that; give it room.
+    stop_grace_period: 30s
+
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    ports:
+      - "${BACKEND_PORT:-3545}:${BACKEND_PORT:-3545}"
+
+    # Allows the container to reach MongoDB (or any service) on the host machine.
+    # On Linux this is required when MongoDB is not itself in Docker.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT:-3545}
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-integration_gateway}
+      API_KEY: ${API_KEY}
+      API_KEY_ORG_IDS: ${API_KEY_ORG_IDS:-}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      # Encrypts integration credentials and gateway secrets at rest. Must be the SAME
+      # value the data was encrypted with (see docs/guides/SECRETS-AND-RECOVERY.md) —
+      # compose refuses to start without it, and so does the app.
+      GATEWAY_SECRET_KEY: ${GATEWAY_SECRET_KEY:?Set GATEWAY_SECRET_KEY in .env.prod (64 hex chars) - see docs/guides/SECRETS-AND-RECOVERY.md}
+      GATEWAY_SECRET_KEY_REQUIRED: "true"
+      # Optional tuning — uncomment as needed
+      # AI_DEFAULT_TIMEOUT_MS: ${AI_DEFAULT_TIMEOUT_MS:-120000}
+      # AI_LOCAL_RUNTIME_ALLOW_LOOPBACK: ${AI_LOCAL_RUNTIME_ALLOW_LOOPBACK:-false}
+      # INBOUND_MINIMAL_LOGGING: ${INBOUND_MINIMAL_LOGGING:-false}
+
+    volumes:
+      - backend_logs:/app/logs
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          const req = require('http').get('http://127.0.0.1:' + (process.env.PORT || 3545) + '/', (r) =>
+            process.exit(r.statusCode < 500 ? 0 : 1));
+          req.on('error', () => process.exit(1));
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── Frontend (nginx) ───────────────────────────────────────────────────────
+  # VITE_API_BASE_URL is baked into the JS bundle at build time.
+  # Rebuilding the image is required whenever this URL changes.
+  frontend:
+    image: integration-control-plane-frontend:prod
+    container_name: integration-control-plane-frontend
+    restart: unless-stopped
+
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Integration Gateway}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-2.0.0}
+
+    ports:
+      - "${FRONTEND_PORT:-8091}:80"
+
+    depends_on:
+      - backend
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  backend_logs:
+    driver: local

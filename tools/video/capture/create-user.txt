@@ -1,0 +1,6 @@
+Created user: {
+  id: '6ad75abfe4a3254a2b7a0a55',
+  email: 'admin@example.com',
+  role: 'SUPER_ADMIN',
+  orgId: null
+}
