@@ -110,7 +110,7 @@ docker run -d \
   -e FRONTEND_URL="https://icplane.yourcompany.com" \
   -e MONGODB_DATABASE="integration_gateway" \
   -e NODE_OPTIONS="--max-old-space-size=2048" \
-  ghcr.io/varaprasadreddy9676/integration-control-plane-oss-backend:main
+  ghcr.io/varaprasadreddy9676/integration-control-plane-oss-server:main
 ```
 
 ## 6. URL Path Configuration

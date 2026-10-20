@@ -12,7 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-server
   FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
 
 jobs:
