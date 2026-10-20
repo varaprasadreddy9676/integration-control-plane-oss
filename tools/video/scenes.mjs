@@ -385,9 +385,9 @@ export const scenes = [
     caption: '',
     run: (stage, { card, config }) =>
       card({
-        eyebrow: 'Integration Gateway',
+        eyebrow: 'Source and docs',
         title: 'Outbound, inbound and scheduled — running',
-        subtitle: `Source and docs: ${config.repoUrl.replace(/^https:\/\//, '').replace(/\.git$/, '')}`,
+        subtitle: config.repoUrl.replace(/^https:\/\//, '').replace(/\.git$/, ''),
         hold: 4200,
       }),
   },
