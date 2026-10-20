@@ -1,7 +1,9 @@
 # Frontend Dockerfile for Integration Gateway - Multi-stage build
 
 # Stage 1: Build the Vite application
-FROM node:26-alpine AS builder
+# The build output is static files, so build once on the native platform
+# (emulated arm64 npm install crashes under QEMU) and copy into each nginx image.
+FROM --platform=$BUILDPLATFORM node:26-alpine AS builder
 
 WORKDIR /app
 
