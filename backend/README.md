@@ -96,7 +96,7 @@ See [Communication Adapters Guide](backend/docs/COMMUNICATION_ADAPTERS.md) for c
 
 ## Authentication: Token-in-Query-Parameter
 
-Some external APIs (e.g. Matcher/IMT) require the bearer token to be sent as a URL query parameter rather than in the `Authorization` header. Configure this in `outgoingAuthConfig`:
+Some external APIs require the bearer token to be sent as a URL query parameter rather than in the `Authorization` header. Configure this in `outgoingAuthConfig`:
 
 ```json
 {
