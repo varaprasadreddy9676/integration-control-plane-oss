@@ -110,6 +110,7 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
 - System status supports org-scoped and global admin modes with worker, adapter, process lifecycle, and sender profile visibility.
 - Alert center and analytics/dashboard routes.
 - Audit logs and user activity tracking.
+- Integration history: every save of an outbound, inbound or scheduled integration is kept as a revision (who, when, which fields). Compare any two revisions or a revision with the current configuration, and restore one; credentials stay encrypted and masked, and a restore never changes whether the integration is active (`/api/v1/integration-history/:id/revisions`).
 - Daily report configuration/test/status endpoints.
 - Health endpoint: `GET /health`.
 
