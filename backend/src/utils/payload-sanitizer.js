@@ -49,10 +49,18 @@ function redactString(s) {
  * @param {*} value
  * @returns {*}
  */
+function isPlainObject(value) {
+  if (value === null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 function redactBase64(value) {
   if (typeof value === 'string') return redactString(value);
   if (Array.isArray(value)) return value.map(redactBase64);
-  if (value !== null && typeof value === 'object') {
+  // Only walk plain objects: copying a Date, ObjectId or Buffer key by key
+  // turns it into {} (this blanked finishedAt on every execution log).
+  if (isPlainObject(value)) {
     const out = {};
     for (const [k, v] of Object.entries(value)) {
       out[k] = redactBase64(v);
