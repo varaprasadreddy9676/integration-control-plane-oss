@@ -76,10 +76,22 @@ export function generateCurlCommand(
     if (targetUrl.includes('/public/integrations/')) {
       // The public endpoint takes no gateway key; it checks the integration's own inbound auth.
       const inboundAuthType = String((integration as any)?.inboundAuthType || 'NONE').toUpperCase();
-      const inboundHeader = (integration as any)?.inboundAuthConfig?.headerName || 'X-API-Key';
-      if (inboundAuthType === 'API_KEY') curl += ` \\\n  -H "${inboundHeader}: ${placeholder}"`;
-      if (inboundAuthType === 'BEARER') curl += ` \\\n  -H "Authorization: Bearer ${placeholder}"`;
-      if (inboundAuthType === 'BASIC') curl += ` \\\n  -H "Authorization: Basic ${placeholder}"`;
+      const inboundAuth = (integration as any)?.inboundAuthConfig || {};
+      const inboundHeader = inboundAuth.headerName || 'X-API-Key';
+      // Revealed configs come from the audited credentials endpoint and carry the real values.
+      const real = (value: unknown) => (reveal && typeof value === 'string' && value && value !== '********' ? value : null);
+      const basic =
+        real(inboundAuth.username) && real(inboundAuth.password)
+          ? btoa(`${inboundAuth.username}:${inboundAuth.password}`)
+          : null;
+      if (inboundAuthType === 'API_KEY') {
+        const key = real(inboundAuth.apiKey) || real(inboundAuth.value) || real(inboundAuth.key) || placeholder;
+        curl += ` \\\n  -H "${inboundHeader}: ${key}"`;
+      }
+      if (inboundAuthType === 'BEARER') {
+        curl += ` \\\n  -H "Authorization: Bearer ${real(inboundAuth.token) || real(inboundAuth.value) || placeholder}"`;
+      }
+      if (inboundAuthType === 'BASIC') curl += ` \\\n  -H "Authorization: Basic ${basic || placeholder}"`;
     } else {
       // The caller's own key goes here; the console never holds a gateway key to fill in.
       curl += ` \\\n  -H "X-API-Key: ${placeholder}"`;

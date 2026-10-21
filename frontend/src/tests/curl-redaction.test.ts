@@ -94,6 +94,16 @@ describe('inbound cURL for the public endpoint', () => {
     expect(result).not.toContain('private-inbound');
   });
 
+  it("shows the integration's real inbound key when an admin reveals credentials", () => {
+    const result = generateCurlCommand(
+      { inboundAuthType: 'API_KEY', inboundAuthConfig: { headerName: 'X-Lookup-Key', apiKey: 'real-inbound-key' } } as any,
+      {},
+      undefined,
+      { direction: 'INBOUND', request: publicCall, revealCredentials: true }
+    );
+    expect(result).toContain('X-Lookup-Key: real-inbound-key');
+  });
+
   it('uses Authorization for bearer auth', () => {
     const result = generateCurlCommand({ inboundAuthType: 'BEARER' } as any, {}, undefined, {
       direction: 'INBOUND',
