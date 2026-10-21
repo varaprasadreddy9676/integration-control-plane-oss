@@ -15,6 +15,7 @@ const {
 } = require('../services/node-script-runner');
 const cron = require('node-cron');
 const { auditScheduledJob } = require('../middleware/audit');
+const { captureRevision } = require('../data/integration-revisions');
 const { requirePermission, requireSuperAdmin } = require('../middleware/permission');
 const { applyCursorHint } = require('../utils/index-hints');
 
@@ -340,6 +341,7 @@ router.post('/', requirePermission('scheduled:create'), async (req, res) => {
     const collection = db.collection('integration_configs');
 
     await collection.insertOne(newJob);
+    await captureRevision({ integrationId: newJob._id, source: 'CREATED' });
     triggerDependencyInstall(db, newJob);
 
     // Schedule the job if active
@@ -506,6 +508,7 @@ router.put('/:id', requirePermission('scheduled:edit'), async (req, res) => {
     if (!result) {
       return res.status(404).json({ error: 'Scheduled job not found' });
     }
+    await captureRevision({ integrationId: result._id, source: 'UPDATED', previous: beforeJob });
 
     if (willBeNodeProcess && depsOrScriptChanged) {
       triggerDependencyInstall(db, result);
@@ -898,3 +901,5 @@ router.post('/test-datasource', requirePermission('scheduled:create'), async (re
 });
 
 module.exports = router;
+// Integration history reuses it when a restore changes a script job's dependencies.
+module.exports.triggerDependencyInstall = triggerDependencyInstall;

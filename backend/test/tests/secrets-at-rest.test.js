@@ -196,6 +196,27 @@ describe('installEncryptionAtRest (driver Collection)', () => {
     expect(result.value.outgoingAuthConfig._cachedToken).toBe('eyJ.t');
   });
 
+  it('encrypts the credentials inside integration history snapshots by default', async () => {
+    class HistoryCollection {
+      constructor(name) {
+        this.collectionName = name;
+        this.rows = [];
+      }
+
+      async insertOne(document) {
+        this.rows.push(JSON.parse(JSON.stringify(document)));
+        return { insertedId: 'rev-1' };
+      }
+    }
+    installEncryptionAtRest(HistoryCollection);
+    const col = new HistoryCollection('integration_revisions');
+    await col.insertOne({ revision: 1, snapshot: doc() });
+
+    const stored = col.rows[0].snapshot;
+    expect(isEncrypted(stored.outgoingAuthConfig.clientSecret)).toBe(true);
+    expect(stored.outgoingAuthConfig.tokenEndpoint).toBe('https://api.example.com/token');
+  });
+
   it('leaves every other collection untouched', async () => {
     const Collection = makeCollectionClass();
     const col = new Collection('execution_logs');

@@ -30,7 +30,8 @@
  *   node src/scripts/rotate-gateway-secret-key.js --from=<64-hex> --to=<64-hex> --commit
  *
  * It also re-encrypts integration credentials (integration_configs values with
- * the enc:v1: / enc:v1j: prefix, see utils/secrets-at-rest.js), which use the
+ * the enc:v1: / enc:v1j: prefix, see utils/secrets-at-rest.js, and the config
+ * snapshots kept in integration_revisions), which use the
  * same key — rotating one without the other would break every integration.
  *
  * After --commit, set GATEWAY_SECRET_KEY=<the --to value> in the environment and
@@ -86,7 +87,8 @@ function decrypt(ciphertext, key) {
   return decipher.update(Buffer.from(encHex, 'hex')).toString('utf8') + decipher.final('utf8');
 }
 
-const INTEGRATION_COLLECTION = 'integration_configs';
+// Collections whose documents hold enc:-prefixed integration credentials.
+const INTEGRATION_COLLECTIONS = ['integration_configs', 'integration_revisions'];
 const ENC_PREFIXES = ['enc:v1j:', 'enc:v1:'];
 
 /**
@@ -118,11 +120,17 @@ function reencryptTree(value, oldKey, newKey, failures, stats) {
 }
 
 async function planIntegrationConfigs(db, oldKey, newKey) {
-  const col = db.collection(INTEGRATION_COLLECTION);
-  const docs = await col.find({}).toArray();
   const planned = [];
   const failures = [];
   const stats = { values: 0 };
+  for (const collection of INTEGRATION_COLLECTIONS) {
+    const docs = await db.collection(collection).find({}).toArray();
+    planCollection(collection, docs, oldKey, newKey, { planned, failures, stats });
+  }
+  return { planned, failures, stats };
+}
+
+function planCollection(collection, docs, oldKey, newKey, { planned, failures, stats }) {
   for (const doc of docs) {
     const docFailures = [];
     const $set = {};
@@ -131,11 +139,10 @@ async function planIntegrationConfigs(db, oldKey, newKey) {
       const rewritten = reencryptTree(value, oldKey, newKey, docFailures, stats);
       if (JSON.stringify(rewritten) !== JSON.stringify(value)) $set[key] = rewritten;
     }
-    const label = `${doc.name || doc._id} (org ${doc.orgId})`;
+    const label = `${collection}: ${doc.name || doc._id} (org ${doc.orgId})`;
     if (docFailures.length) failures.push({ label, stage: 'integration credential', error: docFailures[0] });
-    else if (Object.keys($set).length) planned.push({ _id: doc._id, label, $set, original: doc });
+    else if (Object.keys($set).length) planned.push({ collection, _id: doc._id, label, $set, original: doc });
   }
-  return { planned, failures, stats };
 }
 
 async function main() {
@@ -252,18 +259,16 @@ async function main() {
       await db.collection(backupName).insertMany(docs.map((d) => ({ ...d, _backupOf: d._id })));
       console.log(`\nBackup    : ${backupName} (${docs.length} docs)`);
     }
-    if (integrations.planned.length) {
-      const integrationBackup = `${INTEGRATION_COLLECTION}_keyrotation_backup_${new Date()
-        .toISOString()
-        .replace(/[:.]/g, '-')}`;
-      await db
-        .collection(integrationBackup)
-        .insertMany(integrations.planned.map((p) => ({ ...p.original, _backupOf: p.original._id })));
-      console.log(`Backup    : ${integrationBackup} (${integrations.planned.length} docs)`);
-      for (const item of integrations.planned) {
-        await db.collection(INTEGRATION_COLLECTION).updateOne({ _id: item._id }, { $set: item.$set });
+    for (const collection of INTEGRATION_COLLECTIONS) {
+      const items = integrations.planned.filter((p) => p.collection === collection);
+      if (!items.length) continue;
+      const integrationBackup = `${collection}_keyrotation_backup_${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      await db.collection(integrationBackup).insertMany(items.map((p) => ({ ...p.original, _backupOf: p.original._id })));
+      console.log(`Backup    : ${integrationBackup} (${items.length} docs)`);
+      for (const item of items) {
+        await db.collection(collection).updateOne({ _id: item._id }, { $set: item.$set });
       }
-      console.log(`Integration configs rewritten: ${integrations.planned.length}`);
+      console.log(`${collection} rewritten: ${items.length}`);
     }
 
     let written = 0;

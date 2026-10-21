@@ -11,6 +11,7 @@ const axios = require('axios');
 const multer = require('multer');
 const mongodb = require('../mongodb');
 const data = require('../data');
+const { captureRevision } = require('../data/integration-revisions');
 const runtimeConfig = require('../config');
 const { buildAuthHeaders, clearCachedToken } = require('../processor/auth-helper');
 const { applyTransform, applyResponseTransform, hasResponseTransform, truncateForTrace } = require('../services/transformer');
@@ -556,6 +557,7 @@ router.post('/', async (req, res) => {
     };
 
     const result = await db.collection('integration_configs').insertOne(integrationConfig);
+    await captureRevision({ integrationId: result.insertedId, source: 'CREATED' });
 
     log('info', 'Inbound integration created', {
       id: result.insertedId.toString(),
@@ -665,14 +667,9 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
       });
     }
 
-    const result = await db.collection('integration_configs').updateOne(
-      {
-        _id: new ObjectId(id),
-        ...buildOrgScopeQuery(req.orgId),
-        direction: 'INBOUND',
-      },
-      { $set: updateData }
-    );
+    const inboundSelector = { _id: new ObjectId(id), ...buildOrgScopeQuery(req.orgId), direction: 'INBOUND' };
+    const rawBeforeUpdate = await db.collection('integration_configs').findOne(inboundSelector);
+    const result = await db.collection('integration_configs').updateOne(inboundSelector, { $set: updateData });
 
     if (result.matchedCount === 0) {
       return res.status(404).json({
@@ -680,6 +677,7 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
         error: 'Inbound integration not found',
       });
     }
+    await captureRevision({ integrationId: id, source: 'UPDATED', previous: rawBeforeUpdate });
 
     log('info', 'Inbound integration updated', {
       id,

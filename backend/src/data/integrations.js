@@ -11,6 +11,7 @@ const {
   normalizeDeliveryMode,
 } = require('../services/condition-config');
 const { normalizeOrgId, integrationOrgQuery, getCollection, mapIntegrationFromMongo } = require('./helpers');
+const { captureRevision } = require('./integration-revisions');
 
 const allowedParentsCache = {
   values: null,
@@ -456,6 +457,7 @@ async function addIntegration(orgId, payload) {
 
   const result = await db.collection('integration_configs').insertOne(integration);
   integration._id = result.insertedId;
+  await captureRevision({ integrationId: result.insertedId, source: 'CREATED' });
 
   return mapIntegrationFromMongo(integration);
 }
@@ -567,13 +569,12 @@ async function updateIntegration(orgId, id, patch) {
     updateOperation.$unset = unsetDoc;
   }
 
-  await db.collection('integration_configs').updateOne(
-    {
-      _id: mongodb.toObjectId(id),
-      ...integrationOrgQuery(normalizedOrgId),
-    },
-    updateOperation
-  );
+  const selector = { _id: mongodb.toObjectId(id), ...integrationOrgQuery(normalizedOrgId) };
+  const previous = await db.collection('integration_configs').findOne(selector);
+  const writeResult = await db.collection('integration_configs').updateOne(selector, updateOperation);
+  if (previous && writeResult.matchedCount !== 0) {
+    await captureRevision({ integrationId: previous._id, source: 'UPDATED', previous });
+  }
 
   const updated = await getIntegration(id);
 
@@ -642,13 +643,12 @@ async function bulkUpdateIntegrations(orgId, ids, patch) {
     return { updatedCount: 0, failedIds };
   }
 
-  const result = await db.collection('integration_configs').updateMany(
-    {
-      _id: { $in: objectIds },
-      ...integrationOrgQuery(normalizedOrgId),
-    },
-    { $set: { ...patch, updatedAt: now } }
-  );
+  const selector = { _id: { $in: objectIds }, ...integrationOrgQuery(normalizedOrgId) };
+  const previousDocs = await db.collection('integration_configs').find(selector).toArray();
+  const result = await db.collection('integration_configs').updateMany(selector, { $set: { ...patch, updatedAt: now } });
+  for (const previous of previousDocs) {
+    await captureRevision({ integrationId: previous._id, source: 'UPDATED', previous });
+  }
 
   log('info', 'Bulk update completed', {
     scope: 'bulkUpdateIntegrations',

@@ -22,7 +22,8 @@ const { log } = require('../logger');
 const ENCRYPTED_PREFIX = 'enc:v1:';
 // Non-string secrets (a tokenRequestBody stored as an object) round-trip as JSON.
 const ENCRYPTED_JSON_PREFIX = 'enc:v1j:';
-const DEFAULT_COLLECTIONS = ['integration_configs'];
+// integration_revisions holds full config snapshots, credentials included.
+const DEFAULT_COLLECTIONS = ['integration_configs', 'integration_revisions'];
 
 // Lets the hint safety net re-apply decryption to the clone it retries with
 // (cursor.clone() drops cursor.map transforms).

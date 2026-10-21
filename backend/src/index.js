@@ -21,6 +21,7 @@ const data = require('./data');
 const config = require('./config');
 const db = require('./db');
 const { describeMysqlHealth } = require('./utils/mysql-health');
+const { requestContextMiddleware } = require('./utils/request-context');
 const { getWorkerHealthState } = require('./utils/worker-health-state');
 const mongodb = require('./mongodb');
 const { startDeliveryWorker } = require('./processor/worker');
@@ -56,6 +57,7 @@ const templatesRouter = require('./routes/templates');
 const bulkRouter = require('./routes/bulk');
 const importExportRouter = require('./routes/import-export');
 const versionsRouter = require('./routes/versions');
+const integrationHistoryRouter = require('./routes/integration-history');
 const fieldSchemasRouter = require('./routes/field-schemas');
 const configRouter = require('./routes/config');
 const scheduledIntegrationsRouter = require('./routes/scheduled-integrations');
@@ -286,6 +288,7 @@ async function bootstrap() {
   );
   app.use(express.json({ limit: '1mb', verify: captureRawJsonBody }));
   app.use(requestIdMiddleware); // Add request ID first for tracking
+  app.use(requestContextMiddleware); // Lets the data layer see who is making a change
   app.use(requestLogger);
   app.use(rateLimit); // Rate limiting before auth
 
@@ -391,6 +394,7 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/bulk`, auth, bulkRouter);
   app.use(`${config.api.basePrefix}/import-export`, auth, importExportRouter);
   app.use(`${config.api.basePrefix}/versions`, auth, versionsRouter);
+  app.use(`${config.api.basePrefix}/integration-history`, auth, integrationHistoryRouter);
   app.use(`${config.api.basePrefix}/field-schemas`, auth, fieldSchemasRouter);
   app.use(`${config.api.basePrefix}/config`, auth, configRouter);
   app.use(`${config.api.basePrefix}/scheduled-integrations`, auth, scheduledIntegrationsRouter);
