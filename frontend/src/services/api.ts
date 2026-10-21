@@ -1217,6 +1217,56 @@ export const getEventTypes = async (): Promise<string[]> => {
   return resp.eventTypes;
 };
 
+// ─── Alert channels (plugins) ────────────────────────────────────────────────
+
+export interface AlertChannelField {
+  key: string;
+  label: string;
+  type: 'text' | 'url' | 'secret' | 'list';
+  required: boolean;
+  placeholder?: string;
+  help?: string;
+  pattern?: string;
+  patternMessage?: string;
+}
+
+export interface AlertChannelPlugin {
+  type: string;
+  name: string;
+  description: string;
+  fields: AlertChannelField[];
+}
+
+export interface AlertChannel {
+  id: string;
+  type: string;
+  name: string;
+  enabled: boolean;
+  events: string[];
+  config: Record<string, string | string[]>;
+  lastResult: { ok: boolean; at: string; error?: string; alertType?: string } | null;
+}
+
+export const getAlertChannelPlugins = async (): Promise<{
+  plugins: AlertChannelPlugin[];
+  events: { type: string; label: string }[];
+}> => request('/alert-channels/plugins');
+
+export const listAlertChannels = async (): Promise<AlertChannel[]> =>
+  (await request<{ channels: AlertChannel[] }>('/alert-channels')).channels;
+
+export const createAlertChannel = async (channel: Partial<AlertChannel>): Promise<AlertChannel> =>
+  request('/alert-channels', { method: 'POST', body: JSON.stringify(channel) });
+
+export const updateAlertChannel = async (id: string, patch: Partial<AlertChannel>): Promise<AlertChannel> =>
+  request(`/alert-channels/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) });
+
+export const deleteAlertChannel = async (id: string): Promise<void> =>
+  request(`/alert-channels/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+export const testAlertChannel = async (id: string): Promise<{ ok: boolean; error?: string }> =>
+  request(`/alert-channels/${encodeURIComponent(id)}/test`, { method: 'POST' });
+
 // ─── Built-in templates (one-step setups) ────────────────────────────────────
 
 export interface TemplateCatalogInput {

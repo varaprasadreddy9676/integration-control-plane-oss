@@ -36,6 +36,7 @@ import {
 } from '../../services/api';
 import { useDesignTokens, spacingToNumber, cssVar } from '../../design-system/utils';
 import { ModernTable } from '../../components/common/ModernTable';
+import { AlertChannelsCard } from './components/AlertChannelsCard';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -446,6 +447,8 @@ export const SettingsRoute = () => {
               </Space>
             )}
           </Card>
+
+          <AlertChannelsCard style={{ ...cardStyle, ...mt }} />
 
           {/* ---- 2. Display & Behavior ---- */}
           <Card title="Display & Behavior" style={{ ...cardStyle, ...mt }}>
