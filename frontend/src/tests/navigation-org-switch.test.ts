@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getOrgSwitchDestination } from '../utils/navigation';
+import { getOrgSwitchDestination, shouldConfirmOrgSwitch } from '../utils/navigation';
 
 describe('organization switch navigation', () => {
   it.each([
@@ -26,5 +26,16 @@ describe('organization switch navigation', () => {
     '/flow-builder/new',
   ])('keeps tenant-safe route %s in place', (pathname) => {
     expect(getOrgSwitchDestination(pathname)).toBeNull();
+  });
+});
+
+describe('organization switch confirmation', () => {
+  it('asks before leaving an organization that is open', () => {
+    expect(shouldConfirmOrgSwitch(33)).toBe(true);
+  });
+
+  it('switches straight away when no organization is open yet', () => {
+    expect(shouldConfirmOrgSwitch(null)).toBe(false);
+    expect(shouldConfirmOrgSwitch(undefined)).toBe(false);
   });
 });

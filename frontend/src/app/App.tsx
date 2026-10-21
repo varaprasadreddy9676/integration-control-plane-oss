@@ -49,7 +49,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
-import { getOrgSwitchDestination, useNavigateWithParams } from '../utils/navigation';
+import { getOrgSwitchDestination, shouldConfirmOrgSwitch, useNavigateWithParams } from '../utils/navigation';
 import { shortTenantName } from '../utils/tenant-display';
 import { useTenant } from './tenant-context';
 import { useThemeMode } from './theme-provider';
@@ -799,6 +799,11 @@ export const App = () => {
                       }
 
                       const orgSwitchDestination = getOrgSwitchDestination(location.pathname);
+
+                      if (!shouldConfirmOrgSwitch(orgId)) {
+                        setManualOrgId(Number(value), orgSwitchDestination || undefined);
+                        return;
+                      }
 
                       Modal.confirm({
                         title: 'Switch organization?',

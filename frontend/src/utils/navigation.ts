@@ -77,6 +77,9 @@ export const buildUrlWithOrgId = (path: string): string => {
  * tenant-safe pages but leave record detail routes so an old ID is never opened
  * under the new organization.
  */
+/** Only an open organization has unsaved work to lose; picking the first one needs no confirmation. */
+export const shouldConfirmOrgSwitch = (currentOrgId: number | null | undefined): boolean => Boolean(currentOrgId);
+
 export const getOrgSwitchDestination = (pathname: string): string | null => {
   const detailRoutes: Array<{ pattern: RegExp; destination: string }> = [
     { pattern: /^\/integrations\/(?!new(?:\/|$))[^/]+$/, destination: '/integrations' },
