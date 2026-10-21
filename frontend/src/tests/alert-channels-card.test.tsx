@@ -110,6 +110,7 @@ describe('AlertChannelsCard', () => {
 
     expect(await screen.findByText('On-call')).toBeInTheDocument();
     expect(screen.getByText(/Email service not configured/)).toBeInTheDocument();
+    expect(screen.getByText('1 of 2 alerts')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Send test to On-call' }));
     await waitFor(() => expect(mockApi.testAlertChannel).toHaveBeenCalledWith('c1'));
   });

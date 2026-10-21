@@ -17,6 +17,7 @@ import {
   Space,
   Switch,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled, PlusOutlined } from '@ant-design/icons';
@@ -226,7 +227,8 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
       }
     >
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
-        Where alerts go when an integration starts failing every delivery, and when it recovers.
+        Where alerts go when something needs attention — an integration or scheduled job failing, the event source
+        stopping, failed deliveries piling up — and when it is fixed.
       </Typography.Paragraph>
       {isLoading && <Skeleton active paragraph={{ rows: 3 }} />}
       {(channelsQuery.isError || pluginsQuery.isError) && (
@@ -264,12 +266,18 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
                   />
                   <Typography.Text strong>{channel.name}</Typography.Text>
                   <Tag>{pluginFor(channel.type)?.name || channel.type}</Tag>
-                  {channel.events.length < events.length &&
-                    channel.events.map((type) => (
-                      <Tag key={type} color="default">
-                        {type === 'INTEGRATION_DELIVERY_RECOVERED' ? 'Recoveries only' : 'Failures only'}
+                  {channel.events.length < events.length && (
+                    <Tooltip
+                      title={events
+                        .filter((event) => channel.events.includes(event.type))
+                        .map((event) => event.label)
+                        .join(' · ')}
+                    >
+                      <Tag>
+                        {channel.events.length} of {events.length} alerts
                       </Tag>
-                    ))}
+                    </Tooltip>
+                  )}
                 </Space>
                 <LastResult result={channel.lastResult} />
               </Space>
