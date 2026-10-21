@@ -413,7 +413,7 @@ const auditIntegration = {
     });
   },
 
-  updated: async (req, integrationId, changes) => {
+  updated: async (req, integrationId, changes, metadata = null) => {
     await logAudit({
       action: ACTION_TYPES.INTEGRATION_UPDATED,
       resourceType: RESOURCE_TYPES.INTEGRATION,
@@ -422,6 +422,7 @@ const auditIntegration = {
       orgId: req.orgId,
       // The audit trail is readable by admins and kept for years — no credentials.
       changes: maskIntegrationSecrets(changes),
+      metadata,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
       success: true,
@@ -769,7 +770,7 @@ const auditScheduledJob = {
     });
   },
 
-  updated: async (req, jobId, changes) => {
+  updated: async (req, jobId, changes, metadata = null) => {
     await logAudit({
       action: ACTION_TYPES.SCHEDULED_JOB_UPDATED,
       resourceType: RESOURCE_TYPES.SCHEDULED_JOB,
@@ -777,6 +778,7 @@ const auditScheduledJob = {
       user: req.user,
       orgId: req.orgId,
       changes,
+      metadata,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
       success: true,

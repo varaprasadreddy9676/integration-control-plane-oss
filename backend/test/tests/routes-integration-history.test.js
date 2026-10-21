@@ -97,7 +97,8 @@ describe('integration history routes', () => {
     expect(mockAudit.auditIntegration.updated).toHaveBeenCalledWith(
       expect.anything(),
       String(mockIntegrationId),
-      expect.objectContaining({ restoredFromRevision: 1 })
+      expect.objectContaining({ before: expect.anything(), after: expect.anything() }),
+      { restoredFromRevision: 1, newRevision: 3 }
     );
   });
 

@@ -133,15 +133,12 @@ router.post('/:integrationId/revisions/:revision/restore', async (req, res) => {
 
     applyRestoreSideEffects(result.before, result.after);
 
-    const changes = {
-      before: maskIntegrationSecrets(result.before),
-      after: maskIntegrationSecrets(result.after),
-      restoredFromRevision: revision,
-    };
+    const changes = { before: maskIntegrationSecrets(result.before), after: maskIntegrationSecrets(result.after) };
+    const metadata = { restoredFromRevision: revision, newRevision: result.revision?.revision || null };
     if (SCHEDULED_DIRECTIONS.has(integration.direction)) {
-      await auditScheduledJob.updated(req, String(integration._id), changes);
+      await auditScheduledJob.updated(req, String(integration._id), changes, metadata);
     } else {
-      await auditIntegration.updated(req, String(integration._id), changes);
+      await auditIntegration.updated(req, String(integration._id), changes, metadata);
     }
     log('info', 'Integration restored from history', {
       integrationId: String(integration._id),
