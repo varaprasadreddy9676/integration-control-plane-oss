@@ -2,10 +2,28 @@ const express = require('express');
 const { log } = require('../logger');
 const data = require('../data');
 const templates = require('../data/templates');
+const catalog = require('../services/integration-templates/catalog');
 const asyncHandler = require('../utils/async-handler');
 const { auditTemplate } = require('../middleware/audit');
 
 const router = express.Router();
+
+// Built-in one-step setups (Slack, Stripe, HubSpot). Registered before the
+// /:templateId routes so "catalog" is not taken for a template id.
+router.get('/catalog', (_req, res) => {
+  res.json({ templates: catalog.listCatalog() });
+});
+
+router.post('/catalog/:catalogId/build', (req, res) => {
+  try {
+    const built = catalog.buildFromCatalog(req.params.catalogId, req.body?.inputs, { activate: req.body?.activate === true });
+    res.json(built);
+  } catch (error) {
+    if (error instanceof catalog.TemplateInputError) return res.status(400).json({ error: error.message });
+    log('error', 'Failed to build integration from template', { error: error.message, templateId: req.params.catalogId });
+    res.status(500).json({ error: 'Failed to build integration from template' });
+  }
+});
 
 // Get all available templates (hardcoded + custom)
 router.get(
