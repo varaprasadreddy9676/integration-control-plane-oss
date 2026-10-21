@@ -122,6 +122,7 @@ class ExecutionLogger {
         // The request known at start() can be a placeholder (scheduled jobs only
         // build their payload later); record what was actually sent when given.
         ...(options.request ? { request: options.request } : {}),
+        ...(options.responseTimeMs != null ? { responseTimeMs: options.responseTimeMs } : {}),
       });
 
       log('debug', 'Execution log completed successfully', {

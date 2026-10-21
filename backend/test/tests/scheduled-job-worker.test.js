@@ -160,6 +160,14 @@ describe('ScheduledJobWorker execution', () => {
     );
   });
 
+  it('records the delivery time so Delivery Logs can show it', async () => {
+    await worker.executeJob(baseJob);
+
+    expect(mockExecutionLogger.success).toHaveBeenCalledWith(
+      expect.objectContaining({ responseTimeMs: expect.any(Number) })
+    );
+  });
+
   it('dry-runs without delivering to the target URL', async () => {
     const result = await worker.executeJob(baseJob, { dryRun: true, reason: 'Preview changes' });
 

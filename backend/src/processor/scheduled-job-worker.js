@@ -631,6 +631,7 @@ class ScheduledJobWorker {
       await executionLogger
         .success({
           ...(executionLog.httpRequest ? { request: executionLog.httpRequest } : {}),
+          responseTimeMs: deliveryResult.durationMs,
           response: {
             statusCode: deliveryResult.status,
             headers: deliveryResult.headers,

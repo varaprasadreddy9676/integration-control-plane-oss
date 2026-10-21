@@ -87,6 +87,17 @@ describe('ExecutionLogger', () => {
     );
   });
 
+  it('stores responseTimeMs when success() is given one', async () => {
+    const logger = createExecutionLogger({ direction: 'SCHEDULED', orgId: 1, messageId: 'job-2' });
+    await logger.start();
+    await logger.success({ response: { statusCode: 200 }, responseTimeMs: 757 });
+
+    expect(executionLogsData.updateExecutionLog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ responseTimeMs: 757 })
+    );
+  });
+
   it('does not insert a second execution log when start is called twice on one instance', async () => {
     const logger = createExecutionLogger({
       traceId: 'trc-test-2',
