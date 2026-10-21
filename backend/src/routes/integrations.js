@@ -12,6 +12,7 @@ const multer = require('multer');
 const mongodb = require('../mongodb');
 const data = require('../data');
 const { captureRevision } = require('../data/integration-revisions');
+const { isInternalCall } = require('../utils/internal-call');
 const runtimeConfig = require('../config');
 const { buildAuthHeaders, clearCachedToken } = require('../processor/auth-helper');
 const { applyTransform, applyResponseTransform, hasResponseTransform, truncateForTrace } = require('../services/transformer');
@@ -1177,8 +1178,10 @@ const handleInboundRuntime = async (req, res) => {
       });
     }
 
-    // 2. Validate inbound authentication (if configured)
-    if (config.inboundAuthType && config.inboundAuthType !== 'NONE') {
+    // 2. Validate inbound authentication (if configured). The gateway's own calls
+    // (alert channels forwarding through this integration) are already trusted.
+    const internalCall = isInternalCall(req.headers);
+    if (!internalCall && config.inboundAuthType && config.inboundAuthType !== 'NONE') {
       const _authStart = Date.now();
       const rawBody =
         typeof req.rawBody === 'string'
@@ -1262,7 +1265,9 @@ const handleInboundRuntime = async (req, res) => {
     // 2.5 Evaluate request policy before any provider work
     const requestPolicyStart = Date.now();
     try {
-      const policyDecision = await evaluateInboundRequestPolicy(req, config);
+      const policyDecision = internalCall
+        ? { allowed: true, headers: null, metadata: { internalCall: true } }
+        : await evaluateInboundRequestPolicy(req, config);
       if (policyDecision.headers) {
         res.set(policyDecision.headers);
       }

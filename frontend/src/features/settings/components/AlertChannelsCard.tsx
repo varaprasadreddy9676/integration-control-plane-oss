@@ -12,6 +12,7 @@ import {
   Modal,
   Popconfirm,
   Radio,
+  Select,
   Skeleton,
   Space,
   Switch,
@@ -25,6 +26,7 @@ import {
   createAlertChannel,
   deleteAlertChannel,
   getAlertChannelPlugins,
+  getInboundIntegrations,
   listAlertChannels,
   testAlertChannel,
   updateAlertChannel,
@@ -36,7 +38,41 @@ import { cssVar } from '../../../design-system/utils';
 
 const CHANNELS_KEY = ['alert-channels'];
 
-const FieldInput = ({ field }: { field: AlertChannelField }) => {
+/** Picks one of the organization's integrations; tells the form its name. */
+const IntegrationSelect = ({
+  field,
+  onPicked,
+  ...props
+}: {
+  field: AlertChannelField;
+  onPicked: (name: string) => void;
+  value?: string;
+  onChange?: (value: string) => void;
+  id?: string;
+}) => {
+  const { data = [], isLoading } = useQuery({ queryKey: ['inbound-integrations-for-alerts'], queryFn: () => getInboundIntegrations() });
+  return (
+    <Select
+      {...props}
+      aria-label={field.label}
+      loading={isLoading}
+      showSearch
+      optionFilterProp="label"
+      placeholder="Choose an inbound integration"
+      notFoundContent={isLoading ? 'Loading…' : 'No inbound integrations yet'}
+      options={data.map((integration: any) => ({
+        value: String(integration.id || integration._id),
+        label: integration.name ? `${integration.name}` : integration.type,
+      }))}
+      onChange={(value: string, option: any) => {
+        props.onChange?.(value);
+        onPicked(option?.label || '');
+      }}
+    />
+  );
+};
+
+const FieldInput = ({ field, onPicked }: { field: AlertChannelField; onPicked: (name: string) => void }) => {
   const rules = [
     { required: field.required, message: `${field.label} is required` },
     ...(field.pattern ? [{ pattern: new RegExp(field.pattern), message: field.patternMessage || 'Not valid' }] : []),
@@ -49,7 +85,9 @@ const FieldInput = ({ field }: { field: AlertChannelField }) => {
       rules={rules}
       validateTrigger="onBlur"
     >
-      {field.type === 'secret' ? (
+      {field.type === 'integration' ? (
+        <IntegrationSelect field={field} onPicked={onPicked} />
+      ) : field.type === 'secret' ? (
         <Input.Password placeholder={field.placeholder} autoComplete="off" />
       ) : (
         <Input placeholder={field.placeholder} autoComplete="off" />
@@ -293,7 +331,15 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
               <Input placeholder={editing.plugin.name} />
             </Form.Item>
             {editing.plugin.fields.map((field) => (
-              <FieldInput key={field.key} field={field} />
+              <FieldInput
+                key={field.key}
+                field={field}
+                onPicked={(picked) => {
+                  // Name the channel after the integration unless the user named it.
+                  const current = form.getFieldValue('name');
+                  if (picked && (!current || current === editing.plugin?.name)) form.setFieldsValue({ name: picked });
+                }}
+              />
             ))}
             {editing.channel && editing.plugin.fields.some((field) => field.type === 'secret') && (
               <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: -8 }}>

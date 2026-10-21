@@ -63,9 +63,11 @@ function normalizeEvents(events) {
   return [...new Set(list)];
 }
 
-function validated(type, config) {
+async function validated(type, config, orgId) {
   const result = plugins.validateConfig(type, config);
   if (result.error) throw new AlertChannelError(result.error);
+  const problem = await plugins.getPlugin(type).verify?.(result.config, { orgId });
+  if (problem) throw new AlertChannelError(problem);
   return result.config;
 }
 
@@ -89,7 +91,7 @@ async function createChannel(orgId, input = {}) {
     name: normalizeName(input.name, plugin.name),
     enabled: input.enabled !== false,
     events: normalizeEvents(input.events),
-    config: encryptSecrets(plugin.type, validated(plugin.type, input.config || {})),
+    config: encryptSecrets(plugin.type, await validated(plugin.type, input.config || {}, orgId)),
     lastResult: null,
     createdAt: now,
     updatedAt: now,
@@ -117,7 +119,7 @@ async function updateChannel(orgId, id, patch = {}) {
     name: patch.name !== undefined ? normalizeName(patch.name, existing.name) : existing.name,
     enabled: patch.enabled !== undefined ? patch.enabled !== false : existing.enabled !== false,
     events: patch.events !== undefined ? normalizeEvents(patch.events) : existing.events,
-    config: encryptSecrets(existing.type, validated(existing.type, incoming)),
+    config: encryptSecrets(existing.type, await validated(existing.type, incoming, orgId)),
     updatedAt: new Date(),
   };
   await (await collection()).updateOne({ _id: existing._id, orgId }, { $set });

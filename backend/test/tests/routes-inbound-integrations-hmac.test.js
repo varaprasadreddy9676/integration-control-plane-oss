@@ -213,6 +213,24 @@ describe('inbound integrations API key auth', () => {
     );
   });
 
+  it('accepts the gateway’s own internal calls (alert channels) without the integration key', async () => {
+    const { INTERNAL_CALL_HEADER, internalCallToken } = require('../../src/utils/internal-call');
+    const response = await request(createApp())
+      .post('/api/v1/public/integrations/CUSTOMER_LOOKUP?orgId=84')
+      .set(INTERNAL_CALL_HEADER, internalCallToken())
+      .send({ type: 'INTEGRATION_DELIVERY_FAILING' });
+    expect(response.status).toBe(200);
+  });
+
+  it('rejects a forged internal-call token', async () => {
+    const { INTERNAL_CALL_HEADER } = require('../../src/utils/internal-call');
+    const response = await request(createApp())
+      .post('/api/v1/public/integrations/CUSTOMER_LOOKUP?orgId=84')
+      .set(INTERNAL_CALL_HEADER, 'guess')
+      .send({});
+    expect(response.status).toBe(401);
+  });
+
   it('rejects a wrong key', async () => {
     const response = await request(createApp())
       .post('/api/v1/public/integrations/CUSTOMER_LOOKUP?orgId=84')

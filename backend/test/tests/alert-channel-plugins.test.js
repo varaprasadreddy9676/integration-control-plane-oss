@@ -7,7 +7,20 @@ const mockSendEmail = jest.fn();
 jest.mock('../../src/services/email-service', () => ({ sendEmail: (...args) => mockSendEmail(...args) }));
 const mockAdapterSend = jest.fn();
 jest.mock('../../src/services/communication/adapter-registry', () => ({ send: (...args) => mockAdapterSend(...args) }));
-jest.mock('../../src/config', () => ({ security: { blockPrivateNetworks: true }, frontendUrl: 'https://console.example.com' }));
+jest.mock('../../src/config', () => ({
+  security: { blockPrivateNetworks: true },
+  frontendUrl: 'https://console.example.com',
+  port: 4000,
+  api: { basePrefix: '/api/v1' },
+}));
+const mockFindOne = jest.fn();
+jest.mock('../../src/mongodb', () => ({
+  getDbSafe: async () => ({ collection: () => ({ findOne: (...a) => mockFindOne(...a) }) }),
+  toObjectId: (id) => {
+    const { ObjectId: MockObjectId } = require('mongodb');
+    return MockObjectId.isValid(String(id)) ? new MockObjectId(String(id)) : null;
+  },
+}));
 
 const plugins = require('../../src/services/notifications/plugins');
 const { verifySignedRequest } = require('../../src/services/integration-signing');
@@ -34,7 +47,7 @@ beforeEach(() => {
 describe('alert channel plugin registry', () => {
   it('lists every plugin with its settings and no code', () => {
     const list = plugins.listPlugins();
-    expect(list.map((p) => p.type)).toEqual(['slack', 'email', 'webhook', 'whatsapp']);
+    expect(list.map((p) => p.type)).toEqual(['slack', 'email', 'webhook', 'whatsapp', 'inbound-integration']);
     for (const plugin of list) {
       expect(plugin).toEqual(expect.objectContaining({ name: expect.any(String), fields: expect.any(Array) }));
       expect(plugin.send).toBeUndefined();
@@ -149,5 +162,49 @@ describe('whatsapp plugin', () => {
   it('sends plain text when no template is set', async () => {
     await plugins.getPlugin('whatsapp').send(failing, { phoneNumberId: '1', accessToken: 'a', recipients: ['+15550001111'] });
     expect(mockAdapterSend.mock.calls[0][2]).toMatchObject({ type: 'text', text: expect.stringContaining('Orders to CRM') });
+  });
+});
+
+describe('inbound-integration plugin', () => {
+  const integrationId = '507f1f77bcf86cd799439011';
+  const inbound = { _id: integrationId, orgId: 1, direction: 'INBOUND', type: 'alert-forwarder', isActive: true, name: 'Alert forwarder' };
+
+  it('calls the inbound integration on this gateway with the alert, marked as an internal call', async () => {
+    mockFindOne.mockResolvedValue(inbound);
+    const { INTERNAL_CALL_HEADER, internalCallToken } = require('../../src/utils/internal-call');
+    await plugins.getPlugin('inbound-integration').send(failing, { integrationId });
+
+    expect(mockFindOne).toHaveBeenCalledWith(expect.objectContaining({ orgId: 1, direction: 'INBOUND' }));
+    const request = mockAxios.mock.calls[0][0];
+    expect(request).toMatchObject({
+      method: 'POST',
+      url: 'http://127.0.0.1:4000/api/v1/public/integrations/alert-forwarder?orgId=1',
+    });
+    expect(request.headers[INTERNAL_CALL_HEADER]).toBe(internalCallToken());
+    expect(JSON.parse(request.data)).toMatchObject({ version: 1, type: 'INTEGRATION_DELIVERY_FAILING' });
+  });
+
+  it('refuses an integration that is missing, in another organization, or switched off', async () => {
+    mockFindOne.mockResolvedValue(null);
+    await expect(plugins.getPlugin('inbound-integration').send(failing, { integrationId })).rejects.toThrow(/not found/);
+    mockFindOne.mockResolvedValue({ ...inbound, isActive: false });
+    await expect(plugins.getPlugin('inbound-integration').send(failing, { integrationId })).rejects.toThrow(/switched off/);
+    expect(mockAxios).not.toHaveBeenCalled();
+  });
+
+  it('checks the chosen integration when the channel is saved', async () => {
+    mockFindOne.mockResolvedValue(null);
+    await expect(plugins.getPlugin('inbound-integration').verify({ integrationId }, { orgId: 1 })).resolves.toMatch(/not found/);
+    mockFindOne.mockResolvedValue(inbound);
+    await expect(plugins.getPlugin('inbound-integration').verify({ integrationId }, { orgId: 1 })).resolves.toBeNull();
+    expect(plugins.validateConfig('inbound-integration', { integrationId: 'not-an-id' }).error).toMatch(/Pick an inbound integration/);
+  });
+
+  it('reports what the integration answered when it fails', async () => {
+    mockFindOne.mockResolvedValue(inbound);
+    mockAxios.mockRejectedValue(
+      Object.assign(new Error('Request failed with status code 502'), { response: { status: 502, data: { error: 'Upstream returned 500' } } })
+    );
+    await expect(plugins.getPlugin('inbound-integration').send(failing, { integrationId })).rejects.toThrow(/502.*Upstream returned 500/);
   });
 });

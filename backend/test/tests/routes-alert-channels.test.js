@@ -37,7 +37,7 @@ describe('alert channel routes', () => {
   it('lists the available plugins and alert types', async () => {
     const res = await request(app()).get('/alert-channels/plugins');
     expect(res.status).toBe(200);
-    expect(res.body.plugins.map((p) => p.type)).toEqual(['slack', 'email', 'webhook', 'whatsapp']);
+    expect(res.body.plugins.map((p) => p.type)).toEqual(['slack', 'email', 'webhook', 'whatsapp', 'inbound-integration']);
     expect(res.body.events.map((e) => e.type)).toContain('INTEGRATION_DELIVERY_FAILING');
   });
 

@@ -10,14 +10,23 @@
  *                help?, pattern?, patternMessage?, itemPattern?, itemPatternMessage? }
  *                type: 'text' | 'url' | 'secret' (stored encrypted, never returned)
  *                      | 'list' (comma-separated in the console, an array here)
+ *                      | 'integration' (picked from the org's integrations; add `direction`)
  *   send(alert, settings)  deliver one alert; throw to report failure
+ *   verify(settings, { orgId })  optional, async: checks needing the database when the
+ *                channel is saved; return null if fine, otherwise the problem
  *
  * To add a channel, write the module and add it to PLUGINS below. Settings are
  * validated, encrypted and edited in the console from `fields`; no other code
  * changes are needed. See ../README.md for the alert object.
  */
 
-const PLUGINS = [require('./slack'), require('./email'), require('./webhook'), require('./whatsapp')];
+const PLUGINS = [
+  require('./slack'),
+  require('./email'),
+  require('./webhook'),
+  require('./whatsapp'),
+  require('./inbound-integration'),
+];
 const byType = new Map(PLUGINS.map((plugin) => [plugin.type, plugin]));
 
 const getPlugin = (type) => byType.get(type) || null;

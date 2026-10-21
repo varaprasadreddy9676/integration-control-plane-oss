@@ -1222,7 +1222,9 @@ export const getEventTypes = async (): Promise<string[]> => {
 export interface AlertChannelField {
   key: string;
   label: string;
-  type: 'text' | 'url' | 'secret' | 'list';
+  type: 'text' | 'url' | 'secret' | 'list' | 'integration';
+  /** For type 'integration': which integrations to offer. */
+  direction?: 'INBOUND' | 'OUTBOUND';
   required: boolean;
   placeholder?: string;
   help?: string;

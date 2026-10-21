@@ -27,6 +27,13 @@ const plugins = [
     fields: [{ key: 'recipients', label: 'Recipients', type: 'list', required: true }],
   },
 ];
+plugins.push({
+  type: 'inbound-integration',
+  name: 'Inbound integration',
+  description: 'Hand each alert to one of your inbound integrations.',
+  fields: [{ key: 'integrationId', label: 'Inbound integration', type: 'integration', direction: 'INBOUND', required: true }],
+} as any);
+
 const events = [
   { type: 'INTEGRATION_DELIVERY_FAILING', label: 'An integration starts failing every delivery' },
   { type: 'INTEGRATION_DELIVERY_RECOVERED', label: 'A failing integration recovers' },
@@ -39,6 +46,7 @@ const mockApi = {
   updateAlertChannel: vi.fn(),
   deleteAlertChannel: vi.fn(),
   testAlertChannel: vi.fn(),
+  getInboundIntegrations: vi.fn(),
 };
 vi.mock('../services/api', () => mockApi);
 
@@ -114,5 +122,29 @@ describe('AlertChannelsCard', () => {
     await renderCard();
     fireEvent.click(await screen.findByRole('switch', { name: 'Ops enabled' }));
     await waitFor(() => expect(mockApi.updateAlertChannel).toHaveBeenCalledWith('c1', { enabled: false }));
+  });
+
+  it('routes alerts through an inbound integration picked from a list', async () => {
+    mockApi.getInboundIntegrations.mockResolvedValue([
+      { id: '507f1f77bcf86cd799439011', name: 'Alert forwarder', type: 'alert-forwarder' },
+    ]);
+    mockApi.createAlertChannel.mockResolvedValue({ id: 'c2' });
+    await renderCard();
+    fireEvent.click(await screen.findByRole('button', { name: /Add channel/ }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Inbound integration/ }));
+
+    fireEvent.mouseDown(await screen.findByRole('combobox', { name: 'Inbound integration' }));
+    fireEvent.click(await screen.findByText('Alert forwarder'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save channel' }));
+
+    await waitFor(() =>
+      expect(mockApi.createAlertChannel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'inbound-integration',
+          name: 'Alert forwarder',
+          config: { integrationId: '507f1f77bcf86cd799439011' },
+        })
+      )
+    );
   });
 });
