@@ -236,8 +236,41 @@ function normalizeVerificationSecrets(authConfig = {}) {
   return rawSecrets.map((secret) => String(secret || '').trim()).filter(Boolean);
 }
 
+/**
+ * Stripe's webhook format: one `Stripe-Signature: t=<unix>,v1=<hex>[,v1=...]`
+ * header, HMAC-SHA256 over "<t>.<raw body>" keyed with the endpoint secret.
+ */
+function verifyStripeSignature(authConfig, headers, rawBody) {
+  const secrets = normalizeVerificationSecrets(authConfig);
+  const header = getHeaderValue(headers, 'Stripe-Signature');
+  if (secrets.length === 0 || !header) return false;
+
+  const parts = String(header)
+    .split(',')
+    .map((part) => part.trim().split('='))
+    .filter(([key, value]) => key && value);
+  const timestamp = Number(parts.find(([key]) => key === 't')?.[1]);
+  const signatures = parts.filter(([key]) => key === 'v1').map(([, value]) => value);
+  if (!Number.isFinite(timestamp) || signatures.length === 0) return false;
+
+  const toleranceSeconds = Number(authConfig.toleranceSeconds ?? 300);
+  if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > toleranceSeconds) return false;
+
+  const signedPayload = `${timestamp}.${typeof rawBody === 'string' ? rawBody : String(rawBody ?? '')}`;
+  return secrets.some((secret) => {
+    const expected = Buffer.from(crypto.createHmac('sha256', secret).update(signedPayload).digest('hex'));
+    return signatures.some((signature) => {
+      const actual = Buffer.from(signature);
+      return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+    });
+  });
+}
+
 function verifySignedRequest(authConfig = {}, headers = {}, rawBody = '') {
   try {
+    if (String(authConfig.scheme || '').toUpperCase() === 'STRIPE') {
+      return verifyStripeSignature(authConfig, headers, rawBody);
+    }
     const secrets = normalizeVerificationSecrets(authConfig);
     if (secrets.length === 0) {
       log('warn', 'Signed request verification skipped: no secrets configured');
