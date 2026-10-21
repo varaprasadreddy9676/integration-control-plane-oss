@@ -96,6 +96,23 @@ describe('alert channels', () => {
   });
 });
 
+describe('subscribing to all alerts', () => {
+  const { ALERT_EVENT_TYPES } = require('../../src/services/notifications/alert-events');
+
+  it('stores "all alerts" so channels also receive alert types added later', async () => {
+    await channels.createChannel(1, { type: 'slack', name: 'Everything', config: { webhookUrl: SLACK_URL } });
+    expect(mockDocs[0].events).toEqual(['ALL']);
+    expect((await channels.listChannels(1))[0].events).toEqual(ALERT_EVENT_TYPES);
+    expect(await channels.listChannelsForEvent(1, 'SOME_FUTURE_ALERT')).toHaveLength(1);
+  });
+
+  it('keeps a hand-picked subset as it is', async () => {
+    await channels.createChannel(1, { type: 'slack', name: 'Some', events: ['DLQ_BACKLOG'], config: { webhookUrl: SLACK_URL } });
+    expect(mockDocs[0].events).toEqual(['DLQ_BACKLOG']);
+    expect(await channels.listChannelsForEvent(1, 'SCHEDULED_JOB_FAILED')).toHaveLength(0);
+  });
+});
+
 describe('dispatchAlert', () => {
   it('sends to every enabled channel subscribed to the event, and one failure does not stop the others', async () => {
     await channels.createChannel(1, { type: 'slack', name: 'Ops', config: { webhookUrl: SLACK_URL } });

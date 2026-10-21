@@ -13,6 +13,8 @@ const { encrypt, decrypt } = require('../utils/secret-crypto');
 const { SECRET_MASK } = require('../utils/integration-secrets');
 
 const COLLECTION = 'alert_channels';
+// Stored when every alert is selected, so the channel also gets alerts added later.
+const ALL_EVENTS = 'ALL';
 const ENC_PREFIX = 'enc:v1:';
 
 class AlertChannelError extends Error {
@@ -46,7 +48,7 @@ function toPublic(doc) {
     type: doc.type,
     name: doc.name,
     enabled: doc.enabled !== false,
-    events: doc.events,
+    events: (doc.events || []).includes(ALL_EVENTS) ? [...ALERT_EVENT_TYPES] : doc.events,
     config: maskSecrets(doc.type, doc.config || {}),
     lastResult: doc.lastResult || null,
     createdAt: doc.createdAt,
@@ -55,8 +57,9 @@ function toPublic(doc) {
 }
 
 function normalizeEvents(events) {
-  if (events === undefined) return [...ALERT_EVENT_TYPES];
+  if (events === undefined) return [ALL_EVENTS];
   const list = Array.isArray(events) ? events : [];
+  if (list.includes(ALL_EVENTS) || ALERT_EVENT_TYPES.every((type) => list.includes(type))) return [ALL_EVENTS];
   const unknown = list.find((event) => !ALERT_EVENT_TYPES.includes(event));
   if (unknown) throw new AlertChannelError(`Unknown alert: ${unknown}`);
   if (list.length === 0) throw new AlertChannelError('Pick at least one alert to send');
@@ -135,7 +138,7 @@ async function deleteChannel(orgId, id) {
 
 /** Enabled channels subscribed to `eventType`, with settings decrypted for sending. */
 async function listChannelsForEvent(orgId, eventType) {
-  const docs = await (await collection()).find({ orgId, enabled: true, events: eventType }).toArray();
+  const docs = await (await collection()).find({ orgId, enabled: true, events: { $in: [eventType, ALL_EVENTS] } }).toArray();
   return docs.map((doc) => ({ ...doc, id: String(doc._id), config: decryptSecrets(doc.type, doc.config || {}) }));
 }
 
