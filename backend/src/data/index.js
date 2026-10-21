@@ -269,6 +269,8 @@ module.exports = {
   // Initialization
   initDataLayer,
   isMysqlAvailable,
+  // Re-check now, e.g. right after the pool is (re)configured at runtime.
+  refreshMysqlAvailability: attemptMysqlReconnect,
   attemptMysqlReconnect,
   startMysqlReconnection,
   stopMysqlReconnection,

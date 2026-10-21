@@ -85,6 +85,8 @@ async function applyRuntimeConfig() {
     if (stored.db && typeof stored.db === 'object') {
       const db = require('../db');
       await db.reinitPool(stored.db);
+      // Report the new pool's state now rather than after the next 30s check.
+      await require('./index').refreshMysqlAvailability();
     }
   } catch (err) {
     log('warn', 'Could not apply runtime config from MongoDB — using config.json values', {

@@ -2093,6 +2093,8 @@ router.put(
       return res.status(400).json({ success: false, error: result.error });
     }
 
+    await require('../data').refreshMysqlAvailability();
+
     // Restart shared-pool based MySQL event-source adapters immediately.
     const { getDeliveryWorkerManager } = require('../processor/delivery-worker-manager');
     const manager = getDeliveryWorkerManager();

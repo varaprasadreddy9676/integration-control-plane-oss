@@ -48,4 +48,16 @@ describe('MySQL availability after runtime configuration', () => {
     expect(mockDb.ping).toHaveBeenCalled();
     expect(data.isMysqlAvailable()).toBe(true);
   });
+
+  it('can be re-checked right after the pool is configured, without waiting for the monitor', async () => {
+    jest.resetModules();
+    mockDb.configured = false;
+    const data = require('../../src/data');
+    await data.initDataLayer();
+
+    mockDb.configured = true;
+    await data.refreshMysqlAvailability();
+
+    expect(data.isMysqlAvailable()).toBe(true);
+  });
 });
