@@ -118,6 +118,11 @@ describe('email plugin', () => {
     );
   });
 
+  it('reports the mailer error when sending throws inside the mailer', async () => {
+    mockSendEmail.mockResolvedValue({ success: false, error: 'connect ECONNREFUSED smtp.example.com:587' });
+    await expect(plugins.getPlugin('email').send(failing, { recipients: ['ops@example.com'] })).rejects.toThrow('ECONNREFUSED');
+  });
+
   it('escapes HTML from alert text', async () => {
     await plugins.getPlugin('email').send({ ...failing, message: '<script>x</script>' }, { recipients: ['ops@example.com'] });
     expect(mockSendEmail.mock.calls[0][0].html).not.toContain('<script>');

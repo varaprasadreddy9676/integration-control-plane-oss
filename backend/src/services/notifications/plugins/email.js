@@ -31,6 +31,6 @@ module.exports = {
         ${alert.link ? `<div style="margin-top: 12px;"><a href="${escapeHtml(alert.link)}">Open delivery logs</a></div>` : ''}
       </div>`;
     const result = await emailService.sendEmail({ to: config.recipients, subject: alert.title, html });
-    if (!result?.success) throw new Error(result?.reason || 'Email was not sent');
+    if (!result?.success) throw new Error(result?.reason || result?.error || 'Email was not sent');
   },
 };
