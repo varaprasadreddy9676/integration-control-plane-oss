@@ -104,6 +104,7 @@ export const ConfigurationSection = ({
           <Col xs={24}>
             <Form.Item
               name="targetUrl"
+              validateTrigger="onBlur"
               label={
                 <Space size={4}>
                   Target URL

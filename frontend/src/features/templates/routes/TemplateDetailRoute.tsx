@@ -281,6 +281,7 @@ export const TemplateDetailRoute = () => {
               <Form.Item
                 label="Target URL"
                 name="targetUrl"
+                validateTrigger="onBlur"
                 rules={[
                   { required: true, message: 'Target URL is required' },
                   { type: 'url', message: 'Must be a valid URL' }
