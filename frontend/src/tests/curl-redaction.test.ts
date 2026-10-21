@@ -70,6 +70,39 @@ describe('cURL preview credential protection', () => {
   });
 });
 
+describe('inbound cURL for the public endpoint', () => {
+  const publicCall = { url: '/api/v1/public/integrations/customer-lookup?orgId=1', method: 'POST' };
+
+  it('adds no auth header when the integration has no inbound auth', () => {
+    const result = generateCurlCommand({ inboundAuthType: 'NONE' } as any, {}, undefined, {
+      direction: 'INBOUND',
+      request: publicCall,
+    });
+    expect(result).toContain('/api/v1/public/integrations/customer-lookup?orgId=1');
+    expect(result).not.toContain('X-API-Key');
+  });
+
+  it("shows the integration's own API key header, masked, instead of the gateway key", () => {
+    const result = generateCurlCommand(
+      { inboundAuthType: 'API_KEY', inboundAuthConfig: { headerName: 'X-Lookup-Key', apiKey: 'private-inbound' } } as any,
+      {},
+      undefined,
+      { direction: 'INBOUND', request: publicCall }
+    );
+    expect(result).toContain('X-Lookup-Key: [REDACTED]');
+    expect(result).not.toContain('X-API-Key');
+    expect(result).not.toContain('private-inbound');
+  });
+
+  it('uses Authorization for bearer auth', () => {
+    const result = generateCurlCommand({ inboundAuthType: 'BEARER' } as any, {}, undefined, {
+      direction: 'INBOUND',
+      request: publicCall,
+    });
+    expect(result).toContain('Authorization: Bearer [REDACTED]');
+  });
+});
+
 /**
  * The delivery-log detail view builds its own cURL strings rather than calling
  * generateCurlCommand, and that copy still printed Authorization and X-API-Key

@@ -197,6 +197,22 @@ describe('inbound integrations API key auth', () => {
     expect(mockAxios).toHaveBeenCalled();
   });
 
+  it('logs the URL the caller actually used, including /public', async () => {
+    await request(createApp())
+      .post('/api/v1/public/integrations/CUSTOMER_LOOKUP?orgId=84')
+      .set('X-API-Key', 'lookup-secret')
+      .send({ customerId: 'C-42' });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(mockRecordLog).toHaveBeenCalledWith(
+      84,
+      expect.objectContaining({
+        requestUrl: '/api/v1/public/integrations/CUSTOMER_LOOKUP?orgId=84',
+        requestMethod: 'POST',
+      })
+    );
+  });
+
   it('rejects a wrong key', async () => {
     const response = await request(createApp())
       .post('/api/v1/public/integrations/CUSTOMER_LOOKUP?orgId=84')

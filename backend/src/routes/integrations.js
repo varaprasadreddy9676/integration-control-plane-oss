@@ -1159,6 +1159,9 @@ const handleInboundRuntime = async (req, res) => {
       persistIntegrationLogFn = async (cfg, status, details) =>
         logIntegration(cfg, status, {
           ...details,
+          // Callers pass body/query/headers only; without the real URL the log fell
+          // back to /api/v1/integrations/... even for calls to /public/integrations.
+          request: { url: req.originalUrl, method: req.method, ...(details?.request || {}) },
           inboundRequestHeaders: _inboundCallerHeaders,
           clientIp: _clientIp,
           executionTrace: _executionSpans.length > 0 ? _executionSpans : null,

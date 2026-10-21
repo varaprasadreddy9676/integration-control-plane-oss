@@ -72,9 +72,18 @@ export function generateCurlCommand(
   let curl = `curl -X ${httpMethod} "${targetUrl}"`;
 
   if (isInbound) {
-    // The caller's own key goes here; the console never holds a gateway key to fill in.
-    const gatewayApiKey = reveal ? 'YOUR_API_KEY' : '[REDACTED]';
-    curl += ` \\\n  -H "X-API-Key: ${gatewayApiKey}"`;
+    const placeholder = reveal ? 'YOUR_API_KEY' : '[REDACTED]';
+    if (targetUrl.includes('/public/integrations/')) {
+      // The public endpoint takes no gateway key; it checks the integration's own inbound auth.
+      const inboundAuthType = String((integration as any)?.inboundAuthType || 'NONE').toUpperCase();
+      const inboundHeader = (integration as any)?.inboundAuthConfig?.headerName || 'X-API-Key';
+      if (inboundAuthType === 'API_KEY') curl += ` \\\n  -H "${inboundHeader}: ${placeholder}"`;
+      if (inboundAuthType === 'BEARER') curl += ` \\\n  -H "Authorization: Bearer ${placeholder}"`;
+      if (inboundAuthType === 'BASIC') curl += ` \\\n  -H "Authorization: Basic ${placeholder}"`;
+    } else {
+      // The caller's own key goes here; the console never holds a gateway key to fill in.
+      curl += ` \\\n  -H "X-API-Key: ${placeholder}"`;
+    }
     if (httpMethod !== 'GET') {
       curl += ` \\\n  -H "Content-Type: application/json"`;
     }
