@@ -875,6 +875,23 @@ const auditScheduledIntegration = {
 /**
  * Audit helpers for config/settings operations
  */
+/** Where an organization's alerts are sent. Changes carry masked settings only. */
+const auditAlertChannel = {
+  changed: async (req, action, channelId, changes) => {
+    await logAudit({
+      action: ACTION_TYPES[`ALERT_CHANNEL_${action}`],
+      resourceType: RESOURCE_TYPES.ALERT_CHANNEL,
+      resourceId: channelId,
+      user: req.user,
+      orgId: req.orgId,
+      changes,
+      ipAddress: getIpAddress(req),
+      userAgent: req.headers['user-agent'],
+      success: true,
+    });
+  },
+};
+
 const auditConfig = {
   uiConfigUpdated: async (req, changes) => {
     await logAudit({
@@ -1116,6 +1133,7 @@ module.exports = {
   auditScheduledJob,
   auditScheduledIntegration,
   auditConfig,
+  auditAlertChannel,
   auditEventSource,
   auditAdmin,
   auditData,

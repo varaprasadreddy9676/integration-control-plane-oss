@@ -30,6 +30,7 @@ const { startSchedulerWorker } = require('./processor/scheduler-worker');
 const { getScheduledJobWorker } = require('./processor/scheduled-job-worker');
 const { startDLQWorker, stopDLQWorker } = require('./processor/dlq-worker');
 const { startFailureEmailReportScheduler, sendAlertEmail } = require('./services/notifications/failure-report');
+const { dispatchAlert, toChannelAlert } = require('./services/notifications/alert-dispatcher');
 const { createDeliveryFailureHealthWatcher } = require('./services/delivery-failure-health');
 const emailService = require('./services/email-service');
 const dailyReportsScheduler = require('./services/daily-reports-scheduler');
@@ -58,6 +59,7 @@ const bulkRouter = require('./routes/bulk');
 const importExportRouter = require('./routes/import-export');
 const versionsRouter = require('./routes/versions');
 const integrationHistoryRouter = require('./routes/integration-history');
+const alertChannelsRouter = require('./routes/alert-channels');
 const fieldSchemasRouter = require('./routes/field-schemas');
 const configRouter = require('./routes/config');
 const scheduledIntegrationsRouter = require('./routes/scheduled-integrations');
@@ -395,6 +397,7 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/import-export`, auth, importExportRouter);
   app.use(`${config.api.basePrefix}/versions`, auth, versionsRouter);
   app.use(`${config.api.basePrefix}/integration-history`, auth, integrationHistoryRouter);
+  app.use(`${config.api.basePrefix}/alert-channels`, auth, alertChannelsRouter);
   app.use(`${config.api.basePrefix}/field-schemas`, auth, fieldSchemasRouter);
   app.use(`${config.api.basePrefix}/config`, auth, configRouter);
   app.use(`${config.api.basePrefix}/scheduled-integrations`, auth, scheduledIntegrationsRouter);
@@ -477,8 +480,20 @@ async function bootstrap() {
     // Reach people, not just the Alert Center (Oval's expired certificate went
     // unnoticed for a day), and do not re-raise an episode after a restart.
     notify: async (orgId, alert) => {
-      const result = await sendAlertEmail(orgId, alert);
-      if (!result.sent) log('warn', 'Integration alert not emailed', { orgId, reason: result.reason });
+      const [emailed] = await Promise.all([
+        sendAlertEmail(orgId, alert),
+        // Plugins: Slack, email lists, webhooks, WhatsApp — configured per org.
+        data
+          .getTenant(orgId)
+          .catch(() => null)
+          .then((tenant) =>
+            dispatchAlert(
+              orgId,
+              toChannelAlert(orgId, alert, { orgName: tenant?.name || tenant?.tenantName, frontendUrl: config.frontendUrl })
+            )
+          ),
+      ]);
+      if (!emailed.sent) log('warn', 'Integration alert not emailed', { orgId, reason: emailed.reason });
     },
     wasAlertedSince: (integrationId, orgId, since) => data.wasIntegrationAlertedSince(integrationId, orgId, since),
     log,

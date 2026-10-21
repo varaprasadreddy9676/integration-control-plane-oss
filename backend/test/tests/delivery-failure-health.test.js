@@ -154,7 +154,7 @@ describe('delivery failure alerts reach people, once', () => {
         {
           id: 'int-847',
           orgId: 847,
-          name: 'OP_VISIT_CREATED → IMT Patients',
+          name: 'ORDER_PLACED → Partner CRM',
           consecutiveFailures: 40,
           lastSuccessAt: '2026-10-19T08:55:00Z',
           lastCircuitError: 'certificate has expired',
@@ -174,7 +174,7 @@ describe('delivery failure alerts reach people, once', () => {
     await t.watcher.check();
     expect(t.notified).toHaveLength(1);
     expect(t.notified[0]).toMatchObject({ orgId: 847, type: 'INTEGRATION_DELIVERY_FAILING' });
-    expect(t.recorded[0].payload).toEqual({ integrationId: 'int-847' });
+    expect(t.recorded[0].payload).toEqual({ integrationId: 'int-847', integrationName: 'ORDER_PLACED → Partner CRM' });
   });
 
   it('does not alert again after a restart for an episode already alerted', async () => {

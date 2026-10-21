@@ -31,7 +31,7 @@
  *
  * It also re-encrypts integration credentials (integration_configs values with
  * the enc:v1: / enc:v1j: prefix, see utils/secrets-at-rest.js, and the config
- * snapshots kept in integration_revisions), which use the
+ * snapshots kept in integration_revisions, and alert channel secrets), which use the
  * same key — rotating one without the other would break every integration.
  *
  * After --commit, set GATEWAY_SECRET_KEY=<the --to value> in the environment and
@@ -88,7 +88,7 @@ function decrypt(ciphertext, key) {
 }
 
 // Collections whose documents hold enc:-prefixed integration credentials.
-const INTEGRATION_COLLECTIONS = ['integration_configs', 'integration_revisions'];
+const INTEGRATION_COLLECTIONS = ['integration_configs', 'integration_revisions', 'alert_channels'];
 const ENC_PREFIXES = ['enc:v1j:', 'enc:v1:'];
 
 /**

@@ -466,6 +466,9 @@ async function ensureIndexes() {
         log('warn', 'MongoDB lookups text index creation warning', { error: error.message });
       });
 
+    // Alert channels: where each organization's alerts are sent
+    await safeCreateIndexes(db.collection('alert_channels'), [{ key: { orgId: 1, enabled: 1 }, name: 'org_enabled_idx' }]);
+
     // Integration history: one snapshot per saved change
     await safeCreateIndexes(db.collection('integration_revisions'), [
       { key: { integrationId: 1, revision: -1 }, name: 'integration_revision_unique', unique: true },

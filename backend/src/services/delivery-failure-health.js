@@ -98,7 +98,7 @@ function createDeliveryFailureHealthWatcher({
             status: 'FAILED',
             subject,
             errorMessage: integration.lastCircuitError || 'Unknown error',
-            payload: { integrationId: id },
+            payload: { integrationId: id, integrationName: integration.name },
             windowStart: new Date(episode.failingSince),
             windowEnd: new Date(current),
           });
@@ -110,7 +110,7 @@ function createDeliveryFailureHealthWatcher({
           type: 'INTEGRATION_DELIVERY_RECOVERED',
           status: 'RESOLVED',
           subject,
-          payload: { integrationId: id },
+          payload: { integrationId: id, integrationName: integration.name },
           windowStart: new Date(episode.failingSince),
           windowEnd: new Date(current),
         });

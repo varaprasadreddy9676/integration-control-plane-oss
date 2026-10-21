@@ -90,6 +90,9 @@ const ACTION_TYPES = {
   CONFIG_UPDATED: 'config_updated',
   SETTINGS_CHANGED: 'settings_changed',
   UI_CONFIG_UPDATED: 'ui_config_updated',
+  ALERT_CHANNEL_CREATED: 'alert_channel_created',
+  ALERT_CHANNEL_UPDATED: 'alert_channel_updated',
+  ALERT_CHANNEL_DELETED: 'alert_channel_deleted',
   SYSTEM_CONFIG_UPDATED: 'system_config_updated',
 
   // Rate limits
@@ -124,6 +127,7 @@ const RESOURCE_TYPES = {
   INTEGRATION_VERSION: 'integration_version',
   CONFIG: 'config',
   UI_CONFIG: 'ui_config',
+  ALERT_CHANNEL: 'alert_channel',
   SYSTEM_CONFIG: 'system_config',
   RATE_LIMIT: 'rate_limit',
   API_KEY: 'api_key',
