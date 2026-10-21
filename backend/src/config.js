@@ -165,6 +165,9 @@ const defaultConfig = {
 };
 
 const configPath = path.join(__dirname, '..', 'config.json');
+// Informational startup notices are skipped when LOG_LEVEL asks for warnings
+// only, so CLI scripts such as create-user print just their result.
+const showStartupNotices = !['warn', 'error'].includes(String(process.env.LOG_LEVEL || '').toLowerCase());
 let fileConfig = {};
 if (fs.existsSync(configPath)) {
   try {
@@ -173,7 +176,7 @@ if (fs.existsSync(configPath)) {
   } catch (err) {
     console.warn('Failed to read config.json; using defaults', err.message);
   }
-} else {
+} else if (showStartupNotices) {
   console.warn('config.json not found; using defaults in src/config.js');
 }
 
@@ -216,7 +219,7 @@ if (isDefaultFrontendUrl && process.env.NODE_ENV === 'production') {
     '[config] WARNING: FRONTEND_URL is still the localhost default in a production environment. ' +
       'Set FRONTEND_URL env var to your actual frontend origin to ensure portal magic links work correctly.'
   );
-} else {
+} else if (showStartupNotices) {
   console.info(`[config] Effective FRONTEND_URL: ${resolvedFrontendUrl}`);
 }
 

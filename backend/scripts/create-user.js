@@ -1,3 +1,6 @@
+// Print only the result unless the caller asks for more (LOG_LEVEL=info).
+process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'warn';
+
 const bcrypt = require('bcryptjs');
 const mongodb = require('../src/mongodb');
 const data = require('../src/data');
