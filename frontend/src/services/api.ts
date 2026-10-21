@@ -3838,7 +3838,9 @@ export const getScheduledJobLogById = async (
  */
 export const testDataSource = async (
   dataSource: any,
-  orgId?: string | number | null
+  orgId?: string | number | null,
+  /** For a saved job: hidden values in `dataSource` are filled from it. */
+  jobId?: string
 ): Promise<{
   success: boolean;
   message: string;
@@ -3850,7 +3852,7 @@ export const testDataSource = async (
 }> =>
   request(withExplicitOrgId('/scheduled-jobs/test-datasource', orgId), {
     method: 'POST',
-    body: JSON.stringify({ dataSource }),
+    body: JSON.stringify({ dataSource, jobId }),
   });
 
 /**

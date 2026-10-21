@@ -491,7 +491,7 @@ export const ScheduledJobDetailRoute = () => {
         }
       }
 
-      return await testDataSource(dataSourceConfig, orgId);
+      return await testDataSource(dataSourceConfig, orgId, isCreate ? undefined : id);
     },
     onSuccess: (result) => {
       setTestResult(result);

@@ -61,6 +61,8 @@ import {
   getUIConfigOverride,
   getLogStatsSummary,
   type PaginatedResponse,
+  getIntegrationCredentials,
+  getInboundIntegrationCredentials,
 } from '../../../services/api';
 import type { DeliveryLog } from '../../../mocks/types';
 import { formatDateTime, formatDateTimeWithSeconds } from '../../../utils/format';
@@ -399,34 +401,48 @@ const TraceWaterfall = ({ spans }: { spans: ExecutionSpan[] }) => {
 
 export const LogsRoute = () => {
   const { spacing, token, borderRadius, shadows } = useDesignTokens();
-  const { isAdmin } = usePermissions();
+  const { isSuperAdmin } = usePermissions();
   // cURL previews mask credentials by default — they get pasted into tickets.
   // Admins can reveal them to get a command that actually runs; deliberately
   // per-visit state, so it never persists into someone's next session.
   const [revealCredentials, setRevealCredentials] = useState(false);
+  // The log only carries masked credentials; revealing fetches the real ones
+  // from the audited, super-admin-only credentials endpoint.
+  const [revealedConfig, setRevealedConfig] = useState<any>(null);
 
   // Revealing a credential is a deliberate exception to the default masking,
   // and the resulting command carries a working secret. Record who did it and
   // when. Flushed immediately rather than left in the batch queue — an audit
   // event that a closed tab can discard is not an audit event.
-  const toggleRevealCredentials = () => {
-    setRevealCredentials((wasRevealed) => {
-      const nowRevealed = !wasRevealed;
-      if (nowRevealed) {
-        activityTracker.track({
-          event: ACTIVITY_EVENTS.CREDENTIAL_REVEALED,
-          metadata: {
-            surface: 'delivery-log-curl',
-            integrationId: detailRecord?.integrationConfigId ?? null,
-            integrationName: detailRecord?.integrationName ?? null,
-            logId: detailRecord?.id ?? null,
-            orgId,
-          },
-        });
-        void activityTracker.flush();
-      }
-      return nowRevealed;
-    });
+  const toggleRevealCredentials = async () => {
+    if (revealCredentials) {
+      setRevealCredentials(false);
+      setRevealedConfig(null);
+      return;
+    }
+    const integrationId = detailRecord?.integrationConfigId;
+    if (!integrationId) return;
+    try {
+      const config =
+        detailRecord?.direction === 'INBOUND'
+          ? await getInboundIntegrationCredentials(String(integrationId))
+          : await getIntegrationCredentials(String(integrationId));
+      setRevealedConfig(config);
+      setRevealCredentials(true);
+      activityTracker.track({
+        event: ACTIVITY_EVENTS.CREDENTIAL_REVEALED,
+        metadata: {
+          surface: 'delivery-log-curl',
+          integrationId,
+          integrationName: detailRecord?.integrationName ?? null,
+          logId: detailRecord?.id ?? null,
+          orgId,
+        },
+      });
+      void activityTracker.flush();
+    } catch (error) {
+      msgApi.error(error instanceof Error ? error.message : 'Could not load the credentials');
+    }
   };
   const colors = cssVar.legacy;
   const { user } = useAuth();
@@ -1019,6 +1035,11 @@ export const LogsRoute = () => {
   // made comparing two deliveries a collapse-scroll-expand loop; the drawer
   // keeps the list in view so you can walk down a failure run.
   const [detailRecord, setDetailRecord] = useState<DeliveryLog | null>(null);
+  // Revealed credentials belong to one integration: hide them when another log opens.
+  useEffect(() => {
+    setRevealCredentials(false);
+    setRevealedConfig(null);
+  }, [detailRecord?.id]);
 
   const openDeliveryDetail = async (record: DeliveryLog) => {
     setDetailRecord(record);
@@ -1367,9 +1388,10 @@ export const LogsRoute = () => {
     // targetUrl/payload, so generateCurlCommand would just produce a
     // meaningless `curl -X POST "" -d '{}'`. Show the script's actual
     // console output instead (see 'script-logs' tab below).
+    const curlConfig = revealCredentials && revealedConfig ? revealedConfig : fullLog.__KEEP_integrationConfig__;
     const curlCommand =
-      !isScriptJobLog && !isSkippedLog && fullLog.__KEEP_integrationConfig__
-        ? generateCurlCommand(fullLog.__KEEP_integrationConfig__, fullLog.requestPayload, fullLog.requestHeaders, {
+      !isScriptJobLog && !isSkippedLog && curlConfig
+        ? generateCurlCommand(curlConfig, fullLog.requestPayload, fullLog.requestHeaders, {
             direction: fullLog.direction,
             request: (fullLog as any).request,
             orgId: (fullLog as any).orgId,
@@ -1403,7 +1425,10 @@ export const LogsRoute = () => {
         mergedHeaders[name] = resolved;
       });
       return generateCurlCommand(
-        { targetUrl: fullLog.targetUrl, httpMethod: fullLog.httpMethod || 'POST' } as any,
+        {
+          targetUrl: (revealCredentials && revealedConfig?.targetUrl) || fullLog.targetUrl,
+          httpMethod: fullLog.httpMethod || 'POST',
+        } as any,
         (fullLog.requestPayload || {}) as Record<string, unknown>,
         mergedHeaders,
         { revealCredentials }
@@ -1779,7 +1804,7 @@ export const LogsRoute = () => {
                                     aria-label="Copy inbound cURL"
                                     onClick={() => copyToClipboard(curlCommand || '')}
                                   />
-                                  {isAdmin() && (
+                                  {isSuperAdmin() && (
                                     <Tooltip
                                       title={
                                         revealCredentials
