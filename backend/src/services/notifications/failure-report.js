@@ -6,6 +6,7 @@ const mongodb = require('../../mongodb');
 const { log, logError } = require('../../logger');
 const data = require('../../data');
 const { isIntegrationMailConfigured, deliverEmail } = require('./integration-mailer');
+const { maskLogSecrets } = require('../../utils/integration-secrets');
 
 const COMMUNICATION_SERVICE_URL =
   config.communicationServiceUrl || 'https://notification.example.com/notification-service/api/sendNotification';
@@ -222,7 +223,7 @@ function buildEmailHtml({
     ? recentFailures
         .slice(0, 5)
         .map((log, index) => {
-          const curlCommand = generateCurlCommand(log);
+          const curlCommand = generateCurlCommand(maskLogSecrets(log));
           return `
           <div style="margin-top: ${index === 0 ? '0' : '16px'}; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">

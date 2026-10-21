@@ -8,6 +8,7 @@ const zlib = require('zlib');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
 const { uuidv4 } = require('../utils/runtime');
+const { maskLogSecrets } = require('../utils/integration-secrets');
 
 const router = express.Router();
 const SYSTEM_LOG_EXPORT_JOBS_COLLECTION = 'system_log_export_jobs';
@@ -324,7 +325,8 @@ const normalizeAppLogEntry = (entry) => {
     timestamp: entry.timestamp,
     level: entry.level,
     message: entry.message,
-    meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : {},
+    // Lines written before the logger masked credentials still carry them.
+    meta: entry.meta && typeof entry.meta === 'object' ? maskLogSecrets(entry.meta) : {},
     category: entry.category || null,
     source: entry.source || (entry.meta && entry.meta.source) || 'server',
     stream: 'app',

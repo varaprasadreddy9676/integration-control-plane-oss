@@ -10,6 +10,7 @@ const { buildAuthHeaders } = require('./auth-helper');
 const { applyProviderRef } = require('../services/operation-templates');
 const axios = require('axios');
 const { createExecutionLogger } = require('../utils/execution-logger');
+const { maskUrlSecrets } = require('../utils/integration-secrets');
 const {
   markWorkerRunError,
   markWorkerRunStart,
@@ -978,12 +979,14 @@ class ScheduledJobWorker {
         const curlHeaders = Object.entries(redacted)
           .map(([k, v]) => `-H "${k}: ${v}"`)
           .join(' ');
+        // Logged like the headers: without the credentials a URL can carry.
+        const loggedUrl = maskUrlSecrets(url);
 
         return {
           ...deliveryResult,
           durationMs: Date.now() - start,
-          httpRequest: { method, url, headers: redacted, body: payload },
-          curlCommand: `curl -X ${method} ${curlHeaders} -d '${JSON.stringify(payload).replace(/'/g, "'\\''")}' "${url}"`,
+          httpRequest: { method, url: loggedUrl, headers: redacted, body: payload },
+          curlCommand: `curl -X ${method} ${curlHeaders} -d '${JSON.stringify(payload).replace(/'/g, "'\\''")}' "${loggedUrl}"`,
         };
       }
 

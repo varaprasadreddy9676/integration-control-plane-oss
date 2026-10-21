@@ -12,8 +12,10 @@ const { logMcpAudit } = require('../services/mcp-audit');
 const { ACTION_TYPES, RESOURCE_TYPES } = require('../services/audit-logger');
 const { requirePermission } = require('../middleware/permission');
 const { resolveScopedOrgId } = require('../utils/org-context');
+const { maskLogResponses } = require('../middleware/mask-log-responses');
 
 const router = express.Router();
+router.use(maskLogResponses);
 
 function parseOrgId(req) {
   // Org-bound callers may only act on their own org, even if the body names another.

@@ -4,7 +4,12 @@ const data = require('../data');
 const templates = require('../data/templates');
 const asyncHandler = require('../utils/async-handler');
 const { auditData } = require('../middleware/audit');
-const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
+const {
+  maskIntegrationSecrets,
+  maskUrlSecrets,
+  restoreMaskedSecrets,
+  containsSecretMask,
+} = require('../utils/integration-secrets');
 
 // isSecretField() decides "headers under CUSTOM_HEADERS auth are secrets" by
 // checking the grandparent key is literally outgoingAuthConfig/inboundAuthConfig
@@ -115,7 +120,7 @@ router.get(
         integration.id || '',
         integration.name || '',
         integration.description || '',
-        integration.targetUrl || '',
+        maskUrlSecrets(integration.targetUrl || ''),
         integration.httpMethod || '',
         integration.outgoingAuthType || integration.authType || '',
         Array.isArray(integration.type) ? integration.type.join(';') : integration.type || '',
@@ -186,7 +191,7 @@ router.get(
           version: '1.0',
           totalTemplates: selectedTemplates.length,
         },
-        templates: selectedTemplates.map((template) => ({
+        templates: selectedTemplates.map((template) => maskIntegrationSecrets({
           id: template.id,
           name: template.name,
           description: template.description,
@@ -581,7 +586,8 @@ function sanitizeIntegrationForExport(integration, includeSensitive = false, for
     }
   }
 
-  return sanitized;
+  // Credentials in the URL and headers are masked like the auth config.
+  return includeSensitive ? sanitized : maskIntegrationSecrets(sanitized);
 }
 
 /**

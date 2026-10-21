@@ -220,6 +220,60 @@ describe('Templates Routes', () => {
     });
   });
 
+  describe('template credentials', () => {
+    const secretTemplate = {
+      ...mockTemplateDoc,
+      targetUrl: 'https://api.example.com/hook?token=url-secret',
+      authType: 'BEARER',
+      authConfig: { token: 'auth-secret' },
+      headers: { Authorization: 'header-secret', 'X-Trace': 'plain' },
+    };
+
+    it('masks credentials when listing and reading templates', async () => {
+      mockDataModule.listCustomTemplates.mockResolvedValueOnce([secretTemplate]);
+      mockDataModule.getCustomTemplate.mockResolvedValueOnce(secretTemplate);
+      const list = await request(app).get('/api/v1/templates');
+      const one = await request(app).get('/api/v1/templates/custom_template-123');
+      for (const body of [list.body, one.body]) {
+        expect(JSON.stringify(body)).not.toMatch(/url-secret|auth-secret|header-secret/);
+      }
+      expect(one.body.template.headers['X-Trace']).toBe('plain');
+    });
+
+    it('keeps the stored credentials when a masked template is saved back', async () => {
+      mockDataModule.getCustomTemplate.mockResolvedValueOnce(secretTemplate);
+      const masked = (await request(app).get('/api/v1/templates/custom_template-123')).body.template;
+      mockDataModule.getCustomTemplate.mockResolvedValueOnce(secretTemplate);
+      const res = await request(app).put('/api/v1/templates/custom_template-123').send(masked);
+      expect(res.status).toBe(200);
+      const saved = mockDataModule.updateTemplate.mock.calls[0][2];
+      expect(saved.targetUrl).toBe(secretTemplate.targetUrl);
+      expect(saved.authConfig).toEqual(secretTemplate.authConfig);
+      expect(saved.headers).toEqual(secretTemplate.headers);
+    });
+
+    it('creates an integration with the stored credentials from masked overrides', async () => {
+      mockDataModule.getCustomTemplate.mockResolvedValue(secretTemplate);
+      const masked = (await request(app).get('/api/v1/templates/custom_template-123')).body.template;
+      const res = await request(app)
+        .post('/api/v1/templates/custom_template-123/create')
+        .send({ targetUrl: masked.targetUrl, outgoingAuthConfig: masked.authConfig });
+      mockDataModule.getCustomTemplate.mockResolvedValue(mockTemplateDoc);
+      expect(res.status).toBe(201);
+      const created = mockDataModule.addIntegration.mock.calls[0][1];
+      expect(created.targetUrl).toBe(secretTemplate.targetUrl);
+      expect(created.outgoingAuthConfig).toEqual(secretTemplate.authConfig);
+    });
+
+    it('rejects a masked value with nothing stored behind it', async () => {
+      const res = await request(app)
+        .put('/api/v1/templates/custom_template-123')
+        .send({ name: 'x', targetUrl: 'https://api.example.com/hook?token=********' });
+      expect(res.status).toBe(400);
+      expect(mockDataModule.updateTemplate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('GET /api/v1/templates/categories', () => {
     it('returns 200 with template categories', async () => {
       const res = await request(app).get('/api/v1/templates/categories');

@@ -2,8 +2,10 @@ const express = require('express');
 const asyncHandler = require('../utils/async-handler');
 const executionLogsData = require('../data/execution-logs');
 const { log } = require('../logger');
+const { maskLogResponses } = require('../middleware/mask-log-responses');
 
 const router = express.Router();
+router.use(maskLogResponses);
 
 /**
  * GET /api/v1/execution-logs

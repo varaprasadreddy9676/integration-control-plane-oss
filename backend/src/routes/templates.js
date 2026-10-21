@@ -5,6 +5,7 @@ const templates = require('../data/templates');
 const catalog = require('../services/integration-templates/catalog');
 const asyncHandler = require('../utils/async-handler');
 const { auditTemplate } = require('../middleware/audit');
+const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
 
 const router = express.Router();
 
@@ -49,7 +50,7 @@ router.get(
       }
 
       res.json({
-        templates: availableTemplates,
+        templates: availableTemplates.map(maskIntegrationSecrets),
         total: availableTemplates.length,
       });
     } catch (error) {
@@ -100,7 +101,7 @@ router.get(
       }
 
       res.json({
-        template,
+        template: maskIntegrationSecrets(template),
       });
     } catch (error) {
       log('error', 'Failed to get template', {
@@ -139,7 +140,7 @@ router.get(
 
       res.json({
         category,
-        templates: categoryTemplates,
+        templates: categoryTemplates.map(maskIntegrationSecrets),
         total: categoryTemplates.length,
       });
     } catch (error) {
@@ -198,7 +199,6 @@ router.post(
   asyncHandler(async (req, res) => {
     try {
       const { templateId } = req.params;
-      const overrides = req.body || {};
 
       // Get template from MongoDB
       const template = await data.getCustomTemplate(req.orgId, templateId);
@@ -207,6 +207,19 @@ router.post(
         return res.status(404).json({
           error: 'Template not found',
           code: 'TEMPLATE_NOT_FOUND',
+        });
+      }
+
+      // The console sends back the template's masked credentials; use the stored ones.
+      const overrides = restoreMaskedSecrets(req.body || {}, {
+        targetUrl: template.targetUrl,
+        outgoingAuthConfig: template.authConfig,
+        headers: template.headers,
+      });
+      if (containsSecretMask(overrides)) {
+        return res.status(400).json({
+          error: 'A hidden value could not be matched to a stored one. Enter it again.',
+          code: 'VALIDATION_ERROR',
         });
       }
 
@@ -282,7 +295,7 @@ router.post(
 
       res.status(201).json({
         message: 'Integration created successfully from template',
-        integration: createdIntegration,
+        integration: maskIntegrationSecrets(createdIntegration),
         template: {
           id: templateId,
           name: template.name,
@@ -517,7 +530,7 @@ router.post(
 
       res.status(201).json({
         message: 'Template cloned and integration created successfully',
-        integration: createdIntegration,
+        integration: maskIntegrationSecrets(createdIntegration),
         template: {
           originalId: templateId,
           originalName: originalTemplate.name,
@@ -599,7 +612,7 @@ router.post(
 
       res.status(201).json({
         message: 'Template created successfully',
-        template,
+        template: maskIntegrationSecrets(template),
       });
     } catch (error) {
       log('error', 'Failed to create template', {
@@ -630,6 +643,13 @@ router.put(
       }
 
       const beforeTemplate = await data.getCustomTemplate(req.orgId, templateId).catch(() => null);
+      const body = restoreMaskedSecrets(req.body || {}, beforeTemplate || {});
+      if (containsSecretMask(body)) {
+        return res.status(400).json({
+          error: 'A hidden value could not be matched to a stored one. Enter it again.',
+          code: 'VALIDATION_ERROR',
+        });
+      }
 
       const {
         name,
@@ -647,7 +667,7 @@ router.put(
         transformation,
         isActive,
         metadata,
-      } = req.body;
+      } = body;
 
       const updatedTemplate = await data.updateTemplate(req.orgId, templateId, {
         name,
@@ -679,11 +699,14 @@ router.put(
         orgId: req.orgId,
       });
 
-      await auditTemplate.updated(req, templateId, { before: beforeTemplate, after: updatedTemplate });
+      await auditTemplate.updated(req, templateId, {
+        before: maskIntegrationSecrets(beforeTemplate),
+        after: maskIntegrationSecrets(updatedTemplate),
+      });
 
       res.json({
         message: 'Template updated successfully',
-        template: updatedTemplate,
+        template: maskIntegrationSecrets(updatedTemplate),
       });
     } catch (error) {
       log('error', 'Failed to update template', {

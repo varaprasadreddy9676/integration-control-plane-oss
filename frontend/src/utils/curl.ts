@@ -144,11 +144,14 @@ export function generateCurlCommand(
 
   // Custom authentication headers are protected alongside conventional credential headers.
   if (requestHeaders && typeof requestHeaders === 'object') {
+    // Logs return credential headers masked; a reveal fills them in from the audited credentials.
+    const revealed = reveal ? credentialHeaders(integration) : {};
     Object.entries(requestHeaders).forEach(([key, value]) => {
       const customAuthHeader = integration?.outgoingAuthConfig?.headerName;
       const isSecret =
         isCredentialField(key) ||
         (typeof customAuthHeader === 'string' && key.toLowerCase() === customAuthHeader.toLowerCase());
+      if (value === SECRET_MASK && revealed[key.toLowerCase()]) value = revealed[key.toLowerCase()];
       value = maskIf(isSecret, value);
       curl += ` \\\n  -H "${key}: ${value}"`;
     });
@@ -174,6 +177,34 @@ export function generateCurlCommand(
   }
 
   return curl;
+}
+
+const SECRET_MASK = '********';
+
+/**
+ * The credential headers an outbound integration sends, by lower-cased name,
+ * from a config read through the credentials endpoint. OAuth2 tokens are
+ * fetched at delivery time, so they are not here.
+ */
+function credentialHeaders(integration: IntegrationConfig | undefined): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const config = (integration?.outgoingAuthConfig || {}) as Record<string, any>;
+  const real = (value: unknown) => (typeof value === 'string' && value && value !== SECRET_MASK ? value : null);
+  const type = String(integration?.outgoingAuthType || '').toUpperCase();
+  const token = real(config.token) || real(config.value);
+  if (type === 'BEARER' && token) headers.authorization = `Bearer ${token}`;
+  const key = real(config.apiKey) || real(config.value) || real(config.key);
+  if (type === 'API_KEY' && key) headers[String(config.headerName || 'X-API-Key').toLowerCase()] = key;
+  if (type === 'BASIC' && real(config.username) && real(config.password)) {
+    headers.authorization = `Basic ${btoa(`${config.username}:${config.password}`)}`;
+  }
+  const sources = [type === 'CUSTOM_HEADERS' ? config.headers : null, (integration as any)?.customHeaders];
+  for (const source of sources) {
+    for (const [name, value] of Object.entries((source || {}) as Record<string, unknown>)) {
+      if (real(value)) headers[name.toLowerCase()] = value as string;
+    }
+  }
+  return headers;
 }
 
 /**

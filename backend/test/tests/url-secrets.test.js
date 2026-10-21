@@ -6,6 +6,7 @@ const {
   maskIntegrationSecrets,
   restoreMaskedSecrets,
   containsSecretMask,
+  maskLogSecrets,
 } = require('../../src/utils/integration-secrets');
 
 describe('maskUrlSecrets', () => {
@@ -66,5 +67,37 @@ describe('URLs in integration documents', () => {
   it('flags a masked URL that has nothing stored behind it', () => {
     const restored = restoreMaskedSecrets({ targetUrl: `https://api.example.com/x?token=${SECRET_MASK}` }, {});
     expect(containsSecretMask(restored)).toBe(true);
+  });
+});
+
+describe('header credentials', () => {
+  const stored = {
+    dataSource: { type: 'API', url: 'https://api.example.com/x', headers: { Authorization: 'ds-secret', Accept: 'json' } },
+    authConfig: { headers: { 'X-Partner-Token': 'alias-secret' } },
+  };
+
+  it('masks credential headers outside the auth config, and auth config headers under the authConfig name', () => {
+    const masked = maskIntegrationSecrets(stored);
+    expect(masked.dataSource.headers).toEqual({ Authorization: SECRET_MASK, Accept: 'json' });
+    expect(masked.authConfig.headers['X-Partner-Token']).toBe(SECRET_MASK);
+  });
+
+  it('puts the stored header values back on save', () => {
+    expect(restoreMaskedSecrets(maskIntegrationSecrets(stored), stored)).toEqual(stored);
+  });
+});
+
+describe('maskLogSecrets', () => {
+  it('masks URL and request header credentials but leaves payloads alone', () => {
+    const entry = {
+      targetUrl: 'https://hooks.slack.com/services/T0/B0/slack-secret',
+      requestHeaders: { Authorization: 'Bearer h1', 'X-Key': 'h2', 'Content-Type': 'application/json' },
+      metadata: { httpRequest: { url: 'https://api.example.com/x?api_key=k9', headers: { 'x-api-key': 'h3' } } },
+      requestPayload: { password: 'customer-data' },
+    };
+    const masked = maskLogSecrets(entry);
+    expect(JSON.stringify(masked)).not.toMatch(/slack-secret|h1|h2|h3|k9/);
+    expect(masked.requestHeaders['Content-Type']).toBe('application/json');
+    expect(masked.requestPayload).toEqual({ password: 'customer-data' });
   });
 });

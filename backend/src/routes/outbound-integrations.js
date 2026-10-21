@@ -49,7 +49,7 @@ router.get(
     // Use the summary projection — skips scripts, auth configs, signing secrets, etc.
     // Full document (listIntegrations) is only needed when opening the detail/edit page.
     const integrations = await data.listIntegrationsSummary(req.orgId);
-    res.json(filterIntegrationScope(req, integrations));
+    res.json(filterIntegrationScope(req, integrations).map(maskIntegrationSecrets));
   })
 );
 

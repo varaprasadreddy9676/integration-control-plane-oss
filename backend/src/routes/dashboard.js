@@ -5,9 +5,11 @@ const emailService = require('../services/email-service');
 const dashboardCaptureService = require('../services/dashboard-capture');
 const config = require('../config');
 const { log, logError } = require('../logger');
+const { maskLogResponses } = require('../middleware/mask-log-responses');
 const { assertViewAllowed, isPortalScopedSession } = require('../middleware/portal-scope');
 
 const router = express.Router();
+router.use(maskLogResponses);
 
 router.get(
   '/',

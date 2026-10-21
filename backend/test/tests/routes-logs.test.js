@@ -396,6 +396,36 @@ describe('Logs Routes', () => {
     });
   });
 
+  describe('GET /api/v1/logs/export/json', () => {
+    it('masks credentials in logged URLs and request headers', async () => {
+      const secretLog = {
+        ...mockLogDoc,
+        targetUrl: 'https://hooks.slack.com/services/T0/B0/slack-secret',
+        requestHeaders: { Authorization: 'Bearer header-secret', 'Content-Type': 'application/json' },
+      };
+      const streamCursor = {
+        close: jest.fn().mockResolvedValue(undefined),
+        async *[Symbol.asyncIterator]() {
+          yield secretLog;
+        },
+      };
+      mockCollection.find.mockImplementation((_query, options = {}) =>
+        options.projection
+          ? {
+              hint: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnValue({ toArray: jest.fn().mockResolvedValue([{ _id: 'log-id-456' }]) }),
+            }
+          : { hint: jest.fn().mockReturnThis(), sort: jest.fn().mockReturnThis(), batchSize: jest.fn().mockReturnValue(streamCursor) }
+      );
+
+      const res = await request(app).get('/api/v1/logs/export/json');
+
+      expect(res.status).toBe(200);
+      expect(res.text).not.toMatch(/slack-secret|header-secret/);
+      expect(res.text).toContain('application/json');
+    });
+  });
+
   describe('GET /api/v1/logs/:id', () => {
     it('returns 404 when log not found', async () => {
       mockCollection.findOne.mockResolvedValue(null);

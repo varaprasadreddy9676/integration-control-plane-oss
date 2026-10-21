@@ -7,7 +7,7 @@ const data = require('../data');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
 const asyncHandler = require('../utils/async-handler');
-const { maskIntegrationSecrets, maskUrlFields, maskUrlSecrets } = require('../utils/integration-secrets');
+const { maskIntegrationSecrets, maskLogSecrets, maskUrlSecrets } = require('../utils/integration-secrets');
 const { uuidv4 } = require('../utils/runtime');
 const { isPortalScopedSession, assertViewAllowed, assertIntegrationInScope } = require('../middleware/portal-scope');
 
@@ -311,7 +311,7 @@ const processLogExportJob = async (jobId) => {
           flow: getFlowLabel(rest),
           responseBody: resolveResponseBodyForExport(logEntry),
         };
-        const chunk = `${isFirst ? '' : ','}${JSON.stringify(exportLog)}`;
+        const chunk = `${isFirst ? '' : ','}${JSON.stringify(maskLogSecrets(exportLog))}`;
         isFirst = false;
         await writeFileChunk(stream, chunk);
       }
@@ -683,7 +683,7 @@ router.get(
       groupMode === 'message'
         ? await data.getLogsPageGroupedByMessage(req.orgId, filters)
         : await data.getLogsPage(req.orgId, filters);
-    res.json(maskUrlFields(response));
+    res.json(maskLogSecrets(response));
   })
 );
 
@@ -979,7 +979,7 @@ router.post(
         const filename = `integration-logs-selected-${logs.length}-${new Date().toISOString().split('T')[0]}.json`;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.json(maskUrlFields(cleanLogs));
+        res.json(maskLogSecrets(cleanLogs));
       }
 
       log('info', 'Selected logs exported', {
@@ -1051,7 +1051,7 @@ router.get(
             rest.direction === 'OUTBOUND' && rest.triggerType === 'SCHEDULED'
               ? 'SCHEDULED'
               : rest.direction || 'OUTBOUND';
-          const chunk = (isFirst ? '' : ',') + JSON.stringify({ ...rest, flow });
+          const chunk = (isFirst ? '' : ',') + JSON.stringify(maskLogSecrets({ ...rest, flow }));
           isFirst = false;
 
           const wrote = await writeWithBackpressure(req, res, chunk, isAborted);
@@ -1199,7 +1199,7 @@ router.get(
     }
 
     return res.json({
-      ...maskUrlFields(logEntry),
+      ...maskLogSecrets(logEntry),
       __KEEP_integrationConfig__,
     });
   })

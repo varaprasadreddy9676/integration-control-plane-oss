@@ -38,11 +38,16 @@ const SECRET_FIELDS = new Set(
 );
 
 // Inside an auth config, every value under `headers` is a credential
-// (CUSTOM_HEADERS auth).
-const AUTH_CONFIG_FIELDS = new Set(['outgoingauthconfig', 'inboundauthconfig']);
+// (CUSTOM_HEADERS auth). `authConfig` is the name templates and some API
+// responses use for the outgoing auth config.
+const AUTH_CONFIG_FIELDS = new Set(['outgoingauthconfig', 'inboundauthconfig', 'authconfig']);
 
-// Plain custom headers are mostly templates ({{partnerId}}); only these carry secrets.
-const SECRET_HEADER = /authorization|api[-_]?key|token|secret|password/i;
+// Plain headers are mostly templates ({{partnerId}}); only these carry secrets.
+const SECRET_HEADER = /auth|api[-_]?key|(^|[-_])key$|token|secret|passw|signature|cookie|session/i;
+// Objects of header name -> value: custom headers, a data source's headers, logged request headers.
+const HEADER_FIELDS = new Set(['customheaders', 'headers', 'requestheaders']);
+const isSecretHeader = (key, parentKey) =>
+  HEADER_FIELDS.has(String(parentKey).toLowerCase()) && SECRET_HEADER.test(String(key));
 
 // Fields holding a URL that can carry a credential (a webhook token in the path,
 // ?api_key=, user:password@). Only those parts are masked, so the URL stays readable.
@@ -149,7 +154,7 @@ function isSecretField(key, parentKey, grandparentKey) {
   if (String(parentKey).toLowerCase() === 'headers' && AUTH_CONFIG_FIELDS.has(String(grandparentKey).toLowerCase())) {
     return true;
   }
-  return String(parentKey).toLowerCase() === 'customheaders' && SECRET_HEADER.test(String(key));
+  return isSecretHeader(key, parentKey);
 }
 
 function maskValue(value) {
@@ -237,13 +242,32 @@ function containsSecretMask(value, parentKey = '', grandparentKey = '') {
   );
 }
 
-/** Copy of `value` (e.g. a delivery log) with credentials inside its URL fields masked. */
-const maskUrlFields = (value) => mapUrlFields(value, maskUrlSecrets);
+/**
+ * Copy of a log entry (delivery, scheduled run, system log) with the
+ * credentials in its URL fields and request headers masked. Payloads and
+ * response bodies are left as they are.
+ */
+function maskLogSecrets(value, parentKey = '') {
+  if (Array.isArray(value)) return value.map((item) => maskLogSecrets(item, parentKey));
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    out[key] =
+      isUrlField(key) && typeof child === 'string'
+        ? maskUrlSecrets(child)
+        : String(key).toLowerCase() === 'curlcommand' && typeof child === 'string'
+          ? child.replace(/https?:\/\/[^\s"']+/g, maskUrlSecrets)
+          : isSecretHeader(key, parentKey)
+          ? maskValue(child)
+          : maskLogSecrets(child, key);
+  }
+  return out;
+}
 
 module.exports = {
   SECRET_MASK,
   maskUrlSecrets,
-  maskUrlFields,
+  maskLogSecrets,
   maskIntegrationSecrets,
   restoreMaskedSecrets,
   containsSecretMask,

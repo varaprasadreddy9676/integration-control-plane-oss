@@ -5,6 +5,7 @@ const fs = require('fs');
 const morgan = require('morgan');
 const { createLogger, format, transports } = require('winston');
 const { redactBase64 } = require('./utils/payload-sanitizer');
+const { maskLogSecrets } = require('./utils/integration-secrets');
 const DailyRotateFile = require('winston-daily-rotate-file');
 
 let db = null;
@@ -122,10 +123,11 @@ const requestLogger = morgan(':date[iso] :method :url :status :res[content-lengt
 /**
  * Write a structured log entry.
  * Preserves the same shape as before: { timestamp, level, message, meta }.
- * Base64 blobs in meta are redacted before writing to keep log files small.
+ * Base64 blobs in meta are redacted before writing to keep log files small,
+ * and credentials in URLs and request headers are masked.
  */
 function log(level, message, meta = {}) {
-  appLogger.log({ level, message, meta: redactBase64(meta) });
+  appLogger.log({ level, message, meta: maskLogSecrets(redactBase64(meta)) });
 }
 
 /**
@@ -143,7 +145,7 @@ async function logError(err, context = {}) {
         level: 'error',
         message,
         stack: err.stack,
-        context,
+        context: maskLogSecrets(context),
         scope: context.scope || 'unknown',
         timestamp: new Date(),
         createdAt: new Date(),

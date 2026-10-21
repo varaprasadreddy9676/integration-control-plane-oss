@@ -172,3 +172,27 @@ describe('explicit credential reveal', () => {
     expect(result).toContain('Content-Type: application/json');
   });
 });
+
+describe('reveal with headers the log returned masked', () => {
+  const logged = { Authorization: '********', 'X-Key': '********', 'X-Partner-Token': '********', Accept: 'json' };
+
+  it('fills each masked header from the revealed integration config', () => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ outgoingAuthType: 'BEARER', outgoingAuthConfig: { token: 'real-bearer' } }, 'Authorization: Bearer real-bearer'],
+      [{ outgoingAuthType: 'API_KEY', outgoingAuthConfig: { headerName: 'X-Key', apiKey: 'real-key' } }, 'X-Key: real-key'],
+      [{ outgoingAuthType: 'BASIC', outgoingAuthConfig: { username: 'u', password: 'p' } }, `Authorization: Basic ${btoa('u:p')}`],
+      [{ outgoingAuthType: 'CUSTOM_HEADERS', outgoingAuthConfig: { headers: { 'X-Partner-Token': 'real-custom' } } }, 'X-Partner-Token: real-custom'],
+    ];
+    for (const [config, expected] of cases) {
+      const revealed = { targetUrl: 'https://example.test/receive?api_key=real-url-key', httpMethod: 'POST', ...config } as unknown as IntegrationConfig;
+      const result = generateCurlCommand(revealed, {}, logged, { revealCredentials: true });
+      expect(result).toContain(expected);
+      expect(result).toContain('api_key=real-url-key');
+    }
+  });
+
+  it('keeps them redacted without a reveal', () => {
+    const revealed = { outgoingAuthType: 'BEARER', outgoingAuthConfig: { token: 'real-bearer' } } as unknown as IntegrationConfig;
+    expect(generateCurlCommand(revealed, {}, logged)).not.toContain('real-bearer');
+  });
+});

@@ -16,7 +16,12 @@ const {
 const cron = require('node-cron');
 const { auditScheduledJob } = require('../middleware/audit');
 const { captureRevision } = require('../data/integration-revisions');
-const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
+const {
+  maskIntegrationSecrets,
+  maskLogSecrets,
+  restoreMaskedSecrets,
+  containsSecretMask,
+} = require('../utils/integration-secrets');
 const { requirePermission, requireSuperAdmin } = require('../middleware/permission');
 const { applyCursorHint } = require('../utils/index-hints');
 
@@ -788,7 +793,7 @@ router.get('/:id/logs', requirePermission('scheduled:view'), async (req, res) =>
     ]);
 
     res.set('X-Total-Count', total.toString());
-    res.json(logs);
+    res.json(maskLogSecrets(logs));
   } catch (error) {
     logError(error, { scope: 'GET /scheduled-jobs/:id/logs' });
     res.status(500).json({ error: 'Failed to fetch execution logs' });
@@ -819,7 +824,7 @@ router.get('/:id/logs/:logId', requirePermission('scheduled:view'), async (req, 
       return res.status(404).json({ error: 'Execution log not found' });
     }
 
-    res.json(log);
+    res.json(maskLogSecrets(log));
   } catch (error) {
     logError(error, { scope: 'GET /scheduled-jobs/:id/logs/:logId' });
     res.status(500).json({ error: 'Failed to fetch execution log' });
