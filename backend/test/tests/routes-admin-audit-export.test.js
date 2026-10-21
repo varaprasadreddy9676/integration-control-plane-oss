@@ -163,14 +163,10 @@ describe('Admin audit routes', () => {
     mockAdminAuditCollection.aggregate.mockReturnValue({
       toArray: jest.fn().mockResolvedValue([
         {
-          overall: [
-            {
-              total: [{ count: 1 }],
-              topActions: [{ _id: 'RATE_LIMITS_EXPORT', count: 1 }],
-              topAdmins: [{ _id: 'admin@example.com', count: 1 }],
-              actionBreakdown: [{ _id: 'RATE_LIMITS_EXPORT', count: 1 }],
-            },
-          ],
+          total: [{ count: 1 }],
+          topActions: [{ _id: 'RATE_LIMITS_EXPORT', count: 1 }],
+          topAdmins: [{ _id: 'admin@example.com', count: 1 }],
+          actionBreakdown: [{ _id: 'RATE_LIMITS_EXPORT', count: 1 }],
           trend: [{ _id: '2026-03-27', count: 1 }],
         },
       ]),
@@ -183,6 +179,17 @@ describe('Admin audit routes', () => {
     expect(res.body.items).toHaveLength(1);
     expect(res.body.summary.days).toBe(14);
     expect(res.body.summary.dailyCounts).toHaveLength(14);
+    expect(res.body.summary.topActions).toEqual([{ action: 'RATE_LIMITS_EXPORT', count: 1 }]);
+    expect(res.body.summary.topAdmins).toEqual([{ adminEmail: 'admin@example.com', count: 1 }]);
+
+    // MongoDB rejects a $facet nested inside another $facet.
+    const [pipeline] = mockAdminAuditCollection.aggregate.mock.calls[0];
+    const facets = pipeline.filter((stage) => stage.$facet);
+    for (const facet of facets) {
+      for (const branch of Object.values(facet.$facet)) {
+        expect(branch.some((stage) => stage.$facet)).toBe(false);
+      }
+    }
   });
 
   it('queues admin audit exports as async jobs', async () => {

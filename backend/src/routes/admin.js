@@ -1590,30 +1590,27 @@ router.get(
         .collection('admin_audit')
         .aggregate(
           [
+            // MongoDB does not allow a $facet inside a $facet: each summary filters on its own.
             {
               $facet: {
-                overall: [
+                total: [{ $match: query }, { $count: 'count' }],
+                topActions: [
                   { $match: query },
-                  {
-                    $facet: {
-                      total: [{ $count: 'count' }],
-                      topActions: [
-                        { $group: { _id: '$action', count: { $sum: 1 } } },
-                        { $sort: { count: -1 } },
-                        { $limit: 5 },
-                      ],
-                      topAdmins: [
-                        { $group: { _id: '$adminEmail', count: { $sum: 1 } } },
-                        { $sort: { count: -1 } },
-                        { $limit: 5 },
-                      ],
-                      actionBreakdown: [
-                        { $group: { _id: '$action', count: { $sum: 1 } } },
-                        { $sort: { count: -1 } },
-                        { $limit: 10 },
-                      ],
-                    },
-                  },
+                  { $group: { _id: '$action', count: { $sum: 1 } } },
+                  { $sort: { count: -1 } },
+                  { $limit: 5 },
+                ],
+                topAdmins: [
+                  { $match: query },
+                  { $group: { _id: '$adminEmail', count: { $sum: 1 } } },
+                  { $sort: { count: -1 } },
+                  { $limit: 5 },
+                ],
+                actionBreakdown: [
+                  { $match: query },
+                  { $group: { _id: '$action', count: { $sum: 1 } } },
+                  { $sort: { count: -1 } },
+                  { $limit: 10 },
                 ],
                 trend: [
                   { $match: trendQuery },
@@ -1653,17 +1650,16 @@ router.get(
     }));
 
     const summary = summaryResult?.[0] || {};
-    const overall = summary.overall?.[0] || {};
-    const totalSummary = overall.total?.[0]?.count ?? total;
-    const topActions = (overall.topActions || []).map((row) => ({
+    const totalSummary = summary.total?.[0]?.count ?? total;
+    const topActions = (summary.topActions || []).map((row) => ({
       action: row._id || 'unknown',
       count: row.count || 0,
     }));
-    const topAdmins = (overall.topAdmins || []).map((row) => ({
+    const topAdmins = (summary.topAdmins || []).map((row) => ({
       adminEmail: row._id || 'unknown',
       count: row.count || 0,
     }));
-    const actionBreakdown = (overall.actionBreakdown || []).map((row) => ({
+    const actionBreakdown = (summary.actionBreakdown || []).map((row) => ({
       action: row._id || 'unknown',
       count: row.count || 0,
     }));

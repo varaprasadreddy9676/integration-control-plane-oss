@@ -26,8 +26,12 @@ reported as well.
 
 ## Run
 
-Use a disposable install only: the audit adds records to the org and never
-removes them.
+Use a disposable install only: the audit adds records and never removes them.
+Unless `ORG_ID` is set it creates a new organization for each run (this needs
+a super admin) and turns on its HTTP push event source.
+
+CI runs it on every push and pull request (the `leak-audit` job in
+`.github/workflows/ci.yml`), against a fresh `docker compose` install.
 
 ```bash
 docker compose up -d --build                      # a fresh install
@@ -39,7 +43,7 @@ node tools/leak-audit/audit.mjs
 |----------|---------|
 | `API_URL` | `http://localhost:3545/api/v1` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@example.com` / `ChangeMe123!` |
-| `ORG_ID` | `1` |
+| `ORG_ID` | none: a new organization is created |
 | `TARGET_BASE` | `https://httpbin.org` (deliveries go to `/status/200` and `/json`) |
 | `SETTLE_MS` | `20000` (wait for deliveries and jobs before crawling) |
 

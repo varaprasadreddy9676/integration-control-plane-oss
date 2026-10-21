@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 const API = (process.env.API_URL || 'http://localhost:3545/api/v1').replace(/\/$/, '');
 const EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
 const PASSWORD = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
-const ORG_ID = process.env.ORG_ID || '1';
+// Without ORG_ID the audit creates its own organization (needs a super admin).
+let ORG_ID = process.env.ORG_ID;
 // Targets must not echo requests back, or every echoed header looks like a leak.
 const TARGET = (process.env.TARGET_BASE || 'https://httpbin.org').replace(/\/$/, '');
 const BACKEND_SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../backend/src');
@@ -251,7 +252,26 @@ async function crawl(auth, routes) {
   return { findings, requests };
 }
 
+/** A new organization with the HTTP push event source on, so events can be pushed. */
+async function createOrg(auth) {
+  const res = await fetch(`${API}/admin/orgs`, {
+    method: 'POST',
+    headers: { ...auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: `${TAG} leak audit`, code: TAG }),
+  });
+  if (!res.ok) throw new Error(`Could not create an organization (${res.status}). Set ORG_ID to use an existing one.`);
+  const { org } = await res.json();
+  const orgId = String(org.orgId);
+  await fetch(`${API}/event-sources/${orgId}`, {
+    method: 'PUT',
+    headers: { ...auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'http_push', config: {} }),
+  });
+  return orgId;
+}
+
 const auth = await login();
+ORG_ID = ORG_ID || (await createOrg(auth));
 console.log(`Planting secrets tagged ${TAG} in org ${ORG_ID}…`);
 const planted = await plant(auth);
 console.log('Generating deliveries, inbound calls and job runs…');
