@@ -781,6 +781,53 @@ export const getInboundIntegrations = async (orgId?: string | number | null): Pr
 
 export const getInboundIntegration = async (id: string): Promise<any> => request(`/inbound-integrations/${id}`);
 
+// ─── Integration history (outbound, inbound and scheduled) ───────────────────
+
+export interface IntegrationRevisionSummary {
+  revision: number;
+  source: 'BASELINE' | 'CREATED' | 'UPDATED' | 'RESTORED';
+  restoredFrom: number | null;
+  changedBy: { id: string | null; email: string | null } | null;
+  changedFields: string[];
+  createdAt: string;
+}
+
+export interface IntegrationRevisionChange {
+  path: string;
+  kind: 'added' | 'removed' | 'changed';
+  before?: unknown;
+  after?: unknown;
+  secret?: boolean;
+}
+
+export interface IntegrationRevisionDiff {
+  from: number;
+  to: number | 'current';
+  changes: IntegrationRevisionChange[];
+  fromSnapshot: Record<string, unknown>;
+  toSnapshot: Record<string, unknown>;
+}
+
+export const getIntegrationRevisions = async (
+  integrationId: string
+): Promise<{ integration: { id: string; name: string; direction: string }; revisions: IntegrationRevisionSummary[] }> =>
+  request(`/integration-history/${encodeURIComponent(integrationId)}/revisions`);
+
+export const getIntegrationRevisionDiff = async (
+  integrationId: string,
+  revision: number,
+  against: number | 'current' = 'current'
+): Promise<IntegrationRevisionDiff> =>
+  request(
+    `/integration-history/${encodeURIComponent(integrationId)}/revisions/${revision}/diff?against=${encodeURIComponent(String(against))}`
+  );
+
+export const restoreIntegrationRevision = async (
+  integrationId: string,
+  revision: number
+): Promise<{ restoredFrom: number; revision: number | null }> =>
+  request(`/integration-history/${encodeURIComponent(integrationId)}/revisions/${revision}/restore`, { method: 'POST' });
+
 /** Super admin only; the server audits every call. Returns unmasked credentials. */
 export const getInboundIntegrationCredentials = async (id: string): Promise<any> =>
   request(`/inbound-integrations/${id}/credentials`);

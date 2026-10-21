@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
+import { IntegrationHistoryButton } from '../../integration-history';
 import { useLocation, useParams } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { useTenant } from '../../../app/tenant-context';
@@ -1004,17 +1005,23 @@ return {
         ]}
         dense
         actions={
-          <RevealCredentialsButton
-            integrationId={isCreate ? undefined : id}
-            form={form}
-            fetchCredentials={getInboundIntegrationCredentials}
-            toFormValues={(document) => ({
-              inboundAuthConfig: document.inboundAuthConfig,
-              outgoingAuthConfig: document.outgoingAuthConfig,
-              customHeaders: document.customHeaders,
-              communicationConfig: document.actions?.[0]?.communicationConfig,
-            })}
-          />
+          <>
+            <IntegrationHistoryButton
+              integrationId={isCreate ? undefined : id}
+              onRestored={() => queryClient.invalidateQueries({ queryKey: ['inbound-integration', id] })}
+            />
+            <RevealCredentialsButton
+              integrationId={isCreate ? undefined : id}
+              form={form}
+              fetchCredentials={getInboundIntegrationCredentials}
+              toFormValues={(document) => ({
+                inboundAuthConfig: document.inboundAuthConfig,
+                outgoingAuthConfig: document.outgoingAuthConfig,
+                customHeaders: document.customHeaders,
+                communicationConfig: document.actions?.[0]?.communicationConfig,
+              })}
+            />
+          </>
         }
       />
 

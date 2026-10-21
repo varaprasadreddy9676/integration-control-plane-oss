@@ -45,6 +45,7 @@ import {
   SyncOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
+import { IntegrationHistoryButton } from '../../integration-history';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { InlineHint } from '../../../components/common/InlineHint';
 import { CronBuilder } from '../components/CronBuilder';
@@ -1166,6 +1167,12 @@ export const ScheduledJobDetailRoute = () => {
           { label: isCreate ? 'New' : job?.name || 'Details' },
         ]}
         dense
+        actions={
+          <IntegrationHistoryButton
+            integrationId={isCreate ? undefined : id}
+            onRestored={() => queryClient.invalidateQueries({ queryKey: ['scheduled-job', id] })}
+          />
+        }
         statusChips={
           !isCreate && job
             ? [

@@ -33,6 +33,7 @@ import { useIntegrationTest } from './integrationDetail/hooks/useIntegrationTest
 import { useIntegrationImportExport } from './integrationDetail/hooks/useIntegrationImportExport';
 import { IntegrationPageHeader } from './integrationDetail/components/IntegrationPageHeader';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
+import { IntegrationHistoryButton } from '../../integration-history';
 import { TransformationDrawer } from './integrationDetail/components/TransformationDrawer';
 import { ReviewConfirmDrawer } from './integrationDetail/components/ReviewConfirmDrawer';
 import { buildIntegrationSectionItems } from './integrationDetail/components/IntegrationSectionsContent';
@@ -977,16 +978,22 @@ const firstTime = addHours(now(), 1);
               onImport={handleImport}
               isPortalSession={isPortalSession}
               extraActions={
-                <RevealCredentialsButton
-                  integrationId={isCreate ? undefined : id}
-                  form={form}
-                  fetchCredentials={getIntegrationCredentials}
-                  toFormValues={(document) => ({
-                    outgoingAuthConfig: document.outgoingAuthConfig,
-                    actions: document.actions,
-                    customHeaders: document.customHeaders,
-                  })}
-                />
+                <>
+                  <IntegrationHistoryButton
+                    integrationId={isCreate ? undefined : id}
+                    onRestored={() => queryClient.invalidateQueries({ queryKey: ['integration', id] })}
+                  />
+                  <RevealCredentialsButton
+                    integrationId={isCreate ? undefined : id}
+                    form={form}
+                    fetchCredentials={getIntegrationCredentials}
+                    toFormValues={(document) => ({
+                      outgoingAuthConfig: document.outgoingAuthConfig,
+                      actions: document.actions,
+                      customHeaders: document.customHeaders,
+                    })}
+                  />
+                </>
               }
             />
           )}
