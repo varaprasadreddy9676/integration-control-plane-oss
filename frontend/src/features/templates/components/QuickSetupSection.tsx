@@ -94,7 +94,12 @@ export const QuickSetupSection = () => {
 
   const submit = async () => {
     if (!active) return;
-    const values = await form.validateFields();
+    let values: Record<string, string>;
+    try {
+      values = await form.validateFields();
+    } catch {
+      return; // the form already shows what to fix next to each field
+    }
     setSubmitting(true);
     try {
       const built = await buildFromTemplateCatalog(active.id, values, activate);
