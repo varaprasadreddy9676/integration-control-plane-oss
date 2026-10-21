@@ -325,6 +325,74 @@ describe('Scheduled Jobs Routes', () => {
     });
   });
 
+  describe('credentials in scheduled job responses', () => {
+    const withSecrets = () => ({
+      ...mockJobDoc,
+      outgoingAuthType: 'BEARER',
+      outgoingAuthConfig: { token: 'job-bearer-secret' },
+      dataSource: { type: 'API', url: 'https://api.example.com/users?api_key=ds-secret', method: 'GET' },
+    });
+
+    it('hides tokens and URL keys when a job is read', async () => {
+      mockDb.collection('integration_configs').findOne.mockResolvedValueOnce(withSecrets());
+      const one = await request(app).get(`/api/v1/scheduled-jobs/${VALID_JOB_ID}`);
+      mockDb.collection('integration_configs').find.mockReturnValueOnce({
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        toArray: jest.fn(async () => [withSecrets()]),
+      });
+      const list = await request(app).get('/api/v1/scheduled-jobs');
+      for (const res of [one, list]) {
+        expect(res.status).toBe(200);
+        expect(JSON.stringify(res.body)).not.toMatch(/job-bearer-secret|ds-secret/);
+      }
+    });
+
+    it('keeps the stored credentials when the edit form sends the masked values back', async () => {
+      const collection = mockDb.collection('integration_configs');
+      collection.findOne.mockResolvedValueOnce(withSecrets());
+      collection.findOneAndUpdate.mockResolvedValueOnce({ value: withSecrets(), ok: 1 });
+      const res = await request(app)
+        .put(`/api/v1/scheduled-jobs/${VALID_JOB_ID}`)
+        .send({
+          name: 'Renamed',
+          outgoingAuthConfig: { token: '********' },
+          dataSource: { type: 'API', url: 'https://api.example.com/users?api_key=********', method: 'GET' },
+        });
+      expect(res.status).toBe(200);
+      const saved = collection.findOneAndUpdate.mock.calls[0][1].$set;
+      expect(saved.outgoingAuthConfig.token).toBe('job-bearer-secret');
+      expect(saved.dataSource.url).toBe('https://api.example.com/users?api_key=ds-secret');
+    });
+
+    it('refuses a masked value it cannot match to a stored secret', async () => {
+      mockDb.collection('integration_configs').findOne.mockResolvedValueOnce(withSecrets());
+      const res = await request(app)
+        .put(`/api/v1/scheduled-jobs/${VALID_JOB_ID}`)
+        .send({ targetUrl: 'https://other.example.com/x?token=********' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/hidden value/i);
+    });
+  });
+
+  describe('POST /api/v1/scheduled-jobs/test-datasource with a saved job', () => {
+    it('fills masked values from the saved job before testing', async () => {
+      const { executeDataSource } = require('../../src/services/data-source-executor');
+      mockDb.collection('integration_configs').findOne.mockResolvedValueOnce({
+        ...mockJobDoc,
+        dataSource: { type: 'API', url: 'https://api.example.com/users?api_key=ds-secret', method: 'GET' },
+      });
+      const res = await request(app)
+        .post('/api/v1/scheduled-jobs/test-datasource')
+        .send({ jobId: VALID_JOB_ID, dataSource: { type: 'API', url: 'https://api.example.com/users?api_key=********', method: 'GET' } });
+      expect(res.status).toBe(200);
+      expect(executeDataSource.mock.calls.at(-1)[0]).toEqual(
+        expect.objectContaining({ url: 'https://api.example.com/users?api_key=ds-secret' })
+      );
+    });
+  });
+
   describe('PUT /api/v1/scheduled-jobs/:id', () => {
     it('returns 200 when updating job', async () => {
       const res = await request(app)

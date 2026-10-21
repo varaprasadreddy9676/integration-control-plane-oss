@@ -12,7 +12,7 @@ const { fetch, AbortController } = require('../utils/runtime');
 const { executeSchedulingScript, validateRecurringConfig } = require('../services/scheduler');
 const { generateMaskedCurlCommand } = require('../utils/curl-generator');
 const { auditIntegration } = require('../middleware/audit');
-const { maskIntegrationSecrets, restoreMaskedSecrets } = require('../utils/integration-secrets');
+const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
 const { requireSuperAdmin } = require('../middleware/permission');
 const {
   filterIntegrationScope,
@@ -422,6 +422,9 @@ router.put(
     // The edit form sends back the masks it was given; keep the stored values.
     if (beforeIntegration && beforeIntegration.orgId === req.orgId) {
       req.body = restoreMaskedSecrets(req.body, beforeIntegration);
+    }
+    if (containsSecretMask(req.body)) {
+      return res.status(400).json({ error: 'A hidden value could not be matched to the stored one. Enter the full value again (for example the whole URL).', code: 'MASKED_VALUE_UNMATCHED' });
     }
     if (req.body.targetUrl) {
       const urlCheck = validateTargetUrl(req.body.targetUrl, config.security);

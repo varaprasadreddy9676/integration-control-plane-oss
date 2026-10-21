@@ -16,6 +16,7 @@ const {
 const cron = require('node-cron');
 const { auditScheduledJob } = require('../middleware/audit');
 const { captureRevision } = require('../data/integration-revisions');
+const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
 const { requirePermission, requireSuperAdmin } = require('../middleware/permission');
 const { applyCursorHint } = require('../utils/index-hints');
 
@@ -26,8 +27,12 @@ function buildOrgScopeQuery(orgId) {
 const ENV_VAR_KEY_RE = /^[A-Z_][A-Z0-9_]*$/;
 const MAX_SCRIPT_JOB_ENV_VARS = 100;
 
-function sanitizeJobForResponse(job) {
-  if (!job || !Array.isArray(job.environmentVariables)) return job;
+function sanitizeJobForResponse(rawJob) {
+  if (!rawJob) return rawJob;
+  // Credentials (auth tokens, data source passwords, keys inside URLs) are masked
+  // like every other integration response; a save sending the mask back keeps them.
+  const job = maskIntegrationSecrets(rawJob);
+  if (!Array.isArray(job.environmentVariables)) return job;
   return {
     ...job,
     environmentVariables: job.environmentVariables.map(({ key, secretKey, hasValue, updatedAt, createdAt }) => ({
@@ -409,7 +414,7 @@ router.put('/:id', requirePermission('scheduled:edit'), async (req, res) => {
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
-    const updates = req.body;
+    let updates = req.body;
     // Validate cron expression if being updated
     if (updates.schedule?.type === 'CRON' && updates.schedule?.expression) {
       if (!cron.validate(updates.schedule.expression)) {
@@ -437,6 +442,14 @@ router.put('/:id', requirePermission('scheduled:edit'), async (req, res) => {
 
     if (!beforeJob) {
       return res.status(404).json({ error: 'Scheduled job not found' });
+    }
+
+    // Masked credentials sent back by the edit form keep their stored values.
+    updates = restoreMaskedSecrets(updates || {}, beforeJob);
+    if (containsSecretMask(updates)) {
+      return res.status(400).json({
+        error: 'A hidden value could not be matched to the stored one. Enter the full value again (for example the whole URL).',
+      });
     }
 
     // Remove fields that shouldn't be updated
@@ -823,10 +836,24 @@ router.post('/test-datasource', requirePermission('scheduled:create'), async (re
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
-    const { dataSource } = req.body;
+    let { dataSource } = req.body;
 
     if (!dataSource || !dataSource.type) {
       return res.status(400).json({ error: 'Data source configuration is required' });
+    }
+
+    // Testing a saved job from its edit form: hidden values come from the stored job.
+    if (req.body.jobId && ObjectId.isValid(req.body.jobId)) {
+      const db = await getDb();
+      const stored = await db.collection('integration_configs').findOne({
+        _id: new ObjectId(req.body.jobId),
+        direction: { $in: ['SCHEDULED', 'SCRIPT_JOB'] },
+        ...buildOrgScopeQuery(orgId),
+      });
+      if (stored) dataSource = restoreMaskedSecrets({ dataSource }, { dataSource: stored.dataSource }).dataSource;
+    }
+    if (containsSecretMask({ dataSource })) {
+      return res.status(400).json({ error: 'A hidden value could not be filled in. Enter it again to test.' });
     }
 
     // Create a mock integration config for testing

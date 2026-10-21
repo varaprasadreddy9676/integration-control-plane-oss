@@ -17,7 +17,7 @@ const runtimeConfig = require('../config');
 const { buildAuthHeaders, clearCachedToken } = require('../processor/auth-helper');
 const { applyTransform, applyResponseTransform, hasResponseTransform, truncateForTrace } = require('../services/transformer');
 const { maskSensitiveData } = require('../utils/mask');
-const { maskIntegrationSecrets, restoreMaskedSecrets } = require('../utils/integration-secrets');
+const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
 const { requireSuperAdmin } = require('../middleware/permission');
 const { auditIntegration } = require('../middleware/audit');
 const { log } = require('../logger');
@@ -615,6 +615,12 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
         .collection('integration_configs')
         .findOne({ _id: new ObjectId(id), ...buildOrgScopeQuery(req.orgId), direction: 'INBOUND' });
       req.body = restoreMaskedSecrets(req.body || {}, beforeIntegration || {});
+      if (containsSecretMask(req.body)) {
+        return res.status(400).json({
+          success: false,
+          error: 'A hidden value could not be matched to the stored one. Enter the full value again (for example the whole URL).',
+        });
+      }
     }
 
     const validationError = validateInboundPayload(req.body);

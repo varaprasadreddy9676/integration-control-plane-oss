@@ -165,6 +165,34 @@ describe('outbound integration credentials over the API', () => {
     expect(data.updateIntegration.mock.calls[0][2].outgoingAuthConfig.password).toBe('rotated!');
   });
 
+  describe('credentials inside the target URL', () => {
+    const slack = { ...mockStored, targetUrl: 'https://hooks.slack.com/services/T00/B00/slack-token' };
+    const masked = 'https://hooks.slack.com/services/T00/B00/********';
+    beforeEach(() => data.getIntegration.mockReset().mockResolvedValue(slack));
+
+    it('GET /:id hides the webhook token', async () => {
+      const res = await request(buildApp()).get('/api/v1/outbound-integrations/int-1');
+      expect(res.body.targetUrl).toBe(masked);
+    });
+
+    it('PUT with the masked URL keeps the real one', async () => {
+      const res = await request(buildApp())
+        .put('/api/v1/outbound-integrations/int-1')
+        .send({ ...slack, targetUrl: masked, name: 'Renamed' });
+      expect(res.status).toBe(200);
+      expect(data.updateIntegration.mock.calls[0][2].targetUrl).toBe('https://hooks.slack.com/services/T00/B00/slack-token');
+      expect(res.body.targetUrl).toBe(masked);
+    });
+
+    it('PUT refuses a masked URL it cannot match, instead of saving the mask', async () => {
+      const res = await request(buildApp())
+        .put('/api/v1/outbound-integrations/int-1')
+        .send({ ...slack, targetUrl: 'https://api.example.com/h?token=********&sig=********' });
+      expect(res.status).toBe(400);
+      expect(data.updateIntegration).not.toHaveBeenCalled();
+    });
+  });
+
   it('GET /:id/credentials gives a super admin the real value, and audits it', async () => {
     const { auditIntegration } = require('../../src/middleware/audit');
     const res = await request(buildApp('SUPER_ADMIN')).get('/api/v1/outbound-integrations/int-1/credentials');

@@ -6,7 +6,7 @@
  * whole, so a reordered mapping list shows as one change to that list.
  */
 
-const { isSecretField, mapSecretFields, SECRET_MASK } = require('./integration-secrets');
+const { isSecretField, mapSecretFields, maskIntegrationSecrets, SECRET_MASK } = require('./integration-secrets');
 
 const isPlainObject = (value) => {
   if (value === null || typeof value !== 'object') return false;
@@ -16,8 +16,11 @@ const isPlainObject = (value) => {
 
 const hasValue = (value) => value !== undefined && value !== null && value !== '';
 // A value reported whole (an object that appeared, an array) can still hold secrets.
-const maskNested = (value, key, parentKey) =>
-  mapSecretFields(value, (secret) => (hasValue(secret) ? SECRET_MASK : secret), key, parentKey);
+// Secret fields and URL-embedded credentials (as an integration response shows them).
+const maskNested = (value, key, parentKey) => {
+  const fieldsMasked = mapSecretFields(value, (secret) => (hasValue(secret) ? SECRET_MASK : secret), key, parentKey);
+  return typeof value === 'string' ? maskIntegrationSecrets({ [key]: fieldsMasked })[key] : maskIntegrationSecrets(fieldsMasked);
+};
 
 const comparable = (value) => (value instanceof Date ? value.toISOString() : value);
 const sameValue = (a, b) => JSON.stringify(comparable(a)) === JSON.stringify(comparable(b));

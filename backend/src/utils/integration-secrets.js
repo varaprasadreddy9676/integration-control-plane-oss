@@ -44,13 +44,108 @@ const AUTH_CONFIG_FIELDS = new Set(['outgoingauthconfig', 'inboundauthconfig']);
 // Plain custom headers are mostly templates ({{partnerId}}); only these carry secrets.
 const SECRET_HEADER = /authorization|api[-_]?key|token|secret|password/i;
 
+// Fields holding a URL that can carry a credential (a webhook token in the path,
+// ?api_key=, user:password@). Only those parts are masked, so the URL stays readable.
+const URL_FIELDS = new Set(['targeturl', 'url', 'connectionstring', 'requesturl']);
+const SECRET_QUERY_PARAM =
+  /^(api[-_]?key|apikey|key|token|access[-_]?token|auth|authorization|secret|client[-_]?secret|password|pass|pwd|sig|signature|code)$/i;
+// Webhook services whose URL path itself is the credential: [prefix, secret segment(s)].
+const SECRET_PATH_URLS = [
+  /^(https:\/\/hooks\.slack\.com\/services\/[^/?#]+\/[^/?#]+\/)([^/?#]+)/i,
+  /^(https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/)([^/?#]+)/i,
+  /^(https:\/\/[^/?#]+\.webhook\.office\.com\/webhookb2\/[^/?#]+\/IncomingWebhook\/)([^/?#]+)\/([^/?#]+)/i,
+];
+
+const isUrlField = (key) => URL_FIELDS.has(String(key).toLowerCase());
+
+/**
+ * Split a URL into its masked form and the secret parts that were masked, in
+ * the order they appear. A URL without secrets comes back unchanged.
+ */
+function splitUrlSecrets(url) {
+  if (typeof url !== 'string' || !url) return { masked: url, secrets: [] };
+  const secrets = [];
+  let masked = url;
+
+  // user:password@ (also database connection strings)
+  masked = masked.replace(/^([a-z][a-z0-9+.-]*:\/\/[^:@/?#\s]+:)([^@/?#\s]+)(@)/i, (_, head, password, at) => {
+    secrets.push(password);
+    return `${head}${SECRET_MASK}${at}`;
+  });
+
+  for (const pattern of SECRET_PATH_URLS) {
+    const match = masked.match(pattern);
+    if (!match) continue;
+    const [whole, prefix, ...parts] = match;
+    secrets.push(...parts);
+    masked = `${prefix}${parts.map(() => SECRET_MASK).join('/')}${masked.slice(whole.length)}`;
+    break;
+  }
+
+  const queryStart = masked.indexOf('?');
+  if (queryStart !== -1) {
+    const hashStart = masked.indexOf('#', queryStart);
+    const end = hashStart === -1 ? masked.length : hashStart;
+    const query = masked
+      .slice(queryStart + 1, end)
+      .split('&')
+      .map((pair) => {
+        const eq = pair.indexOf('=');
+        if (eq <= 0) return pair;
+        const name = pair.slice(0, eq);
+        const value = pair.slice(eq + 1);
+        if (!value || value === SECRET_MASK || !SECRET_QUERY_PARAM.test(name)) return pair;
+        secrets.push(value);
+        return `${name}=${SECRET_MASK}`;
+      })
+      .join('&');
+    masked = `${masked.slice(0, queryStart + 1)}${query}${masked.slice(end)}`;
+  }
+
+  return { masked, secrets };
+}
+
+/** The URL with any embedded credential replaced by SECRET_MASK. */
+const maskUrlSecrets = (url) => splitUrlSecrets(url).masked;
+
+/**
+ * A URL sent back from the console: each mask is replaced, in order, by the
+ * secret stored at the same place. A URL whose masks do not line up with the
+ * stored secrets is returned as is (containsSecretMask then flags it).
+ */
+function restoreUrl(incoming, stored) {
+  if (typeof incoming !== 'string' || !incoming.includes(SECRET_MASK)) return incoming;
+  const { secrets } = splitUrlSecrets(typeof stored === 'string' ? stored : '');
+  const maskCount = incoming.split(SECRET_MASK).length - 1;
+  if (maskCount !== secrets.length) return incoming;
+  let index = 0;
+  return incoming.split(SECRET_MASK).reduce((out, piece, i) => (i === 0 ? piece : out + secrets[index++] + piece), '');
+}
+
+/** Copy of `value` with every URL field passed through `transform`. */
+function mapUrlFields(value, transform) {
+  if (Array.isArray(value)) return value.map((item) => mapUrlFields(item, transform));
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    out[key] = isUrlField(key) && typeof child === 'string' ? transform(child) : mapUrlFields(child, transform);
+  }
+  return out;
+}
+
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
 
 const hasValue = (value) => value !== undefined && value !== null && value !== '';
 
+// Older API_KEY auth configs keep the key under a generic name.
+const AUTH_CONFIG_VALUE_FIELDS = new Set(['value', 'key']);
+
 function isSecretField(key, parentKey, grandparentKey) {
   if (SECRET_FIELDS.has(String(key).toLowerCase())) return true;
+  if (AUTH_CONFIG_FIELDS.has(String(parentKey).toLowerCase()) && AUTH_CONFIG_VALUE_FIELDS.has(String(key).toLowerCase())) {
+    return true;
+  }
   if (String(parentKey).toLowerCase() === 'headers' && AUTH_CONFIG_FIELDS.has(String(grandparentKey).toLowerCase())) {
     return true;
   }
@@ -81,7 +176,7 @@ function mapSecretFields(value, transform, parentKey = '', grandparentKey = '') 
 
 /** Copy of `doc` with every credential replaced by SECRET_MASK. */
 function maskIntegrationSecrets(doc) {
-  return mapSecretFields(doc, maskValue);
+  return mapUrlFields(mapSecretFields(doc, maskValue), maskUrlSecrets);
 }
 
 function restoreValue(incoming, stored) {
@@ -105,7 +200,9 @@ function walkRestore(incoming, stored, parentKey, grandparentKey) {
   for (const [key, child] of Object.entries(incoming)) {
     const next = isSecretField(key, parentKey, grandparentKey)
       ? restoreValue(child, storedObject[key])
-      : walkRestore(child, storedObject[key], key, parentKey);
+      : isUrlField(key) && typeof child === 'string'
+        ? restoreUrl(child, storedObject[key])
+        : walkRestore(child, storedObject[key], key, parentKey);
     // Never persist the mask itself as a credential.
     if (next !== undefined) out[key] = next;
   }
@@ -134,12 +231,19 @@ function containsSecretMask(value, parentKey = '', grandparentKey = '') {
       ? Array.isArray(child)
         ? child.includes(SECRET_MASK)
         : child === SECRET_MASK
-      : containsSecretMask(child, key, parentKey)
+      : isUrlField(key) && typeof child === 'string'
+        ? child.includes(SECRET_MASK)
+        : containsSecretMask(child, key, parentKey)
   );
 }
 
+/** Copy of `value` (e.g. a delivery log) with credentials inside its URL fields masked. */
+const maskUrlFields = (value) => mapUrlFields(value, maskUrlSecrets);
+
 module.exports = {
   SECRET_MASK,
+  maskUrlSecrets,
+  maskUrlFields,
   maskIntegrationSecrets,
   restoreMaskedSecrets,
   containsSecretMask,

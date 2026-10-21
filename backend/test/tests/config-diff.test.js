@@ -61,6 +61,17 @@ describe('diffConfigs masking whole objects', () => {
   });
 });
 
+describe('diffConfigs masking URL secrets', () => {
+  it('masks a token inside a changed URL', () => {
+    const changes = diffConfigs(
+      { targetUrl: 'https://hooks.slack.com/services/T/B/old-token' },
+      { targetUrl: 'https://hooks.slack.com/services/T/B/new-token', actions: [{ targetUrl: 'https://x.example/h?token=t9' }] },
+      { maskSecrets: true }
+    );
+    expect(JSON.stringify(changes)).not.toMatch(/old-token|new-token|t9/);
+  });
+});
+
 describe('summarizePaths', () => {
   it('collapses changes to at most two path segments, unique and in order', () => {
     expect(summarizePaths(['targetUrl', 'transformation.script', 'transformation.mode', 'a.b.c.d'])).toEqual([

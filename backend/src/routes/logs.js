@@ -7,6 +7,7 @@ const data = require('../data');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
 const asyncHandler = require('../utils/async-handler');
+const { maskIntegrationSecrets, maskUrlFields, maskUrlSecrets } = require('../utils/integration-secrets');
 const { uuidv4 } = require('../utils/runtime');
 const { isPortalScopedSession, assertViewAllowed, assertIntegrationInScope } = require('../middleware/portal-scope');
 
@@ -124,15 +125,15 @@ const escapeCsvCell = (cell) => {
 const generateExportCurlCommand = (integration, payload) => {
   if (!integration) return 'N/A';
 
-  let curl = `curl -X ${integration.httpMethod} "${integration.targetUrl}"`;
+  // Exports get shared: never include credentials, not even a prefix of them.
+  let curl = `curl -X ${integration.httpMethod} "${maskUrlSecrets(integration.targetUrl)}"`;
   curl += ' -H "Content-Type: application/json"';
 
   if (integration.outgoingAuthType === 'API_KEY' && integration.outgoingAuthConfig) {
     const headerName = integration.outgoingAuthConfig.headerName || 'X-API-Key';
-    const value = integration.outgoingAuthConfig.value || '[REDACTED]';
-    curl += ` -H "${headerName}: ${value.substring(0, 8)}..."`;
+    curl += ` -H "${headerName}: [REDACTED]"`;
   } else if (integration.outgoingAuthType === 'BEARER' && integration.outgoingAuthConfig) {
-    curl += ` -H "Authorization: Bearer ${(integration.outgoingAuthConfig.value || '[REDACTED]').substring(0, 12)}..."`;
+    curl += ' -H "Authorization: Bearer [REDACTED]"';
   } else if (integration.outgoingAuthType === 'BASIC' && integration.outgoingAuthConfig) {
     curl += ' -H "Authorization: Basic [REDACTED]"';
   }
@@ -295,7 +296,7 @@ const processLogExportJob = async (jobId) => {
           logEntry.responseStatus ?? 'N/A',
           logEntry.responseTimeMs ?? 'N/A',
           logEntry.attemptCount ?? 0,
-          integration?.targetUrl ?? 'N/A',
+          maskUrlSecrets(integration?.targetUrl) ?? 'N/A',
           integration?.httpMethod ?? 'N/A',
           generateExportCurlCommand(integration, logEntry.requestPayload),
           logEntry.requestPayload,
@@ -682,7 +683,7 @@ router.get(
       groupMode === 'message'
         ? await data.getLogsPageGroupedByMessage(req.orgId, filters)
         : await data.getLogsPage(req.orgId, filters);
-    res.json(response);
+    res.json(maskUrlFields(response));
   })
 );
 
@@ -781,7 +782,7 @@ router.get(
             logEntry.responseStatus ?? 'N/A',
             logEntry.responseTimeMs ?? 'N/A',
             logEntry.attemptCount ?? 0,
-            integration?.targetUrl ?? 'N/A',
+            maskUrlSecrets(integration?.targetUrl) ?? 'N/A',
             integration?.httpMethod ?? 'N/A',
             generateExportCurlCommand(integration, logEntry.requestPayload),
             logEntry.requestPayload, // escapeCsvCell serializes objects
@@ -952,7 +953,7 @@ router.post(
             logEntry.responseStatus ?? 'N/A',
             logEntry.responseTimeMs ?? 'N/A',
             logEntry.attemptCount ?? 0,
-            integration?.targetUrl ?? 'N/A',
+            maskUrlSecrets(integration?.targetUrl) ?? 'N/A',
             integration?.httpMethod ?? 'N/A',
             logEntry.requestPayload,
             responseBodyForExport,
@@ -978,7 +979,7 @@ router.post(
         const filename = `integration-logs-selected-${logs.length}-${new Date().toISOString().split('T')[0]}.json`;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.json(cleanLogs);
+        res.json(maskUrlFields(cleanLogs));
       }
 
       log('info', 'Selected logs exported', {
@@ -1176,15 +1177,10 @@ router.get(
     let __KEEP_integrationConfig__ = null;
     if (logEntry.integrationConfigId) {
       try {
-        __KEEP_integrationConfig__ = await data.getIntegrationById(logEntry.integrationConfigId);
-        // Remove sensitive information from auth config
-        if (__KEEP_integrationConfig__?.outgoingAuthConfig) {
-          const sanitizedAuth = { ...__KEEP_integrationConfig__.outgoingAuthConfig };
-          if (sanitizedAuth.value) {
-            sanitizedAuth.value = `${sanitizedAuth.value.substring(0, 8)}...`;
-          }
-          __KEEP_integrationConfig__.outgoingAuthConfig = sanitizedAuth;
-        }
+        // Credentials are masked like every integration response; admins who need
+        // a runnable cURL fetch real values from the audited /credentials endpoint.
+        const integration = await data.getIntegrationById(logEntry.integrationConfigId);
+        __KEEP_integrationConfig__ = integration ? maskIntegrationSecrets(integration) : null;
       } catch (_err) {
         // Integration might be deleted, ignore error
       }
@@ -1203,7 +1199,7 @@ router.get(
     }
 
     return res.json({
-      ...logEntry,
+      ...maskUrlFields(logEntry),
       __KEEP_integrationConfig__,
     });
   })
