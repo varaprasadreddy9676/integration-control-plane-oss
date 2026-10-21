@@ -144,6 +144,18 @@ describe('Analytics Routes', () => {
     expect(integrationConfigCollection.find).toHaveBeenCalled();
   });
 
+  it('does not keep serving an empty overview once the first deliveries arrive', async () => {
+    const emptyAgg = [{ statusAgg: [], totalAgg: [], eventTypeAgg: [], integrationAgg: [], responseAgg: [], bucketAgg: [] }];
+    executionCollection.aggregate.mockReturnValueOnce({ toArray: jest.fn().mockResolvedValue(emptyAgg) });
+
+    const first = await request(app).get('/api/v1/analytics/overview?days=3');
+    expect(first.body.summary.total).toBe(0);
+
+    // A delivery happens; the next dashboard refresh must see it, not a cached zero.
+    const second = await request(app).get('/api/v1/analytics/overview?days=3');
+    expect(second.body.summary.total).toBe(3);
+  });
+
   it('keeps the raw path available for a wide range before rollup coverage exists', async () => {
     const res = await request(app).get('/api/v1/analytics/overview?days=90');
 

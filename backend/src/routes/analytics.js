@@ -53,7 +53,12 @@ function _analyticsKey(orgId, endpoint, q) {
   return `${orgId}|${endpoint}|${q.days || ''}|${q.startDate || ''}|${q.endDate || ''}|${q.direction || ''}|${q.triggerType || ''}|${q.integrationId || ''}|${q.provider || ''}|${q.interval || ''}`;
 }
 
-async function _withAnalyticsCache(key, fetchFn) {
+/**
+ * `shouldCache(value)` lets an endpoint skip caching a result. The dashboard
+ * uses it for empty results: they are cheap to recompute, and caching them hid
+ * an org's first deliveries for up to five minutes.
+ */
+async function _withAnalyticsCache(key, fetchFn, { shouldCache = () => true } = {}) {
   const cached = _analyticsCache.get(key);
   const now = Date.now();
   if (cached) {
@@ -64,7 +69,8 @@ async function _withAnalyticsCache(key, fetchFn) {
       fetchFn()
         .then((value) => {
           _evictAnalyticsCache();
-          _analyticsCache.set(key, { ts: Date.now(), value });
+          if (shouldCache(value)) _analyticsCache.set(key, { ts: Date.now(), value });
+          else _analyticsCache.delete(key);
         })
         .catch((err) => log('error', 'analytics:bgRefresh failed', { key, err: err.message }))
         .finally(() => _analyticsRefreshInProgress.delete(key));
@@ -74,7 +80,7 @@ async function _withAnalyticsCache(key, fetchFn) {
   // Cold start — must wait for the query
   const value = await fetchFn();
   _evictAnalyticsCache();
-  _analyticsCache.set(key, { ts: Date.now(), value });
+  if (shouldCache(value)) _analyticsCache.set(key, { ts: Date.now(), value });
   return value;
 }
 
@@ -969,7 +975,7 @@ router.get(
           eventTypes: eventTypeCounts,
           integrationPerformance,
         };
-      });
+      }, { shouldCache: (value) => value.summary.total > 0 });
       res.json(result);
     } catch (error) {
       log('error', 'Analytics overview failed', {
@@ -1056,7 +1062,7 @@ router.get(
           },
           data: timeseries,
         };
-      });
+      }, { shouldCache: (value) => value.data.length > 0 });
       res.json(result);
     } catch (error) {
       log('error', 'Time series analytics failed', {
