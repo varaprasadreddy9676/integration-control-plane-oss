@@ -1042,6 +1042,7 @@ return {
           contentType: 'application/json',
           maxInboundFileSizeMb: 50,
           inboundAuthType: 'NONE',
+          outgoingAuthType: 'NONE',
           requestPolicy: {
             rateLimit: {
               enabled: false,
