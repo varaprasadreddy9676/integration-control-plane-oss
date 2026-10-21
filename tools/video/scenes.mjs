@@ -80,7 +80,9 @@ export const scenes = [
       const { page } = stage;
       await stage.click(page.locator('header .ant-select').first());
       await stage.click(page.locator('.ant-select-item-option', { hasText: 'Acme Retail' }).first());
-      await stage.click(page.getByRole('button', { name: 'Switch', exact: true }));
+      // Older consoles asked to confirm even when no organization was open yet.
+      const confirm = page.getByRole('button', { name: 'Switch', exact: true });
+      if (await confirm.isVisible().catch(() => false)) await stage.click(confirm);
       await stage.pause(800);
       if (!/\/dashboard/.test(page.url())) {
         await stage.click(page.getByRole('menuitem', { name: 'Dashboard' }));
