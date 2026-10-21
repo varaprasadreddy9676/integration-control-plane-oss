@@ -119,6 +119,9 @@ class ExecutionLogger {
         durationMs,
         response: options.response || {},
         metadata: options.metadata || {},
+        // The request known at start() can be a placeholder (scheduled jobs only
+        // build their payload later); record what was actually sent when given.
+        ...(options.request ? { request: options.request } : {}),
       });
 
       log('debug', 'Execution log completed successfully', {
@@ -160,6 +163,7 @@ class ExecutionLogger {
         // Unlike success(), this was previously dropped entirely, silently
         // losing scriptLogs/replay metadata/etc. on every failed execution.
         metadata: options.metadata || {},
+        ...(options.request ? { request: options.request } : {}),
       });
 
       // Create DLQ entry for automatic retry (unless disabled)

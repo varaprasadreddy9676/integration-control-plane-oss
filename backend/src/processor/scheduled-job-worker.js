@@ -630,6 +630,7 @@ class ScheduledJobWorker {
       // Mark execution as successful with detailed execution data
       await executionLogger
         .success({
+          ...(executionLog.httpRequest ? { request: executionLog.httpRequest } : {}),
           response: {
             statusCode: deliveryResult.status,
             headers: deliveryResult.headers,
@@ -701,6 +702,7 @@ class ScheduledJobWorker {
       err.statusCode = error.statusCode || 500;
       await executionLogger
         .fail(err, {
+          ...(executionLog.httpRequest ? { request: executionLog.httpRequest } : {}),
           payload: executionLog,
           statusCode: err.statusCode,
           metadata: {

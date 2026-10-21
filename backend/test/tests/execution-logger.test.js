@@ -67,6 +67,26 @@ describe('ExecutionLogger', () => {
     );
   });
 
+  it('records the request that was actually sent when success() is given one', async () => {
+    // Scheduled jobs only know the payload after the data source and transform run.
+    const logger = createExecutionLogger({
+      direction: 'SCHEDULED',
+      triggerType: 'SCHEDULE',
+      orgId: 1,
+      messageId: 'job-1',
+      request: { url: 'https://example.com/import', method: 'POST', headers: {}, body: {} },
+    });
+    const sent = { url: 'https://example.com/import', method: 'POST', headers: {}, body: { customers: [{ id: 1 }] } };
+
+    await logger.start();
+    await logger.success({ response: { statusCode: 200 }, request: sent });
+
+    expect(executionLogsData.updateExecutionLog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ request: sent })
+    );
+  });
+
   it('does not insert a second execution log when start is called twice on one instance', async () => {
     const logger = createExecutionLogger({
       traceId: 'trc-test-2',

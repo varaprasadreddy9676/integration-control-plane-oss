@@ -146,6 +146,20 @@ describe('ScheduledJobWorker execution', () => {
     );
   });
 
+  it('logs the transformed payload as the request body, not an empty object', async () => {
+    await worker.executeJob(baseJob);
+
+    expect(mockExecutionLogger.success).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          url: 'https://example.com/import',
+          method: 'POST',
+          body: { records: [{ id: 1 }] }
+        })
+      })
+    );
+  });
+
   it('dry-runs without delivering to the target URL', async () => {
     const result = await worker.executeJob(baseJob, { dryRun: true, reason: 'Preview changes' });
 
