@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { QuickSetupSection } from '../components/QuickSetupSection';
 import { FilterBar } from '../../../components/common/FilterBar';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { getTemplates, createIntegrationFromTemplate } from '../../../services/api';
@@ -330,8 +331,8 @@ export const TemplatesRoute = () => {
   return (
     <div>
       <PageHeader
-        title="Event Rule Templates"
-        description="Pre-built templates for common healthcare system integrations. Quickly configure event rules for Epic, Cerner, Athenahealth, and more."
+        title="Templates"
+        description="Connect a common service in one step, or start from your organization's own templates."
         statusChips={[
           { label: `${templates?.length || 0} templates` },
           { label: `${categories.length} categories`, color: colors.primary[600] },
@@ -348,6 +349,8 @@ export const TemplatesRoute = () => {
           </Space>
         }
       />
+
+      <QuickSetupSection />
 
       <FilterBar
         rightSlot={

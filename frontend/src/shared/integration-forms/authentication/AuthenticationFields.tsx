@@ -130,6 +130,19 @@ export const AuthenticationFields = ({
 
       {selectedAuthType === 'HMAC' && (
         <>
+          <Col xs={24} md={12}>
+            <Form.Item
+              name={[...fieldPrefix, 'scheme']}
+              label="Signature Format"
+              extra="Stripe signs requests with a single Stripe-Signature header."
+            >
+              <Select
+                allowClear
+                placeholder="Standard webhooks (ID, timestamp and signature headers)"
+                options={[{ value: 'STRIPE', label: 'Stripe (Stripe-Signature header)' }]}
+              />
+            </Form.Item>
+          </Col>
           <Col xs={24}>
             <Form.Item
               name={[...fieldPrefix, 'secret']}
@@ -139,21 +152,30 @@ export const AuthenticationFields = ({
               <Input.Password placeholder="Enter shared signing secret" />
             </Form.Item>
           </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name={[...fieldPrefix, 'signatureHeader']} label="Signature Header">
-              <Input placeholder="X-Integration-Signature" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name={[...fieldPrefix, 'timestampHeader']} label="Timestamp Header">
-              <Input placeholder="X-Integration-Timestamp" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name={[...fieldPrefix, 'messageIdHeader']} label="Message ID Header">
-              <Input placeholder="X-Integration-ID" />
-            </Form.Item>
-          </Col>
+          {/* Stripe uses one Stripe-Signature header, so these do not apply. */}
+          <Form.Item noStyle shouldUpdate>
+            {({ getFieldValue }) =>
+              getFieldValue([...fieldPrefix, 'scheme']) === 'STRIPE' ? null : (
+                <>
+                <Col xs={24} md={8}>
+                  <Form.Item name={[...fieldPrefix, 'signatureHeader']} label="Signature Header">
+                    <Input placeholder="X-Integration-Signature" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Form.Item name={[...fieldPrefix, 'timestampHeader']} label="Timestamp Header">
+                    <Input placeholder="X-Integration-Timestamp" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Form.Item name={[...fieldPrefix, 'messageIdHeader']} label="Message ID Header">
+                    <Input placeholder="X-Integration-ID" />
+                  </Form.Item>
+                </Col>
+                </>
+              )
+            }
+          </Form.Item>
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'toleranceSeconds']}

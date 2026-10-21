@@ -1217,6 +1217,43 @@ export const getEventTypes = async (): Promise<string[]> => {
   return resp.eventTypes;
 };
 
+// ─── Built-in templates (one-step setups) ────────────────────────────────────
+
+export interface TemplateCatalogInput {
+  key: string;
+  label: string;
+  type: 'eventType' | 'secret' | 'url' | 'text';
+  required: boolean;
+  placeholder?: string;
+  help?: string;
+  pattern?: string;
+  patternMessage?: string;
+  default?: string;
+}
+
+export interface TemplateCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  direction: 'OUTBOUND' | 'INBOUND';
+  docsUrl?: string;
+  inputs: TemplateCatalogInput[];
+}
+
+export const getTemplateCatalog = async (): Promise<TemplateCatalogEntry[]> =>
+  (await request<{ templates: TemplateCatalogEntry[] }>('/templates/catalog')).templates;
+
+export const buildFromTemplateCatalog = async (
+  templateId: string,
+  inputs: Record<string, string>,
+  activate: boolean
+): Promise<{ templateId: string; direction: 'OUTBOUND' | 'INBOUND'; payload: any }> =>
+  request(`/templates/catalog/${encodeURIComponent(templateId)}/build`, {
+    method: 'POST',
+    body: JSON.stringify({ inputs, activate }),
+  });
+
 export const getTemplates = async (): Promise<any[]> => {
   const response = await request<{ templates?: any[]; total?: number } | any[]>('/templates');
   if (Array.isArray(response)) {
