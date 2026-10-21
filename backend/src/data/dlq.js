@@ -523,7 +523,18 @@ async function getDLQStats(orgId, filters = {}) {
   };
 }
 
+/** Deliveries waiting in each organization's dead-letter queue: Map orgId -> count. */
+async function countDlqBacklogByOrg() {
+  const db = await getDbSafe();
+  const rows = await db
+    .collection('failed_deliveries')
+    .aggregate([{ $match: { status: { $in: ['pending', 'retrying'] } } }, { $group: { _id: '$orgId', count: { $sum: 1 } } }])
+    .toArray();
+  return new Map(rows.filter((row) => row._id != null).map((row) => [Number(row._id), row.count]));
+}
+
 module.exports = {
+  countDlqBacklogByOrg,
   createDLQEntry,
   getDLQEntry,
   listDLQEntries,

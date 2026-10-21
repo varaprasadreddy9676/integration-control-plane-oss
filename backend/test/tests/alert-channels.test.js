@@ -70,7 +70,7 @@ describe('alert channels', () => {
     expect(mockDocs[0].config.webhookUrl).toMatch(/^enc:v1:/);
     expect(created.config.webhookUrl).toBe(SECRET_MASK);
     expect(JSON.stringify(await channels.listChannels(1))).not.toContain('secret');
-    expect(created.events).toEqual(['INTEGRATION_DELIVERY_FAILING', 'INTEGRATION_DELIVERY_RECOVERED']);
+    expect(created.events).toEqual(require('../../src/services/notifications/alert-events').ALERT_EVENT_TYPES);
   });
 
   it('keeps the stored secret when the masked value comes back on update', async () => {

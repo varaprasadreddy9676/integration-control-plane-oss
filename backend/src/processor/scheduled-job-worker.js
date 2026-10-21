@@ -1,5 +1,7 @@
 const cron = require('node-cron');
 const { uuidv4 } = require('../utils/runtime');
+const { alertOnScheduledJobOutcome } = require('../services/scheduled-job-alerts');
+const { raiseAlert } = require('../services/notifications/raise-alert');
 const { log } = require('../logger');
 const { getDbSafe } = require('../mongodb');
 const { executeDataSource } = require('../services/data-source-executor');
@@ -313,10 +315,36 @@ class ScheduledJobWorker {
   }
 
   /**
-   * Execute a scheduled job
-   * REUSES existing transformation, auth, and delivery logic
+   * Execute a scheduled job, then alert if it just started failing or recovered.
    */
   async executeJob(jobConfig, options = {}) {
+    const result = await this.runJob(jobConfig, options);
+    await this.reportOutcome(jobConfig, result).catch((error) =>
+      log('warn', 'Could not check scheduled job outcome for alerts', { jobId: String(jobConfig._id), error: error.message })
+    );
+    return result;
+  }
+
+  async reportOutcome(jobConfig, result) {
+    await alertOnScheduledJobOutcome({
+      job: jobConfig,
+      result,
+      previousStatus: async () => {
+        const db = await getDbSafe();
+        const query = { integrationId: jobConfig._id, status: { $in: ['SUCCESS', 'FAILED'] } };
+        if (result?.logId) query._id = { $ne: result.logId };
+        const [previous] = await db.collection('scheduled_job_logs').find(query).sort({ startedAt: -1 }).limit(1).toArray();
+        return previous ? previous.status : null;
+      },
+      raise: raiseAlert,
+    });
+  }
+
+  /**
+   * Run a scheduled job
+   * REUSES existing transformation, auth, and delivery logic
+   */
+  async runJob(jobConfig, options = {}) {
     if (jobConfig.direction === 'SCRIPT_JOB') {
       return this.executeScriptJob(jobConfig, options);
     }

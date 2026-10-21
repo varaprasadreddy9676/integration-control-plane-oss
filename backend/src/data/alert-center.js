@@ -266,7 +266,21 @@ async function wasIntegrationAlertedSince(integrationId, orgId, since) {
   return Boolean(found);
 }
 
+/** The type of the organization's most recent alert among `types`, or null. */
+async function latestAlertType(orgId, types) {
+  if (!useMongo()) return null;
+  const db = await mongodb.getDbSafe();
+  const [latest] = await db
+    .collection('alert_center_logs')
+    .find({ orgId: normalizeOrgId(orgId), type: { $in: types } }, { projection: { type: 1 } })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .toArray();
+  return latest ? latest.type : null;
+}
+
 module.exports = {
+  latestAlertType,
   wasIntegrationAlertedSince,
   buildAlertCenterQuery,
   countAlertCenterLogs,

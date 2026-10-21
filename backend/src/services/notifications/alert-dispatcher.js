@@ -9,6 +9,7 @@
 const { log } = require('../../logger');
 const channels = require('../../data/alert-channels');
 const plugins = require('./plugins');
+const { RESOLVED_ALERT_TYPES } = require('./alert-events');
 
 const SEND_TIMEOUT_MS = 15000;
 
@@ -60,25 +61,36 @@ async function testChannel(orgId, id) {
   });
 }
 
+/** Console page for each alert type, relative to the console's base URL. */
+function consolePath(alert, orgId) {
+  const type = String(alert.type || '');
+  if (type.startsWith('SCHEDULED_JOB_') && alert.payload?.jobId) {
+    return `/scheduled-jobs/${encodeURIComponent(alert.payload.jobId)}?orgId=${orgId}`;
+  }
+  if (type.startsWith('EVENT_SOURCE_')) return `/settings/event-source?orgId=${orgId}`;
+  if (type.startsWith('DLQ_')) return `/dlq?orgId=${orgId}`;
+  return `/logs?orgId=${orgId}`;
+}
+
 /**
- * The alert format plugins receive, from a delivery-failure watcher alert.
- * `frontendUrl` is the console's base URL, for the "open delivery logs" link.
+ * The alert format plugins receive, from an alert as recorded in the Alert
+ * Center (type, subject, errorMessage, payload, windowEnd).
+ * `frontendUrl` is the console's base URL, for the link back to the problem.
  */
 function toChannelAlert(orgId, alert, { orgName, frontendUrl } = {}) {
-  const resolved = alert.type === 'INTEGRATION_DELIVERY_RECOVERED';
+  const payload = alert.payload || {};
   const at = alert.windowEnd ? new Date(alert.windowEnd) : new Date();
   const result = {
     type: alert.type,
-    severity: resolved ? 'resolved' : 'critical',
+    severity: RESOLVED_ALERT_TYPES.has(alert.type) ? 'resolved' : 'critical',
     title: alert.subject,
     message: alert.errorMessage,
     orgId,
     orgName,
-    integration: alert.payload?.integrationId
-      ? { id: String(alert.payload.integrationId), name: alert.payload.integrationName }
-      : undefined,
+    integration: payload.integrationId ? { id: String(payload.integrationId), name: payload.integrationName } : undefined,
+    job: payload.jobId ? { id: String(payload.jobId), name: payload.jobName } : undefined,
     occurredAt: at.toISOString(),
-    link: frontendUrl ? `${String(frontendUrl).replace(/\/$/, '')}/logs?orgId=${orgId}` : undefined,
+    link: frontendUrl ? `${String(frontendUrl).replace(/\/$/, '')}${consolePath(alert, orgId)}` : undefined,
   };
   return JSON.parse(JSON.stringify(result)); // drop undefined fields
 }

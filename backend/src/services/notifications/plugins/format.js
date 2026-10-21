@@ -2,9 +2,9 @@
 
 /** Shared wording for alert plugins, so every channel says the same thing. */
 
-const RESOLVED_TYPES = new Set(['INTEGRATION_DELIVERY_RECOVERED']);
+const { RESOLVED_ALERT_TYPES } = require('../alert-events');
 
-const isResolved = (alert) => RESOLVED_TYPES.has(alert.type) || alert.severity === 'resolved';
+const isResolved = (alert) => RESOLVED_ALERT_TYPES.has(alert.type) || alert.severity === 'resolved';
 
 /** One-line plain-text summary, for channels without rich formatting (WhatsApp, SMS). */
 function summaryText(alert) {

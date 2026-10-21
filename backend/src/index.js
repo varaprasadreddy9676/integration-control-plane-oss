@@ -30,7 +30,8 @@ const { startSchedulerWorker } = require('./processor/scheduler-worker');
 const { getScheduledJobWorker } = require('./processor/scheduled-job-worker');
 const { startDLQWorker, stopDLQWorker } = require('./processor/dlq-worker');
 const { startFailureEmailReportScheduler, sendAlertEmail } = require('./services/notifications/failure-report');
-const { dispatchAlert, toChannelAlert } = require('./services/notifications/alert-dispatcher');
+const { raiseAlert } = require('./services/notifications/raise-alert');
+const { createDlqBacklogWatcher } = require('./services/dlq-backlog-health');
 const { createDeliveryFailureHealthWatcher } = require('./services/delivery-failure-health');
 const emailService = require('./services/email-service');
 const dailyReportsScheduler = require('./services/daily-reports-scheduler');
@@ -92,6 +93,7 @@ let stopDeliveryWorker = async () => {};
 let stopSchedulerWorker = () => {};
 let stopFailureEmailReportScheduler = () => {};
 let stopDeliveryFailureHealthWatcher = () => {};
+let stopDlqBacklogWatcher = () => {};
 let stopDashboardAnalyticsRollupWorker = () => {};
 let dailyCleanupTimer = null;
 let shutdownState = {
@@ -175,6 +177,7 @@ async function initiateGracefulDrain(reason, error = null, options = {}) {
     Promise.resolve().then(() => getScheduledJobWorker().stop()),
     Promise.resolve().then(() => stopFailureEmailReportScheduler()),
     Promise.resolve().then(() => stopDeliveryFailureHealthWatcher()),
+    Promise.resolve().then(() => stopDlqBacklogWatcher()),
     Promise.resolve().then(() => closeHttpServer()),
     Promise.resolve().then(() => db.closePool?.()),
     Promise.resolve().then(() => mongodb.close?.()),
@@ -476,30 +479,28 @@ async function bootstrap() {
   // this is the delivery-outcome half, e.g. NCX's 401s from 27 Sep onward).
   const deliveryFailureWatcher = createDeliveryFailureHealthWatcher({
     listCandidates: (trackedIds) => data.listFailingOrTrackedIntegrations(trackedIds),
-    recordAlert: (orgId, alert) => data.recordAlertCenterLog(orgId, alert),
-    // Reach people, not just the Alert Center (Oval's expired certificate went
-    // unnoticed for a day), and do not re-raise an episode after a restart.
+    // Alert Center plus the org's alert channels (Slack, email lists, webhooks…).
+    recordAlert: raiseAlert,
+    // Also the org's failure-report email; do not re-raise an episode after a restart.
     notify: async (orgId, alert) => {
-      const [emailed] = await Promise.all([
-        sendAlertEmail(orgId, alert),
-        // Plugins: Slack, email lists, webhooks, WhatsApp — configured per org.
-        data
-          .getTenant(orgId)
-          .catch(() => null)
-          .then((tenant) =>
-            dispatchAlert(
-              orgId,
-              toChannelAlert(orgId, alert, { orgName: tenant?.name || tenant?.tenantName, frontendUrl: config.frontendUrl })
-            )
-          ),
-      ]);
-      if (!emailed.sent) log('warn', 'Integration alert not emailed', { orgId, reason: emailed.reason });
+      const result = await sendAlertEmail(orgId, alert);
+      if (!result.sent) log('warn', 'Integration alert not emailed', { orgId, reason: result.reason });
     },
     wasAlertedSince: (integrationId, orgId, since) => data.wasIntegrationAlertedSince(integrationId, orgId, since),
     log,
   });
   deliveryFailureWatcher.start();
   stopDeliveryFailureHealthWatcher = () => deliveryFailureWatcher.stop();
+
+  // Alerts when failed deliveries pile up in an org's dead-letter queue.
+  const dlqBacklogWatcher = createDlqBacklogWatcher({
+    countBacklogByOrg: () => require('./data/dlq').countDlqBacklogByOrg(),
+    lastAlertType: (orgId) => data.latestAlertType(orgId, ['DLQ_BACKLOG', 'DLQ_BACKLOG_CLEARED']),
+    raise: raiseAlert,
+    log,
+  });
+  dlqBacklogWatcher.start();
+  stopDlqBacklogWatcher = () => dlqBacklogWatcher.stop();
   startPendingDeliveriesWorker(); // Start worker for INBOUND COMMUNICATION jobs
 
   // Start scheduled job worker for cron-based batch integrations

@@ -14,6 +14,9 @@ const mockExecutionLogger = {
   fail: jest.fn(async () => {})
 };
 
+const mockRaiseAlert = jest.fn(async () => {});
+jest.mock('../../src/services/notifications/raise-alert', () => ({ raiseAlert: (...args) => mockRaiseAlert(...args) }));
+
 jest.mock('../../src/mongodb', () => ({
   getDbSafe: jest.fn(async () => mockDb)
 }));
@@ -165,6 +168,21 @@ describe('ScheduledJobWorker execution', () => {
 
     expect(mockExecutionLogger.success).toHaveBeenCalledWith(
       expect.objectContaining({ responseTimeMs: expect.any(Number) })
+    );
+  });
+
+  it('raises a scheduled job alert when a job that worked fails', async () => {
+    logsCollection.find.mockReturnValue({
+      sort: () => ({ limit: () => ({ toArray: async () => [{ status: 'SUCCESS' }] }) }),
+    });
+    mockAxios.mockRejectedValue(Object.assign(new Error('Request failed with status code 500'), { response: { status: 500 } }));
+
+    const result = await worker.executeJob(baseJob);
+
+    expect(result.status).toBe('FAILED');
+    expect(mockRaiseAlert).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ type: 'SCHEDULED_JOB_FAILED', payload: { jobId: 'job-1', jobName: 'Daily Automation' } })
     );
   });
 

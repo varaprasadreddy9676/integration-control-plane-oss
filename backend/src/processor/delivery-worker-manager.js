@@ -22,6 +22,7 @@ const { KafkaEventSource } = require('../adapters/KafkaEventSource');
 const { HttpPushAdapter } = require('../adapters/HttpPushAdapter');
 const { Hl7MllpEventSource } = require('../adapters/Hl7MllpEventSource');
 const eventSourceData = require('../data/event-sources');
+const { raiseAlert } = require('../services/notifications/raise-alert');
 const { createEventSourceHealthWatcher } = require('../services/event-source-health');
 const { sanitizePoolConfig, sanitizeMysqlSourceConfig } = require('../utils/mysql-safety');
 
@@ -66,7 +67,8 @@ class DeliveryWorkerManager {
     // Alert when a source keeps failing (org 783 failed silently for 19 days).
     this.healthWatcher = createEventSourceHealthWatcher({
       getStatus: () => this.getStatus(),
-      recordAlert: (orgId, alert) => data.recordAlertCenterLog(orgId, alert),
+      // Alert Center plus the org's alert channels.
+      recordAlert: raiseAlert,
       log,
     });
     this.healthWatcher.start();
