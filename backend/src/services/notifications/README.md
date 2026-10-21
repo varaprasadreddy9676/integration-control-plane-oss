@@ -12,10 +12,23 @@ Two things live here:
   several channels, each subscribed to the alerts it wants. They are managed in
   Settings → Alert channels or through `/api/v1/alert-channels`.
 
+## Alerts
+
+| Alert | Raised by | All-clear |
+|-------|-----------|-----------|
+| `INTEGRATION_DELIVERY_FAILING` | `delivery-failure-health.js`: an integration failed every delivery for a while | `INTEGRATION_DELIVERY_RECOVERED` |
+| `EVENT_SOURCE_DOWN` | `event-source-health.js`: the org's event source keeps failing | `EVENT_SOURCE_RECOVERED` |
+| `SCHEDULED_JOB_FAILED` | `scheduled-job-alerts.js`: a job that worked (or never ran) fails | `SCHEDULED_JOB_RECOVERED` |
+| `DLQ_BACKLOG` | `dlq-backlog-health.js`: pending/retrying dead-letter entries reach `DLQ_ALERT_THRESHOLD` (100) | `DLQ_BACKLOG_CLEARED` (below half) |
+
+All of them go through `raise-alert.js`, which records the alert in the Alert Center
+and sends it to the channels. A channel with every alert selected is stored as
+`ALL` and also receives alert types added later.
+
 ## How an alert reaches a channel
 
 ```
-delivery-failure watcher ──notify──> alert-dispatcher.dispatchAlert(orgId, alert)
+health watchers ──raiseAlert──> Alert Center + alert-dispatcher.dispatchAlert(orgId, alert)
                                         │  enabled channels subscribed to alert.type
                                         ├── plugins/slack     send(alert, settings)
                                         ├── plugins/webhook   send(alert, settings)
@@ -32,14 +45,15 @@ Every plugin receives the same shape:
 
 | Field | Example |
 |-------|---------|
-| `type` | `INTEGRATION_DELIVERY_FAILING`, `INTEGRATION_DELIVERY_RECOVERED`, `TEST` |
+| `type` | any alert above, or `TEST` |
 | `severity` | `critical`, `resolved`, `info` |
 | `title` | `Integration deliveries failing: Orders to CRM has failed every delivery for 15 minutes` |
 | `message` | the last error, if any |
 | `orgId`, `orgName` | `1`, `Acme Retail` |
 | `integration` | `{ id, name }`, when the alert is about one |
+| `job` | `{ id, name }`, for scheduled job alerts |
 | `occurredAt` | ISO timestamp |
-| `link` | console link to the delivery logs, when the console URL is configured |
+| `link` | console link to the page for the problem, when the console URL is configured |
 
 The webhook plugin sends exactly this as JSON, with `version: 1`.
 

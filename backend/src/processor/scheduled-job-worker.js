@@ -652,7 +652,7 @@ class ScheduledJobWorker {
             scheduledTaskCount: this.scheduledTasks.size,
           },
         });
-        return { status: 'FAILED', jobId, correlationId, logId: scheduledLogId };
+        return { status: 'FAILED', jobId, correlationId, logId: scheduledLogId, error: errMsg };
       }
 
       // Mark execution as successful with detailed execution data

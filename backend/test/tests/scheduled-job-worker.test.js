@@ -186,6 +186,12 @@ describe('ScheduledJobWorker execution', () => {
     );
   });
 
+  it('says why the run failed when the target answers with an error status', async () => {
+    mockAxios.mockResolvedValue({ status: 500, headers: {}, data: 'boom' });
+    const result = await worker.executeJob(baseJob);
+    expect(result).toMatchObject({ status: 'FAILED', error: 'Delivery failed with status 500' });
+  });
+
   it('dry-runs without delivering to the target URL', async () => {
     const result = await worker.executeJob(baseJob, { dryRun: true, reason: 'Preview changes' });
 
