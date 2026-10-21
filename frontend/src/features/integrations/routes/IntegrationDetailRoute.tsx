@@ -1183,7 +1183,10 @@ const firstTime = addHours(now(), 1);
             {
               label: 'Transformation configured',
               isComplete: transformationHasContent || isMultiAction,
-              warning: !transformationHasContent && !isMultiAction ? 'No transformation mappings or script' : undefined,
+              // Without a transformation the event payload is sent as-is, which is valid.
+              advisory: true,
+              warning:
+                !transformationHasContent && !isMultiAction ? 'No transformation: the event payload is sent as-is' : undefined,
             },
             {
               label: 'No validation errors',

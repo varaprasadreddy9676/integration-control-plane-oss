@@ -28,6 +28,8 @@ interface ReadinessCheck {
   label: string;
   isComplete: boolean;
   warning?: string;
+  /** Shown as a warning, but does not block activation. */
+  advisory?: boolean;
 }
 
 interface ReviewConfirmDrawerProps {
@@ -77,7 +79,7 @@ export const ReviewConfirmDrawer = ({
   const [confirmText, setConfirmText] = useState('');
   const [hasReadImpact, setHasReadImpact] = useState(false);
 
-  const isReadyToActivate = readinessChecks.every(check => check.isComplete);
+  const isReadyToActivate = readinessChecks.every(check => check.isComplete || check.advisory);
   const requiresConfirmation = activationChoice === 'activate';
   const confirmationMatch = confirmText.toUpperCase() === 'ACTIVATE';
   const canProceed = activationChoice === 'draft' || (requiresConfirmation && confirmationMatch && hasReadImpact);
