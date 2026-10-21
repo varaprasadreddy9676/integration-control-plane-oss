@@ -6,7 +6,9 @@ Two things live here:
   periodic failure digest and the per-organization alert email configured under
   Settings → Failure email reports.
 - **Alert channels** (`plugins/`, `alert-dispatcher.js`): where an organization's alerts
-  go — Slack, email lists, any HTTP endpoint, WhatsApp. Each organization can have
+  go — Slack, email lists, any HTTP endpoint, WhatsApp, or one of the org's inbound
+  integrations (which can reshape the alert and call any API with its own auth,
+  retries and delivery logs). Each organization can have
   several channels, each subscribed to the alerts it wants. They are managed in
   Settings → Alert channels or through `/api/v1/alert-channels`.
 
@@ -51,11 +53,15 @@ module.exports = {
   name: 'Microsoft Teams',             // shown in the console
   description: 'Post alerts to a Teams channel.',
   fields: [
-    // type: 'text' | 'url' | 'secret' | 'list'
+    // type: 'text' | 'url' | 'secret' | 'list' | 'integration' (with direction)
     { key: 'webhookUrl', label: 'Teams webhook URL', type: 'secret', required: true },
   ],
   async send(alert, settings) {
     // deliver one alert; throw to report a failure
+  },
+  // optional: checks that need the database, run when the channel is saved
+  async verify(settings, { orgId }) {
+    return null; // or a message explaining what is wrong
   },
 };
 ```
@@ -69,3 +75,14 @@ Then add it to the `PLUGINS` list in `plugins/index.js`. That is all:
 - `plugins/format.js` has shared helpers (`summaryText`, `escapeHtml`, `isResolved`).
 
 New alert types go in `alert-events.js`.
+
+## Calling the gateway's own inbound integrations
+
+The `inbound-integration` plugin posts the alert to
+`http://127.0.0.1:<port>/api/v1/public/integrations/<type>` with a random token
+generated at startup and kept in memory (`utils/internal-call.js`). The inbound
+runtime treats a request carrying it as trusted and skips the integration's caller
+authentication and IP policy. Everything else (transform, outgoing auth, retries,
+delivery logs) runs as for any caller. This assumes one backend process per port,
+as in the Docker image and the systemd service; with several processes behind one
+port, a call could reach a process with a different token and be refused.
