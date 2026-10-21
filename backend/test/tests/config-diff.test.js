@@ -40,6 +40,27 @@ describe('diffConfigs', () => {
   });
 });
 
+describe('diffConfigs masking whole objects', () => {
+  it('masks secrets nested inside a value that changed as a whole', () => {
+    const changes = diffConfigs(
+      { outgoingAuthConfig: null },
+      { outgoingAuthConfig: { headerName: 'X-Partner-Key', apiKey: 'partner-secret-123' } },
+      { maskSecrets: true }
+    );
+    expect(JSON.stringify(changes)).not.toContain('partner-secret-123');
+    expect(changes[0].after).toEqual({ headerName: 'X-Partner-Key', apiKey: SECRET_MASK });
+  });
+
+  it('masks secrets inside arrays of actions', () => {
+    const changes = diffConfigs(
+      { actions: [] },
+      { actions: [{ communicationConfig: { smtp: { password: 'smtp-pass' } } }] },
+      { maskSecrets: true }
+    );
+    expect(JSON.stringify(changes)).not.toContain('smtp-pass');
+  });
+});
+
 describe('summarizePaths', () => {
   it('collapses changes to at most two path segments, unique and in order', () => {
     expect(summarizePaths(['targetUrl', 'transformation.script', 'transformation.mode', 'a.b.c.d'])).toEqual([

@@ -6,13 +6,18 @@
  * whole, so a reordered mapping list shows as one change to that list.
  */
 
-const { isSecretField, SECRET_MASK } = require('./integration-secrets');
+const { isSecretField, mapSecretFields, SECRET_MASK } = require('./integration-secrets');
 
 const isPlainObject = (value) => {
   if (value === null || typeof value !== 'object') return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 };
+
+const hasValue = (value) => value !== undefined && value !== null && value !== '';
+// A value reported whole (an object that appeared, an array) can still hold secrets.
+const maskNested = (value, key, parentKey) =>
+  mapSecretFields(value, (secret) => (hasValue(secret) ? SECRET_MASK : secret), key, parentKey);
 
 const comparable = (value) => (value instanceof Date ? value.toISOString() : value);
 const sameValue = (a, b) => JSON.stringify(comparable(a)) === JSON.stringify(comparable(b));
@@ -40,6 +45,8 @@ function walk(before, after, path, parentKey, grandparentKey, maskSecrets, out) 
         after: b === undefined ? undefined : SECRET_MASK,
         secret: true,
       });
+    } else if (maskSecrets) {
+      out.push({ path: childPath, kind, before: maskNested(a, key, parentKey), after: maskNested(b, key, parentKey) });
     } else {
       out.push({ path: childPath, kind, before: a, after: b });
     }
