@@ -151,7 +151,6 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
     (nextOrgId: number, destination?: string) => {
       if (Number.isFinite(nextOrgId) && nextOrgId > 0) {
         saveOrgId(nextOrgId);
-        setOrgId(nextOrgId);
 
         const [nextPathname, destinationSearch = ''] = destination
           ? destination.split('?', 2)
@@ -159,6 +158,10 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
         const params = new URLSearchParams(destinationSearch);
         params.set('orgId', nextOrgId.toString());
         navigate(`${nextPathname}?${params.toString()}`, { replace: true });
+        // Same transition as the navigation (see clearOrgId): set on its own, the
+        // URL-sync effect sees the new org next to the old URL and switches back,
+        // and requests sent meanwhile cache the old org's data under the new one.
+        startTransition(() => setOrgId(nextOrgId));
       }
     },
     [location.search, location.pathname, navigate]
