@@ -17,6 +17,7 @@ const {
 } = require('../worker-heartbeat');
 const { createExecutionLogger } = require('../utils/execution-logger');
 const { checkRateLimit } = require('../middleware/rate-limiter');
+const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { applyTransform } = transformer;
 const getTransformationSkipReason = transformer.getTransformationSkipReason || (() => null);
 const isTransformationSkipped = transformer.isTransformationSkipped || (() => false);
@@ -791,6 +792,46 @@ async function deliverScheduledAction(
     return { status: 'FAILED', responseStatus: 500, errorMessage, shouldRetry: false };
   }
 
+  // Pre-delivery checks: an action's own checks, else the integration's
+  const checkFailure = await checkBeforeDelivery(action.preDeliveryChecks || integration.preDeliveryChecks, {
+    requestPayload: transformed,
+    eventPayload: scheduled.originalPayload || payload,
+    urlOptions: config.security,
+    executionLogger,
+    stepMetadata: { actionName, actionIndex },
+  });
+  if (checkFailure) {
+    const errorMessage = `${prefix}${actionName}: ${checkFailure.errorMessage}`;
+    await data.recordLog(orgId, {
+      integrationConfigId: integration.id,
+      integrationName: `${integration.name} - ${actionName}`,
+      eventType: scheduled.eventType,
+      direction: 'OUTBOUND',
+      triggerType: 'SCHEDULED',
+      actionName,
+      actionIndex,
+      status: 'FAILED',
+      responseStatus: checkFailure.responseStatus,
+      responseTimeMs: Date.now() - start,
+      attemptCount,
+      originalPayload: payload,
+      requestPayload: transformed,
+      errorMessage,
+      targetUrl,
+      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
+      correlationId: traceId,
+      traceId: traceId,
+      requestHeaders: null,
+    });
+    // Same contract as an HTTP failure here: the caller decides on retry from shouldRetry.
+    return {
+      status: 'FAILED',
+      responseStatus: checkFailure.responseStatus,
+      errorMessage,
+      shouldRetry: checkFailure.retryable,
+    };
+  }
+
   if (integration.rateLimits?.enabled) {
     const rateStart = Date.now();
     try {
@@ -1226,6 +1267,65 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       })
       .catch(() => {});
 
+    // Pre-delivery checks: URLs the target will fetch itself must be reachable first
+    const checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
+      requestPayload: payload,
+      eventPayload: scheduled.originalPayload || payload,
+      urlOptions: config.security,
+      executionLogger,
+    });
+    if (checkFailure) {
+      const maxRetries = integration.retryCount || 3;
+      const willRetry = checkFailure.retryable && attemptCount < maxRetries;
+      const errorMessage = `${prefix}${checkFailure.errorMessage}`;
+
+      await data.recordLog(orgId, {
+        integrationConfigId: integration.id,
+        integrationName: integration.name,
+        eventType: scheduled.eventType,
+        direction: 'OUTBOUND',
+        triggerType: 'SCHEDULED',
+        status: willRetry ? 'RETRYING' : 'FAILED',
+        responseStatus: checkFailure.responseStatus,
+        responseTimeMs: Date.now() - start,
+        attemptCount,
+        originalPayload: scheduled.originalPayload || payload,
+        requestPayload: payload,
+        errorMessage,
+        shouldRetry: willRetry,
+        targetUrl: scheduled.targetUrl,
+        httpMethod: scheduled.httpMethod,
+        correlationId: traceId,
+        traceId: traceId,
+        requestHeaders: null,
+      });
+
+      if (willRetry) {
+        await executionLogger.updateStatus('retrying').catch(() => {});
+        const delaySeconds = computeRetryDelaySeconds(attemptCount);
+        return {
+          status: 'RETRYING',
+          responseStatus: checkFailure.responseStatus,
+          errorMessage,
+          nextAttemptAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+          attemptCount,
+        };
+      }
+
+      const error = new Error(errorMessage);
+      error.code = 'PRE_DELIVERY_CHECK_FAILED';
+      error.statusCode = checkFailure.responseStatus || null;
+      await executionLogger
+        .fail(error, {
+          payload,
+          statusCode: checkFailure.responseStatus || null,
+          // A permanent failure fails the same way again; only exhausted retries reach the DLQ.
+          createDLQ: checkFailure.retryable,
+        })
+        .catch(() => {});
+      return { status: 'FAILED', responseStatus: checkFailure.responseStatus, errorMessage, attemptCount };
+    }
+
     if (integration.rateLimits?.enabled) {
       const rateStart = Date.now();
       try {
@@ -1530,4 +1630,6 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
 module.exports = {
   startSchedulerWorker,
   getReminderExpirationDetails,
+  deliverScheduledIntegration,
+  deliverScheduledAction,
 };

@@ -101,7 +101,8 @@ jest.mock('../../src/services/hl7/mllp-client', () => ({
   sendMllpMessage: (...args) => mockSendMllpMessage(...args),
 }));
 
-const { deliverToIntegration } = require('../../src/processor/delivery-engine');
+const { deliverToIntegration, deliverSingleAction } = require('../../src/processor/delivery-engine');
+const { createDLQEntry } = require('../../src/data/dlq');
 const { fetch: mockFetch } = require('../../src/utils/runtime');
 const { generateSignatureHeaders } = require('../../src/services/integration-signing');
 const { checkRateLimit } = require('../../src/middleware/rate-limiter');
@@ -489,5 +490,186 @@ describe('delivery-engine', () => {
         errorMessage: expect.stringContaining('Missing patient id'),
       })
     );
+  });
+  describe('pre-delivery checks', () => {
+    const checkResponse = (status, contentType = 'application/pdf') => ({
+      status,
+      ok: status >= 200 && status < 300,
+      headers: { get: () => contentType },
+      arrayBuffer: async () => new ArrayBuffer(2048),
+    });
+    const targetResponse = () => ({
+      status: 200,
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: async () => '{"ok":true}',
+      clone() {
+        return this;
+      },
+    });
+    const integration = {
+      id: 'integration-1',
+      name: 'Document Message',
+      orgId: 812,
+      targetUrl: 'https://example.com/messages',
+      httpMethod: 'POST',
+      retryCount: 3,
+      preDeliveryChecks: [{ name: 'Document', urlPath: 'document.link', expectedContentTypes: ['application/pdf'] }],
+    };
+    const evt = (attemptCount = 0) => ({
+      id: 'evt-doc',
+      event_type: 'BILL_CREATED',
+      payload: { document: { link: 'https://docs.example.com/bill.pdf' } },
+      attempt_count: attemptCount,
+      orgId: 812,
+    });
+
+    it('checks the URL and then delivers when it passes', async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(200)).mockResolvedValueOnce(targetResponse());
+
+      const result = await deliverToIntegration(integration, evt(), false, 0, null, 'trace-doc', true);
+
+      expect(result.status).toBe('SUCCESS');
+      expect(mockFetch).toHaveBeenNthCalledWith(1, 'https://docs.example.com/bill.pdf', expect.objectContaining({ method: 'GET' }));
+      expect(mockFetch).toHaveBeenNthCalledWith(2, 'https://example.com/messages', expect.anything());
+      expect(mockAddStep).toHaveBeenCalledWith('pre_delivery_check', expect.objectContaining({ status: 'success' }));
+    });
+
+    it('retries without sending when the URL is temporarily unavailable', async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(503));
+
+      const result = await deliverToIntegration(integration, evt(), false, 0, null, 'trace-doc', true);
+
+      expect(result).toEqual({ status: 'RETRYING', logId: 'exec-log-1', logIds: null });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockRecordLog).toHaveBeenCalledWith(
+        812,
+        expect.objectContaining({
+          status: 'RETRYING',
+          responseStatus: 503,
+          shouldRetry: true,
+          errorMessage: 'Pre-delivery check "Document" failed: HTTP 503',
+        })
+      );
+      expect(mockRecordDeliveryFailure).toHaveBeenCalledWith('integration-1', expect.objectContaining({ shouldTripCircuit: false }));
+      expect(mockUpdateStatus).toHaveBeenCalledWith('retrying');
+      expect(mockFail).not.toHaveBeenCalled();
+    });
+
+    it('fails without retry or DLQ when the URL can never succeed', async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(422));
+
+      const result = await deliverToIntegration(integration, evt(), false, 0, null, 'trace-doc', true);
+
+      expect(result.status).toBe('FAILED');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockRecordLog).toHaveBeenCalledWith(812, expect.objectContaining({ status: 'FAILED', shouldRetry: false }));
+      expect(mockFail).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRE_DELIVERY_CHECK_FAILED' }),
+        expect.objectContaining({ createDLQ: false })
+      );
+    });
+
+    it('fails when the URL returns something other than the expected document', async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(200, 'text/html'));
+
+      const result = await deliverToIntegration(integration, evt(), false, 0, null, 'trace-doc', true);
+
+      expect(result.status).toBe('FAILED');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('abandons after the last allowed attempt', async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(503));
+
+      const result = await deliverToIntegration(integration, evt(3), false, 0, 'log-7', 'trace-doc', true);
+
+      expect(result.status).toBe('ABANDONED');
+      expect(mockRecordLog).toHaveBeenCalledWith(
+        812,
+        expect.objectContaining({
+          status: 'ABANDONED',
+          shouldRetry: false,
+          errorMessage: 'Pre-delivery check "Document" failed: HTTP 503 - Max retries (3) reached',
+        })
+      );
+      expect(mockFail).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ createDLQ: true }));
+    });
+
+    it('does nothing extra for integrations without checks', async () => {
+      mockFetch.mockResolvedValueOnce(targetResponse());
+
+      const { preDeliveryChecks, ...plain } = integration;
+      const result = await deliverToIntegration(plain, evt(), false, 0, null, 'trace-doc', true);
+
+      expect(result.status).toBe('SUCCESS');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockAddStep).not.toHaveBeenCalledWith('pre_delivery_check', expect.anything());
+    });
+  });
+
+  describe('pre-delivery checks on multi-action integrations', () => {
+    const checkResponse = (status) => ({
+      status,
+      ok: status >= 200 && status < 300,
+      headers: { get: () => 'application/pdf' },
+      arrayBuffer: async () => new ArrayBuffer(10),
+    });
+    const evt = {
+      id: 'evt-multi',
+      event_type: 'BILL_CREATED',
+      payload: { doc: 'https://docs.example.com/a.pdf', other: 'https://docs.example.com/b.pdf' },
+      attempt_count: 0,
+      orgId: 812,
+    };
+    const baseIntegration = {
+      id: 'integration-2',
+      name: 'Multi',
+      orgId: 812,
+      retryCount: 3,
+      targetUrl: 'https://example.com/hook',
+    };
+
+    it("uses the action's own checks and retries a temporary failure without sending", async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(504));
+      const integration = { ...baseIntegration, preDeliveryChecks: [{ urlPath: 'other' }] };
+      const action = { name: 'WhatsApp', kind: 'HTTP', preDeliveryChecks: [{ name: 'Doc', urlPath: 'doc' }] };
+
+      const result = await deliverSingleAction(integration, action, evt, 0, 0, 'trace-m');
+
+      expect(result.status).toBe('RETRYING');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith('https://docs.example.com/a.pdf', expect.anything());
+      expect(mockRecordLog).toHaveBeenCalledWith(
+        812,
+        expect.objectContaining({
+          status: 'RETRYING',
+          actionIndex: 0,
+          responseStatus: 504,
+          errorMessage: 'WhatsApp: Pre-delivery check "Doc" failed: HTTP 504',
+        })
+      );
+    });
+
+    it("falls back to the integration's checks and fails a permanent failure without a DLQ entry", async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(404));
+      const integration = { ...baseIntegration, preDeliveryChecks: [{ urlPath: 'other' }] };
+
+      const result = await deliverSingleAction(integration, { name: 'A', kind: 'HTTP' }, evt, 0, 0, 'trace-m');
+
+      expect(result.status).toBe('FAILED');
+      expect(mockFetch).toHaveBeenCalledWith('https://docs.example.com/b.pdf', expect.anything());
+      expect(createDLQEntry).not.toHaveBeenCalled();
+    });
+
+    it('abandons with a DLQ entry once retries are used up', async () => {
+      mockFetch.mockResolvedValueOnce(checkResponse(503));
+      const action = { name: 'A', kind: 'HTTP', preDeliveryChecks: [{ urlPath: 'doc' }] };
+
+      const result = await deliverSingleAction(baseIntegration, action, { ...evt, attempt_count: 3 }, 0, 0, 'trace-m');
+
+      expect(result.status).toBe('ABANDONED');
+      expect(createDLQEntry).toHaveBeenCalledWith(expect.objectContaining({ integrationConfigId: 'integration-2' }));
+    });
   });
 });

@@ -3,6 +3,7 @@ const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const { generateSigningSecret } = require('../services/integration-signing');
 const { normalizeRequestPolicy, normalizeRateLimit } = require('../services/request-policy');
+const { normalizePreDeliveryChecks } = require('../services/pre-delivery-checks');
 const { validateLifecycleConfig, buildLifecycleProfile, findLifecycleRule } = require('../services/lifecycle-config');
 const {
   validateConditionConfig,
@@ -402,6 +403,7 @@ async function addIntegration(orgId, payload) {
       : 50,
     requestPolicy: normalizeRequestPolicy(payload.requestPolicy, payload.rateLimits) || null,
     rateLimits: normalizeRateLimit(payload.rateLimits) || null,
+    preDeliveryChecks: normalizePreDeliveryChecks(payload.preDeliveryChecks) || null,
     isActive: payload.isActive !== false,
     timeoutMs: payload.timeoutMs,
     retryCount: payload.retryCount,
@@ -484,6 +486,9 @@ async function updateIntegration(orgId, id, patch) {
     Object.prototype.hasOwnProperty.call(updateDoc, 'rateLimits')
   ) {
     updateDoc.requestPolicy = normalizeRequestPolicy(updateDoc.requestPolicy, updateDoc.rateLimits);
+  }
+  if (Object.prototype.hasOwnProperty.call(updateDoc, 'preDeliveryChecks')) {
+    updateDoc.preDeliveryChecks = normalizePreDeliveryChecks(updateDoc.preDeliveryChecks);
   }
 
   const existing = await getIntegration(id);

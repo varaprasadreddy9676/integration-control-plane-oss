@@ -8,6 +8,7 @@ const { buildAuthHeaders } = require('../processor/auth-helper');
 const asyncHandler = require('../utils/async-handler');
 const { generateSigningSecret, generateSignatureHeaders } = require('../services/integration-signing');
 const { validateLookupConfigs } = require('../services/lookup-validator');
+const { validatePreDeliveryChecks } = require('../services/pre-delivery-checks');
 const { fetch, AbortController } = require('../utils/runtime');
 const { executeSchedulingScript, validateRecurringConfig } = require('../services/scheduler');
 const { generateMaskedCurlCommand } = require('../utils/curl-generator');
@@ -60,6 +61,18 @@ router.get(
     res.json({ eventTypes });
   })
 );
+
+// Checks may sit on the integration and on each action (an action's own replace the integration's).
+function validateAllPreDeliveryChecks(body) {
+  const error = validatePreDeliveryChecks(body.preDeliveryChecks);
+  if (error) return error;
+  const actions = Array.isArray(body.actions) ? body.actions : [];
+  for (let i = 0; i < actions.length; i++) {
+    const actionError = validatePreDeliveryChecks(actions[i]?.preDeliveryChecks);
+    if (actionError) return `Action ${i + 1}: ${actionError}`;
+  }
+  return null;
+}
 
 // Bulk operations - Must be defined BEFORE /:id routes to avoid parameter matching
 router.patch(
@@ -361,6 +374,11 @@ router.post(
       }
     }
 
+    const preDeliveryChecksError = validateAllPreDeliveryChecks(req.body);
+    if (preDeliveryChecksError) {
+      return res.status(400).json({ error: preDeliveryChecksError, code: 'VALIDATION_ERROR' });
+    }
+
     // Validate lookup configurations if present
     if (req.body.lookups && Array.isArray(req.body.lookups) && req.body.lookups.length > 0) {
       try {
@@ -436,6 +454,11 @@ router.put(
       if (!validateScript(req.body.transformation.script)) {
         return res.status(400).json({ error: 'Invalid transformation script', code: 'SCRIPT_INVALID' });
       }
+    }
+
+    const preDeliveryChecksError = validateAllPreDeliveryChecks(req.body);
+    if (preDeliveryChecksError) {
+      return res.status(400).json({ error: preDeliveryChecksError, code: 'VALIDATION_ERROR' });
     }
 
     // Validate lookup configurations if present

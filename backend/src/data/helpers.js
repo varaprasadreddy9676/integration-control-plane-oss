@@ -97,6 +97,7 @@ function mapIntegrationFromMongo(doc) {
     maxInboundFileSizeMb: doc.maxInboundFileSizeMb ?? 50,
     requestPolicy: doc.requestPolicy || null,
     rateLimits: doc.rateLimits || null, // Per-integration rate limiting
+    preDeliveryChecks: doc.preDeliveryChecks || null, // URLs checked before each delivery
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,
     retryCount: doc.retryCount,

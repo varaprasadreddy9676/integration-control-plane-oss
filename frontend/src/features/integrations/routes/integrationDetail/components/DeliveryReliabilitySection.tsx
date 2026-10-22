@@ -1,6 +1,7 @@
 import { Divider, Skeleton, Space, Typography } from 'antd';
 import { DeliverySettingsSectionEnhanced } from '../../../components/detail/DeliverySettingsSectionEnhanced';
 import { RateLimitSection } from '../../../components/detail/RateLimitSection';
+import { PreDeliveryChecksSection } from '../../../components/detail/PreDeliveryChecksSection';
 import type { DeliveryPanelProps } from './DeliveryPanel.types';
 
 const { Text } = Typography;
@@ -40,6 +41,21 @@ export const DeliveryReliabilitySection = ({
         </div>
         <div style={{ marginTop: 12 }}>
           <RateLimitSection form={form} spacing={spacing} />
+        </div>
+      </div>
+
+      <Divider style={{ margin: 0 }} />
+
+      <div>
+        <Text strong style={{ fontSize: 15 }}>Pre-delivery URL checks</Text>
+        <div>
+          <Text type="secondary">
+            Fetch URLs the target downloads on its own (such as a document link) before sending, so a slow or broken
+            link is retried or failed here instead of being reported later by the target.
+          </Text>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <PreDeliveryChecksSection spacing={spacing} />
         </div>
       </div>
     </Space>

@@ -167,6 +167,17 @@ export interface IntegrationConfig {
     maxRequests?: number;
     windowSeconds?: number;
   } | null;
+  // URLs fetched before each delivery (e.g. a document the target downloads later)
+  preDeliveryChecks?: Array<{
+    name?: string;
+    urlPath: string;
+    source?: 'request' | 'event';
+    method?: 'GET' | 'HEAD';
+    timeoutMs?: number;
+    expectedContentTypes?: string[];
+    minBytes?: number;
+    onMissingUrl?: 'PASS' | 'FAIL';
+  }> | null;
   isActive: boolean;
   timeoutMs: number;
   retryCount: number;

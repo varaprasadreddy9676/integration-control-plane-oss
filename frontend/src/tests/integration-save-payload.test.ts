@@ -49,4 +49,28 @@ describe('outbound integration form save payload', () => {
       ],
     });
   });
+
+  it('sends pre-delivery checks without cleared optional inputs', () => {
+    const payload = buildIntegrationSavePayload({
+      values: {
+        preDeliveryChecks: [
+          { name: '', urlPath: 'document.link', method: 'GET', timeoutMs: null, expectedContentTypes: [], minBytes: 1000 },
+        ],
+      },
+      lifecycleRules: [],
+      transformationMode: 'SCRIPT',
+    });
+
+    expect(payload.preDeliveryChecks).toEqual([{ urlPath: 'document.link', method: 'GET', minBytes: 1000 }]);
+  });
+
+  it('clears pre-delivery checks when all are removed and leaves them alone when not loaded', () => {
+    const build = (preDeliveryChecks: unknown) =>
+      buildIntegrationSavePayload({ values: { preDeliveryChecks }, lifecycleRules: [], transformationMode: 'SCRIPT' })
+        .preDeliveryChecks;
+
+    expect(build([])).toBeNull();
+    expect(build(null)).toBeNull();
+    expect(build(undefined)).toBeUndefined();
+  });
 });

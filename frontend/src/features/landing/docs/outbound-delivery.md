@@ -173,3 +173,39 @@ This means local HTTP services are supported when your deployment allows them, w
 | `rateLimits.enabled` | boolean | `false` | Enable rate limiting |
 | `rateLimits.maxRequests` | number | `100` | Requests per window |
 | `rateLimits.windowSeconds` | number | `60` | Window size in seconds |
+| `preDeliveryChecks` | array | — | Up to 5 URLs to fetch before each delivery (see below) |
+
+---
+
+## Pre-delivery URL checks
+
+Some targets accept a request at once and download a URL inside it later, such as a document link in a
+messaging template. If that later download is slow or fails, the target reports it outside the delivery
+and the gateway has already logged `SUCCESS`, so nothing is retried.
+
+`preDeliveryChecks` makes the gateway fetch those URLs first. Checks run in order after the transformation
+and before the request is sent; the first one that does not pass ends the attempt without sending.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | `urlPath` | Label shown in logs |
+| `urlPath` | string | — | Dot path to the URL, e.g. `template.header.document.link` or `components.0.url` |
+| `source` | string | `request` | `request` (transformed body) or `event` (original event payload) |
+| `method` | string | `GET` | `GET` downloads the whole response (and warms any cache on that server); `HEAD` checks the status only |
+| `timeoutMs` | number | `30000` | 1000–120000 |
+| `expectedContentTypes` | string[] | — | The response `Content-Type` must start with one of these |
+| `minBytes` | number | `0` | Smallest acceptable body (GET only) |
+| `onMissingUrl` | string | `PASS` | `PASS` sends anyway when the field is empty; `FAIL` fails the delivery |
+
+Outcomes:
+
+- **Pass** — 2xx and every expectation met: the delivery is sent.
+- **Retry** — timeout, network error, or HTTP 408, 425, 429, 5xx: logged as `RETRYING` and retried with the
+  normal backoff up to `retryCount`, then `ABANDONED`.
+- **Fail** — any other status, a wrong content type or a too-small body: logged as `FAILED` with no retry and
+  no DLQ entry, because it would fail the same way again.
+
+A failed check never trips the target's circuit breaker. The check URL must pass the same URL policy as
+target URLs (private networks blocked by default). Checks run on every delivery path: single-target and
+multi-action, immediate and scheduled. In a multi-action integration, an action's own `preDeliveryChecks`
+replace the integration's for that action, and are checked against that action's transformed request.

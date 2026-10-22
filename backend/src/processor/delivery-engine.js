@@ -19,6 +19,7 @@ const getTransformationSkipReason = transformer.getTransformationSkipReason || (
 const isTransformationSkipped = transformer.isTransformationSkipped || (() => false);
 const hl7 = require('../services/hl7/codec');
 const { sendMllpMessage } = require('../services/hl7/mllp-client');
+const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 
 // Move dynamic require to top-level (was inside deliverSingleAction)
 const adapterRegistry = require('../services/communication/adapter-registry');
@@ -345,6 +346,64 @@ async function deliverSingleAction(
       responseStatus: 500,
     });
     return { status: 'FAILED', logId };
+  }
+
+  // Pre-delivery checks: an action's own checks, else the integration's
+  const checkFailure = await checkBeforeDelivery(action.preDeliveryChecks || integration.preDeliveryChecks, {
+    requestPayload: transformed,
+    eventPayload: evt.payload,
+    urlOptions: config.security,
+    executionLogger,
+    stepMetadata: { actionName, actionIndex },
+  });
+  if (checkFailure) {
+    const maxRetries = integration.retryCount || 3;
+    const retryable = checkFailure.retryable && !isTest;
+    const finalStatus = !retryable ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
+    let errorMessage = `${prefix}${actionName}: ${checkFailure.errorMessage}`;
+    if (finalStatus === 'ABANDONED') {
+      errorMessage = `${errorMessage} - Max retries (${maxRetries}) reached`;
+    }
+    log('warn', errorMessage, { integrationId: integration.id, actionName, finalStatus });
+
+    const logId = await data.recordLog(orgId, {
+      id: existingLogId,
+      integrationConfigId: integration.id,
+      integrationName: `${integration.name} - ${actionName}`,
+      eventId: evt.id || null,
+      eventType: evt.event_type,
+      direction: integration.direction || 'OUTBOUND',
+      triggerType,
+      actionName,
+      actionIndex,
+      status: finalStatus,
+      responseStatus: checkFailure.responseStatus,
+      responseTimeMs: Date.now() - start,
+      attemptCount,
+      originalPayload: evt.payload,
+      requestPayload: transformed,
+      errorMessage,
+      shouldRetry: finalStatus === 'RETRYING',
+      targetUrl,
+      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
+      correlationId: traceId,
+      traceId: traceId,
+      requestHeaders: null,
+    });
+
+    await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false, lastErrorMessage: errorMessage });
+    if (finalStatus === 'RETRYING') {
+      if (executionLogger) await executionLogger.updateStatus('retrying').catch(() => {});
+    } else if (finalStatus === 'ABANDONED') {
+      // A permanent failure fails the same way again; only exhausted retries reach the DLQ.
+      await maybeCreateActionDLQ({
+        logId,
+        errorMessage,
+        errorCode: 'PRE_DELIVERY_CHECK_FAILED',
+        responseStatus: checkFailure.responseStatus,
+      });
+    }
+    return { status: finalStatus, logId };
   }
 
   // Rate limit check (per integration)
@@ -1747,6 +1806,69 @@ async function deliverToIntegration(
     return buildResult('SKIPPED', logId, null, {
       skipReason: transformationSkipReason || 'transformation returned null',
     });
+  }
+
+  // Pre-delivery checks: URLs the target will fetch itself must be reachable first
+  const checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
+    requestPayload: transformed,
+    eventPayload: evt.payload,
+    urlOptions: config.security,
+    executionLogger,
+  });
+  if (checkFailure) {
+    const attemptCount = (evt.attempt_count || 0) + 1;
+    const maxRetries = integration.retryCount || 3;
+    const retryable = checkFailure.retryable && !isTestEvent(evt);
+    const finalStatus = !retryable ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
+    let errorMessage = `${prefix}${checkFailure.errorMessage}`;
+    if (finalStatus === 'ABANDONED') {
+      errorMessage = `${errorMessage} - Max retries (${maxRetries}) reached`;
+    }
+    log('warn', errorMessage, { integrationId: integration.id, integrationName: integration.name, finalStatus });
+
+    const logId = await data.recordLog(orgId, {
+      id: logIdForUpdates,
+      integrationConfigId: integration.id,
+      integrationName: integration.name,
+      eventId: evt.id || null,
+      eventType: evt.event_type,
+      status: finalStatus,
+      responseStatus: checkFailure.responseStatus,
+      responseTimeMs: Date.now() - start,
+      attemptCount,
+      originalPayload: evt.payload,
+      requestPayload: transformed,
+      errorMessage,
+      shouldRetry: finalStatus === 'RETRYING',
+      targetUrl: integration.targetUrl,
+      httpMethod: integration.httpMethod || 'POST',
+      attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
+      correlationId: traceId,
+      traceId: traceId,
+      requestHeaders: null,
+    });
+
+    // The checked URL failed, not the target: never trip the target's circuit.
+    await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false, lastErrorMessage: errorMessage });
+
+    if (finalStatus === 'RETRYING') {
+      await executionLogger.updateStatus('retrying').catch(() => {});
+    } else {
+      const error = new Error(errorMessage);
+      error.code = 'PRE_DELIVERY_CHECK_FAILED';
+      error.statusCode = checkFailure.responseStatus || null;
+      await executionLogger
+        .fail(error, {
+          payload: evt.payload,
+          statusCode: checkFailure.responseStatus || null,
+          // A permanent failure (e.g. the linked document cannot be produced)
+          // fails the same way again, so only abandoned retries reach the DLQ.
+          createDLQ: finalStatus === 'ABANDONED',
+        })
+        .catch(() => {});
+    }
+
+    return buildResult(finalStatus, logId);
   }
 
   // Rate limit check (per integration)
