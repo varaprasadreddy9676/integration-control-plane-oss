@@ -12,6 +12,7 @@ const {
 } = require('./helpers');
 const { redactBase64 } = require('../utils/payload-sanitizer');
 const { applyCursorHint } = require('../utils/index-hints');
+const { AppError } = require('../utils/errors');
 
 const ONE_MINUTE_MS = 60 * 1000;
 const ONE_HOUR_MS = 60 * ONE_MINUTE_MS;
@@ -28,6 +29,20 @@ const LOG_SEARCH_REGEX_FIELDS = [
   'clientIp',
 ];
 const LEGACY_INTEGRATION_CONFIG_ID_FIELD = '__KEEP___KEEP_integrationConfig__Id__';
+
+// A $text search reads every log of the org that contains the word before the
+// date filter applies, so a common word in a large org ran for minutes, even for
+// a day with no logs. A substring search bounded by the date window is index-
+// backed and instant when the window holds little data. Search by substring when
+// the window is small, by text when it is large, and never let a search run
+// past SEARCH_MAX_TIME_MS.
+const SUBSTRING_SEARCH_MAX_WINDOW_DOCS = 50000;
+const SEARCH_MAX_TIME_MS = 20000;
+const WINDOW_PROBE_MAX_TIME_MS = 3000;
+const WINDOW_PROBE_CACHE_TTL_MS = 30_000;
+const WINDOW_PROBE_CACHE_MAX_SIZE = 200;
+const MAX_TIME_EXPIRED_CODE = 50;
+const _windowProbeCache = new Map();
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -338,7 +353,7 @@ function buildLogsQuery(orgId, filters = {}, options = {}) {
     } else {
       andConditions.push({
         $or: LOG_SEARCH_REGEX_FIELDS.map((field) => ({
-          [field]: { $regex: searchTerm, $options: 'i' },
+          [field]: { $regex: escapeRegex(searchTerm), $options: 'i' },
         })),
       });
     }
@@ -391,6 +406,57 @@ function buildLogsQuery(orgId, filters = {}, options = {}) {
   return query;
 }
 
+function isMaxTimeError(error) {
+  return error?.code === MAX_TIME_EXPIRED_CODE || /exceeded time limit/i.test(error?.message || '');
+}
+
+/** The cursor with the search time cap applied (a no-op when not searching). */
+function capSearchTime(cursor, searchOptions) {
+  return searchOptions?.maxTimeMS ? cursor.maxTimeMS(searchOptions.maxTimeMS) : cursor;
+}
+
+/** Trailing driver options for countDocuments/aggregate: none unless searching. */
+const searchArgs = (searchOptions) => (searchOptions?.maxTimeMS ? [searchOptions] : []);
+
+/**
+ * True when the logs in the search's date window are few enough to scan by
+ * substring. Counted by index with a cap; a window that cannot be counted
+ * quickly is treated as large. No start date means the whole history.
+ */
+async function isSmallSearchWindow(orgId, filters) {
+  const startDate = parseDateOrNull(filters.startDate);
+  if (!startDate) return false;
+  const endDate = parseDateOrNull(filters.endDate);
+  const minute = (date) => (date ? Math.floor(date.getTime() / 60000) : '');
+  const cacheKey = `${orgId}|${minute(startDate)}|${minute(endDate)}`;
+  const cached = _windowProbeCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < WINDOW_PROBE_CACHE_TTL_MS) return cached.small;
+
+  let small = false;
+  try {
+    const db = await mongodb.getDbSafe();
+    const windowQuery = addOrgScope({ createdAt: buildCreatedAtRange(startDate, endDate) }, orgId);
+    const count = await db.collection('execution_logs').countDocuments(windowQuery, {
+      limit: SUBSTRING_SEARCH_MAX_WINDOW_DOCS + 1,
+      hint: 'org_created_idx',
+      maxTimeMS: WINDOW_PROBE_MAX_TIME_MS,
+    });
+    small = count <= SUBSTRING_SEARCH_MAX_WINDOW_DOCS;
+  } catch (_error) {
+    small = false;
+  }
+  if (_windowProbeCache.size >= WINDOW_PROBE_CACHE_MAX_SIZE) _windowProbeCache.clear();
+  _windowProbeCache.set(cacheKey, { small, ts: Date.now() });
+  return small;
+}
+
+const searchTooBroadError = () =>
+  new AppError(
+    'This search is taking too long. Narrow the date range or search for a more specific word.',
+    400,
+    'SEARCH_TOO_BROAD'
+  );
+
 async function runLogsSearchWithFallback(orgId, filters, scope, operation) {
   const preparedFilters = filters?.provider
     ? {
@@ -412,13 +478,16 @@ async function runLogsSearchWithFallback(orgId, filters, scope, operation) {
     return operation({ orgId: { $in: [] } });
   }
 
-  const primaryQuery = buildLogsQuery(orgId, preparedFilters);
+  const searchTerm = getSearchTerm(filters);
+  const searchOptions = searchTerm ? { maxTimeMS: SEARCH_MAX_TIME_MS } : {};
+  const useTextSearch = !searchTerm || !(await isSmallSearchWindow(orgId, filters));
+  const primaryQuery = buildLogsQuery(orgId, preparedFilters, { useTextSearch });
 
   try {
-    return await operation(primaryQuery);
+    return await operation(primaryQuery, searchOptions);
   } catch (error) {
-    const searchTerm = getSearchTerm(filters);
-    if (!searchTerm || !isMissingTextIndexError(error)) {
+    if (searchTerm && isMaxTimeError(error)) throw searchTooBroadError();
+    if (!searchTerm || !useTextSearch || !isMissingTextIndexError(error)) {
       throw error;
     }
 
@@ -428,7 +497,11 @@ async function runLogsSearchWithFallback(orgId, filters, scope, operation) {
     });
 
     const fallbackQuery = buildLogsQuery(orgId, preparedFilters, { useTextSearch: false });
-    return operation(fallbackQuery);
+    try {
+      return await operation(fallbackQuery, searchOptions);
+    } catch (fallbackError) {
+      throw isMaxTimeError(fallbackError) ? searchTooBroadError() : fallbackError;
+    }
   }
 }
 
@@ -442,8 +515,8 @@ async function countLogs(orgId, filters = {}) {
   if (useMongo()) {
     try {
       const db = await mongodb.getDbSafe();
-      return await runLogsSearchWithFallback(orgId, filters, 'countLogs', (query) =>
-        db.collection('execution_logs').countDocuments(query)
+      return await runLogsSearchWithFallback(orgId, filters, 'countLogs', (query, searchOptions) =>
+        db.collection('execution_logs').countDocuments(query, ...searchArgs(searchOptions))
       );
     } catch (err) {
       logError(err, { scope: 'countLogs', filters });
@@ -504,7 +577,7 @@ async function getLogsPage(orgId, filters = {}) {
       // navigation would re-scan the entire filtered result set — a ~40-50% cost increase.
       // Use a separate countDocuments for total (needed for pagination only).
       const [docs, total] = await Promise.all([
-        runLogsSearchWithFallback(orgId, filters, 'getLogsPage', (query) =>
+        runLogsSearchWithFallback(orgId, filters, 'getLogsPage', (query, searchOptions) =>
           db
             .collection('execution_logs')
             .aggregate(
@@ -526,12 +599,12 @@ async function getLogsPage(orgId, filters = {}) {
                 },
               ],
               // Sort {createdAt:-1} matches org_created_idx exactly — index-backed, no disk spill.
-              { allowDiskUse: true, hint: 'org_created_idx' }
+              { allowDiskUse: true, hint: 'org_created_idx', ...searchOptions }
             )
             .toArray()
         ),
-        runLogsSearchWithFallback(orgId, filters, 'getLogsPage:count', (query) =>
-          db.collection('execution_logs').countDocuments(query)
+        runLogsSearchWithFallback(orgId, filters, 'getLogsPage:count', (query, searchOptions) =>
+          db.collection('execution_logs').countDocuments(query, ...searchArgs(searchOptions))
         ),
       ]);
 
@@ -596,7 +669,7 @@ async function getLogsPageGroupedByMessage(orgId, filters = {}) {
       const limit = Math.min(1000, Math.max(1, parseInt(filters.limit) || 50));
       const skip = (page - 1) * limit;
 
-      const result = await runLogsSearchWithFallback(orgId, filters, 'getLogsPageGroupedByMessage', (query) =>
+      const result = await runLogsSearchWithFallback(orgId, filters, 'getLogsPageGroupedByMessage', (query, searchOptions) =>
         db
           .collection('execution_logs')
           .aggregate(
@@ -638,7 +711,7 @@ async function getLogsPageGroupedByMessage(orgId, filters = {}) {
                 },
               },
             ],
-            { allowDiskUse: true, hint: 'org_created_idx' }
+            { allowDiskUse: true, hint: 'org_created_idx', ...searchOptions }
           )
           .toArray()
       );
@@ -674,14 +747,16 @@ async function probeLogsThreshold(orgId, filters = {}, threshold = 0) {
       const normalizedThreshold = Math.max(0, Number.parseInt(String(threshold), 10) || 0);
       const probeLimit = normalizedThreshold + 1;
 
-      const docs = await runLogsSearchWithFallback(orgId, filters, 'probeLogsThreshold', (query) =>
-        db
-          .collection('execution_logs')
-          .find(query, {
-            projection: { _id: 1 },
-          })
-          .limit(probeLimit)
-          .toArray()
+      const docs = await runLogsSearchWithFallback(orgId, filters, 'probeLogsThreshold', (query, searchOptions) =>
+        capSearchTime(
+          db
+            .collection('execution_logs')
+            .find(query, {
+              projection: { _id: 1 },
+            })
+            .limit(probeLimit),
+          searchOptions
+        ).toArray()
       );
 
       const matchedCount = Array.isArray(docs) ? docs.length : 0;
@@ -720,12 +795,14 @@ async function listLogs(orgId, filters = {}) {
       const limit = Math.min(1000, Math.max(1, parseInt(filters.limit) || 500));
       const skip = (page - 1) * limit;
 
-      const logs = await runLogsSearchWithFallback(orgId, filters, 'listLogs', (query) =>
-        applyCursorHint(db.collection('execution_logs').find(query), 'org_created_idx')
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .toArray()
+      const logs = await runLogsSearchWithFallback(orgId, filters, 'listLogs', (query, searchOptions) =>
+        capSearchTime(
+          applyCursorHint(db.collection('execution_logs').find(query), 'org_created_idx')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit),
+          searchOptions
+        ).toArray()
       );
 
       return logs.map(mapLogFromMongo);
@@ -771,7 +848,7 @@ async function getLogStatsSummary(orgId, filters = {}) {
       const db = await mongodb.getDbSafe();
       const groupByMessage = filtersWithoutStatus.groupBy === 'message';
 
-      const stats = await runLogsSearchWithFallback(orgId, filtersWithoutStatus, 'getLogStatsSummary', (matchStage) => {
+      const stats = await runLogsSearchWithFallback(orgId, filtersWithoutStatus, 'getLogStatsSummary', (matchStage, searchOptions) => {
         const pipeline = [{ $match: matchStage }];
 
         if (groupByMessage) {
@@ -807,7 +884,10 @@ async function getLogStatsSummary(orgId, filters = {}) {
         // For plain stats, org_created_status_rt_covered_idx covers {orgId,createdAt,status}
         // so MongoDB reads zero documents for the $group — pure index scan.
         const hint = groupByMessage ? 'org_created_idx' : 'org_created_status_rt_covered_idx';
-        return db.collection('execution_logs').aggregate(pipeline, { allowDiskUse: true, hint }).toArray();
+        return db
+          .collection('execution_logs')
+          .aggregate(pipeline, { allowDiskUse: true, hint, ...searchOptions })
+          .toArray();
       });
 
       const result = stats[0] || { total: 0, success: 0, failed: 0, skipped: 0, pending: 0 };

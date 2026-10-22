@@ -96,13 +96,14 @@ describe('probeLogsThreshold', () => {
     const firstToArray = jest.fn().mockRejectedValue(textIndexError);
     const secondToArray = jest.fn().mockResolvedValue([{ _id: '1' }]);
 
+    // Searches are time-capped, so the cursor takes maxTimeMS like a real one.
+    const searchCursor = (toArray) => {
+      const cursor = { toArray, maxTimeMS: jest.fn(() => cursor) };
+      return { limit: jest.fn().mockReturnValue(cursor) };
+    };
     mockCollection.find
-      .mockReturnValueOnce({
-        limit: jest.fn().mockReturnValue({ toArray: firstToArray }),
-      })
-      .mockReturnValueOnce({
-        limit: jest.fn().mockReturnValue({ toArray: secondToArray }),
-      });
+      .mockReturnValueOnce(searchCursor(firstToArray))
+      .mockReturnValueOnce(searchCursor(secondToArray));
 
     const result = await probeLogsThreshold(145, { search: 'Jane Doe' }, 5);
 

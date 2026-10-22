@@ -93,6 +93,15 @@ function isMissingTextIndexError(error) {
   return error && (error.code === 27 || /text index required/i.test(error.message || ''));
 }
 
+/**
+ * MongoDB refuses "text and hint not allowed in same query": a $text query runs
+ * on the text index, so a hint can only break it. $text is only valid in the
+ * first $match of a pipeline, so that is the only place to look.
+ */
+const isTextFilter = (filter) => Boolean(filter && typeof filter === 'object' && filter.$text);
+const isTextPipeline = (pipeline) =>
+  Array.isArray(pipeline) && pipeline.some((stage) => stage && isTextFilter(stage.$match));
+
 function forgetIndex(collectionName, indexName) {
   const known = knownIndexes.get(collectionName);
   if (known) known.delete(indexName);
@@ -217,6 +226,8 @@ function installHintSafetyNet(Collection) {
   proto.find = function find(...args) {
     const cursor = originalFind.apply(this, args);
     if (!cursor || typeof cursor.clone !== 'function' || typeof cursor.hint !== 'function') return cursor;
+    // A $text query takes no hint: ignore the one chained on (applyCursorHint or direct).
+    if (isTextFilter(args[0])) cursor.hint = () => cursor;
     return retryTerminalOpsWithoutHint(
       cursor,
       () => {
@@ -230,6 +241,10 @@ function installHintSafetyNet(Collection) {
   };
 
   proto.aggregate = function aggregate(pipeline, options) {
+    if (options && options.hint && isTextPipeline(pipeline)) {
+      const { hint: _ignored, ...withoutHint } = options;
+      return originalAggregate.call(this, pipeline, withoutHint);
+    }
     const cursor = originalAggregate.call(this, pipeline, options);
     if (!cursor || !options || !options.hint) return cursor;
     const { hint, ...withoutHint } = options;
@@ -242,6 +257,10 @@ function installHintSafetyNet(Collection) {
   };
 
   proto.countDocuments = async function countDocuments(filter, options) {
+    if (options && options.hint && isTextFilter(filter)) {
+      const { hint: _ignored, ...withoutHint } = options;
+      return originalCountDocuments.call(this, filter, withoutHint);
+    }
     try {
       return await originalCountDocuments.call(this, filter, options);
     } catch (error) {

@@ -203,3 +203,103 @@ describe('hint safety net (dropped collections / missing indexes)', () => {
     expect(Collection.prototype.find).toBe(find);
   });
 });
+
+describe('$text queries never carry an index hint', () => {
+  // MongoDB: "text and hint not allowed in same query" (code 2). The text index
+  // picks the plan, so a hint can only ever break the search.
+  const textHintError = () =>
+    Object.assign(new Error('text and hint not allowed in same query'), { code: 2, codeName: 'BadValue' });
+  const hasText = (filter) => Boolean(filter && filter.$text);
+
+  function makeTextAwareCollection() {
+    const seen = { finds: [], aggregates: [], counts: [] };
+    class TextAwareCollection {
+      constructor(name) {
+        this.collectionName = name;
+      }
+
+      find(filter) {
+        const cursor = {
+          _hint: undefined,
+          hint(name) {
+            this._hint = name;
+            return this;
+          },
+          clone() {
+            return cursor;
+          },
+          async toArray() {
+            seen.finds.push({ hint: this._hint });
+            if (hasText(filter) && this._hint) throw textHintError();
+            return [{ a: 1 }];
+          },
+        };
+        return cursor;
+      }
+
+      aggregate(pipeline, options = {}) {
+        seen.aggregates.push(options.hint);
+        const fails = pipeline.some((stage) => hasText(stage.$match)) && options.hint;
+        return {
+          async toArray() {
+            if (fails) throw textHintError();
+            return [{ a: 1 }];
+          },
+        };
+      }
+
+      async countDocuments(filter, options = {}) {
+        seen.counts.push(options.hint);
+        if (hasText(filter) && options.hint) throw textHintError();
+        return 7;
+      }
+    }
+    installHintSafetyNet(TextAwareCollection);
+    return { col: new TextAwareCollection('execution_logs'), seen };
+  }
+
+  beforeEach(() => resetIndexCache());
+
+  it('find: a hint on a $text query is ignored', async () => {
+    const { col, seen } = makeTextAwareCollection();
+    await expect(col.find({ orgId: 1, $text: { $search: 'x' } }).hint('org_created_idx').toArray()).resolves.toEqual([
+      { a: 1 },
+    ]);
+    expect(seen.finds[0].hint).toBeUndefined();
+  });
+
+  it('find: a hint on a plain query is kept', async () => {
+    const { col, seen } = makeTextAwareCollection();
+    await col.find({ orgId: 1 }).hint('org_created_idx').toArray();
+    expect(seen.finds[0].hint).toBe('org_created_idx');
+  });
+
+  it('aggregate: a hint with a $text match is dropped, other options kept', async () => {
+    const { col, seen } = makeTextAwareCollection();
+    await expect(
+      col.aggregate([{ $match: { orgId: 1, $text: { $search: 'x' } } }, { $sort: { createdAt: -1 } }], {
+        allowDiskUse: true,
+        hint: 'org_created_idx',
+      }).toArray()
+    ).resolves.toEqual([{ a: 1 }]);
+    expect(seen.aggregates[0]).toBeUndefined();
+  });
+
+  it('aggregate: a hint on a plain pipeline is kept', async () => {
+    const { col, seen } = makeTextAwareCollection();
+    await col.aggregate([{ $match: { orgId: 1 } }], { hint: 'org_created_idx' }).toArray();
+    expect(seen.aggregates[0]).toBe('org_created_idx');
+  });
+
+  it('countDocuments: a hint with $text is dropped, other options kept', async () => {
+    const { col, seen } = makeTextAwareCollection();
+    await expect(col.countDocuments({ orgId: 1, $text: { $search: 'x' } }, { hint: 'org_created_idx', maxTimeMS: 5 })).resolves.toBe(7);
+    expect(seen.counts[0]).toBeUndefined();
+  });
+
+  it('countDocuments: a hint on a plain filter is kept', async () => {
+    const { col, seen } = makeTextAwareCollection();
+    await col.countDocuments({ orgId: 1 }, { hint: 'org_created_idx' });
+    expect(seen.counts[0]).toBe('org_created_idx');
+  });
+});
