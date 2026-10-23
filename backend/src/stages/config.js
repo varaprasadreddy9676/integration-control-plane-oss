@@ -227,6 +227,7 @@ function normalizeStage(stage) {
     recording: {
       level: (stage.recording && stage.recording.level) || 'full',
       sensitivePaths: (stage.recording && stage.recording.sensitivePaths) || [],
+      sensitiveKeys: (stage.recording && stage.recording.sensitiveKeys) || [],
     },
     allowDeliveryRetry: stage.allowDeliveryRetry === true,
   };
@@ -292,6 +293,10 @@ function validateStages(stages, { integration = {}, send, runners }) {
       paths.some((p) => typeof p !== 'string' || !p.trim())
     ) {
       add(`${at}.recording.sensitivePaths`, `sensitivePaths is a list of up to ${LIMITS.maxSensitivePaths} paths`);
+    }
+    const keys = stage.recording.sensitiveKeys;
+    if (!Array.isArray(keys) || keys.length > LIMITS.maxSensitivePaths || keys.some((k) => typeof k !== 'string' || !k.trim())) {
+      add(`${at}.recording.sensitiveKeys`, `sensitiveKeys is a list of up to ${LIMITS.maxSensitivePaths} key names`);
     }
     checkOutputs(stage.outputs, `${at}.outputs`, add);
 

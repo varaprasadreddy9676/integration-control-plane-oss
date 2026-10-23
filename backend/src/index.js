@@ -53,6 +53,7 @@ const outboundIntegrationsRouter = require('./routes/outbound-integrations');
 const inboundIntegrationsRouter = require('./routes/integrations');
 const inboundRuntimePublicRouter = require('./routes/inbound-runtime-public');
 const logsRouter = require('./routes/logs');
+const stagesRouter = require('./routes/stages');
 const systemLogsRouter = require('./routes/system-logs');
 const systemStatusRouter = require('./routes/system-status');
 const clientErrorsRouter = require('./routes/client-errors');
@@ -396,6 +397,7 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/inbound-integrations`, auth, inboundIntegrationsRouter);
   app.use(`${config.api.basePrefix}/integrations`, auth, inboundIntegrationsRouter); // Runtime proxy endpoint
   app.use(`${config.api.basePrefix}/logs`, auth, logsRouter);
+  app.use(`${config.api.basePrefix}/stages`, auth, stagesRouter);
   app.use(`${config.api.basePrefix}/system-status`, auth, systemStatusRouter);
   app.use(`${config.api.basePrefix}/events`, auth, eventsRouter);
   app.use(`${config.api.basePrefix}/event-sources`, auth, eventSourcesRouter);

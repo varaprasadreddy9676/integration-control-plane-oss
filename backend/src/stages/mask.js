@@ -6,7 +6,8 @@
  *   - a credential the parent resolved for the stage (passed in),
  *   - under a header whose name looks like a credential,
  *   - under a JSON key that names a credential (access_token, password...),
- *   - at one of the stage's declared sensitive paths (personal data such as a
+ *   - at one of the stage's declared sensitive paths, or under one of its
+ *     declared sensitive key names at any depth (personal data such as a
  *     recipient's phone number),
  *   - a credential embedded in a URL (user:password@, ?api_key=...).
  * Those places are replaced with REDACTED, and every secret value found is also
@@ -76,16 +77,20 @@ function collectLeaves(value, secrets) {
   else remember(secrets, value, MIN_FOUND_LENGTH);
 }
 
-function maskSecretKeys(value, secrets) {
-  if (Array.isArray(value)) return value.map((item) => maskSecretKeys(item, secrets));
+function maskSecretKeys(value, secrets, extraKeys) {
+  if (Array.isArray(value)) return value.map((item) => maskSecretKeys(item, secrets, extraKeys));
   if (!isPlainObject(value)) return value;
   const out = {};
   for (const [key, child] of Object.entries(value)) {
-    if (SECRET_KEY.test(key) && child !== null && child !== undefined && typeof child !== 'object') {
+    const named = SECRET_KEY.test(key) || extraKeys.has(key.toLowerCase());
+    if (named && child !== null && child !== undefined && typeof child !== 'object') {
       remember(secrets, child, MIN_FOUND_LENGTH);
       out[key] = REDACTED;
+    } else if (named && child !== null && typeof child === 'object') {
+      collectLeaves(child, secrets);
+      out[key] = REDACTED;
     } else {
-      out[key] = maskSecretKeys(child, secrets);
+      out[key] = maskSecretKeys(child, secrets, extraKeys);
     }
   }
   return out;
@@ -96,18 +101,19 @@ function escapeRegExp(text) {
 }
 
 /**
- * A masker for one stage run. `sensitivePaths` are the stage's declared paths
- * (applied to every JSON document recorded: bodies and the result); `secrets`
- * are the resolved credential values.
+ * A masker for one stage run. `sensitivePaths` and `sensitiveKeys` are the
+ * stage's declarations (applied to every JSON document recorded: bodies and the
+ * result); `secrets` are the resolved credential values.
  */
-function createMasker({ sensitivePaths = [], secrets = [] } = {}) {
+function createMasker({ sensitivePaths = [], sensitiveKeys = [], secrets = [] } = {}) {
   const found = new Set();
+  const extraKeys = new Set(sensitiveKeys.map((key) => String(key).toLowerCase()));
   const paths = sensitivePaths.map(parsePath).filter((segments) => segments.length > 0);
   for (const value of secrets) remember(found, value, MIN_CREDENTIAL_LENGTH);
 
   /** A JSON document with credential keys and sensitive paths masked. */
   function maskJson(doc) {
-    let out = maskSecretKeys(doc, found);
+    let out = maskSecretKeys(doc, found, extraKeys);
     for (const segments of paths) out = maskAtPath(out, segments, found);
     return out;
   }

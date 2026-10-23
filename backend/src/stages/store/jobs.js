@@ -187,6 +187,19 @@ async function repinJobs(orgId, integrationId, stageId, definitionHash) {
   return result.modifiedCount;
 }
 
+/** The stages that have paused work, as { orgId, integrationId, stageId } (small: paused jobs only). */
+async function pausedGroups({ limit = 50 } = {}) {
+  const col = await collection();
+  const rows = await col
+    .aggregate([
+      { $match: { state: 'PAUSED' } },
+      { $group: { _id: { orgId: '$orgId', integrationId: '$integrationId', stageId: '$stageId' } } },
+      { $limit: limit },
+    ])
+    .toArray();
+  return rows.map((row) => row._id);
+}
+
 /** Counts by state for a stage (console). */
 async function countByState(orgId, integrationId, stageId) {
   const col = await collection();
@@ -201,6 +214,7 @@ async function ensureJobIndexes(db, safeCreateIndexes = (col, specs) => col.crea
     { key: { orgId: 1, deliveryId: 1, stageId: 1, trigger: 1, failureSeq: 1 }, unique: true, name: 'logical_key_unique' },
     { key: { state: 1, nextRunAt: 1 }, name: 'state_next_run_idx' },
     { key: { 'lease.until': 1 }, name: 'lease_until_idx', partialFilterExpression: { state: 'RUNNING' } },
+    { key: { orgId: 1, integrationId: 1, stageId: 1 }, name: 'paused_idx', partialFilterExpression: { state: 'PAUSED' } },
     { key: { orgId: 1, integrationId: 1, stageId: 1, state: 1 }, name: 'org_integration_stage_state_idx' },
     { key: { updatedAt: 1 }, name: 'unprojected_idx', partialFilterExpression: { projection: { $exists: true } } },
     { key: { purgeAt: 1 }, expireAfterSeconds: 0, name: 'purge_ttl_idx' },
@@ -217,6 +231,7 @@ module.exports = {
   resumeJobs,
   cancelJobs,
   repinJobs,
+  pausedGroups,
   countByState,
   ensureJobIndexes,
   FINAL_STATES,

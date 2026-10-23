@@ -93,6 +93,7 @@ function capBody(body, max) {
 function createRecorder({
   level = 'full',
   sensitivePaths = [],
+  sensitiveKeys = [],
   credential = null,
   policy = {},
   request = client.request,
@@ -104,7 +105,7 @@ function createRecorder({
   const recording = LEVELS.has(level) ? level : 'full';
   const credentialHeaders = (credential && credential.headers) || {};
   const approvedOrigins = new Set(((credential && credential.origins) || []).map((origin) => new URL(origin).origin));
-  const masker = createMasker({ sensitivePaths, secrets: Object.values(credentialHeaders) });
+  const masker = createMasker({ sensitivePaths, sensitiveKeys, secrets: Object.values(credentialHeaders) });
   const calls = [];
   let callCount = 0;
 

@@ -11,7 +11,7 @@
  * duration-list.
  */
 
-const RUNNERS = [require('./script'), require('./http')];
+const RUNNERS = [require('./script'), require('./http'), require('./url-check'), require('./mapping')];
 
 const byType = new Map(RUNNERS.map((runner) => [runner.type, runner]));
 

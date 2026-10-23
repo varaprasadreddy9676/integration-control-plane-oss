@@ -1,5 +1,6 @@
 const express = require('express');
 const { log } = require('../logger');
+const { stagesForExport, prepareStagesForImport } = require('../stages/integration-config');
 const data = require('../data');
 const templates = require('../data/templates');
 const asyncHandler = require('../utils/async-handler');
@@ -308,6 +309,12 @@ router.post(
             req.orgId,
             existingIntegration
           );
+          const stageImport = await prepareStagesForImport(importedIntegration.stages, {
+            orgId: req.orgId,
+            existingStages: (existingIntegration && existingIntegration.stages) || [],
+          });
+          if (stageImport.stages) integrationForImport.stages = stageImport.stages;
+          else delete integrationForImport.stages;
 
           if (existingIntegration) {
             // Update existing integration
@@ -323,6 +330,7 @@ router.post(
                 integrationId: importedIntegration.id,
                 integration: updatedIntegration,
                 action: 'updated',
+                stagesNeedingAttention: stageImport.attention,
               });
               results.summary.updated++;
             } else {
@@ -346,6 +354,7 @@ router.post(
               integration: createdIntegration,
               action: 'created',
               needsCredentials,
+              stagesNeedingAttention: stageImport.attention,
             });
             results.summary.successful++;
           }
@@ -557,6 +566,11 @@ function sanitizeIntegrationForExport(integration, includeSensitive = false, for
     transformationMode: integration.transformationMode,
     headers: integration.headers,
     metadata: integration.metadata || {},
+    // Pipeline stages and their Send bindings (scripts left out without sensitive data).
+    stages: stagesForExport(integration.stages, includeSensitive),
+    send: integration.send || null,
+    stagesPaused: integration.stagesPaused === true,
+    stageBudgetMs: integration.stageBudgetMs || null,
     createdAt: integration.createdAt,
     updatedAt: integration.updatedAt,
   };

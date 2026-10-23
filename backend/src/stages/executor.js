@@ -128,6 +128,7 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
     recorder = createRecorder({
       level: stage.recording && stage.recording.level,
       sensitivePaths: (stage.recording && stage.recording.sensitivePaths) || [],
+      sensitiveKeys: (stage.recording && stage.recording.sensitiveKeys) || [],
       credential,
       policy: deps.policy || {},
       request: deps.request,
@@ -139,6 +140,8 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
 
     const runPromise = runner.run({
       stage,
+      orgId: meta.orgId,
+      orgUnitRid: integration.orgUnitRid || integration.entityRid || meta.orgId,
       scope,
       inputs,
       http: (args, options = {}) => recorder.http(args, { signal: options.signal || controller.signal }),

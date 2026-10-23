@@ -37,7 +37,8 @@ function shouldRetryInline(stage, result, attempt) {
 
 function gateVerdict(hook, stage, result) {
   const reason = result.record.error || result.record.reason || `${stage.name} failed`;
-  const message = `${stage.name}: ${reason}`;
+  // Migrated configurations keep the exact messages they logged before.
+  const message = String(stage.contract).startsWith('legacy:') ? reason : `${stage.name}: ${reason}`;
   if (!stage.allowDeliveryRetry) return { decision: 'fail', message };
   if (hook === 'before_send') {
     // Nothing was sent: an error is worth retrying; a deliberate fail() only when it asks.

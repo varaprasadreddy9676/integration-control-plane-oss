@@ -682,6 +682,7 @@ module.exports = {
   validateScript,
   applyScriptTransform,
   applyTransform,
+  applySimpleTransform,
   applyResponseTransform,
   hasResponseTransform,
   truncateForTrace,

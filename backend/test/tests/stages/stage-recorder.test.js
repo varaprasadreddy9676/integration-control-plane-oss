@@ -57,6 +57,13 @@ describe('createMasker', () => {
     expect(masker.scrub('the key abcd1234 and hunter22')).toBe(`the key ${REDACTED} and ${REDACTED}`);
   });
 
+  it('masks declared key names at any depth, including whole objects under them', () => {
+    const masker = createMasker({ sensitiveKeys: ['recipient', 'wa_id'] });
+    const out = masker.maskJson({ a: { b: [{ recipient: '919876543210', status: 'READ' }] }, contacts: [{ wa_id: '918888888888' }], recipient: { phone: '917777777777' } });
+    expect(out).toEqual({ a: { b: [{ recipient: REDACTED, status: 'READ' }] }, contacts: [{ wa_id: REDACTED }], recipient: REDACTED });
+    expect(masker.scrub('to 917777777777 and 918888888888')).toBe(`to ${REDACTED} and ${REDACTED}`);
+  });
+
   it('does not scrub short values found by key, which would mangle ordinary text', () => {
     const masker = createMasker();
     expect(masker.maskJson({ otp: '1234' })).toEqual({ otp: REDACTED });

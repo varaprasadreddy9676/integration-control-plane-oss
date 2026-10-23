@@ -86,10 +86,32 @@ async function advanceSummary(run) {
   return { advanced: result.modifiedCount === 1 };
 }
 
+/**
+ * Delivery outcomes: how many deliveries ended in each status, per stage (the
+ * latest state, so three PENDING checks then DELIVERED count once, as DELIVERED).
+ * Dated by the accepted-send time, or by the run time for inline stages.
+ */
+async function outcomeCounts(orgId, { integrationId, stageId, from, to } = {}) {
+  const col = await collection();
+  const match = { orgId };
+  if (integrationId) match.integrationId = String(integrationId);
+  if (stageId) match.stageId = stageId;
+  if (from || to) {
+    const range = {};
+    if (from) range.$gte = new Date(from);
+    if (to) range.$lte = new Date(to);
+    match.$or = [{ acceptedAt: range }, { acceptedAt: { $exists: false }, at: range }];
+  }
+  const rows = await col
+    .aggregate([{ $match: match }, { $group: { _id: { stageId: '$stageId', status: '$status', outcome: '$outcome' }, count: { $sum: 1 } } }])
+    .toArray();
+  return rows.map((row) => ({ stageId: row._id.stageId, status: row._id.status, outcome: row._id.outcome, deliveries: row.count }));
+}
+
 /** The latest state of each stage of a delivery. */
 async function getStates(orgId, deliveryId) {
   const col = await collection();
   return col.find({ orgId, deliveryId: String(deliveryId) }).toArray();
 }
 
-module.exports = { advanceState, advanceSummary, getStates, COLLECTION };
+module.exports = { advanceState, advanceSummary, getStates, outcomeCounts, COLLECTION };

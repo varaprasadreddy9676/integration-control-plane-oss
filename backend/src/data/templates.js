@@ -108,6 +108,9 @@ async function createIntegrationFromTemplate(orgId, templateId, overrides = {}) 
       overrides.placeholders
     ),
     actions: replacePlaceholdersInObject(overrides.actions || template.actions, overrides.placeholders),
+    // Pipeline stages and Send bindings the template brings (validated on create).
+    ...(overrides.stages || template.stages ? { stages: overrides.stages || template.stages } : {}),
+    ...(overrides.send || template.send ? { send: overrides.send || template.send } : {}),
     isActive: overrides.isActive !== undefined ? overrides.isActive : true,
     description: overrides.description || template.description,
     metadata: {

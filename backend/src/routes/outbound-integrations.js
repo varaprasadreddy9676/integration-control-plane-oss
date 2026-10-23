@@ -46,6 +46,18 @@ const isTransformationSkipped = transformer.isTransformationSkipped || (() => fa
 
 const router = express.Router();
 
+// Changing stages or the Send bindings is its own permission (stages:edit).
+function assertMayEditStages(req, before = null) {
+  const { changesStages } = require('../stages/integration-config');
+  const changed = changesStages(req.body || {}, before);
+  if (!changed) return;
+  const { userHasPermission } = require('../rbac/permissions');
+  if (!userHasPermission(req.user, 'stages:edit')) {
+    const { ForbiddenError } = require('../utils/errors');
+    throw new ForbiddenError('Changing pipeline stages needs the stages:edit permission');
+  }
+}
+
 router.get(
   '/',
   assertViewAllowed('dashboard'),
@@ -433,6 +445,7 @@ router.post(
       }
     }
 
+    assertMayEditStages(req);
     const integration = await data.addIntegration(req.orgId, req.body);
     log('info', 'Integration created', { id: integration.id, orgId: req.orgId, isMultiAction });
     await auditIntegration.created(req, integration);
@@ -524,6 +537,7 @@ router.put(
       }
     }
 
+    assertMayEditStages(req, beforeIntegration);
     const integration = await data.updateIntegration(req.orgId, req.params.id, req.body);
     if (!integration) {
       return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });

@@ -43,9 +43,42 @@ async function listRuns(orgId, deliveryId, { stageId, limit = 200 } = {}) {
   return col.find(query).sort({ at: 1 }).limit(limit).toArray();
 }
 
+/**
+ * Execution metrics per stage, dated by run time: runs, errors, timeouts, retries
+ * (runs that were not the first attempt of their check) and average duration.
+ * Run records are kept 30 days, so this covers at most that.
+ */
+async function executionMetrics(orgId, { integrationId, stageId, from, to } = {}) {
+  const col = await collection();
+  const match = { orgId };
+  if (integrationId) match.integrationId = String(integrationId);
+  if (stageId) match['stage.id'] = stageId;
+  if (from || to) {
+    match.at = {};
+    if (from) match.at.$gte = new Date(from);
+    if (to) match.at.$lte = new Date(to);
+  }
+  const rows = await col
+    .aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$stage.id',
+          runs: { $sum: 1 },
+          errors: { $sum: { $cond: [{ $eq: ['$outcome', 'error'] }, 1, 0] } },
+          timeouts: { $sum: { $cond: [{ $eq: ['$outcome', 'timeout'] }, 1, 0] } },
+          retries: { $sum: { $cond: [{ $gt: ['$executionAttempt', 1] }, 1, 0] } },
+          averageMs: { $avg: '$durationMs' },
+        },
+      },
+    ])
+    .toArray();
+  return rows.map(({ _id, averageMs, ...rest }) => ({ stageId: _id, ...rest, averageMs: averageMs === null ? null : Math.round(averageMs) }));
+}
+
 async function getRun(orgId, runId) {
   const col = await collection();
   return col.findOne({ _id: runId, orgId });
 }
 
-module.exports = { insertRun, listRuns, getRun, COLLECTION, RETENTION_DAYS };
+module.exports = { insertRun, listRuns, getRun, executionMetrics, COLLECTION, RETENTION_DAYS };

@@ -144,14 +144,26 @@ async function processJob(job, { deps, loadIntegration, onDeadLetter = () => {} 
   return set.state;
 }
 
-/** Project committed runs a crash left on their jobs, and drain left-behind outboxes. */
-async function repair() {
+/**
+ * Project committed runs a crash left on their jobs, drain left-behind outboxes,
+ * and resume paused work whose integration and stage are switched on again
+ * (whichever path switched them: an edit, a bulk enable, a restore).
+ */
+async function repair({ loadIntegration = defaultLoadIntegration() } = {}) {
   for (const job of await jobs.findUnprojected()) {
     await store.projectRun(job.projection);
     await jobs.clearProjection(job._id, job.projection.runId);
   }
   for (const pending of await outbox.findPendingLogs()) {
     await outbox.drainLog(pending.orgId, pending._id);
+  }
+  if ((config.stages || {}).disabled) return;
+  for (const group of await jobs.pausedGroups()) {
+    const integration = await loadIntegration(group.orgId, group.integrationId);
+    const stage = integration && (integration.stages || []).find((candidate) => candidate && candidate.id === group.stageId);
+    if (integration && stage && integration.isActive !== false && !integration.stagesPaused && stage.enabled !== false) {
+      await jobs.resumeJobs(group.orgId, group.integrationId, group.stageId);
+    }
   }
 }
 
@@ -194,7 +206,10 @@ function createJobWorker({ concurrency = 4, maxPerOrg = 2, deps = defaultDeps(),
       if (pollTimer) return;
       stopped = false;
       pollTimer = setInterval(tick, POLL_MS);
-      repairTimer = setInterval(() => repair().catch((error) => log('warn', 'Stage repair failed', { error: error.message })), REPAIR_MS);
+      repairTimer = setInterval(
+        () => repair({ loadIntegration }).catch((error) => log('warn', 'Stage repair failed', { error: error.message })),
+        REPAIR_MS
+      );
     },
     stop() {
       stopped = true;
