@@ -32,6 +32,12 @@ function encryptSecret(value) {
   };
 }
 
+function decryptSecret(encrypted) {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', getEncryptionKey(), Buffer.from(encrypted.iv, 'base64'));
+  decipher.setAuthTag(Buffer.from(encrypted.tag, 'base64'));
+  return Buffer.concat([decipher.update(Buffer.from(encrypted.value, 'base64')), decipher.final()]).toString('utf8');
+}
+
 function maskProvidedValue(value) {
   if (!value) return null;
   return '********';
@@ -197,8 +203,26 @@ async function updateCredentialTestStatus(orgId, placeholderId, testResult = {})
   return getCredentialPlaceholder(orgId, placeholderId);
 }
 
+/**
+ * The decrypted values of an org's credential, as { fieldKey: value }, for the
+ * code that uses it (pipeline stages). Null when it does not exist in this org,
+ * or when a required value has not been provided. Never return this to a client.
+ */
+async function getCredentialSecretValues(orgId, placeholderId) {
+  const db = await mongodb.getDbSafe();
+  const doc = await db.collection(COLLECTION).findOne({ orgId, placeholderId });
+  if (!doc) return null;
+  const encrypted = doc.encryptedValues || {};
+  const missing = (doc.fields || []).some((field) => field.required !== false && !encrypted[field.key]);
+  if (missing) return null;
+  const values = {};
+  for (const [key, value] of Object.entries(encrypted)) values[key] = decryptSecret(value);
+  return values;
+}
+
 module.exports = {
   ensureIndexes,
+  getCredentialSecretValues,
   createCredentialPlaceholder,
   listCredentialPlaceholders,
   getCredentialPlaceholder,

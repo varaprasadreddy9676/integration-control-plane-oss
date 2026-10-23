@@ -31,6 +31,9 @@ const DEFAULT_LIMITS = {
 };
 
 const LEVELS = new Set(['full', 'errors-only', 'summary']);
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+// Errors raised before anything was sent.
+const CERTAINLY_NOT_SENT = new Set(['DESTINATION_BLOCKED', 'DNS', 'CONNECTION_REFUSED', 'TOO_MANY_CALLS', 'REQUEST_TOO_LARGE', 'RATE_LIMITED', 'QUOTA_EXCEEDED']);
 
 class StageCallError extends Error {
   constructor(code, message) {
@@ -230,9 +233,24 @@ function createRecorder({
     return record;
   }
 
+  /**
+   * Did a call that may change something remotely end without an answer? (A
+   * timeout, a cancellation or a dropped connection after sending.) Retrying such
+   * a stage could repeat the change, so it is not retried automatically unless
+   * the stage allows uncertain side effects.
+   */
+  function uncertain() {
+    return calls.some((entry) => {
+      if (SAFE_METHODS.has(entry.method) || entry.statusCode !== undefined) return false;
+      if (!entry.error) return true; // still in flight when the run ended
+      return !CERTAINLY_NOT_SENT.has(entry.error.code);
+    });
+  }
+
   return {
     http,
     finish,
+    uncertain,
     /** Treat a value as secret in this run's record (a sensitive output, for example). */
     addSecret: masker.addSecret,
     /** Mask and scrub any other value with what this run knows to be secret. */

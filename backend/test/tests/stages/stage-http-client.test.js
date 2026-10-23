@@ -217,10 +217,15 @@ describe('stage HTTP client', () => {
       await expect(pending).rejects.toMatchObject({ code: 'ABORTED' });
     });
 
-    it('reports a connection failure as a network error', async () => {
+    it('reports a refused connection as such (nothing was sent)', async () => {
       await expect(
         request({ url: 'http://api.test:1/json', resolve: localResolver(), policy: allowLocal, timeoutMs: 2000 })
-      ).rejects.toMatchObject({ code: 'NETWORK' });
+      ).rejects.toMatchObject({ code: 'CONNECTION_REFUSED' });
+    });
+
+    it('reports a name that does not resolve as DNS (nothing was sent)', async () => {
+      const failing = () => Promise.reject(new Error('ENOTFOUND'));
+      await expect(request({ url: 'https://nowhere.test/x', resolve: failing })).rejects.toMatchObject({ code: 'DNS' });
     });
   });
 

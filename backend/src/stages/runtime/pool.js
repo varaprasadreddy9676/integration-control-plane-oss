@@ -183,7 +183,8 @@ function createRuntimePool({
 
   /**
    * Run a stage script. Resolves (never rejects) to
-   * { outcome: 'ok' | 'skipped' | 'error' | 'timeout', value?, reason?, error?, errorCode?, logs, durationMs }.
+   * { outcome: 'ok' | 'skipped' | 'failed' | 'error' | 'timeout', value?, reason?, error?, errorCode?,
+   *   retryStage?, retryDelivery?, logs, durationMs } ('failed': the script called fail()).
    * `errorCode` is set when the runtime, not the script, ended the run: TIMEOUT,
    * OUT_OF_MEMORY, CRASHED, PROTOCOL, UNAVAILABLE, BUSY, NOT_ISOLATED, SHUTDOWN.
    * `helpers` maps a helper name (http, lookup...) to an async function (args, { signal }).

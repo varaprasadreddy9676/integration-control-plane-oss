@@ -62,9 +62,9 @@ async function resolveHop(url, policy, resolve) {
   try {
     addresses = await resolve(hostname);
   } catch (error) {
-    throw new StageHttpError('NETWORK', `Could not resolve ${hostname}: ${error.message}`);
+    throw new StageHttpError('DNS', `Could not resolve ${hostname}: ${error.message}`);
   }
-  if (!addresses || addresses.length === 0) throw new StageHttpError('NETWORK', `No address for ${hostname}`);
+  if (!addresses || addresses.length === 0) throw new StageHttpError('DNS', `No address for ${hostname}`);
   if (!privateOk && addresses.some((address) => isBlockedAddress(address))) {
     throw new StageHttpError('DESTINATION_BLOCKED', `Destination not allowed: ${hostname} resolves to a private or reserved address`);
   }
@@ -136,7 +136,7 @@ function exchange({ url, address, method, headers, body, maxResponseBytes, signa
  * policy { allowPrivate, allowHosts }, signal (AbortSignal-like), resolve (tests).
  * Resolves to { status, headers, body, bodyTruncated, redirects, finalUrl, durationMs };
  * rejects with StageHttpError (DESTINATION_BLOCKED, TIMEOUT, ABORTED,
- * TOO_MANY_REDIRECTS, NETWORK).
+ * TOO_MANY_REDIRECTS, DNS and CONNECTION_REFUSED (nothing was sent), NETWORK).
  */
 async function request({
   method = 'GET',
@@ -204,7 +204,8 @@ async function request({
         });
       } catch (error) {
         if (signalState.reason) throw signalState.reason;
-        throw new StageHttpError('NETWORK', error.message);
+        // Refused: the connection never opened, so nothing was sent.
+        throw new StageHttpError(error.code === 'ECONNREFUSED' ? 'CONNECTION_REFUSED' : 'NETWORK', error.message);
       }
 
       const location = response.headers.location;

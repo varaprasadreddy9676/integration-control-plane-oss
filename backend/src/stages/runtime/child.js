@@ -8,6 +8,7 @@
  *                    { type: 'reply', callId, ok, value | error }
  *   child -> parent  { type: 'call', id, callId, helper, args }
  *                    { type: 'result', id, outcome, value | reason | error, logs }
+ *                    (outcome: ok, skipped, failed (the script called fail()), error)
  *
  * The script runs in a fresh `vm` context per run, in strict mode, with frozen
  * copies of its inputs. That context is defence in depth, not the boundary: a
@@ -84,6 +85,13 @@ function buildHelpers(names, logs) {
   sandbox.log = log('info');
   sandbox.console = { log: log('info'), info: log('info'), debug: log('info'), warn: log('warn'), error: log('error') };
   sandbox.skip = (reason) => ({ __stageSkip: true, reason: reason === undefined || reason === null ? '' : String(reason) });
+  // A deliberate failure: `return fail('why', { retryStage, retryDelivery })`.
+  sandbox.fail = (message, options) => ({
+    __stageFail: true,
+    message: message === undefined || message === null ? '' : String(message),
+    retryStage: Boolean(options && options.retryStage),
+    retryDelivery: Boolean(options && options.retryDelivery),
+  });
 
   // Timers the run owns; whatever is still pending when it finishes is cleared.
   const timers = new Set();
@@ -155,6 +163,9 @@ async function runScript(message) {
     const raw = await script.runInContext(context, { timeout: message.timeoutMs || 5000 });
 
     if (raw && raw.__stageSkip === true) return finish({ outcome: 'skipped', reason: raw.reason });
+    if (raw && raw.__stageFail === true) {
+      return finish({ outcome: 'failed', error: raw.message.slice(0, 1000), retryStage: raw.retryStage, retryDelivery: raw.retryDelivery });
+    }
     let value;
     try {
       value = raw === undefined ? null : JSON.parse(JSON.stringify(raw));
