@@ -715,6 +715,9 @@ async function ensureIndexes() {
       { key: { expiresAt: 1 }, expireAfterSeconds: 0, name: 'expires_ttl_idx' },
     ]);
 
+    // Pipeline stages: run records (TTL) and the latest outcome per delivery stage.
+    await require('./stages/store').ensureStageIndexes(db, safeCreateIndexes);
+
     await primeAllIndexCaches();
 
     log('info', 'MongoDB indexes created/verified');
