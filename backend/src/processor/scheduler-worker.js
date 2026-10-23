@@ -20,6 +20,7 @@ const { checkRateLimit } = require('../middleware/rate-limiter');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { createAttemptStages } = require('../stages/attempt');
 const { headersObject, withQuery } = require('../stages/send-helpers');
+const { preDeliveryDecision } = require('../stages/migration/legacy-decisions');
 const { applyTransform } = transformer;
 const getTransformationSkipReason = transformer.getTransformationSkipReason || (() => null);
 const isTransformationSkipped = transformer.isTransformationSkipped || (() => false);
@@ -1291,12 +1292,19 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       .catch(() => {});
 
     // Pre-delivery checks: URLs the target will fetch itself must be reachable first
-    let checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
+    const legacyChecks = checkBeforeDelivery(integration.preDeliveryChecks, {
       requestPayload: payload,
       eventPayload: scheduled.originalPayload || payload,
       urlOptions: config.security,
       executionLogger,
     });
+    // While migrating, the stage that takes them over runs alongside and is compared.
+    const shadowChecks = stages.shadow('preDeliveryChecks', {
+      request: { url: scheduled.targetUrl, method: scheduled.httpMethod, body: payload },
+      legacy: legacyChecks.then(preDeliveryDecision),
+    });
+    let checkFailure = await legacyChecks;
+    await shadowChecks;
 
     // before_send stages see the request about to go out; a gate can skip, fail or
     // (when the stage allows it) retry the delivery. Nothing has been sent yet.

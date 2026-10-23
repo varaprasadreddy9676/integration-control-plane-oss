@@ -60,13 +60,15 @@ async function jobFromIntent(orgId, deliveryId, intent) {
     orgId,
     deliveryId,
     stageId: intent.stageId,
-    trigger: intent.hook === 'after_delivery' ? 'accepted' : 'failure',
+    // A shadow job (a migration comparing paths) has its own key, never the real one's.
+    trigger: intent.shadow ? 'shadow' : intent.hook === 'after_delivery' ? 'accepted' : 'failure',
     failureSeq: intent.hook === 'on_failure' ? intent.failureSeq : 0,
     integrationId: intent.integrationId,
     integrationRevision: intent.integrationRevision,
     definitionHash: intent.definitionHash,
     acceptedAt: startedAt,
     input: intent.input,
+    ...(intent.shadow ? { shadow: true } : {}),
   };
   if (!definition) {
     // Never expected (the send path stores definitions before writing intents);

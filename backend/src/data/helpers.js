@@ -103,6 +103,7 @@ function mapIntegrationFromMongo(doc) {
     send: doc.send || null, // the Send step's bindings from before_send stage outputs
     stagesPaused: doc.stagesPaused === true, // kill switch for this integration's stages
     stageBudgetMs: doc.stageBudgetMs || null, // latency budget shared by inline stages per attempt
+    stageMigration: doc.stageMigration || null, // legacy configuration moving to stages (src/stages/migration)
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,
     retryCount: doc.retryCount,

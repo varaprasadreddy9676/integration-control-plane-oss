@@ -23,6 +23,7 @@ const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { scheduleFollowUp } = require('../services/delivery-follow-up');
 const { createAttemptStages, NOOP: NO_STAGES } = require('../stages/attempt');
 const { headersObject, withQuery } = require('../stages/send-helpers');
+const { preDeliveryDecision, responseDecision } = require('../stages/migration/legacy-decisions');
 
 // Move dynamic require to top-level (was inside deliverSingleAction)
 const adapterRegistry = require('../services/communication/adapter-registry');
@@ -1830,12 +1831,19 @@ async function deliverToIntegration(
   }
 
   // Pre-delivery checks: URLs the target will fetch itself must be reachable first
-  let checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
+  const legacyChecks = checkBeforeDelivery(integration.preDeliveryChecks, {
     requestPayload: transformed,
     eventPayload: evt.payload,
     urlOptions: config.security,
     executionLogger,
   });
+  // While migrating, the stage that takes them over runs alongside and is compared.
+  const shadowChecks = stages.shadow('preDeliveryChecks', {
+    request: { url: integration.targetUrl, method: integration.httpMethod || 'POST', body: transformed },
+    legacy: legacyChecks.then(preDeliveryDecision),
+  });
+  let checkFailure = await legacyChecks;
+  await shadowChecks;
 
   // before_send stages see the transformed request; a gate can skip, fail or
   // (when the stage allows it) retry the delivery. Nothing has been sent yet.
@@ -2115,6 +2123,18 @@ async function deliverToIntegration(
       } catch (err) {
         log('warn', `${prefix}Response transformation error`, { error: err.message });
       }
+    }
+
+    // While migrating, the stage that takes over the response transform runs alongside.
+    if (stages.hasShadow('responseTransformation')) {
+      const answer = await resp
+        .clone()
+        .text()
+        .catch(() => '');
+      await stages.shadow('responseTransformation', {
+        response: { status: resp.status, headers: headersObject(resp), body: answer },
+        legacy: responseDecision(responseTransformSkip),
+      });
     }
 
     // after_response stages see every answer; a classifier can only turn an

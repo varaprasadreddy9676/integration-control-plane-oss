@@ -85,6 +85,9 @@ const ACTION_TYPES = {
   STAGE_REPLAYED: 'stage_replayed',
   STAGE_JOBS_REPINNED: 'stage_jobs_repinned',
   STAGE_TESTED_LIVE: 'stage_tested_live',
+  STAGE_MIGRATION_SHADOW: 'stage_migration_shadow',
+  STAGE_MIGRATION_SWITCH: 'stage_migration_switch',
+  STAGE_MIGRATION_ROLLBACK: 'stage_migration_rollback',
 
   // Event source configuration
   EVENT_SOURCE_CONFIGURED: 'event_source_configured',

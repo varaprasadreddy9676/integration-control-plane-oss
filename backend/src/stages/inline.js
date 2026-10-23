@@ -24,6 +24,7 @@
  */
 
 const { executeStage } = require('./executor');
+const { isBudgetExempt } = require('./contracts');
 
 function shouldRetryInline(stage, result, attempt) {
   const onError = stage.onError || {};
@@ -67,7 +68,9 @@ async function runInlineHook({ hook, stages, integration, scope, budgetDeadline,
     let attempt = 0;
     do {
       attempt += 1;
-      const deadline = Math.min(Date.now() + stage.timeoutMs, budgetDeadline);
+      // Migrated checks keep the limits they always had, outside the shared budget.
+      const own = Date.now() + stage.timeoutMs;
+      const deadline = isBudgetExempt(stage) ? own : Math.min(own, budgetDeadline);
       result = await executeStage({
         stage,
         integration,
@@ -77,7 +80,7 @@ async function runInlineHook({ hook, stages, integration, scope, budgetDeadline,
         deps,
       });
       records.push(result.record);
-    } while (shouldRetryInline(stage, result, attempt) && Date.now() < budgetDeadline);
+    } while (shouldRetryInline(stage, result, attempt) && (isBudgetExempt(stage) || Date.now() < budgetDeadline));
 
     if (result.outcome === 'ok') {
       outputs[stage.id] = result.data;

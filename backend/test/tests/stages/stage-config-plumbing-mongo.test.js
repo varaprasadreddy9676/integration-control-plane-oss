@@ -76,8 +76,11 @@ describeMongo('stages in the configuration paths (MongoDB)', () => {
       expect(created.send).toEqual({ bindings: { headers: { Authorization: 'Bearer {{ stages.tok.output.t }}' } } });
     });
 
-    it('a Qikchat integration starts with the delivery status check; others start with none', async () => {
+    it('with templates by default, a Qikchat integration starts with the status check instead of the old follow-up', async () => {
+      const config = require('../../../src/config');
+      config.stages.templatesByDefault = true;
       const qikchat = await integrations.addIntegration(ORG, base({ targetUrl: 'https://api.qikchat.in/v1/messages' }));
+      expect(qikchat.deliveryFollowUp).toBeNull();
       expect(qikchat.stages).toEqual([
         expect.objectContaining({
           id: 'qikchatDeliveryStatus',
@@ -90,6 +93,12 @@ describeMongo('stages in the configuration paths (MongoDB)', () => {
       expect((await integrations.addIntegration(ORG, base())).stages).toEqual([]);
       // Saved without the default on purpose: stays without it.
       expect((await integrations.addIntegration(ORG, base({ targetUrl: 'https://api.qikchat.in/v1/messages', stages: [] }))).stages).toEqual([]);
+
+      // Without the switch (an environment where stages do not run yet): the old follow-up, no stage.
+      config.stages.templatesByDefault = false;
+      const legacy = await integrations.addIntegration(ORG, base({ targetUrl: 'https://api.qikchat.in/v1/messages' }));
+      expect(legacy.stages).toEqual([]);
+      expect(legacy.deliveryFollowUp).toMatchObject({ enabled: true });
     });
 
     it('rejects invalid stages with per-field details, and stages on a multi-action integration', async () => {

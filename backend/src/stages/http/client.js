@@ -72,7 +72,7 @@ async function resolveHop(url, policy, resolve) {
 }
 
 /** One HTTP exchange to a pinned address. Resolves to { status, headers, body, bodyTruncated }. */
-function exchange({ url, address, method, headers, body, maxResponseBytes, signalState }) {
+function exchange({ url, address, method, headers, body, maxResponseBytes, responseType, signalState }) {
   return new Promise((resolve, reject) => {
     const transport = url.protocol === 'https:' ? https : http;
     const family = net.isIP(address);
@@ -117,7 +117,7 @@ function exchange({ url, address, method, headers, body, maxResponseBytes, signa
         resolve({
           status: res.statusCode,
           headers: res.headers,
-          body: Buffer.concat(chunks).toString('utf8'),
+          body: Buffer.concat(chunks).toString(responseType === 'base64' ? 'base64' : 'utf8'),
           bodyTruncated: truncated,
         });
       };
@@ -132,7 +132,8 @@ function exchange({ url, address, method, headers, body, maxResponseBytes, signa
 
 /**
  * Make a stage HTTP call. Options: method, url, headers, body, timeoutMs,
- * maxResponseBytes, maxRedirects, credential { origins: [origin], headers },
+ * maxResponseBytes, responseType ('text' or 'base64'), maxRedirects,
+ * credential { origins: [origin], headers },
  * policy { allowPrivate, allowHosts }, signal (AbortSignal-like), resolve (tests).
  * Resolves to { status, headers, body, bodyTruncated, redirects, finalUrl, durationMs };
  * rejects with StageHttpError (DESTINATION_BLOCKED, TIMEOUT, ABORTED,
@@ -145,6 +146,7 @@ async function request({
   body,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES,
+  responseType = 'text',
   maxRedirects = DEFAULT_MAX_REDIRECTS,
   credential = null,
   policy = {},
@@ -200,6 +202,7 @@ async function request({
           headers: hopHeaders,
           body: currentBody,
           maxResponseBytes,
+          responseType,
           signalState,
         });
       } catch (error) {

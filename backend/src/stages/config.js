@@ -49,6 +49,8 @@ const LIMITS = {
 };
 
 const OUTPUT_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
+// Pre-delivery checks waited up to 120 s per URL (5 URLs); response scripts 30 s.
+const LEGACY_TIMEOUT_MAX = { 'legacy:pre-delivery-checks': 5 * 120000 + 5000, 'legacy:response-transform': 30000 };
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$/;
 const QUERY_NAME = /^[A-Za-z0-9_.~-]{1,128}$/;
 
@@ -273,8 +275,10 @@ function validateStages(stages, { integration = {}, send, runners }) {
 
     const inline = INLINE_HOOKS.has(stage.hook);
     const timeouts = inline ? LIMITS.inlineTimeoutMs : LIMITS.deferredTimeoutMs;
-    if (!isInt(stage.timeoutMs) || stage.timeoutMs < 100 || stage.timeoutMs > timeouts.max) {
-      add(`${at}.timeoutMs`, `timeoutMs is 100 to ${timeouts.max} at ${stage.hook}`);
+    // Migrated checks keep the time they always had.
+    const maxTimeout = LEGACY_TIMEOUT_MAX[stage.contract] || timeouts.max;
+    if (!isInt(stage.timeoutMs) || stage.timeoutMs < 100 || stage.timeoutMs > maxTimeout) {
+      add(`${at}.timeoutMs`, `timeoutMs is 100 to ${maxTimeout} at ${stage.hook}`);
     }
     if (stage.hook === 'after_delivery') checkSchedule(stage.schedule, `${at}.schedule`, add);
     else if (stage.schedule !== undefined) add(`${at}.schedule`, `Only stages after delivery run on a schedule`);

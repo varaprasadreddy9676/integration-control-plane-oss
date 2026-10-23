@@ -18,8 +18,9 @@ const { AbortController, uuidv4 } = require('../utils/runtime');
 const { createRecorder } = require('./recorder');
 const { resolveMap, BindingError } = require('./binding');
 const { INLINE_HOOKS } = require('./config');
+const { getContract } = require('./contracts');
 
-const STATUS_WORD = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
+const STATUS_WORD = /^[A-Za-z0-9][A-Za-z0-9_]{0,39}$/;
 const RESULT_KEYS = new Set(['status', 'done', 'data']);
 const LOOKUP_TIMEOUT_MS = 2000;
 
@@ -78,7 +79,7 @@ function readResult(value, stage, declaredOutputs) {
   }
   let status;
   if (value.status !== undefined && value.status !== null) {
-    if (!STATUS_WORD.test(String(value.status))) return { ok: false, error: `"${value.status}" is not a status word (letters, digits and _, up to 32)` };
+    if (!STATUS_WORD.test(String(value.status))) return { ok: false, error: `"${value.status}" is not a status word (letters, digits and _, up to 40)` };
     status = String(value.status).toUpperCase();
   }
   if (value.done !== undefined && typeof value.done !== 'boolean') return { ok: false, error: 'done is true or false' };
@@ -86,7 +87,7 @@ function readResult(value, stage, declaredOutputs) {
   const given = value.data === undefined || value.data === null ? {} : value.data;
   if (typeof given !== 'object' || Array.isArray(given)) return { ok: false, error: 'data is an object' };
   for (const output of declaredOutputs) {
-    if (!Object.prototype.hasOwnProperty.call(given, output.name) || given[output.name] === null) continue;
+    if (given[output.name] === undefined || given[output.name] === null) continue; // absent
     const actual = typeOf(given[output.name]);
     if (actual !== output.type) return { ok: false, error: `Output ${output.name} should be ${output.type}, not ${actual}` };
     data[output.name] = given[output.name];
@@ -98,7 +99,7 @@ function readResult(value, stage, declaredOutputs) {
 /**
  * meta: { orgId, deliveryId, integrationId, integrationRevision, definitionHash,
  *         seq, executionAttempt, deliveryAttempt, jobId, replayOfRunId, acceptedAt }
- * deps: { runners, pool, resolveCredential, lookup, policy, request, admit, contract }
+ * deps: { runners, pool, resolveCredential, lookup, policy, request, admit }
  */
 async function executeStage({ stage, integration = {}, scope, deadline, signal, meta, deps }) {
   const startedAt = Date.now();
@@ -125,6 +126,7 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
   try {
     const inputs = resolveMap(stage.inputs, scope);
     const credential = await loadCredential(stage, meta.orgId, integration, deps.resolveCredential);
+    const contract = getContract(stage.contract);
     recorder = createRecorder({
       level: stage.recording && stage.recording.level,
       sensitivePaths: (stage.recording && stage.recording.sensitivePaths) || [],
@@ -132,7 +134,7 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
       credential,
       policy: deps.policy || {},
       request: deps.request,
-      limits: inline ? INLINE_LIMITS : {},
+      limits: { ...(inline ? INLINE_LIMITS : {}), ...((contract && contract.limits) || {}) },
       deadline,
       admit: deps.admit ? (call) => deps.admit({ ...call, orgId: meta.orgId }) : null,
     });
@@ -149,7 +151,8 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
       pool: deps.pool,
       timeoutMs,
       signal: controller.signal,
-      contract: deps.contract || null,
+      integration,
+      addSecret: (value) => recorder.addSecret(value),
     });
     // The script runtime enforces its own deadline; this bounds every other runner.
     const deadlinePromise = new Promise((resolve) => {
@@ -222,6 +225,7 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
     executionAttempt: meta.executionAttempt || 1,
     replayOfRunId: meta.replayOfRunId || null,
     acceptedAt: meta.acceptedAt || null,
+    ...(meta.shadow ? { shadow: true } : {}),
     at,
     durationMs: Date.now() - startedAt,
     outcome,

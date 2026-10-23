@@ -166,6 +166,8 @@ function createRuntimePool({
       globals: run.globals,
       helpers: Object.keys(run.helpers),
       timeoutMs: run.timeoutMs,
+      freezeInputs: run.freezeInputs,
+      extras: run.extras,
     });
   }
 
@@ -189,7 +191,7 @@ function createRuntimePool({
    * OUT_OF_MEMORY, CRASHED, PROTOCOL, UNAVAILABLE, BUSY, NOT_ISOLATED, SHUTDOWN.
    * `helpers` maps a helper name (http, lookup...) to an async function (args, { signal }).
    */
-  function run({ code, globals = {}, helpers = {}, timeoutMs = 5000 }) {
+  function run({ code, globals = {}, helpers = {}, timeoutMs = 5000, freezeInputs = true, extras = [] }) {
     return new Promise((resolve) => {
       const startedAt = Date.now();
       if (closed) return resolve({ outcome: 'error', errorCode: 'SHUTDOWN', error: 'The stage runtime is shut down', logs: [], durationMs: 0 });
@@ -211,6 +213,8 @@ function createRuntimePool({
         globals,
         helpers,
         timeoutMs,
+        freezeInputs,
+        extras,
         startedAt,
         controllers: new Set(),
         resolve,

@@ -25,6 +25,13 @@
  *
  * An integration without enabled stages (or with stages switched off) gets a
  * no-op object, so nothing about its deliveries changes.
+ *
+ * Shadow stages (stage.shadow, while a migration compares the old path with the
+ * new one, see migration/) never act: the send path calls
+ *   await stages.shadow(source, { request | response, legacy })
+ * right after the old code ran, with what the old code decided; the shadow stage
+ * runs, is recorded, and the two decisions are compared. Shadow follow-up jobs are
+ * scheduled next to the old follow-up and compared when both have finished.
  */
 
 const config = require('../config');
@@ -40,8 +47,10 @@ const TERMINAL_FAILURES = new Set(['FAILED', 'ABANDONED']);
 
 const NOOP = Object.freeze({
   active: false,
+  hasShadow: () => false,
   beforeSend: async () => ({ proceed: true, headers: {}, query: {} }),
   afterResponse: async () => ({ failed: false }),
+  shadow: async () => {},
   decorate: async (payload) => payload,
   drain: async () => {},
 });
@@ -49,11 +58,20 @@ const NOOP = Object.freeze({
 // Definitions already stored by this process (content-addressed, so never stale).
 const savedHashes = new Set();
 
+function switchedOn(integration) {
+  return !((config.stages || {}).disabled || integration.stagesPaused);
+}
+
 /** The stages that run for this integration now, normalized; [] when switched off. */
 function activeStages(integration) {
-  const stagesConfig = config.stages || {};
-  if (stagesConfig.disabled || integration.stagesPaused) return [];
-  return (integration.stages || []).filter((stage) => stage && stage.enabled !== false).map(normalizeStage);
+  if (!switchedOn(integration)) return [];
+  return (integration.stages || []).filter((stage) => stage && stage.enabled !== false && !stage.shadow).map(normalizeStage);
+}
+
+/** Migrated stages being compared with the old path (they never act). */
+function shadowStages(integration) {
+  if (!switchedOn(integration)) return [];
+  return (integration.stages || []).filter((stage) => stage && stage.enabled !== false && stage.shadow).map(normalizeStage);
 }
 
 function parseBody(body) {
@@ -81,10 +99,11 @@ function defaultDeps() {
 
 function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest = false, deliveryId = null, deps }) {
   const stages = activeStages(integration || {});
-  if (stages.length === 0) return NOOP;
+  const shadows = shadowStages(integration || {});
+  if (stages.length === 0 && shadows.length === 0) return NOOP;
 
   const runDeps = deps || defaultDeps();
-  const hashes = Object.fromEntries(stages.map((stage) => [stage.id, definitions.definitionHash(orgId, stage)]));
+  const hashes = Object.fromEntries([...stages, ...shadows].map((stage) => [stage.id, definitions.definitionHash(orgId, stage)]));
   const budgetMs = Number(integration.stageBudgetMs) || Number((config.stages || {}).inlineBudgetMs) || DEFAULT_BUDGET_MS;
   let budgetDeadline = null;
   let records = [];
@@ -141,8 +160,52 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     return { failed: false };
   }
 
+  /**
+   * Run the shadow stage that took over `source` next to the old code, record it,
+   * and compare its decision with `legacy` ({ decision, message }, or a promise of
+   * it, so both can run at the same time). Never throws, never changes the delivery.
+   */
+  async function shadow(source, { request, response, legacy }) {
+    const stage = shadows.find((candidate) => candidate.migratedFrom === source);
+    if (!stage) return;
+    try {
+      const shadowScope = {
+        ...scope,
+        delivery: {
+          ...scope.delivery,
+          request: request || scope.delivery.request,
+          response: response ? { status: response.status, headers: response.headers || {}, body: parseBody(response.body) } : scope.delivery.response,
+        },
+      };
+      const result = await runInlineHook({
+        hook: stage.hook,
+        stages: [stage],
+        integration,
+        scope: shadowScope,
+        budgetDeadline: Date.now() + stage.timeoutMs,
+        meta: { ...meta, shadow: true },
+        hashes,
+        deps: runDeps,
+      });
+      records = records.concat(result.records);
+      const decision = result.decision === 'skip' ? 'continue' : result.decision;
+      const legacyDecision = await legacy;
+      const { recordComparison } = require('./migration/shadow');
+      recordComparison({
+        orgId,
+        integrationId: meta.integrationId,
+        source,
+        deliveryId: meta.deliveryId,
+        legacy: legacyDecision,
+        shadow: { decision, message: result.message || null },
+      }).catch((error) => log('warn', 'Shadow comparison not stored', { source, error: error.message }));
+    } catch (error) {
+      log('warn', 'Shadow stage failed to run', { source, error: error.message });
+    }
+  }
+
   async function ensureDefinitionsSaved() {
-    for (const stage of stages) {
+    for (const stage of [...stages, ...shadows]) {
       const hash = hashes[stage.id];
       if (savedHashes.has(hash)) continue;
       await definitions.saveDefinition(orgId, stage);
@@ -156,6 +219,11 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     if (status === 'SUCCESS') hook = 'after_delivery';
     else if (TERMINAL_FAILURES.has(status)) hook = 'on_failure';
     if (!hook || isTest) return [];
+    // A shadow follow-up is scheduled only where the old follow-up is (to compare them).
+    const followUp = integration.deliveryFollowUp;
+    const shadowing = hook === 'after_delivery' && followUp && followUp.enabled !== false && Boolean(followUp.script);
+    const due = [...at(hook), ...(shadowing ? shadows.filter((stage) => stage.hook === hook) : [])];
+    if (due.length === 0) return [];
     const now = new Date().toISOString();
     const input = {
       event: scope.event,
@@ -172,10 +240,11 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     };
     // One terminal failure gives all its on_failure intents one failureSeq (see outbox.js).
     const groupId = uuidv4();
-    return at(hook).map((stage) => ({
+    return due.map((stage) => ({
       intentId: uuidv4(),
       groupId,
       hook,
+      ...(stage.shadow ? { shadow: true } : {}),
       stageId: stage.id,
       definitionHash: hashes[stage.id],
       integrationId: meta.integrationId,
@@ -210,7 +279,7 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     }
   }
 
-  return { active: true, beforeSend, afterResponse, decorate, drain };
+  return { active: stages.length > 0, hasShadow: (source) => shadows.some((stage) => stage.migratedFrom === source), beforeSend, afterResponse, shadow, decorate, drain };
 }
 
 module.exports = { createAttemptStages, activeStages, NOOP };

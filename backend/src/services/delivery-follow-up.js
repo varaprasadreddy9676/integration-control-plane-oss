@@ -210,6 +210,13 @@ async function processFollowUp(job, now = new Date()) {
   const integration = await require('../data').getIntegration(job.integrationId);
   const config = integration && integration.deliveryFollowUp;
 
+  // Migrated to pipeline stages: the stage owns this delivery's checks now. Park the
+  // job for the handover (stages/migration) instead of finishing it.
+  if (integration && integration.stageMigration && integration.stageMigration.state === 'SWITCHED') {
+    await queue.saveCheck(job._id, { status: 'MIGRATING', lockedUntil: null });
+    return;
+  }
+
   const finish = async ({ deliveryStatus, done, extra = {}, nextCheckAt = null }) => {
     const checks = (job.checkIndex || 0) + 1;
     const update = {

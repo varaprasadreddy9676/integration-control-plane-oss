@@ -55,10 +55,15 @@ async function validated(orgId, integration, stages, send, { credentialExists = 
   return { stages: result.stages, send: send || null };
 }
 
-/** The stage fields a new integration is stored with. Throws StageConfigError. */
+/**
+ * The stage fields a new integration is stored with: the stages given, or, where
+ * the environment says so (config.stages.templatesByDefault), its provider's
+ * default templates. Throws StageConfigError.
+ */
 async function stageFieldsForCreate(orgId, payload, deps) {
   const given = Array.isArray(payload.stages) ? payload.stages : null;
-  const stages = given !== null ? given : stagesNotSupported(payload) ? [] : defaultStagesFor(payload);
+  const byDefault = Boolean((require('../config').stages || {}).templatesByDefault) && !stagesNotSupported(payload);
+  const stages = given !== null ? given : byDefault ? defaultStagesFor(payload) : [];
   const { stages: saved, send } = await validated(orgId, payload, stages, payload.send, deps);
   return {
     stages: saved,
@@ -192,7 +197,11 @@ function changesStages(body, before = null) {
   });
 }
 
+/** A stage from a template that replaces the old follow-up (so it is not added as well). */
+const replacesFollowUp = (stages) => (stages || []).some((stage) => stage && stage.template && stage.template.id === 'qikchat-delivery-status');
+
 module.exports = {
+  replacesFollowUp,
   changesStages,
   stageFieldsForCreate,
   stageFieldsForUpdate,

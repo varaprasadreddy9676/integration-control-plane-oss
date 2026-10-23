@@ -77,6 +77,7 @@ function scopeFor(job, stage, integration) {
     run: {
       seq: job.seq,
       executionAttempt: job.executionAttempt,
+      lastStatus: job.lastStatus || null,
       ...(schedule.checkAfterSeconds ? { of: schedule.checkAfterSeconds.length } : {}),
     },
   };
@@ -124,6 +125,7 @@ async function processJob(job, { deps, loadIntegration, onDeadLetter = () => {} 
       executionAttempt: job.executionAttempt,
       jobId: String(job._id),
       acceptedAt: job.acceptedAt,
+      shadow: job.shadow === true,
     },
     deps,
   });
@@ -144,6 +146,42 @@ async function processJob(job, { deps, loadIntegration, onDeadLetter = () => {} 
   return set.state;
 }
 
+const COMPARE_GIVE_UP_MS = 3 * 24 * 3600 * 1000;
+
+/**
+ * Finished shadow follow-ups, compared with the old follow-up of the same
+ * delivery once that one has finished too: the final status is what counts.
+ */
+async function compareShadowFollowUps({ limit = 100 } = {}) {
+  const db = await mongodb.getDbSafe();
+  const { recordComparison } = require('./migration/shadow');
+  const finished = await db
+    .collection(jobs.COLLECTION)
+    .find({ shadow: true, compared: false, state: { $in: jobs.FINAL_STATES } })
+    .limit(limit)
+    .toArray();
+  for (const job of finished) {
+    const id = mongodb.toObjectId(job.deliveryId);
+    const logDoc = id ? await db.collection('execution_logs').findOne({ _id: id, orgId: job.orgId }, { projection: { followUp: 1 } }) : null;
+    const legacy = logDoc && logDoc.followUp;
+    const settled = legacy && legacy.done;
+    const tooLong = Date.now() - new Date(job.finishedAt || job.updatedAt).getTime() > COMPARE_GIVE_UP_MS;
+    if (legacy && !settled && !tooLong) continue; // the old one is still checking
+    if (settled) {
+      const [state] = (await store.state.getStates(job.orgId, job.deliveryId)).filter((s) => s.stageId === job.stageId);
+      await recordComparison({
+        orgId: job.orgId,
+        integrationId: job.integrationId,
+        source: 'deliveryFollowUp',
+        deliveryId: job.deliveryId,
+        legacy: { decision: 'done', status: legacy.status },
+        shadow: { decision: 'done', status: state ? state.status : null },
+      });
+    }
+    await db.collection(jobs.COLLECTION).updateOne({ _id: job._id }, { $set: { compared: true } });
+  }
+}
+
 /**
  * Project committed runs a crash left on their jobs, drain left-behind outboxes,
  * and resume paused work whose integration and stage are switched on again
@@ -157,6 +195,9 @@ async function repair({ loadIntegration = defaultLoadIntegration() } = {}) {
   for (const pending of await outbox.findPendingLogs()) {
     await outbox.drainLog(pending.orgId, pending._id);
   }
+  await compareShadowFollowUps();
+  // Follow-up checks of switched integrations still waiting to be handed over.
+  await require('./migration').sweepHandovers();
   if ((config.stages || {}).disabled) return;
   for (const group of await jobs.pausedGroups()) {
     const integration = await loadIntegration(group.orgId, group.integrationId);
@@ -225,4 +266,4 @@ function createJobWorker({ concurrency = 4, maxPerOrg = 2, deps = defaultDeps(),
   };
 }
 
-module.exports = { createJobWorker, processJob, repair, scopeFor };
+module.exports = { createJobWorker, processJob, repair, scopeFor, compareShadowFollowUps };

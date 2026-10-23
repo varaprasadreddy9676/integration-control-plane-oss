@@ -4,7 +4,7 @@
  * A stage runner process. It runs one stage script at a time and talks to the
  * parent only through newline-delimited JSON on stdin/stdout:
  *
- *   parent -> child  { type: 'run', id, code, globals, helpers, timeoutMs }
+ *   parent -> child  { type: 'run', id, code, globals, helpers, timeoutMs, freezeInputs?, extras? }
  *                    { type: 'reply', callId, ok, value | error }
  *   child -> parent  { type: 'call', id, callId, helper, args }
  *                    { type: 'result', id, outcome, value | reason | error, logs }
@@ -19,6 +19,10 @@
 
 const vm = require('vm');
 const readline = require('readline');
+// Loaded now, while the process may still read the application's files: after
+// the privilege drop below it cannot, and should not need to.
+const { getGlobalUtilities } = require('../../services/script-utilities');
+const hl7Codec = require('../../services/hl7/codec');
 
 // Drop to the runner user before reading any input, so no script runs as root.
 // setgroups/setgid/setuid are irreversible for this process.
@@ -84,7 +88,11 @@ function buildHelpers(names, logs) {
   };
   sandbox.log = log('info');
   sandbox.console = { log: log('info'), info: log('info'), debug: log('info'), warn: log('warn'), error: log('error') };
-  sandbox.skip = (reason) => ({ __stageSkip: true, reason: reason === undefined || reason === null ? '' : String(reason) });
+  sandbox.skip = (reason, details) => ({
+    __stageSkip: true,
+    reason: reason === undefined || reason === null ? '' : String(reason),
+    details: details && typeof details === 'object' && !Array.isArray(details) ? details : null,
+  });
   // A deliberate failure: `return fail('why', { retryStage, retryDelivery })`.
   sandbox.fail = (message, options) => ({
     __stageFail: true,
@@ -130,7 +138,15 @@ function buildHelpers(names, logs) {
           options: (hasBody ? maybeOptions : bodyOrOptions) || {},
         });
       };
-      sandbox.http = { get: call('GET'), post: call('POST'), put: call('PUT'), patch: call('PATCH'), delete: call('DELETE') };
+      sandbox.http = {
+        get: call('GET'),
+        post: call('POST'),
+        put: call('PUT'),
+        patch: call('PATCH'),
+        delete: call('DELETE'),
+        // The body as base64 with its content type (documents, images).
+        getBuffer: (url, options) => callHelper('http', { method: 'GET', url, options: options || {}, responseType: 'base64' }),
+      };
     } else if (name === 'lookup') {
       sandbox.lookup = (value, type) => callHelper('lookup', { value, type });
     } else {
@@ -138,6 +154,19 @@ function buildHelpers(names, logs) {
     }
   }
   return sandbox;
+}
+
+/**
+ * What scripts migrated from transformations and follow-ups had besides the
+ * contract's globals (legacy contracts ask for them by name).
+ */
+function addExtras(sandbox, extras) {
+  if (extras.includes('utilities')) Object.assign(sandbox, getGlobalUtilities());
+  if (extras.includes('hl7')) sandbox.hl7 = hl7Codec;
+  if (sandbox.context && typeof sandbox.context === 'object') {
+    if (extras.includes('contextLog')) sandbox.context.log = sandbox.log;
+    if (extras.includes('contextHttp') && sandbox.http) sandbox.context.http = sandbox.http;
+  }
 }
 
 async function runScript(message) {
@@ -153,16 +182,26 @@ async function runScript(message) {
   };
 
   try {
-    const globals = deepFreeze(message.globals || {});
+    // Inputs are read-only, except for migrated scripts, which could change theirs.
+    const globals = message.freezeInputs === false ? message.globals || {} : deepFreeze(message.globals || {});
     const helpers = buildHelpers(message.helpers || [], logs);
     clearRunTimers = helpers.__clearTimers;
     delete helpers.__clearTimers;
     const sandbox = { ...globals, ...helpers };
+    addExtras(sandbox, Array.isArray(message.extras) ? message.extras : []);
     const context = vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
     const script = new vm.Script(`(async () => { 'use strict';\n${message.code}\n})()`, { filename: 'stage.js' });
     const raw = await script.runInContext(context, { timeout: message.timeoutMs || 5000 });
 
-    if (raw && raw.__stageSkip === true) return finish({ outcome: 'skipped', reason: raw.reason });
+    if (raw && raw.__stageSkip === true) {
+      let details = null;
+      try {
+        details = raw.details ? JSON.parse(JSON.stringify(raw.details)) : null;
+      } catch (_error) {
+        details = null;
+      }
+      return finish({ outcome: 'skipped', reason: raw.reason, details });
+    }
     if (raw && raw.__stageFail === true) {
       return finish({ outcome: 'failed', error: raw.message.slice(0, 1000), retryStage: raw.retryStage, retryDelivery: raw.retryDelivery });
     }

@@ -171,6 +171,9 @@ const defaultConfig = {
     allowUnisolated: parseBoolean(process.env.STAGE_ALLOW_UNISOLATED, process.env.NODE_ENV !== 'production'),
     // A file runners must not be able to read (the backend's .env, for example); checked at startup.
     protectedFile: process.env.STAGE_PROTECTED_FILE || null,
+    // New integrations start with their provider's stage templates (and not the
+    // old follow-up). Switch on per environment once stages run there.
+    templatesByDefault: parseBoolean(process.env.STAGE_TEMPLATES_BY_DEFAULT, false),
     poolSize: parsePositiveNumber(process.env.STAGE_POOL_SIZE, 4),
     memoryMb: parsePositiveNumber(process.env.STAGE_MEMORY_MB, 128),
   },

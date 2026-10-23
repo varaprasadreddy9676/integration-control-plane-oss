@@ -35,7 +35,8 @@ async function projectRun(run) {
   assertProjectable(run);
   const { inserted } = await runs.insertRun(run);
   const { advanced } = await state.advanceState(run, { countRun: inserted });
-  await state.advanceSummary(run);
+  // A shadow run (a migration comparing paths) stays off the delivery log's summary.
+  if (!run.shadow) await state.advanceSummary(run);
   return { inserted, advanced };
 }
 

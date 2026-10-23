@@ -52,10 +52,13 @@ async function createJob(job) {
     integrationId: job.integrationId,
     integrationRevision: job.integrationRevision || null,
     definitionHash: job.definitionHash,
-    state: 'PENDING',
-    seq: 1,
+    // A job handed over from the old follow-up starts where it was (see migration/).
+    state: job.state || 'PENDING',
+    seq: job.seq || 1,
     executionAttempt: 1,
-    checksDone: 0,
+    checksDone: job.checksDone || 0,
+    lastStatus: job.lastStatus || null,
+    ...(job.shadow ? { shadow: true, compared: false } : {}),
     nextRunAt: job.firstRunAt,
     acceptedAt: job.acceptedAt,
     input: job.input,
@@ -167,7 +170,7 @@ async function cancelJobs(orgId, integrationId, stageId) {
   const col = await collection();
   const now = new Date();
   const result = await col.updateMany(
-    { ...pendingOf(orgId, integrationId, stageId), state: { $in: ['PENDING', 'PAUSED'] } },
+    { ...pendingOf(orgId, integrationId, stageId), state: { $in: ['PENDING', 'PAUSED', 'HANDOVER'] } },
     { $set: { state: 'CANCELLED', input: null, finishedAt: now, updatedAt: now, purgeAt: new Date(now.getTime() + KEEP_FINISHED_DAYS * DAY_MS) } }
   );
   return result.modifiedCount;
@@ -218,6 +221,7 @@ async function ensureJobIndexes(db, safeCreateIndexes = (col, specs) => col.crea
     { key: { orgId: 1, integrationId: 1, stageId: 1, state: 1 }, name: 'org_integration_stage_state_idx' },
     { key: { updatedAt: 1 }, name: 'unprojected_idx', partialFilterExpression: { projection: { $exists: true } } },
     { key: { purgeAt: 1 }, expireAfterSeconds: 0, name: 'purge_ttl_idx' },
+    { key: { state: 1, updatedAt: 1 }, name: 'shadow_uncompared_idx', partialFilterExpression: { shadow: true, compared: false } },
   ]);
 }
 

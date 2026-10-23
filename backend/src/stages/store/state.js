@@ -11,7 +11,9 @@
  *
  * Both advance only for a newer run: a higher seq (the logical check), or the
  * same seq run later (a replay). A late or repeated projection of an older run
- * changes nothing, so projecting is idempotent.
+ * changes nothing, so projecting is idempotent. A run that errored or timed out
+ * says nothing new about the delivery: it updates the outcome and error, and the
+ * last status and done stay as they were.
  */
 
 const mongodb = require('../../mongodb');
@@ -25,9 +27,10 @@ function olderThan(prefix, seq, at) {
   return [{ [`${prefix}seq`]: { $exists: false } }, { [`${prefix}seq`]: { $lt: seq } }, { [`${prefix}seq`]: seq, [`${prefix}at`]: { $lt: at } }];
 }
 
+const failedRun = (run) => (run.outcome === 'error' || run.outcome === 'timeout') && (run.status === undefined || run.status === null);
+
 const summaryOf = (run, at) => ({
-  status: run.status === undefined ? null : run.status,
-  done: Boolean(run.done),
+  ...(failedRun(run) ? {} : { status: run.status === undefined ? null : run.status, done: Boolean(run.done) }),
   outcome: run.outcome,
   seq: run.seq,
   at,
@@ -81,7 +84,11 @@ async function advanceSummary(run) {
     .collection('execution_logs')
     .updateOne(
       { _id: id, orgId: run.orgId, $or: olderThan(`${field}.`, run.seq, at) },
-      { $set: { [field]: { ...summaryOf(run, at), name: run.stage.name } } }
+      {
+        $set: Object.fromEntries(
+          Object.entries({ ...summaryOf(run, at), name: run.stage.name }).map(([key, value]) => [`${field}.${key}`, value])
+        ),
+      }
     );
   return { advanced: result.modifiedCount === 1 };
 }

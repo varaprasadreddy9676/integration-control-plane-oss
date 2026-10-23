@@ -413,7 +413,10 @@ async function addIntegration(orgId, payload) {
     rateLimits: normalizeRateLimit(payload.rateLimits) || null,
     preDeliveryChecks: normalizePreDeliveryChecks(payload.preDeliveryChecks) || null,
     // A provider the gateway knows (Qikchat) follows up by default; saving enabled:false opts out.
-    deliveryFollowUp: normalizeDeliveryFollowUp(defaultFollowUpFor(payload)),
+    // The template stage, when there is one, does what the old follow-up did: never both.
+    deliveryFollowUp: normalizeDeliveryFollowUp(
+      stageConfig().replacesFollowUp(stageFields.stages) ? payload.deliveryFollowUp : defaultFollowUpFor(payload)
+    ),
     ...stageFields,
     isActive: payload.isActive !== false,
     timeoutMs: payload.timeoutMs,

@@ -27,6 +27,7 @@ const DEFAULT_LIMITS = {
   maxLogChars: 2000,
   maxRequestBytes: 256 * 1024,
   maxResponseBytes: 1024 * 1024,
+  maxBinaryBytes: 10 * 1024 * 1024, // http.getBuffer (documents, images)
   callTimeoutMs: 15000,
 };
 
@@ -109,8 +110,13 @@ function createRecorder({
   const calls = [];
   let callCount = 0;
 
-  /** The sandbox's http helper: args are { method, url, body, options: { headers, params, timeout } }. */
-  async function http({ method = 'GET', url, body, options = {} } = {}, { signal } = {}) {
+  /**
+   * The sandbox's http helper: args are { method, url, body, options: { headers,
+   * params, timeout }, responseType }. With responseType 'base64' (http.getBuffer)
+   * the answer is { status, base64, contentType }; otherwise { status, headers, data }.
+   */
+  async function http({ method = 'GET', url, body, options = {}, responseType } = {}, { signal } = {}) {
+    const binary = responseType === 'base64';
     callCount += 1;
     if (callCount > lim.maxCalls) {
       throw new StageCallError('TOO_MANY_CALLS', `A stage may make at most ${lim.maxCalls} HTTP calls`);
@@ -159,20 +165,24 @@ function createRecorder({
         headers,
         body: payload,
         timeoutMs,
-        maxResponseBytes: lim.maxResponseBytes,
+        maxResponseBytes: binary ? lim.maxBinaryBytes : lim.maxResponseBytes,
+        responseType: binary ? 'base64' : 'text',
         credential,
         policy,
         signal,
       });
+      const contentType = (response.headers && response.headers['content-type']) || 'application/octet-stream';
       Object.assign(entry, {
         statusCode: response.status,
         responseHeaders: response.headers,
-        responseBody: response.body,
+        // Binary bodies are not stored, only described.
+        responseBody: binary ? `[binary ${contentType}, ${Math.floor((response.body.length * 3) / 4)} bytes]` : response.body,
         responseBodyCut: response.bodyTruncated ? 'network' : undefined,
         redirects: response.redirects && response.redirects.length ? response.redirects : undefined,
         finalUrl: response.finalUrl !== target ? response.finalUrl : undefined,
         durationMs: response.durationMs,
       });
+      if (binary) return { status: response.status, base64: response.body, contentType };
       return {
         status: response.status,
         headers: response.headers,
