@@ -12,18 +12,14 @@
  * - Processes are replaced after `maxRunsPerProcess` runs.
  * - Processes start with an empty environment. With a resolved isolation (see
  *   isolation.js) they also run without network, under an OS memory limit, as an
- *   unprivileged user. When isolation is required but not available, runs are refused.
+ *   unprivileged user: started here (host), or by the stage-runner sidecar over
+ *   its socket (sidecar, see transport.js). When isolation is required but not
+ *   available, runs are refused.
  */
 
-const path = require('path');
-const os = require('os');
-const readline = require('readline');
-const { spawn } = require('child_process');
 const { AbortController } = require('../../utils/runtime');
-const { buildLauncher } = require('./isolation');
-
-const CHILD = path.join(__dirname, 'child.js');
-const STDERR_TAIL = 2000;
+const { spawnRunner, connectRunner } = require('./transport');
+const { createUidSlots } = require('./uids');
 
 function createRuntimePool({
   size = 4,
@@ -39,24 +35,34 @@ function createRuntimePool({
 
   // `isolation` comes from resolveIsolation(); only a fully resolved mode counts.
   const isolated = isolation.ok === true && isolation.mode !== 'none';
+  // Host mode: every runner gets its own uid, and nothing may run under a uid
+  // left by an earlier backend before it is handed out (see uids.js).
+  const slots = isolated && isolation.mode === 'host' ? createUidSlots(isolation.uids) : null;
+  let reaping = slots
+    ? slots.reapAll().then(() => {
+        reaping = null;
+        pump();
+      })
+    : null;
 
   function spawnProcess() {
-    const { command, args } = buildLauncher(
-      isolated ? isolation : { mode: 'none' },
-      [process.execPath, `--max-old-space-size=${memoryMb}`, CHILD],
-      memoryMb
-    );
-    const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], env: {}, cwd: os.tmpdir() });
-    const proc = { child, run: null, runs: 0, stderr: '', dead: false };
+    let uid = null;
+    if (slots) {
+      uid = slots.acquire();
+      if (uid === null) return null; // every uid is busy or being reaped
+    }
+    const runner =
+      isolated && isolation.mode === 'sidecar'
+        ? connectRunner({ socketPath: isolation.socketPath, memoryMb })
+        : spawnRunner({
+            isolation: isolated ? isolation : { mode: 'none' },
+            memoryMb,
+            account: slots ? { uid, gid: slots.gid } : undefined,
+          });
+    const proc = { runner, uid, run: null, runs: 0, dead: false };
     processes.add(proc);
-
-    readline.createInterface({ input: child.stdout }).on('line', (line) => onLine(proc, line));
-    child.stderr.on('data', (chunk) => {
-      proc.stderr = (proc.stderr + chunk.toString()).slice(-STDERR_TAIL);
-    });
-    child.on('exit', (code, signal) => onExit(proc, code, signal));
-    child.on('error', (error) => onExit(proc, null, null, error));
-    child.stdin.on('error', () => {}); // a dying child closes its stdin; the exit handler reports it
+    runner.on('line', (line) => onLine(proc, line));
+    runner.on('exit', (info) => onExit(proc, info));
     return proc;
   }
 
@@ -64,11 +70,7 @@ function createRuntimePool({
     if (proc.dead) return;
     proc.dead = true;
     processes.delete(proc);
-    try {
-      proc.child.kill('SIGKILL');
-    } catch (_error) {
-      // already gone
-    }
+    proc.runner.kill();
   }
 
   function finishRun(proc, result) {
@@ -87,7 +89,7 @@ function createRuntimePool({
 
   function reply(proc, run, message) {
     if (proc.run !== run || proc.dead) return; // the run is over; drop late answers
-    proc.child.stdin.write(`${JSON.stringify(message)}\n`);
+    proc.runner.write(message);
   }
 
   function onLine(proc, line) {
@@ -101,7 +103,7 @@ function createRuntimePool({
     if (!message || !run || message.id !== run.id) {
       // Something other than the protocol reached stdout: the script escaped its context.
       kill(proc);
-      if (run) finishRun(proc, { outcome: 'error', error: 'The stage broke the runner protocol and was stopped' });
+      if (run) finishRun(proc, { outcome: 'error', errorCode: 'PROTOCOL', error: 'The stage broke the runner protocol and was stopped' });
       return;
     }
     if (message.type === 'result') {
@@ -131,19 +133,21 @@ function createRuntimePool({
     }
   }
 
-  function onExit(proc, code, signal, error) {
+  function onExit(proc, { code, signal, error, stderr = '' }) {
     const run = proc.run;
     proc.dead = true;
     processes.delete(proc);
+    if (slots) slots.release(proc.uid).then(pump);
     if (run && !run.timedOut) {
-      const how = error ? error.message : signal ? `signal ${signal}` : `exit code ${code}`;
-      const memory = /heap out of memory|allocation failed|Cannot allocate/i.test(proc.stderr);
-      finishRun(proc, {
-        outcome: 'error',
-        error: memory
-          ? 'The stage ran out of memory and was stopped'
-          : `The stage runner crashed or exited (${how})`,
-      });
+      if (error) {
+        // The runner never started or could not be reached; nothing ran.
+        finishRun(proc, { outcome: 'error', errorCode: 'UNAVAILABLE', error: `The stage runner is unavailable: ${error.message}` });
+      } else if (/out of memory|allocation failed|Cannot allocate/i.test(stderr)) {
+        finishRun(proc, { outcome: 'error', errorCode: 'OUT_OF_MEMORY', error: 'The stage ran out of memory and was stopped' });
+      } else {
+        const how = signal ? `signal ${signal}` : `exit code ${code}`;
+        finishRun(proc, { outcome: 'error', errorCode: 'CRASHED', error: `The stage runner crashed or exited (${how})` });
+      }
     }
     pump();
   }
@@ -153,21 +157,20 @@ function createRuntimePool({
     run.timer = setTimeout(() => {
       run.timedOut = true;
       kill(proc);
-      finishRun(proc, { outcome: 'timeout', error: `The stage did not finish within ${run.timeoutMs} ms` });
+      finishRun(proc, { outcome: 'timeout', errorCode: 'TIMEOUT', error: `The stage did not finish within ${run.timeoutMs} ms` });
     }, run.timeoutMs);
-    proc.child.stdin.write(
-      `${JSON.stringify({
-        type: 'run',
-        id: run.id,
-        code: run.code,
-        globals: run.globals,
-        helpers: Object.keys(run.helpers),
-        timeoutMs: run.timeoutMs,
-      })}\n`
-    );
+    proc.runner.write({
+      type: 'run',
+      id: run.id,
+      code: run.code,
+      globals: run.globals,
+      helpers: Object.keys(run.helpers),
+      timeoutMs: run.timeoutMs,
+    });
   }
 
   function pump() {
+    if (reaping) return;
     while (queue.length > 0 && !closed) {
       let proc = [...processes].find((candidate) => !candidate.run && !candidate.dead);
       if (!proc && processes.size < size) proc = spawnProcess();
@@ -180,16 +183,19 @@ function createRuntimePool({
 
   /**
    * Run a stage script. Resolves (never rejects) to
-   * { outcome: 'ok' | 'skipped' | 'error' | 'timeout', value?, reason?, error?, logs, durationMs }.
+   * { outcome: 'ok' | 'skipped' | 'error' | 'timeout', value?, reason?, error?, errorCode?, logs, durationMs }.
+   * `errorCode` is set when the runtime, not the script, ended the run: TIMEOUT,
+   * OUT_OF_MEMORY, CRASHED, PROTOCOL, UNAVAILABLE, BUSY, NOT_ISOLATED, SHUTDOWN.
    * `helpers` maps a helper name (http, lookup...) to an async function (args, { signal }).
    */
   function run({ code, globals = {}, helpers = {}, timeoutMs = 5000 }) {
     return new Promise((resolve) => {
       const startedAt = Date.now();
-      if (closed) return resolve({ outcome: 'error', error: 'The stage runtime is shut down', logs: [], durationMs: 0 });
+      if (closed) return resolve({ outcome: 'error', errorCode: 'SHUTDOWN', error: 'The stage runtime is shut down', logs: [], durationMs: 0 });
       if (isolation.required && !isolated) {
         return resolve({
           outcome: 'error',
+          errorCode: 'NOT_ISOLATED',
           error: `The stage runtime is not isolated on this host${
             isolation.problems && isolation.problems.length ? `: ${isolation.problems.join('; ')}` : ''
           }`,
@@ -212,7 +218,13 @@ function createRuntimePool({
         const index = queue.indexOf(entry);
         if (index === -1) return;
         queue.splice(index, 1);
-        resolve({ outcome: 'error', error: 'All stage runners are busy; try again later', logs: [], durationMs: Date.now() - startedAt });
+        resolve({
+          outcome: 'error',
+          errorCode: 'BUSY',
+          error: 'All stage runners are busy; try again later',
+          logs: [],
+          durationMs: Date.now() - startedAt,
+        });
       }, maxQueueWaitMs);
       queue.push(entry);
       pump();
@@ -222,12 +234,12 @@ function createRuntimePool({
   function close() {
     closed = true;
     for (const proc of [...processes]) {
-      if (proc.run) finishRun(proc, { outcome: 'error', error: 'The stage runtime is shut down' });
+      if (proc.run) finishRun(proc, { outcome: 'error', errorCode: 'SHUTDOWN', error: 'The stage runtime is shut down' });
       kill(proc);
     }
     for (const entry of queue.splice(0)) {
       clearTimeout(entry.queueTimer);
-      entry.resolve({ outcome: 'error', error: 'The stage runtime is shut down', logs: [], durationMs: 0 });
+      entry.resolve({ outcome: 'error', errorCode: 'SHUTDOWN', error: 'The stage runtime is shut down', logs: [], durationMs: 0 });
     }
   }
 

@@ -6,13 +6,18 @@
  * Modes:
  *   host       Linux host where the backend runs as root.
  *              Each runner is started as
- *                unshare --net -- prlimit --data=N -- node child.js --uid=U --gid=G
- *              so it has its own empty network namespace (no network at all) and
- *              an OS memory limit that also covers ArrayBuffers and native memory;
- *              child.js then drops to the unprivileged user (setgroups, setgid,
- *              setuid) before it reads any input, so no script ever runs as root.
- *   container  Inside the stage-runner sidecar container, which already has no
- *              network and runs as a non-root user; only the memory limit is added.
+ *                unshare --net -- prlimit --data=N --nproc=P -- node child.js --uid=U --gid=G
+ *              so it has its own empty network namespace (no network at all), an
+ *              OS memory limit that also covers ArrayBuffers and native memory,
+ *              and a process limit; child.js then drops to its slot's uid
+ *              (setgroups, setgid, setuid) before it reads any input, so no script
+ *              ever runs as root. Each runner has its own uid (see uids.js).
+ *   sidecar    The backend cannot do the above (in Docker it runs as a non-root
+ *              user without CAP_SYS_ADMIN), so runners are started by the
+ *              stage-runner sidecar container and reached over its Unix socket.
+ *   container  Used by the sidecar itself (sidecar.js): it runs as root in a
+ *              container that has no network, so each runner is started as
+ *                prlimit --data=N --nproc=P -- node child.js --uid=U --gid=G
  *   none       No isolation. Development only, and never accepted when isolation
  *              is required.
  *
@@ -23,11 +28,15 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { parseUidRange } = require('./uids');
 
 const TOOL_DIRS = ['/usr/bin', '/bin', '/usr/sbin', '/sbin', '/usr/local/bin'];
 
 // The flags each tool must support. BusyBox ships lookalike applets without them.
-const REQUIRED_FLAGS = { unshare: ['--net'], prlimit: ['--data'] };
+const REQUIRED_FLAGS = { unshare: ['--net'], prlimit: ['--data', '--nproc'] };
+
+// Processes (threads count too) one runner uid may have: Node needs about a dozen.
+const MAX_PROCESSES_PER_RUNNER = 64;
 
 function defaultSupports(toolPath, flags) {
   try {
@@ -47,61 +56,58 @@ const defaultWhich = (tool) => {
   return null;
 };
 
-function defaultLookupUser(name) {
-  try {
-    const uid = Number(execFileSync('id', ['-u', name], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim());
-    const gid = Number(execFileSync('id', ['-g', name], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim());
-    return Number.isInteger(uid) && Number.isInteger(gid) ? { uid, gid } : null;
-  } catch (_error) {
-    return null;
-  }
-}
-
 /**
  * Work out the isolation a mode can actually provide on this machine.
- * Resolves to { mode, ok, problems, user, tools }; `ok` false lists what is missing.
+ * Resolves to { mode, ok, problems, uids, tools, socketPath }; `ok` false lists what is missing.
+ * `runnerUids` is the uid range for runners ("61000-61031").
  */
 function resolveIsolation({
   mode = 'none',
-  userName,
+  runnerUids,
+  socketPath,
   which = defaultWhich,
-  lookupUser = defaultLookupUser,
   supports = defaultSupports,
 } = {}) {
   const problems = [];
   const tools = {};
-  let user = null;
+  let uids = null;
 
-  if (mode === 'none') {
-    return { mode, ok: false, problems: ['Isolation is off'], user, tools };
-  }
-
-  if (mode === 'host') {
-    if (process.platform !== 'linux') problems.push('Host isolation needs Linux');
-    if (!(process.getuid && process.getuid() === 0)) problems.push('Host isolation needs the backend to run as root');
-    for (const tool of ['unshare', 'prlimit']) {
+  const needTools = (names) => {
+    for (const tool of names) {
       tools[tool] = which(tool);
       if (!tools[tool]) problems.push(`${tool} is not installed (util-linux)`);
       else if (!supports(tools[tool], REQUIRED_FLAGS[tool])) {
         problems.push(`${tools[tool]} does not support ${REQUIRED_FLAGS[tool].join(' ')} (install util-linux's ${tool})`);
       }
     }
-    if (!userName) {
-      problems.push('No runner user configured (STAGE_RUNNER_USER)');
-    } else {
-      user = lookupUser(userName);
-      if (!user) problems.push(`Runner user "${userName}" does not exist`);
-      else if (user.uid === 0) problems.push(`Runner user "${userName}" must not be root`);
-    }
+  };
+  const needRootOnLinux = (what) => {
+    if (process.platform !== 'linux') problems.push(`${what} needs Linux`);
+    if (!(process.getuid && process.getuid() === 0)) problems.push(`${what} needs to run as root`);
+  };
+  const needUids = () => {
+    uids = parseUidRange(runnerUids);
+    if (!uids) problems.push('No valid runner uid range configured (STAGE_RUNNER_UIDS, e.g. 61000-61031)');
+  };
+
+  if (mode === 'none') {
+    problems.push('Isolation is off');
+  } else if (mode === 'host') {
+    needRootOnLinux('Host isolation');
+    needTools(['unshare', 'prlimit']);
+    needUids();
   } else if (mode === 'container') {
-    tools.prlimit = which('prlimit');
-    if (!tools.prlimit) problems.push('prlimit is not installed (util-linux)');
-    else if (!supports(tools.prlimit, REQUIRED_FLAGS.prlimit)) problems.push(`${tools.prlimit} does not support --data`);
+    needRootOnLinux('The stage-runner sidecar');
+    needTools(['prlimit']);
+    needUids();
+  } else if (mode === 'sidecar') {
+    if (!socketPath) problems.push('No stage-runner socket configured (STAGE_RUNNER_SOCKET)');
+    else if (!fs.existsSync(socketPath)) problems.push(`The stage-runner sidecar is not listening at ${socketPath}`);
   } else {
     problems.push(`Unknown isolation mode "${mode}"`);
   }
 
-  return { mode, ok: problems.length === 0, problems, user, tools };
+  return { mode, ok: problems.length === 0, problems, uids, tools, socketPath: mode === 'sidecar' ? socketPath : undefined };
 }
 
 /** The OS limit on a runner's private writable memory; V8's own heap limit trips first. */
@@ -109,20 +115,21 @@ function dataLimitMb(memoryMb) {
   return memoryMb * 3 + 256;
 }
 
-/** The command that starts one runner process: `node` is [execPath, ...nodeArgs]. */
-function buildLauncher(isolation, node, memoryMb) {
+/**
+ * The command that starts one runner process: `node` is [execPath, ...nodeArgs],
+ * `account` the { uid, gid } the runner becomes (modes host and container).
+ */
+function buildLauncher(isolation, node, memoryMb, account) {
   const [execPath, ...nodeArgs] = node;
-  const dataLimit = `--data=${dataLimitMb(memoryMb) * 1024 * 1024}`;
+  const limits = [`--data=${dataLimitMb(memoryMb) * 1024 * 1024}`, `--nproc=${MAX_PROCESSES_PER_RUNNER}`];
+  const mode = isolation && isolation.mode;
 
-  if (isolation && isolation.mode === 'host') {
-    const { unshare, prlimit } = isolation.tools;
-    return {
-      command: unshare,
-      args: ['--net', '--', prlimit, dataLimit, '--', ...node, `--uid=${isolation.user.uid}`, `--gid=${isolation.user.gid}`],
-    };
-  }
-  if (isolation && isolation.mode === 'container' && isolation.tools && isolation.tools.prlimit) {
-    return { command: isolation.tools.prlimit, args: [dataLimit, '--', ...node] };
+  if (mode === 'host' || mode === 'container') {
+    if (!account) throw new Error('An isolated runner needs a uid');
+    const runner = [isolation.tools.prlimit, ...limits, '--', ...node, `--uid=${account.uid}`, `--gid=${account.gid}`];
+    return mode === 'host'
+      ? { command: isolation.tools.unshare, args: ['--net', '--', ...runner] }
+      : { command: runner[0], args: runner.slice(1) };
   }
   return { command: execPath, args: nodeArgs };
 }

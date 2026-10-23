@@ -192,16 +192,25 @@ assumed able to escape a JavaScript sandbox. The boundary is therefore the OS.
   any limit breach, and on any unexpected exit; an exhausted pool fails the stage
   (per its `onError`), it never blocks a delivery.
 - **Enforced limits** (all by the OS, so an escape cannot lift them):
-  - memory: an address-space limit on the process (`prlimit --as`), which covers
-    heap, `ArrayBuffer`s and native allocations alike; `--max-old-space-size` below
-    it gives a clean JavaScript error first;
+  - memory: a limit on the process's private writable memory (`prlimit --data`),
+    which covers heap, `ArrayBuffer`s and native allocations alike;
+    `--max-old-space-size` below it gives a clean JavaScript error first. (An
+    address-space limit, `--as`, does not work: V8 reserves far more address
+    space than it uses, so Node fails to start under any useful value.);
+  - processes: `prlimit --nproc`, so an escaped script cannot fork without bound;
   - CPU and wall time: the parent kills the process at the run's deadline;
-  - user: a dedicated unprivileged OS user with no readable application files,
-    secrets, `.env` or MongoDB credentials (the process receives only its input
-    over stdin);
-  - network: egress denied for that user by the host firewall (owner match on the
-    uid); in Docker, the runner pool is a sidecar container with no network,
-    talking to the backend over a Unix socket.
+  - user: each runner runs as **its own uid** from a configured range
+    (`STAGE_RUNNER_UIDS`; no passwd entries, owning no files), so it cannot read
+    application files, secrets, `.env` or MongoDB credentials (it receives only
+    its input over stdin), and it cannot trace, read the memory of or signal
+    another org's runner. Before a uid is reused, everything still running under
+    it is killed, so nothing left behind by one script waits for the next;
+  - network: none at all. On a host the runner starts in its own empty network
+    namespace (`unshare --net`, no firewall rule to maintain, and loopback
+    services such as a local MongoDB are unreachable too). In Docker the backend
+    cannot create namespaces, so runners start in a **stage-runner sidecar**
+    container with `network_mode: none`, a read-only file system and no secrets;
+    the backend reaches it over a Unix socket only its uid can open.
 - **No direct capabilities.** The runner gets its input and talks to the parent over
   a line-delimited JSON protocol on stdin/stdout. `http`, `lookup` and `log` are
   requests on that channel. There is no other way out.
@@ -212,11 +221,17 @@ assumed able to escape a JavaScript sandbox. The boundary is therefore the OS.
   run ends or times out (abort-controller polyfill on Node 14).
 - Inline hooks share one latency budget per delivery attempt; a stage that would
   exceed it is cut off and handled by its `onError`.
-- Server prerequisites (dedicated user, firewall rule, `prlimit`) are a one-time,
-  approved change on each host and are verified at startup: the backend refuses to
-  run stages if a probe can reach the network or exceed the memory cap.
+- Server prerequisites (the backend running as root, util-linux's `unshare` and
+  `prlimit`, a free uid range) are a one-time, approved change on each host; in
+  Docker the sidecar is part of `docker-compose.yml`. Startup verifies them from
+  inside a runner: a probe escapes the `vm` context and tries the network, a
+  protected file and the user, and allocates past the memory limit outside the
+  JavaScript heap. Only a genuine allocation failure counts as capped. Stages do
+  not run unless every check holds (`stage-isolation-check.js` runs the same
+  probe on a server).
 - Release tests prove the boundary from inside an escaped context: no network, no
-  file access, memory cap holds, kill on deadline.
+  file access, memory cap holds, runners cannot reach each other, leftover
+  processes are killed, kill on deadline.
 
 ## Storage and scale
 
@@ -516,7 +531,7 @@ integrations, scheduled jobs and multi-action deliveries (product boundary).
 
 Internal sequencing only; nothing ships until all of it is done.
 
-1. Stage runtime (runner processes, OS user, memory cap, firewall rule, startup
+1. Stage runtime (runner processes, per-runner uids, memory cap, no network, startup
    probe, kill on deadline) and the HTTP layer (destination policy with DNS pinning
    and redirect checks, credentials, caps, cancellation).
 2. Recorder and masking; `stage_definitions`, `stage_runs`, `stage_state`.

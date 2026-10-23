@@ -52,20 +52,49 @@ services:
       API_RATE_LIMIT_MAX_REQUESTS: ${API_RATE_LIMIT_MAX_REQUESTS:-100}
       API_RATE_LIMIT_WINDOW_SECONDS: ${API_RATE_LIMIT_WINDOW_SECONDS:-60}
       INBOUND_MINIMAL_LOGGING: ${INBOUND_MINIMAL_LOGGING:-false}
+      # Stage scripts run in the stage-runner container, reached over its socket.
+      STAGE_ISOLATION: sidecar
+      STAGE_RUNNER_SOCKET: /run/stage-runner/runner.sock
     volumes:
       # Optional: Mount logs directory
       - backend_logs:/app/logs
+      - stage_runner_socket:/run/stage-runner
     networks:
       - integration-gateway-network
     depends_on:
       mongodb:
         condition: service_healthy
+      stage-runner:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "const req=require('http').get('http://127.0.0.1:3545/', (r) => process.exit(r.statusCode < 500 ? 0 : 1)); req.on('error', () => process.exit(1));"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Stage runner: runs integration stage scripts with no network, no secrets,
+  # each runner as its own uid under OS memory and process limits. Only the
+  # backend's user (uid 1001) can open its socket.
+  stage-runner:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: integration-control-plane-backend:local
+    container_name: integration-control-plane-stage-runner
+    restart: unless-stopped
+    user: root
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    command: ["node", "src/stages/runtime/sidecar.js"]
+    environment:
+      STAGE_RUNNER_SOCKET: /run/stage-runner/runner.sock
+      STAGE_RUNNER_UIDS: 61000-61031
+      STAGE_RUNNER_CLIENT_UID: 1001
+    volumes:
+      - stage_runner_socket:/run/stage-runner
 
   # Frontend
   frontend:
@@ -100,6 +129,8 @@ volumes:
   mongodb_config:
     driver: local
   backend_logs:
+    driver: local
+  stage_runner_socket:
     driver: local
 
 networks:

@@ -29,7 +29,8 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    dumb-init
+    dumb-init \
+    util-linux
 
 # Set Puppeteer to use installed chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \

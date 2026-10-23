@@ -21,7 +21,8 @@ const network = await new Promise((resolve) => {
   } catch (e) { resolve("blocked"); }
 });
 let protectedFile = "unreadable";
-try { req("fs").readFileSync(probe.protectedFile); protectedFile = "readable"; } catch (e) {}
+try { req("fs").readFileSync(probe.protectedFile); protectedFile = "readable"; }
+catch (e) { if (e.code === "ENOENT") protectedFile = "missing"; }
 return { network, uid: p.getuid ? p.getuid() : null, protectedFile };
 `;
 
@@ -33,13 +34,16 @@ for (let i = 0; i < probe.chunks; i++) chunks.push(new Uint8Array(16 * 1024 * 10
 return "allocated " + chunks.length;
 `;
 
-// Only a genuine allocation failure or an out-of-memory kill counts as capped;
-// any other failure (a typo in the probe, a timeout) proves nothing.
-const ALLOCATION_FAILURE = /allocation failed|out of memory|cannot allocate|invalid typed array length|crashed or exited/i;
+// Only a genuine allocation failure counts as capped: the runtime reporting the
+// runner out of memory, or the script's own allocation failing. Anything else (a
+// runner that never started, a typo in the probe, a timeout) proves nothing.
+const ALLOCATION_FAILURE = /allocation failed|out of memory|cannot allocate|invalid typed array length/i;
 
 function classifyMemory(result) {
   if (result.outcome === 'ok') return 'uncapped';
-  if (result.outcome === 'error' && ALLOCATION_FAILURE.test(result.error || '')) return 'capped';
+  if (result.outcome !== 'error') return 'unknown';
+  if (result.errorCode === 'OUT_OF_MEMORY') return 'capped';
+  if (!result.errorCode && ALLOCATION_FAILURE.test(result.error || '')) return 'capped';
   return 'unknown';
 }
 
@@ -69,7 +73,8 @@ async function probeIsolation(pool, { protectedFile, memoryMb = 128, parentUid =
 
   if (checks.network !== 'blocked') problems.push('A stage can reach the network');
   if (checks.user !== 'unprivileged') problems.push('Stages run as a privileged user');
-  if (checks.protectedFile !== 'unreadable') problems.push('A stage can read protected files');
+  if (checks.protectedFile === 'missing') problems.push(`The protected file to test (${protectedFile}) does not exist`);
+  else if (checks.protectedFile !== 'unreadable') problems.push('A stage can read protected files');
   if (checks.memory !== 'capped') problems.push('Stage memory outside the JavaScript heap is not limited');
 
   return { ok: problems.length === 0, checks, problems };
