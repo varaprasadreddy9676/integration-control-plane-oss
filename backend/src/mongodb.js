@@ -716,7 +716,7 @@ async function ensureIndexes() {
     ]);
 
     // Pipeline stages: run records (TTL) and the latest outcome per delivery stage.
-    await require('./stages/store').ensureStageIndexes(db, safeCreateIndexes);
+    await require('./stages/indexes').ensureAllStageIndexes(db, safeCreateIndexes);
 
     await primeAllIndexCaches();
 

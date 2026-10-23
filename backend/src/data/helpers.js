@@ -99,6 +99,10 @@ function mapIntegrationFromMongo(doc) {
     rateLimits: doc.rateLimits || null, // Per-integration rate limiting
     preDeliveryChecks: doc.preDeliveryChecks || null, // URLs checked before each delivery
     deliveryFollowUp: doc.deliveryFollowUp || null, // script that asks the provider what became of an accepted send
+    stages: Array.isArray(doc.stages) ? doc.stages : [], // pipeline stages (src/stages)
+    send: doc.send || null, // the Send step's bindings from before_send stage outputs
+    stagesPaused: doc.stagesPaused === true, // kill switch for this integration's stages
+    stageBudgetMs: doc.stageBudgetMs || null, // latency budget shared by inline stages per attempt
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,
     retryCount: doc.retryCount,

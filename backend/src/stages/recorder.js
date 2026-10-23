@@ -42,6 +42,18 @@ class StageCallError extends Error {
   }
 }
 
+const LIMIT_CODES = new Set(['RATE_LIMITED', 'QUOTA_EXCEEDED']);
+const MAX_RETRY_AFTER_MS = 24 * 3600 * 1000;
+
+/** Retry-After as seconds or an HTTP date, in ms (capped at a day); 0 when absent or invalid. */
+function parseRetryAfter(value) {
+  if (value === undefined || value === null) return 0;
+  const text = Array.isArray(value) ? value[0] : String(value);
+  const seconds = Number(text);
+  const ms = Number.isFinite(seconds) ? seconds * 1000 : new Date(text).getTime() - Date.now();
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, MAX_RETRY_AFTER_MS) : 0;
+}
+
 const hasHeader = (headers, name) => Object.keys(headers).some((key) => key.toLowerCase() === name);
 
 function withParams(url, params) {
@@ -75,6 +87,8 @@ function capBody(body, max) {
  * `credential`: { origins: [origin], headers: { name: value } }, resolved by the
  * caller; added only to calls whose origin is approved, and never recorded.
  * `deadline`: epoch ms the whole run must finish by; calls get what is left.
+ * `admit({ url, method })`: our own limits (per-host rate, org quota), checked
+ * before each call; it throws RATE_LIMITED or QUOTA_EXCEEDED (with retryAfterMs).
  */
 function createRecorder({
   level = 'full',
@@ -84,6 +98,7 @@ function createRecorder({
   request = client.request,
   limits = {},
   deadline = null,
+  admit = null,
 } = {}) {
   const lim = { ...DEFAULT_LIMITS, ...limits };
   const recording = LEVELS.has(level) ? level : 'full';
@@ -136,6 +151,7 @@ function createRecorder({
     calls.push(entry);
     const startedAt = Date.now();
     try {
+      if (admit) await admit({ url: target, method: verb });
       const response = await request({
         method: verb,
         url: target,
@@ -165,6 +181,7 @@ function createRecorder({
       };
     } catch (error) {
       entry.error = { code: error.code || 'NETWORK', message: String(error.message || error) };
+      if (error.retryAfterMs) entry.error.retryAfterMs = error.retryAfterMs;
       entry.durationMs = Date.now() - startedAt;
       throw error;
     }
@@ -247,10 +264,32 @@ function createRecorder({
     });
   }
 
+  /**
+   * How long the provider (Retry-After on a 429 or 503) or our own limits asked
+   * to wait, in ms; 0 when nobody asked. `limited` is true when one of our limits
+   * (per-host rate, org quota) stopped a call, so the run says nothing about the
+   * stage itself.
+   */
+  function backoff() {
+    let retryAfterMs = 0;
+    let limited = false;
+    for (const entry of calls) {
+      if (entry.error && LIMIT_CODES.has(entry.error.code)) {
+        limited = true;
+        retryAfterMs = Math.max(retryAfterMs, entry.error.retryAfterMs || 0);
+      }
+      if ((entry.statusCode === 429 || entry.statusCode === 503) && entry.responseHeaders) {
+        retryAfterMs = Math.max(retryAfterMs, parseRetryAfter(entry.responseHeaders['retry-after']));
+      }
+    }
+    return { retryAfterMs, limited };
+  }
+
   return {
     http,
     finish,
     uncertain,
+    backoff,
     /** Treat a value as secret in this run's record (a sensitive output, for example). */
     addSecret: masker.addSecret,
     /** Mask and scrub any other value with what this run knows to be secret. */

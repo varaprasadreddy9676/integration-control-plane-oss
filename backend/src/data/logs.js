@@ -1059,6 +1059,27 @@ async function getLogById(orgId, id) {
   return fallbackDisabledError('getLogById:fallback');
 }
 
+/**
+ * Pipeline stages (src/stages/attempt.js): the deferred work an attempt's status
+ * implies (stageIntents) and its inline run records (stageRecords) are written in
+ * the same single-document update as the status, then drained by src/stages/outbox.js.
+ */
+function stageOutboxFields(logPayload) {
+  const intents = Array.isArray(logPayload.stageIntents) ? logPayload.stageIntents : [];
+  const records = Array.isArray(logPayload.stageRecords) ? logPayload.stageRecords : [];
+  if (intents.length === 0 && records.length === 0) return {};
+  return { stageOutbox: intents, stageProjection: records, stagePendingAt: new Date() };
+}
+
+function withStageOutbox(update, logPayload) {
+  const fields = stageOutboxFields(logPayload);
+  if (!fields.stagePendingAt) return update;
+  const push = {};
+  if (fields.stageOutbox.length) push.stageOutbox = { $each: fields.stageOutbox };
+  if (fields.stageProjection.length) push.stageProjection = { $each: fields.stageProjection };
+  return { ...update, $set: { ...update.$set, stagePendingAt: fields.stagePendingAt }, $push: push };
+}
+
 async function recordLog(orgId, logPayload) {
   const normalizedOrgId = normalizeOrgId(orgId);
   if (!normalizedOrgId) {
@@ -1269,7 +1290,7 @@ async function recordLog(orgId, logPayload) {
         const updateResult = resolvedExistingLogId
           ? await db
               .collection('execution_logs')
-              .updateOne({ _id: resolvedExistingLogId, orgId: normalizedOrgId }, { $set: updateDoc })
+              .updateOne({ _id: resolvedExistingLogId, orgId: normalizedOrgId }, withStageOutbox({ $set: updateDoc }, logPayload))
           : { matchedCount: 0 };
 
         // If the document was not found (edge case), fall back to insert
@@ -1399,6 +1420,7 @@ async function recordLog(orgId, logPayload) {
         metadata: {},
         createdAt: logPayload.createdAt || new Date(),
         updatedAt: new Date(),
+        ...stageOutboxFields(logPayload),
       };
 
       const result = await db.collection('execution_logs').insertOne(logDoc);

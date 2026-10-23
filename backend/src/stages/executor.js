@@ -98,7 +98,7 @@ function readResult(value, stage, declaredOutputs) {
 /**
  * meta: { orgId, deliveryId, integrationId, integrationRevision, definitionHash,
  *         seq, executionAttempt, deliveryAttempt, jobId, replayOfRunId, acceptedAt }
- * deps: { runners, pool, resolveCredential, lookup, policy, request, contract }
+ * deps: { runners, pool, resolveCredential, lookup, policy, request, admit, contract }
  */
 async function executeStage({ stage, integration = {}, scope, deadline, signal, meta, deps }) {
   const startedAt = Date.now();
@@ -133,6 +133,7 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
       request: deps.request,
       limits: inline ? INLINE_LIMITS : {},
       deadline,
+      admit: deps.admit ? (call) => deps.admit({ ...call, orgId: meta.orgId }) : null,
     });
     if (!runner) throw Object.assign(new Error(`Unknown runner ${stage.runner && stage.runner.type}`), { code: 'UNKNOWN_RUNNER' });
 
@@ -235,6 +236,7 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
     done: record.done,
     data: outcome === 'ok' ? normalized.data : {},
     decision: { ...decision, uncertain: recorder.uncertain(), errorCode: errorCode || null },
+    backoff: recorder.backoff(),
   };
 }
 
