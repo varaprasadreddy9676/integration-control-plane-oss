@@ -10,10 +10,9 @@
  * - A process that crashes, runs out of memory, or writes anything that is not a
  *   protocol message is killed; only its current run fails.
  * - Processes are replaced after `maxRunsPerProcess` runs.
- * - Processes start with an empty environment. With `isolation.user` and
- *   `isolation.prlimit` they also run as an unprivileged OS user under an OS
- *   memory limit (network is denied for that user by the host firewall; see
- *   isolation.js). When isolation is required but not configured, runs are refused.
+ * - Processes start with an empty environment. With a resolved isolation (see
+ *   isolation.js) they also run without network, under an OS memory limit, as an
+ *   unprivileged user. When isolation is required but not available, runs are refused.
  */
 
 const path = require('path');
@@ -21,6 +20,7 @@ const os = require('os');
 const readline = require('readline');
 const { spawn } = require('child_process');
 const { AbortController } = require('../../utils/runtime');
+const { buildLauncher } = require('./isolation');
 
 const CHILD = path.join(__dirname, 'child.js');
 const STDERR_TAIL = 2000;
@@ -37,25 +37,16 @@ function createRuntimePool({
   let runSeq = 0;
   let closed = false;
 
-  const isolated = Boolean(isolation.user && isolation.prlimit);
+  // `isolation` comes from resolveIsolation(); only a fully resolved mode counts.
+  const isolated = isolation.ok === true && isolation.mode !== 'none';
 
   function spawnProcess() {
-    const nodeArgs = [`--max-old-space-size=${memoryMb}`, CHILD];
-    let command = process.execPath;
-    let args = nodeArgs;
-    if (isolation.prlimit) {
-      // Limit private writable memory (heap, ArrayBuffers, native allocations) for the
-      // whole process; the V8 limit above trips first and gives a clean error.
-      const bytes = (memoryMb * 3 + 256) * 1024 * 1024;
-      command = isolation.prlimit;
-      args = [`--data=${bytes}`, '--', process.execPath, ...nodeArgs];
-    }
-    const child = spawn(command, args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: {},
-      cwd: os.tmpdir(),
-      ...(isolation.user ? { uid: isolation.user.uid, gid: isolation.user.gid } : {}),
-    });
+    const { command, args } = buildLauncher(
+      isolated ? isolation : { mode: 'none' },
+      [process.execPath, `--max-old-space-size=${memoryMb}`, CHILD],
+      memoryMb
+    );
+    const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], env: {}, cwd: os.tmpdir() });
     const proc = { child, run: null, runs: 0, stderr: '', dead: false };
     processes.add(proc);
 
@@ -199,7 +190,9 @@ function createRuntimePool({
       if (isolation.required && !isolated) {
         return resolve({
           outcome: 'error',
-          error: 'The stage runtime is not isolated on this host (needs an unprivileged runner user and a memory limit)',
+          error: `The stage runtime is not isolated on this host${
+            isolation.problems && isolation.problems.length ? `: ${isolation.problems.join('; ')}` : ''
+          }`,
           logs: [],
           durationMs: 0,
         });

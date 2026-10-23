@@ -19,6 +19,26 @@
 const vm = require('vm');
 const readline = require('readline');
 
+// Drop to the runner user before reading any input, so no script runs as root.
+// setgroups/setgid/setuid are irreversible for this process.
+(() => {
+  const value = (name) => {
+    const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+    return hit ? Number(hit.slice(name.length + 3)) : null;
+  };
+  const uid = value('uid');
+  const gid = value('gid');
+  if (uid === null && gid === null) return;
+  try {
+    process.setgroups([]);
+    process.setgid(gid);
+    process.setuid(uid);
+  } catch (_error) {
+    process.exit(77);
+  }
+  if (process.getuid() !== uid || process.getgid() !== gid || process.getuid() === 0) process.exit(77);
+})();
+
 const MAX_LOGS = 200;
 const MAX_LOG_CHARS = 2000;
 
