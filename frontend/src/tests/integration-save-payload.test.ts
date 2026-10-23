@@ -73,4 +73,35 @@ describe('outbound integration form save payload', () => {
     expect(build(null)).toBeNull();
     expect(build(undefined)).toBeUndefined();
   });
+
+  describe('delivery follow-up', () => {
+    const build = (deliveryFollowUp: unknown) =>
+      buildIntegrationSavePayload({ values: { deliveryFollowUp }, lifecycleRules: [], transformationMode: 'SCRIPT' })
+        .deliveryFollowUp;
+
+    it('leaves it alone when the form never loaded it', () => {
+      expect(build(undefined)).toBeUndefined();
+    });
+
+    it('keeps a switched-off follow-up as off, so the provider default does not come back', () => {
+      expect(build({ enabled: false, script: '  ' })).toEqual({ enabled: false, script: '' });
+    });
+
+    it('sends the script trimmed and the schedule as given', () => {
+      expect(build({ enabled: true, script: ' return null; ', checkAfterSeconds: [30, 300] })).toEqual({
+        enabled: true,
+        script: 'return null;',
+        checkAfterSeconds: [30, 300],
+      });
+    });
+
+    it('does not invent a schedule when none was edited', () => {
+      expect(build({ enabled: true, script: 'return null;' })).toEqual({ enabled: true, script: 'return null;' });
+    });
+
+    it('treats anything that is not exactly true as off', () => {
+      expect(build({ enabled: 'yes', script: 'x' })).toMatchObject({ enabled: false });
+      expect(build(null)).toBeNull();
+    });
+  });
 });

@@ -98,6 +98,7 @@ function mapIntegrationFromMongo(doc) {
     requestPolicy: doc.requestPolicy || null,
     rateLimits: doc.rateLimits || null, // Per-integration rate limiting
     preDeliveryChecks: doc.preDeliveryChecks || null, // URLs checked before each delivery
+    deliveryFollowUp: doc.deliveryFollowUp || null, // script that asks the provider what became of an accepted send
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,
     retryCount: doc.retryCount,
@@ -245,6 +246,8 @@ function mapLogFromMongo(doc) {
     inboundRequestHeaders: doc.inboundRequestHeaders || null,
     clientIp: doc.clientIp || null,
     executionTrace: doc.executionTrace || null,
+    // What became of an accepted send, once its follow-up script has checked (see delivery-follow-up.js).
+    followUp: doc.followUp || null,
     shouldRetry: doc.shouldRetry,
     // Integration signing details (for audit trail)
     messageId: doc.messageId, // Unique message identifier

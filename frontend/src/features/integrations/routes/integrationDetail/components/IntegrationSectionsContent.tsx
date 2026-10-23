@@ -497,7 +497,13 @@ export const buildIntegrationSectionItems = ({
         isReadOnly ? (
           <DeliveryReliabilitySummary uiConfig={uiConfig} spacing={spacing} form={form} />
         ) : (
-          <DeliveryReliabilitySection uiConfig={uiConfig} spacing={spacing} form={form} isLoading={isLoading} />
+          <DeliveryReliabilitySection
+            uiConfig={uiConfig}
+            spacing={spacing}
+            form={form}
+            isLoading={isLoading}
+            integrationId={integrationId}
+          />
         )
       ),
     }

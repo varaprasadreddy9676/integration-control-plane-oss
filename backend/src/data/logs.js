@@ -656,6 +656,7 @@ function mapGroupedLogFromMongo(doc) {
     updatedAt: doc.updatedAt?.toISOString?.() || null,
     traceId: doc.traceId || null,
     correlationId: doc.correlationId || null,
+    followUp: doc.followUp || null,
     metadata: {},
   };
 }
@@ -701,6 +702,7 @@ async function getLogsPageGroupedByMessage(orgId, filters = {}) {
                   httpMethod: { $first: '$httpMethod' },
                   traceId: { $first: '$traceId' },
                   correlationId: { $first: '$correlationId' },
+                  followUp: { $first: '$followUp' },
                   totalAttempts: { $sum: 1 },
                 },
               },

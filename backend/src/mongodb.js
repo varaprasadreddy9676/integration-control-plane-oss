@@ -707,6 +707,14 @@ async function ensureIndexes() {
       { key: { orgId: 1, eventType: 1, status: 1 }, name: 'org_event_type_status_idx' },
     ]);
 
+    // delivery_follow_ups — checks on what became of accepted sends. The worker
+    // asks only for due PENDING jobs; stats read by org and period. Jobs expire.
+    await safeCreateIndexes(db.collection('delivery_follow_ups'), [
+      { key: { status: 1, nextCheckAt: 1 }, name: 'status_next_check_idx' },
+      { key: { orgId: 1, createdAt: -1 }, name: 'org_created_idx' },
+      { key: { expiresAt: 1 }, expireAfterSeconds: 0, name: 'expires_ttl_idx' },
+    ]);
+
     await primeAllIndexCaches();
 
     log('info', 'MongoDB indexes created/verified');

@@ -7,6 +7,8 @@ const data = require('../data');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
 const asyncHandler = require('../utils/async-handler');
+const followUps = require('../data/delivery-follow-ups');
+const { summarizeFollowUpStats } = require('../services/delivery-follow-up-config');
 const { maskIntegrationSecrets, maskLogSecrets, maskUrlSecrets } = require('../utils/integration-secrets');
 const { uuidv4 } = require('../utils/runtime');
 const { isPortalScopedSession, assertViewAllowed, assertIntegrationInScope } = require('../middleware/portal-scope');
@@ -585,6 +587,25 @@ router.get(
     const filters = applyPortalLogFilters(req, baseFilters);
     const stats = await data.getLogStatsSummary(req.orgId, filters);
     res.json(stats);
+  })
+);
+
+// Delivered / read / failed for accepted sends that have a follow-up script.
+router.get(
+  '/stats/delivery-follow-up',
+  assertViewAllowed('logs'),
+  asyncHandler(async (req, res) => {
+    const empty = { ...summarizeFollowUpStats({}), topErrors: [] };
+    if (!req.orgId) return res.json(empty);
+
+    const filters = applyPortalLogFilters(req, { integrationConfigId: req.query.integrationId });
+    const stats = await followUps.getStats(req.orgId, {
+      startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
+      endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
+      integrationId: filters.integrationConfigId,
+      integrationIds: filters.portalAllowedIntegrationIds,
+    });
+    res.json({ ...summarizeFollowUpStats(stats.byStatus), topErrors: stats.topErrors });
   })
 );
 

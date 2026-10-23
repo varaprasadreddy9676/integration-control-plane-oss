@@ -27,6 +27,19 @@ const buildPreDeliveryChecks = (checks: unknown): IntegrationConfig['preDelivery
   );
 };
 
+// Untouched stays untouched (undefined); a switched-off follow-up is kept, so
+// the server does not fall back to the provider's default for it.
+const buildDeliveryFollowUp = (value: unknown): IntegrationConfig['deliveryFollowUp'] => {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object') return null;
+  const config = value as { enabled?: boolean; script?: string; checkAfterSeconds?: number[] };
+  return {
+    enabled: config.enabled === true,
+    script: (config.script || '').trim(),
+    ...(Array.isArray(config.checkAfterSeconds) ? { checkAfterSeconds: config.checkAfterSeconds } : {}),
+  };
+};
+
 /**
  * Keep the editable top-level form fields in one explicit save contract.
  * This prevents a field from being rendered and restored correctly but then
@@ -58,6 +71,7 @@ export const buildIntegrationSavePayload = ({
   retryCount: values.retryCount,
   rateLimits: values.rateLimits,
   preDeliveryChecks: buildPreDeliveryChecks(values.preDeliveryChecks),
+  deliveryFollowUp: buildDeliveryFollowUp(values.deliveryFollowUp),
   deliveryMode: values.deliveryMode,
   schedulingConfig: values.schedulingConfig,
   resourceType: values.resourceType || null,

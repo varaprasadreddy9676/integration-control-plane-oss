@@ -29,6 +29,7 @@ const { startPendingDeliveriesWorker, stopPendingDeliveriesWorker } = require('.
 const { startSchedulerWorker } = require('./processor/scheduler-worker');
 const { getScheduledJobWorker } = require('./processor/scheduled-job-worker');
 const { startDLQWorker, stopDLQWorker } = require('./processor/dlq-worker');
+const { startFollowUpWorker, stopFollowUpWorker } = require('./processor/follow-up-worker');
 const { startFailureEmailReportScheduler, sendAlertEmail } = require('./services/notifications/failure-report');
 const { raiseAlert } = require('./services/notifications/raise-alert');
 const { createDlqBacklogWatcher } = require('./services/dlq-backlog-health');
@@ -173,6 +174,7 @@ async function initiateGracefulDrain(reason, error = null, options = {}) {
     Promise.resolve().then(() => stopSchedulerWorker()),
     Promise.resolve().then(() => stopPendingDeliveriesWorker()),
     Promise.resolve().then(() => stopDLQWorker()),
+    Promise.resolve().then(() => stopFollowUpWorker()),
     Promise.resolve().then(() => stopDashboardAnalyticsRollupWorker()),
     Promise.resolve().then(() => getScheduledJobWorker().stop()),
     Promise.resolve().then(() => stopFailureEmailReportScheduler()),
@@ -472,6 +474,7 @@ async function bootstrap() {
   stopDeliveryWorker = await startDeliveryWorker();
   stopSchedulerWorker = startSchedulerWorker(); // Start scheduler for delayed/recurring integrations
   startDLQWorker(); // Start DLQ worker for automatic retries
+  startFollowUpWorker(); // Check what became of accepted sends (integrations with a follow-up script)
   stopFailureEmailReportScheduler = startFailureEmailReportScheduler(); // Periodic failure report emails
 
   // Alerts when an integration's deliveries keep failing (org 783's event

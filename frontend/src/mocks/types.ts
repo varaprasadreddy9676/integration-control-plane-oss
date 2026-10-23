@@ -178,6 +178,8 @@ export interface IntegrationConfig {
     minBytes?: number;
     onMissingUrl?: 'PASS' | 'FAIL';
   }> | null;
+  // Asks the provider what became of each accepted send (delivered, read, failed)
+  deliveryFollowUp?: DeliveryFollowUpConfig | null;
   isActive: boolean;
   timeoutMs: number;
   retryCount: number;
@@ -257,6 +259,33 @@ export interface DeliveryAttempt {
   retryReason?: string;
 }
 
+export interface DeliveryFollowUpConfig {
+  enabled: boolean;
+  script: string;
+  /** Seconds after the send for each check (10 s to 7 days, at most 8). */
+  checkAfterSeconds?: number[];
+}
+
+/** What became of an accepted send, once its follow-up script has checked. */
+export type FollowUpStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'UNKNOWN' | 'NOT_TRACKED';
+
+export interface DeliveryFollowUp {
+  status: FollowUpStatus;
+  /** True when no more checks will run. */
+  done: boolean;
+  checks: number;
+  lastCheckedAt?: string | null;
+  nextCheckAt?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  /** Why the last check failed (the script threw, the provider was unreachable). */
+  lastError?: string | null;
+  /** Why tracking stopped (the script called skip()). */
+  reason?: string | null;
+}
+
 export interface DeliveryLog {
   id: string;
   integrationConfigId?: string | null;
@@ -289,6 +318,7 @@ export interface DeliveryLog {
     method?: string | null;
   };
   requestHeaders?: Record<string, unknown>; // Actual request headers sent (for debugging)
+  followUp?: DeliveryFollowUp | null;
   __KEEP_integrationConfig__?: IntegrationConfig; // Enhanced with integration configuration details
   retryAttempts?: DeliveryAttempt[]; // Detailed retry attempts for enhanced UI
   metadata?: {

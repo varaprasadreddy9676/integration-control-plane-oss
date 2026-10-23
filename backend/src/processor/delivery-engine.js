@@ -20,6 +20,7 @@ const isTransformationSkipped = transformer.isTransformationSkipped || (() => fa
 const hl7 = require('../services/hl7/codec');
 const { sendMllpMessage } = require('../services/hl7/mllp-client');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
+const { scheduleFollowUp } = require('../services/delivery-follow-up');
 
 // Move dynamic require to top-level (was inside deliverSingleAction)
 const adapterRegistry = require('../services/communication/adapter-registry');
@@ -2184,6 +2185,9 @@ async function deliverToIntegration(
       errorMessage = `${errorMessage} - Max retries (${maxRetries}) reached`;
     }
 
+    // A response body can be read once: read it here and reuse the text.
+    const responseBodyText = await safeRead(resp);
+
     const logId = await data.recordLog(orgId, {
       id: logIdForUpdates,
       integrationConfigId: integration.id,
@@ -2196,7 +2200,7 @@ async function deliverToIntegration(
       attemptCount,
       originalPayload: evt.payload,
       requestPayload: transformed,
-      responseBody: await safeRead(resp),
+      responseBody: responseBodyText,
       errorMessage: errorMessage,
       shouldRetry: shouldRetry && attemptCount <= maxRetries, // Don't retry if exceeded max
       targetUrl: integration.targetUrl,
@@ -2227,6 +2231,17 @@ async function deliverToIntegration(
           },
         })
         .catch(() => {});
+
+      // Accepted is not delivered: queue the provider status check if this integration has one.
+      if (integration.deliveryFollowUp?.enabled && !isTest) {
+        await scheduleFollowUp({
+          orgId,
+          logId,
+          integration,
+          statusCode: resp.status,
+          responseBody: responseBodyText,
+        });
+      }
 
       return buildResult('SUCCESS', logId);
     } else {

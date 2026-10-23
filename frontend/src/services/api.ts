@@ -1,7 +1,9 @@
 import type {
   AlertCenterLog,
   DashboardSummary,
+  DeliveryFollowUpConfig,
   DeliveryLog,
+  FollowUpStatus,
   ScheduledIntegration,
   TenantInfo,
   IntegrationConfig,
@@ -1183,6 +1185,67 @@ export const getLogStatsSummary = async (filters?: {
   const query = params.toString();
   return request(`/logs/stats/summary${query ? `?${query}` : ''}`);
 };
+
+export interface DeliveryFollowUpStats {
+  total: number;
+  /** Sends that are being followed up (total without NOT_TRACKED). */
+  tracked: number;
+  /** DELIVERED plus READ: a message that was read was delivered. */
+  delivered: number;
+  read: number;
+  failed: number;
+  pending: number;
+  unknown: number;
+  notTracked: number;
+  topErrors: Array<{ code: string | null; message: string | null; count: number }>;
+}
+
+export const getDeliveryFollowUpStats = async (filters?: {
+  integrationId?: string;
+  dateRange?: [string, string] | null;
+}): Promise<DeliveryFollowUpStats> => {
+  const params = new URLSearchParams();
+  if (filters?.integrationId) params.set('integrationId', filters.integrationId);
+  if (filters?.dateRange && filters.dateRange[0] && filters.dateRange[1]) {
+    params.set('startDate', filters.dateRange[0]);
+    params.set('endDate', filters.dateRange[1]);
+  }
+  const query = params.toString();
+  return request(`/logs/stats/delivery-follow-up${query ? `?${query}` : ''}`);
+};
+
+export interface FollowUpPreset {
+  id: string;
+  label: string;
+  config: DeliveryFollowUpConfig;
+}
+
+/** The follow-up a provider's integrations start with, for the URL a form was just given. */
+export const getFollowUpPreset = async (targetUrl: string): Promise<FollowUpPreset | null> => {
+  const res = await request<{ preset: FollowUpPreset | null }>(
+    `/outbound-integrations/follow-up-preset?targetUrl=${encodeURIComponent(targetUrl)}`
+  );
+  return res.preset;
+};
+
+export interface FollowUpTestResult {
+  outcome: 'RESULT' | 'SKIPPED' | 'ERROR';
+  durationMs: number;
+  result?: { status: FollowUpStatus; deliveredAt?: string | null; readAt?: string | null; errorCode?: string | null; errorMessage?: string | null };
+  reason?: string;
+  error?: string;
+  httpCalls: Array<{ method: string; url: string; statusCode: number | null; durationMs: number | null; error: string | null; responseBody: unknown }>;
+}
+
+/** Run a follow-up script against a sample send response. Stores nothing. */
+export const testFollowUpScript = async (
+  integrationId: string,
+  body: { script: string; response: unknown; statusCode?: number }
+): Promise<FollowUpTestResult> =>
+  request(`/outbound-integrations/${integrationId}/test-follow-up`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 
 export const retryLog = async (
   logId: string,

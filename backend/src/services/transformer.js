@@ -671,6 +671,7 @@ module.exports = {
   getTransformationSkipReason,
   isTransformationSkipped,
   validateScript,
+  applyScriptTransform,
   applyTransform,
   applyResponseTransform,
   hasResponseTransform,

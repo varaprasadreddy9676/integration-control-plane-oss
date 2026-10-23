@@ -92,6 +92,11 @@ jest.mock('../../src/config', () => ({
 jest.mock('../../src/middleware/rate-limit', () => (_req, _res, next) => next());
 jest.mock('../../src/middleware/request-id', () => (req, _res, next) => { req.id = 'req-test-id'; next(); });
 
+const mockFollowUpStats = jest.fn();
+jest.mock('../../src/data/delivery-follow-ups', () => ({
+  getStats: (...args) => mockFollowUpStats(...args)
+}));
+
 jest.mock('../../src/processor/retry-handler', () => ({
   replayEvent: jest.fn().mockResolvedValue({ id: 'replay-log-id', status: 'PENDING' })
 }));
@@ -519,3 +524,61 @@ describe('Logs Routes', () => {
     });
   });
 });
+
+describe('GET /api/v1/logs/stats/delivery-follow-up', () => {
+  const app = () => buildApp();
+
+  beforeEach(() => {
+    mockFollowUpStats.mockReset().mockResolvedValue({
+      byStatus: { READ: 6, DELIVERED: 3, FAILED: 2, PENDING: 4, SENT: 1, UNKNOWN: 1, NOT_TRACKED: 5 },
+      topErrors: [{ code: '131026', message: 'Undeliverable', count: 2 }],
+    });
+  });
+
+  it('reports delivered, read and failed, counting a read as delivered', async () => {
+    const res = await request(app()).get('/api/v1/logs/stats/delivery-follow-up');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      total: 22,
+      tracked: 17,
+      delivered: 9, // DELIVERED + READ
+      read: 6,
+      failed: 2,
+      pending: 5, // PENDING + SENT
+      unknown: 1,
+      notTracked: 5,
+      topErrors: [{ code: '131026', message: 'Undeliverable', count: 2 }],
+    });
+  });
+
+  it('passes the period and integration, scoped to the caller organization', async () => {
+    await request(app()).get(
+      '/api/v1/logs/stats/delivery-follow-up?integrationId=int-1&startDate=2026-10-01T00:00:00Z&endDate=2026-10-22T00:00:00Z'
+    );
+    const [orgId, filters] = mockFollowUpStats.mock.calls[0];
+    expect(orgId).toBe(1);
+    expect(filters).toMatchObject({
+      integrationId: 'int-1',
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-22T00:00:00Z'),
+    });
+  });
+
+  it('is empty when nothing is being followed up', async () => {
+    mockFollowUpStats.mockResolvedValue({ byStatus: {}, topErrors: [] });
+    const res = await request(app()).get('/api/v1/logs/stats/delivery-follow-up');
+    expect(res.body).toMatchObject({ total: 0, tracked: 0, delivered: 0, read: 0, failed: 0 });
+  });
+
+  it('limits a portal session to its allowed integrations', async () => {
+    const scoped = buildAppWithRequestMutator((req) => {
+      req.isPortalSession = true;
+      req.portalScope = { allowedIntegrationIds: ['int-1', 'int-2'] };
+      req.user = { ...req.user, isPortalSession: true, allowedViews: ['logs'] };
+    });
+    await request(scoped).get('/api/v1/logs/stats/delivery-follow-up');
+    const [, filters] = mockFollowUpStats.mock.calls[0];
+    expect(filters.integrationIds).toEqual(['int-1', 'int-2']);
+  });
+});
+

@@ -44,6 +44,8 @@ import { ModernTable } from '../../../components/common/ModernTable';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { StatPillRow } from '../../../components/common/StatPillRow';
+import { DeliveryFollowUpPanel, FollowUpTag } from '../components/DeliveryFollowUpPanel';
+import { DeliveryFollowUpSummary } from '../components/DeliveryFollowUpSummary';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
 import { StatePanel } from '../../../components/common/StatePanel';
 import {
@@ -60,6 +62,7 @@ import {
   getUIConfig,
   getUIConfigOverride,
   getLogStatsSummary,
+  getDeliveryFollowUpStats,
   type PaginatedResponse,
   getIntegrationCredentials,
   getInboundIntegrationCredentials,
@@ -767,6 +770,14 @@ export const LogsRoute = () => {
         dateRange: resolvedDateRange,
         groupBy: 'message',
       }),
+    refetchInterval: refreshInterval,
+    staleTime: logsQueryStaleTime,
+  });
+
+  // Delivered / read / failed for sends that have a follow-up script (nothing shown until there are some).
+  const { data: followUpStats } = useQuery({
+    queryKey: ['logs-follow-up-stats', orgId, integrationFilter, resolvedDateRange],
+    queryFn: () => getDeliveryFollowUpStats({ integrationId: integrationFilter, dateRange: resolvedDateRange }),
     refetchInterval: refreshInterval,
     staleTime: logsQueryStaleTime,
   });
@@ -1588,6 +1599,8 @@ export const LogsRoute = () => {
               </div>
             )}
 
+            <DeliveryFollowUpPanel followUp={fullLog.followUp} />
+
             {(curlCommand || isCommunicationLog || isHl7Log || hasScriptLogs || showSourceEvent) && (
               <Tabs
                 size="small"
@@ -2259,6 +2272,7 @@ export const LogsRoute = () => {
               ))}
             </div>
           ) : stats ? (
+            <>
             <StatPillRow
               activeFilter={statusFilter}
               onFilterChange={setStatusFilter}
@@ -2300,6 +2314,8 @@ export const LogsRoute = () => {
                 },
               ]}
             />
+            <DeliveryFollowUpSummary stats={followUpStats} />
+            </>
           ) : null}
         </div>
       )}
@@ -2846,7 +2862,7 @@ export const LogsRoute = () => {
                     { text: 'Abandoned', value: 'ABANDONED' },
                   ],
                   onFilter: (value, record) => record.status === value,
-                  render: (status: string) => (
+                  render: (status: string, record: any) => (
                     // ABANDONED under a "Failed" filter looks like a contradiction.
                     // It is not: the backend treats FAILED as {$in: [FAILED, ABANDONED]}
                     // and the summary counts both, because abandoned *is* failed —
@@ -2862,6 +2878,7 @@ export const LogsRoute = () => {
                     >
                       <div onClick={() => handleQuickStatusFilter(status)} style={{ cursor: 'pointer' }}>
                         <StatusBadge status={status as any} size="default" />
+                        <FollowUpTag followUp={record?.followUp} />
                       </div>
                     </Tooltip>
                   ),

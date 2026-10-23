@@ -4,6 +4,8 @@ const mongodb = require('../mongodb');
 const { generateSigningSecret } = require('../services/integration-signing');
 const { normalizeRequestPolicy, normalizeRateLimit } = require('../services/request-policy');
 const { normalizePreDeliveryChecks } = require('../services/pre-delivery-checks');
+const { normalizeDeliveryFollowUp } = require('../services/delivery-follow-up-config');
+const { defaultFollowUpFor } = require('../services/delivery-follow-up-presets');
 const { validateLifecycleConfig, buildLifecycleProfile, findLifecycleRule } = require('../services/lifecycle-config');
 const {
   validateConditionConfig,
@@ -404,6 +406,8 @@ async function addIntegration(orgId, payload) {
     requestPolicy: normalizeRequestPolicy(payload.requestPolicy, payload.rateLimits) || null,
     rateLimits: normalizeRateLimit(payload.rateLimits) || null,
     preDeliveryChecks: normalizePreDeliveryChecks(payload.preDeliveryChecks) || null,
+    // A provider the gateway knows (Qikchat) follows up by default; saving enabled:false opts out.
+    deliveryFollowUp: normalizeDeliveryFollowUp(defaultFollowUpFor(payload)),
     isActive: payload.isActive !== false,
     timeoutMs: payload.timeoutMs,
     retryCount: payload.retryCount,
@@ -489,6 +493,9 @@ async function updateIntegration(orgId, id, patch) {
   }
   if (Object.prototype.hasOwnProperty.call(updateDoc, 'preDeliveryChecks')) {
     updateDoc.preDeliveryChecks = normalizePreDeliveryChecks(updateDoc.preDeliveryChecks);
+  }
+  if (Object.prototype.hasOwnProperty.call(updateDoc, 'deliveryFollowUp')) {
+    updateDoc.deliveryFollowUp = normalizeDeliveryFollowUp(updateDoc.deliveryFollowUp);
   }
 
   const existing = await getIntegration(id);

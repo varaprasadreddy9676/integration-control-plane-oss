@@ -9,6 +9,9 @@ const asyncHandler = require('../utils/async-handler');
 const { generateSigningSecret, generateSignatureHeaders } = require('../services/integration-signing');
 const { validateLookupConfigs } = require('../services/lookup-validator');
 const { validatePreDeliveryChecks } = require('../services/pre-delivery-checks');
+const { validateDeliveryFollowUp } = require('../services/delivery-follow-up-config');
+const { testFollowUpScript } = require('../services/delivery-follow-up');
+const { findPreset, copyConfig } = require('../services/delivery-follow-up-presets');
 const { fetch, AbortController } = require('../utils/runtime');
 const { executeSchedulingScript, validateRecurringConfig } = require('../services/scheduler');
 const { generateMaskedCurlCommand } = require('../utils/curl-generator');
@@ -53,6 +56,12 @@ router.get(
     res.json(filterIntegrationScope(req, integrations).map(maskIntegrationSecrets));
   })
 );
+
+// The follow-up a provider's integrations start with, for a form that has just been given its URL.
+router.get('/follow-up-preset', (req, res) => {
+  const preset = findPreset({ targetUrl: String(req.query.targetUrl || '') });
+  res.json({ preset: preset ? { id: preset.id, label: preset.label, config: copyConfig(preset) } : null });
+});
 
 router.get(
   '/event-types',
@@ -379,6 +388,11 @@ router.post(
       return res.status(400).json({ error: preDeliveryChecksError, code: 'VALIDATION_ERROR' });
     }
 
+    const deliveryFollowUpError = validateDeliveryFollowUp(req.body.deliveryFollowUp);
+    if (deliveryFollowUpError) {
+      return res.status(400).json({ error: deliveryFollowUpError, code: 'VALIDATION_ERROR' });
+    }
+
     // Validate lookup configurations if present
     if (req.body.lookups && Array.isArray(req.body.lookups) && req.body.lookups.length > 0) {
       try {
@@ -459,6 +473,11 @@ router.put(
     const preDeliveryChecksError = validateAllPreDeliveryChecks(req.body);
     if (preDeliveryChecksError) {
       return res.status(400).json({ error: preDeliveryChecksError, code: 'VALIDATION_ERROR' });
+    }
+
+    const deliveryFollowUpError = validateDeliveryFollowUp(req.body.deliveryFollowUp);
+    if (deliveryFollowUpError) {
+      return res.status(400).json({ error: deliveryFollowUpError, code: 'VALIDATION_ERROR' });
     }
 
     // Validate lookup configurations if present
@@ -1207,6 +1226,34 @@ router.post(
         responseTimeMs,
       });
     }
+  })
+);
+
+// Try a delivery follow-up script against a sample response (nothing is stored).
+router.post(
+  '/:id/test-follow-up',
+  asyncHandler(async (req, res) => {
+    const { script, response, statusCode } = req.body || {};
+    const scriptError = validateDeliveryFollowUp({ enabled: true, script });
+    if (scriptError) {
+      return res.status(400).json({ error: scriptError, code: 'VALIDATION_ERROR' });
+    }
+
+    // A saved integration supplies its auth headers; a new one (id='new') has none yet.
+    let integration = null;
+    if (req.params.id !== 'new') {
+      integration = await data.getIntegration(req.params.id);
+      if (!integration || integration.orgId !== req.orgId) {
+        return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
+      }
+    }
+
+    const result = await testFollowUpScript({
+      integration,
+      script,
+      delivery: { statusCode: Number.isInteger(statusCode) ? statusCode : 200, response: response === undefined ? null : response },
+    });
+    res.json(result);
   })
 );
 
