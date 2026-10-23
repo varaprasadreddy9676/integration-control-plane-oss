@@ -110,10 +110,18 @@ describe('the Qikchat script, run for real', () => {
   it('keeps the failure reason when Qikchat gives one, and something to go on when it does not', async () => {
     dlr({ status: 'failed', errorCode: 131026, errorMessage: 'Message undeliverable' });
     expect((await run()).result).toMatchObject({ status: 'FAILED', errorCode: '131026', errorMessage: 'Message undeliverable' });
-    dlr({ status: 'failed', sentAt: '2026-10-22T10:00:00Z' });
+    // Qikchat's report gives no reason for a failed message (observed live): say so, do not dump JSON.
+    dlr({ type: 'template', status: 'failed', failedAt: '2026-10-22T10:00:47Z' });
     const bare = (await run()).result;
     expect(bare.status).toBe('FAILED');
-    expect(bare.errorMessage).toContain('failed'); // the raw status object, until Qikchat's error fields are known
+    expect(bare.errorMessage).toBe('Qikchat reported the message as failed without giving a reason');
+  });
+
+  it('says it is done once the message is read or failed, and not before', async () => {
+    for (const [qikchatStatus, done] of [['processing', false], ['sent', false], ['delivered', false], ['read', true], ['failed', true]]) {
+      dlr({ status: qikchatStatus });
+      expect((await run()).result.done).toBe(done);
+    }
   });
 
   it('shows a status it does not know as an error, so the vocabulary can be learned', async () => {
@@ -138,3 +146,13 @@ describe('the Qikchat script, run for real', () => {
 });
 
 const mockGet = jest.fn();
+
+describe('earlier scripts', () => {
+  it('keeps the script that was first deployed, so integrations that still have it can be upgraded', () => {
+    const preset = presets.PRESETS.find((p) => p.id === 'qikchat');
+    expect(preset.previousScripts).toHaveLength(1);
+    expect(preset.previousScripts[0]).toContain('api.qikchat.in/v1/messages?msgid=');
+    expect(preset.previousScripts[0]).not.toBe(preset.config.script);
+  });
+});
+

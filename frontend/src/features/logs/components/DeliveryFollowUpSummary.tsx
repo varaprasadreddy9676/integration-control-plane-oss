@@ -1,31 +1,28 @@
 import { Typography } from 'antd';
 import type { DeliveryFollowUpStats } from '../../../services/api';
+import { followUpStatusLabel } from './followUpStatus';
 
 const { Text } = Typography;
 
 /**
- * One line under the delivery counts: of the sends that are followed up, how
- * many were delivered, read or failed. Shows nothing until something is tracked.
+ * One line of results for the integration being looked at: how many messages
+ * ended up in each status, in the words that integration's script uses.
+ * Shows nothing until something is followed up.
  */
 export const DeliveryFollowUpSummary = ({ stats }: { stats?: DeliveryFollowUpStats | null }) => {
   if (!stats || stats.tracked === 0) return null;
-  const percent = (count: number) => `${Math.round((count / stats.tracked) * 100)}%`;
+  const parts = Object.entries(stats.byStatus)
+    .filter(([status, count]) => status !== 'NOT_TRACKED' && count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([status, count]) => `${followUpStatusLabel(status)} ${count.toLocaleString()}`);
   const topError = stats.topErrors[0];
 
   return (
-    <div style={{ marginTop: 8 }} aria-label="Delivery follow-up summary">
+    <div style={{ marginTop: 8 }} aria-label="Follow-up results">
       <Text type="secondary" style={{ fontSize: 12 }}>
-        Delivery reports for {stats.tracked.toLocaleString()} {stats.tracked === 1 ? 'message' : 'messages'}:{' '}
-        <strong>{stats.delivered.toLocaleString()} delivered ({percent(stats.delivered)})</strong>
-        {' · '}
-        {stats.read.toLocaleString()} read ({percent(stats.read)})
-        {' · '}
-        <span style={{ color: stats.failed > 0 ? 'var(--error-text, #b91c1c)' : undefined }}>
-          {stats.failed.toLocaleString()} not delivered
-        </span>
-        {stats.pending > 0 && ` · ${stats.pending.toLocaleString()} still being checked`}
-        {stats.unknown > 0 && ` · ${stats.unknown.toLocaleString()} unknown`}
-        {topError && stats.failed > 0 && (
+        Follow-up results for {stats.tracked.toLocaleString()} {stats.tracked === 1 ? 'message' : 'messages'}:{' '}
+        <strong>{parts.join(' · ')}</strong>
+        {topError && (
           <>
             {' · most common reason: '}
             {[topError.code, topError.message].filter(Boolean).join(' ') || 'not given'} ({topError.count})

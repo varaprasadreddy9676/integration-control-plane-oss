@@ -3,6 +3,7 @@ import type {
   DashboardSummary,
   DeliveryFollowUpConfig,
   DeliveryLog,
+  FollowUpHttpCall,
   FollowUpStatus,
   ScheduledIntegration,
   TenantInfo,
@@ -1190,13 +1191,8 @@ export interface DeliveryFollowUpStats {
   total: number;
   /** Sends that are being followed up (total without NOT_TRACKED). */
   tracked: number;
-  /** DELIVERED plus READ: a message that was read was delivered. */
-  delivered: number;
-  read: number;
-  failed: number;
-  pending: number;
-  unknown: number;
-  notTracked: number;
+  /** Counts by whatever status the follow-up scripts returned. */
+  byStatus: Record<string, number>;
   topErrors: Array<{ code: string | null; message: string | null; count: number }>;
 }
 
@@ -1231,10 +1227,10 @@ export const getFollowUpPreset = async (targetUrl: string): Promise<FollowUpPres
 export interface FollowUpTestResult {
   outcome: 'RESULT' | 'SKIPPED' | 'ERROR';
   durationMs: number;
-  result?: { status: FollowUpStatus; deliveredAt?: string | null; readAt?: string | null; errorCode?: string | null; errorMessage?: string | null };
+  result?: { status: FollowUpStatus; done?: boolean; deliveredAt?: string | null; readAt?: string | null; errorCode?: string | null; errorMessage?: string | null };
   reason?: string;
   error?: string;
-  httpCalls: Array<{ method: string; url: string; statusCode: number | null; durationMs: number | null; error: string | null; responseBody: unknown }>;
+  httpCalls: FollowUpHttpCall[];
 }
 
 /** Run a follow-up script against a sample send response. Stores nothing. */

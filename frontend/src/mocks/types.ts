@@ -266,11 +266,42 @@ export interface DeliveryFollowUpConfig {
   checkAfterSeconds?: number[];
 }
 
-/** What became of an accepted send, once its follow-up script has checked. */
-export type FollowUpStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'UNKNOWN' | 'NOT_TRACKED';
+/**
+ * What became of an accepted send, once its follow-up script has checked: any
+ * short word the script chose (DELIVERED, READ, SIGNED_OFF...), or the gateway's
+ * own PENDING, UNKNOWN or NOT_TRACKED.
+ */
+export type FollowUpStatus = string;
+
+/** One request a follow-up script made, with credentials masked. */
+export interface FollowUpHttpCall {
+  method: string;
+  url: string;
+  headers?: Record<string, string> | null;
+  statusCode: number | null;
+  durationMs: number | null;
+  error?: string | null;
+  responseBody?: string | null;
+}
+
+/** One run of the follow-up script. */
+export interface FollowUpCheck {
+  check: number;
+  at: string;
+  outcome: 'RESULT' | 'SKIPPED' | 'ERROR';
+  status?: FollowUpStatus;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  error?: string | null;
+  reason?: string | null;
+  durationMs?: number;
+  httpCalls: FollowUpHttpCall[];
+}
 
 export interface DeliveryFollowUp {
   status: FollowUpStatus;
+  /** What each check asked and was told, oldest first. */
+  history?: FollowUpCheck[];
   /** True when no more checks will run. */
   done: boolean;
   checks: number;

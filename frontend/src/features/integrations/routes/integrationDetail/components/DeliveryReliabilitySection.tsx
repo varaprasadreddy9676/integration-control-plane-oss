@@ -2,7 +2,6 @@ import { Divider, Skeleton, Space, Typography } from 'antd';
 import { DeliverySettingsSectionEnhanced } from '../../../components/detail/DeliverySettingsSectionEnhanced';
 import { RateLimitSection } from '../../../components/detail/RateLimitSection';
 import { PreDeliveryChecksSection } from '../../../components/detail/PreDeliveryChecksSection';
-import { DeliveryFollowUpSection } from '../../../components/detail/DeliveryFollowUpSection';
 import type { DeliveryPanelProps } from './DeliveryPanel.types';
 
 const { Text } = Typography;
@@ -12,8 +11,7 @@ export const DeliveryReliabilitySection = ({
   spacing,
   form,
   isLoading = false,
-  integrationId,
-}: Pick<DeliveryPanelProps, 'uiConfig' | 'spacing' | 'form' | 'isLoading' | 'integrationId'>) => {
+}: Pick<DeliveryPanelProps, 'uiConfig' | 'spacing' | 'form' | 'isLoading'>) => {
   if (isLoading) {
     return (
       <div style={{ padding: spacing[3] }}>
@@ -58,21 +56,6 @@ export const DeliveryReliabilitySection = ({
         </div>
         <div style={{ marginTop: 12 }}>
           <PreDeliveryChecksSection spacing={spacing} />
-        </div>
-      </div>
-
-      <Divider style={{ margin: 0 }} />
-
-      <div>
-        <Text strong style={{ fontSize: 15 }}>Delivery follow-up</Text>
-        <div>
-          <Text type="secondary">
-            After the target accepts a message, ask the provider whether it was delivered, read, or failed, and keep the
-            answer with the delivery log for analytics.
-          </Text>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <DeliveryFollowUpSection form={form} integrationId={integrationId} />
         </div>
       </div>
     </Space>

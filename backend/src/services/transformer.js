@@ -1,5 +1,6 @@
 const { log } = require('../logger');
 const { applyLookups, resolveLookup } = require('./lookup-service');
+const { maskLogSecrets } = require('../utils/integration-secrets');
 
 const MAX_DEPTH = 50;
 
@@ -295,7 +296,13 @@ function getGlobalUtilities() {
 function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
   const axios = require('axios');
 
-  const recordSpan = async (method, url, requestBody, requestFn) => {
+  // Only a caller that asks (context.captureHttpHeaders) gets request headers on the span, masked.
+  const headersFor = (options) =>
+    context && context.captureHttpHeaders
+      ? { requestHeaders: maskLogSecrets({ requestHeaders: (options && options.headers) || {} }).requestHeaders }
+      : {};
+
+  const recordSpan = async (method, url, requestBody, options, requestFn) => {
     const startedAt = Date.now();
     try {
       const response = await requestFn();
@@ -311,6 +318,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
           startedAt,
           requestBody: truncateForTrace(requestBody),
           responseBody: truncateForTrace(response.data),
+          ...headersFor(options),
           _parentSpanName,
         });
       }
@@ -326,6 +334,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
           duration: Date.now() - startedAt,
           startedAt,
           error: error.message,
+          ...headersFor(options),
           _parentSpanName,
         });
       }
@@ -337,7 +346,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
     get: async (url, options = {}) => {
       log('debug', 'Script HTTP GET request', { url, context: context.eventType });
       try {
-        return await recordSpan('GET', url, null, () =>
+        return await recordSpan('GET', url, null, options, () =>
           axios
             .get(url, {
               timeout: options.timeout || 30000,
@@ -356,7 +365,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
     post: async (url, data, options = {}) => {
       log('debug', 'Script HTTP POST request', { url, context: context.eventType });
       try {
-        return await recordSpan('POST', url, data, () =>
+        return await recordSpan('POST', url, data, options, () =>
           axios
             .post(url, data, {
               timeout: options.timeout || 30000,
@@ -374,7 +383,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
     put: async (url, data, options = {}) => {
       log('debug', 'Script HTTP PUT request', { url, context: context.eventType });
       try {
-        return await recordSpan('PUT', url, data, () =>
+        return await recordSpan('PUT', url, data, options, () =>
           axios
             .put(url, data, {
               timeout: options.timeout || 30000,
@@ -392,7 +401,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
     patch: async (url, data, options = {}) => {
       log('debug', 'Script HTTP PATCH request', { url, context: context.eventType });
       try {
-        return await recordSpan('PATCH', url, data, () =>
+        return await recordSpan('PATCH', url, data, options, () =>
           axios
             .patch(url, data, {
               timeout: options.timeout || 30000,
@@ -410,7 +419,7 @@ function createHttpHelper(context, _spansOut = null, _parentSpanName = null) {
     delete: async (url, options = {}) => {
       log('debug', 'Script HTTP DELETE request', { url, context: context.eventType });
       try {
-        return await recordSpan('DELETE', url, null, () =>
+        return await recordSpan('DELETE', url, null, options, () =>
           axios
             .delete(url, {
               timeout: options.timeout || 30000,

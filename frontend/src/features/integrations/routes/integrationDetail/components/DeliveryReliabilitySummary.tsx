@@ -1,7 +1,6 @@
 import { Space, Tag, Typography } from 'antd';
 import { ConfigSection } from '../../../../../components/common/ConfigSection';
-import { ThunderboltOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { formatDuration } from '../../../components/detail/DeliveryFollowUpSection';
+import { ThunderboltOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import type { DeliveryPanelProps } from './DeliveryPanel.types';
 
 const { Text } = Typography;
@@ -27,9 +26,6 @@ export const DeliveryReliabilitySummary = ({
   const rateLimitEnabled = form?.getFieldValue(['rateLimits', 'enabled']);
   const maxRequests = form?.getFieldValue(['rateLimits', 'maxRequests']);
   const windowSeconds = form?.getFieldValue(['rateLimits', 'windowSeconds']);
-  const followUp = form?.getFieldValue('deliveryFollowUp');
-  const followUpOn = followUp?.enabled === true;
-  const followUpChecks: number[] = Array.isArray(followUp?.checkAfterSeconds) ? followUp.checkAfterSeconds : [];
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -73,25 +69,6 @@ export const DeliveryReliabilitySummary = ({
                 <Text strong>{windowSeconds || 60}</Text>
               </div>
             </>
-          )}
-        </Space>
-      </ConfigSection>
-
-      <ConfigSection icon={<CheckCircleOutlined />} title="Delivery follow-up">
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
-              Status:
-            </Text>
-            <Tag color={followUpOn ? 'green' : 'default'}>{followUpOn ? 'On' : 'Off'}</Tag>
-          </div>
-          {followUpOn && followUpChecks.length > 0 && (
-            <div style={{ display: 'flex', gap: spacing[2] }}>
-              <Text type="secondary" style={{ minWidth: 150 }}>
-                Checks after send:
-              </Text>
-              <Text strong>{followUpChecks.map(formatDuration).join(', ')}</Text>
-            </div>
           )}
         </Space>
       </ConfigSection>

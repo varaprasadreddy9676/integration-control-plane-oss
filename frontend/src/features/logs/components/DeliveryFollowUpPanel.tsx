@@ -1,36 +1,14 @@
 import { Alert, Space, Tag, Typography } from 'antd';
-import type { DeliveryFollowUp, FollowUpStatus } from '../../../mocks/types';
+import type { DeliveryFollowUp } from '../../../mocks/types';
 import { formatDateTimeWithSeconds } from '../../../utils/format';
+import { followUpStatusColor, followUpStatusLabel } from './followUpStatus';
 
 const { Text } = Typography;
 
-const LABEL: Record<FollowUpStatus, string> = {
-  PENDING: 'Checking',
-  SENT: 'Sent',
-  DELIVERED: 'Delivered',
-  READ: 'Read',
-  FAILED: 'Not delivered',
-  UNKNOWN: 'Unknown',
-  NOT_TRACKED: 'Not tracked',
-};
-
-const COLOR: Record<FollowUpStatus, string> = {
-  PENDING: 'default',
-  SENT: 'blue',
-  DELIVERED: 'green',
-  READ: 'green',
-  FAILED: 'red',
-  UNKNOWN: 'orange',
-  NOT_TRACKED: 'default',
-};
-
-const MEANING: Record<FollowUpStatus, string> = {
+// Only the gateway's own statuses need explaining; any other word is the script's own.
+const OWN_MEANING: Record<string, string> = {
   PENDING: 'The provider has not reported on this message yet.',
-  SENT: 'The provider has sent the message on; it has not reached the phone yet.',
-  DELIVERED: 'The message reached the recipient.',
-  READ: 'The recipient has read the message.',
-  FAILED: 'The provider reported that the message could not be delivered.',
-  UNKNOWN: 'No answer came before the last check. The message may or may not have arrived.',
+  UNKNOWN: 'No answer came before the last check.',
   NOT_TRACKED: 'This delivery is not being followed up.',
 };
 
@@ -38,13 +16,17 @@ const MEANING: Record<FollowUpStatus, string> = {
 export const FollowUpTag = ({ followUp }: { followUp?: DeliveryFollowUp | null }) => {
   if (!followUp || followUp.status === 'NOT_TRACKED') return null;
   return (
-    <Tag color={COLOR[followUp.status]} title={MEANING[followUp.status]} style={{ margin: 0 }}>
-      {LABEL[followUp.status]}
+    <Tag
+      color={followUpStatusColor(followUp.status, followUp.done)}
+      title={OWN_MEANING[followUp.status]}
+      style={{ margin: 0 }}
+    >
+      {followUpStatusLabel(followUp.status)}
     </Tag>
   );
 };
 
-/** What became of an accepted send, for the delivery detail. */
+/** What became of an accepted send, at a glance. Each check's request and response are in the Follow-up tab. */
 export const DeliveryFollowUpPanel = ({ followUp }: { followUp?: DeliveryFollowUp | null }) => {
   if (!followUp) return null;
   const when = (value?: string | null) => (value ? formatDateTimeWithSeconds(value) : null);
@@ -57,20 +39,20 @@ export const DeliveryFollowUpPanel = ({ followUp }: { followUp?: DeliveryFollowU
       <Space direction="vertical" size={6} style={{ width: '100%' }}>
         <Space wrap>
           <Text strong>Delivery follow-up</Text>
-          <Tag color={COLOR[followUp.status]} style={{ margin: 0 }}>
-            {LABEL[followUp.status]}
+          <Tag color={followUpStatusColor(followUp.status, followUp.done)} style={{ margin: 0 }}>
+            {followUpStatusLabel(followUp.status)}
           </Tag>
         </Space>
-        <Text type="secondary">{MEANING[followUp.status]}</Text>
+        {OWN_MEANING[followUp.status] && <Text type="secondary">{OWN_MEANING[followUp.status]}</Text>}
 
         {followUp.deliveredAt && <Text>Delivered {when(followUp.deliveredAt)}</Text>}
         {followUp.readAt && <Text>Read {when(followUp.readAt)}</Text>}
 
-        {followUp.status === 'FAILED' && (followUp.errorCode || followUp.errorMessage) && (
+        {(followUp.errorCode || followUp.errorMessage) && (
           <Alert
             type="error"
             showIcon
-            message={followUp.errorCode ? `Error ${followUp.errorCode}` : 'Delivery failed'}
+            message={followUp.errorCode ? `Reason ${followUp.errorCode}` : 'Reason'}
             description={followUp.errorMessage || undefined}
           />
         )}

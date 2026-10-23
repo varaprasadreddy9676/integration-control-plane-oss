@@ -46,6 +46,7 @@ import { MetaTag } from '../../../components/common/MetaTag';
 import { StatPillRow } from '../../../components/common/StatPillRow';
 import { DeliveryFollowUpPanel, FollowUpTag } from '../components/DeliveryFollowUpPanel';
 import { DeliveryFollowUpSummary } from '../components/DeliveryFollowUpSummary';
+import { FollowUpChecks } from '../components/FollowUpChecks';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
 import { StatePanel } from '../../../components/common/StatePanel';
 import {
@@ -774,8 +775,9 @@ export const LogsRoute = () => {
     staleTime: logsQueryStaleTime,
   });
 
-  // Delivered / read / failed for sends that have a follow-up script (nothing shown until there are some).
+  // Results of the follow-up script of the selected integration (nothing shown until there are some).
   const { data: followUpStats } = useQuery({
+    enabled: Boolean(integrationFilter),
     queryKey: ['logs-follow-up-stats', orgId, integrationFilter, resolvedDateRange],
     queryFn: () => getDeliveryFollowUpStats({ integrationId: integrationFilter, dateRange: resolvedDateRange }),
     refetchInterval: refreshInterval,
@@ -1601,7 +1603,7 @@ export const LogsRoute = () => {
 
             <DeliveryFollowUpPanel followUp={fullLog.followUp} />
 
-            {(curlCommand || isCommunicationLog || isHl7Log || hasScriptLogs || showSourceEvent) && (
+            {(curlCommand || isCommunicationLog || isHl7Log || hasScriptLogs || showSourceEvent || fullLog.followUp) && (
               <Tabs
                 size="small"
                 defaultActiveKey={
@@ -1615,7 +1617,9 @@ export const LogsRoute = () => {
                           ? 'script-logs'
                           : curlCommand
                             ? 'curl'
-                            : 'source-event'
+                            : fullLog.followUp
+                              ? 'follow-up'
+                              : 'source-event'
                 }
                 items={[
                   // The event that triggered this delivery, so the
@@ -2013,6 +2017,16 @@ export const LogsRoute = () => {
                   // the record actually carries a traceId. Inbound calls that
                   // have the Trace tab already see these same stages there, with
                   // bodies and retries, so the Timeline would only repeat it.
+                  // What the integration's follow-up script asked the provider after the send, and what came back.
+                  ...(fullLog.followUp
+                    ? [
+                        {
+                          key: 'follow-up',
+                          label: 'Follow-up',
+                          children: <FollowUpChecks followUp={fullLog.followUp} />,
+                        },
+                      ]
+                    : []),
                   ...((fullLog as any).traceId && !(isInboundLog && (fullLog as any).executionTrace?.length)
                     ? [
                         {
@@ -2314,7 +2328,7 @@ export const LogsRoute = () => {
                 },
               ]}
             />
-            <DeliveryFollowUpSummary stats={followUpStats} />
+            {integrationFilter && <DeliveryFollowUpSummary stats={followUpStats} />}
             </>
           ) : null}
         </div>

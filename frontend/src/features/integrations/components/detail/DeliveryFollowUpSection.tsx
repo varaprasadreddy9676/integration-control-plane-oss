@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { getFollowUpPreset, testFollowUpScript, type FollowUpTestResult } from '../../../../services/api';
 import { InlineHint } from '../../../../components/common/InlineHint';
 import { MonacoEditorInput } from '../MonacoEditorInput';
+import { followUpStatusColor, followUpStatusLabel } from '../../../logs/components/followUpStatus';
 
 const { Text } = Typography;
 
@@ -111,18 +112,12 @@ const SCRIPT_HELP = `// delivery.response  what the target answered when the mes
 // context.headers     the headers this integration sends (its API key and auth)
 // http.get(url, { headers })   ask the provider; skip('reason') stops following up
 //
-// Return { status, deliveredAt, readAt, errorCode, errorMessage }
-// status is one of PENDING, SENT, DELIVERED, READ, FAILED.`;
+// Return { status, done, errorCode, errorMessage }
+// status: any short word you choose, e.g. DELIVERED, READ, FAILED, SIGNED_OFF
+// done:   true when there is nothing more to wait for (stops the remaining checks)
+// Return nothing (or status PENDING) when the provider has no answer yet.`;
 
 const DEFAULT_SAMPLE = '{\n  "status": true,\n  "data": [{ "id": "message-id-from-the-send-response" }]\n}';
-
-const STATUS_COLOR: Record<string, string> = {
-  READ: 'green',
-  DELIVERED: 'green',
-  SENT: 'blue',
-  PENDING: 'default',
-  FAILED: 'red',
-};
 
 const TestPanel = ({ form, integrationId }: { form: any; integrationId?: string }) => {
   const [sample, setSample] = useState(DEFAULT_SAMPLE);
@@ -164,12 +159,15 @@ const TestPanel = ({ form, integrationId }: { form: any; integrationId?: string 
         <Space direction="vertical" size={8} style={{ width: '100%' }}>
           {result.outcome === 'RESULT' && result.result && (
             <Alert
-              type={result.result.status === 'FAILED' ? 'warning' : 'success'}
+              type={followUpStatusColor(result.result.status, result.result.done) === 'red' ? 'warning' : 'success'}
               showIcon
               message={
                 <Space wrap>
                   <span>The script answered</span>
-                  <Tag color={STATUS_COLOR[result.result.status]}>{result.result.status}</Tag>
+                  <Tag color={followUpStatusColor(result.result.status, result.result.done)}>
+                    {followUpStatusLabel(result.result.status)}
+                  </Tag>
+                  {result.result.done && <Text type="secondary">(done)</Text>}
                   {result.result.errorCode && <Text code>{result.result.errorCode}</Text>}
                 </Space>
               }
@@ -281,6 +279,35 @@ export const DeliveryFollowUpSection = ({ form, integrationId }: DeliveryFollowU
             ]}
           />
         </>
+      )}
+    </Space>
+  );
+};
+
+/** The follow-up setting when the integration is only being viewed. */
+export const DeliveryFollowUpView = ({ form }: { form: any }) => {
+  // The edit fields are not mounted in view mode, so read the form store directly.
+  const config = form?.getFieldValue('deliveryFollowUp');
+  const on = config?.enabled === true;
+  const checks: number[] = Array.isArray(config?.checkAfterSeconds) ? config.checkAfterSeconds : DEFAULT_SCHEDULE;
+
+  return (
+    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Space wrap>
+        <Text strong>Follow up on each accepted message</Text>
+        <Tag color={on ? 'green' : 'default'}>{on ? 'On' : 'Off'}</Tag>
+      </Space>
+      {on ? (
+        <>
+          <Text>
+            Checks after it is sent: <strong>{checks.map(formatDuration).join(', ')}</strong>
+          </Text>
+          <MonacoEditorInput value={config?.script || ''} readOnly height="280px" />
+        </>
+      ) : (
+        <Text type="secondary">
+          Messages are not followed up. Turn it on in edit mode to ask the provider what became of each message.
+        </Text>
       )}
     </Space>
   );

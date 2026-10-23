@@ -17,7 +17,7 @@ jest.mock('mongodb', () => {
 });
 jest.mock('../../src/logger', () => ({ log: jest.fn(), logError: jest.fn() }));
 
-const { applyPreset, rollbackPreset, selectTargets } = require('../../src/scripts/apply-follow-up-preset');
+const { applyPreset, rollbackPreset, selectTargets, upgradeScripts } = require('../../src/scripts/apply-follow-up-preset');
 const { PRESETS } = require('../../src/services/delivery-follow-up-presets');
 
 const preset = PRESETS.find((p) => p.id === 'qikchat');
@@ -106,5 +106,66 @@ describe('apply-follow-up-preset', () => {
     expect(out).toEqual({ requested: 2, removed: 1 });
     expect(data.find((d) => d._id === 'a').deliveryFollowUp).toBeUndefined();
     expect(data.find((d) => d._id === 'b').deliveryFollowUp.script).toContain('READ');
+  });
+
+  describe('upgrading an earlier script', () => {
+    const OLD = preset.previousScripts[0];
+    const withScript = (id, script, extra = {}) => qik(id, { deliveryFollowUp: { enabled: true, script, checkAfterSeconds: [30, 300] }, ...extra });
+    const upgradeDb = (data) => ({
+      collection: () => ({
+        find: () => ({ toArray: async () => data.filter((d) => d.deliveryFollowUp && preset.previousScripts.includes(d.deliveryFollowUp.script)) }),
+        updateMany: jest.fn(async (filter, update) => {
+          let modified = 0;
+          for (const d of data) {
+            if (!filter._id.$in.map(String).includes(String(d._id))) continue;
+            if (!d.deliveryFollowUp || d.deliveryFollowUp.script !== filter['deliveryFollowUp.script']) continue;
+            d.deliveryFollowUp.script = update.$set['deliveryFollowUp.script'];
+            modified += 1;
+          }
+          return { modifiedCount: modified };
+        }),
+      }),
+    });
+
+    it('moves only integrations that still have the earlier script, keeping their schedule and switch', async () => {
+      const data = [withScript('a', OLD), withScript('b', 'return null; // my own'), withScript('c', OLD, { isActive: true })];
+      const out = await upgradeScripts({ db: upgradeDb(data), preset, commit: true, backupDir: dir });
+      expect(out.applied).toBe(2);
+      expect(data[0].deliveryFollowUp.script).toBe(preset.config.script);
+      expect(data[2].deliveryFollowUp).toMatchObject({ enabled: true, script: preset.config.script, checkAfterSeconds: [30, 300] });
+      expect(data[1].deliveryFollowUp.script).toBe('return null; // my own');
+      expect(data[2].isActive).toBe(true);
+    });
+
+    it('changes nothing without --commit', async () => {
+      const data = [withScript('a', OLD)];
+      const out = await upgradeScripts({ db: upgradeDb(data), preset, commit: false, backupDir: dir });
+      expect(out).toMatchObject({ applied: 0, summary: { total: 1 } });
+      expect(data[0].deliveryFollowUp.script).toBe(OLD);
+    });
+
+    it('can be undone from its backup, but only where the script is still the new one', async () => {
+      const data = [withScript('a', OLD), withScript('b', OLD)];
+      const { backupFile } = await upgradeScripts({ db: upgradeDb(data), preset, commit: true, backupDir: dir });
+      data[1].deliveryFollowUp.script = 'return null; // edited after the upgrade';
+      const rollbackDb = {
+        collection: () => ({
+          updateMany: jest.fn(async (filter, update) => {
+            let modified = 0;
+            for (const d of data) {
+              if (!filter._id.$in.map(String).includes(String(d._id))) continue;
+              if (d.deliveryFollowUp.script !== filter['deliveryFollowUp.script']) continue;
+              d.deliveryFollowUp.script = update.$set['deliveryFollowUp.script'];
+              modified += 1;
+            }
+            return { modifiedCount: modified };
+          }),
+        }),
+      };
+      const out = await rollbackPreset({ db: rollbackDb, preset, backupFile });
+      expect(out).toEqual({ requested: 2, removed: 1 });
+      expect(data[0].deliveryFollowUp.script).toBe(OLD);
+      expect(data[1].deliveryFollowUp.script).toContain('edited after');
+    });
   });
 });

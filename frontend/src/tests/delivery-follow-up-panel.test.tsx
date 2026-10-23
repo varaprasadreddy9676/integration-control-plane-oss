@@ -9,8 +9,9 @@ describe('FollowUpTag', () => {
   it.each([
     ['DELIVERED', 'Delivered'],
     ['READ', 'Read'],
-    ['FAILED', 'Not delivered'],
+    ['FAILED', 'Failed'],
     ['SENT', 'Sent'],
+    ['SIGNED_OFF', 'Signed off'],
     ['PENDING', 'Checking'],
     ['UNKNOWN', 'Unknown'],
   ] as const)('shows %s as "%s"', (status, label) => {
@@ -58,7 +59,7 @@ describe('DeliveryFollowUpPanel', () => {
         followUp={{ status: 'FAILED', done: true, checks: 1, errorCode: '131026', errorMessage: 'Message undeliverable' }}
       />
     );
-    expect(screen.getByText('Error 131026')).toBeInTheDocument();
+    expect(screen.getByText('Reason 131026')).toBeInTheDocument();
     expect(screen.getByText('Message undeliverable')).toBeInTheDocument();
   });
 

@@ -163,7 +163,7 @@ describe('DeliveryFollowUpSection', () => {
     await waitFor(() =>
       expect(api.testFollowUpScript).toHaveBeenCalledWith('i1', expect.objectContaining({ script: 'return 1;', statusCode: 200 }))
     );
-    expect(await screen.findByText('DELIVERED')).toBeInTheDocument();
+    expect(await screen.findByText('Delivered')).toBeInTheDocument();
     expect(screen.getByText(/GET https:\/\/p\.example\/v1\/messages\?msgid=m1 → 200/)).toBeInTheDocument();
   });
 

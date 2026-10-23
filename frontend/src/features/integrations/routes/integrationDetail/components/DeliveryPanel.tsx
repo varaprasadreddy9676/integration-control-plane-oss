@@ -34,13 +34,7 @@ export const DeliveryPanel = ({
   return (
     <div style={{ display: 'grid', gap: spacingToNumber(spacing[4]) }}>
       <DeliveryTimingSection spacing={spacing} {...props} />
-      <DeliveryReliabilitySection
-        uiConfig={props.uiConfig}
-        spacing={spacing}
-        form={props.form}
-        isLoading={props.isLoading}
-        integrationId={props.integrationId}
-      />
+      <DeliveryReliabilitySection uiConfig={props.uiConfig} spacing={spacing} form={props.form} isLoading={props.isLoading} />
     </div>
   );
 };

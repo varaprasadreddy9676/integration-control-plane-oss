@@ -6,10 +6,11 @@
  * the routes can use it. The behaviour is in delivery-follow-up.js.
  */
 
-// What a script may return. READ and FAILED end the follow-up; DELIVERED does
-// not, because a read can still follow.
-const SCRIPT_STATUSES = ['PENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED'];
-const FINAL_STATUSES = new Set(['READ', 'FAILED', 'NOT_TRACKED']);
+// A script returns any status word it likes and says `done: true` when there is
+// nothing more to wait for. Scripts written before `done` existed returned READ
+// or FAILED for that, so those two still end the follow-up unless done is given.
+// PENDING (no answer yet), UNKNOWN (gave up) and NOT_TRACKED (skip) are the gateway's own.
+const FINAL_BY_DEFAULT = new Set(['READ', 'FAILED', 'NOT_TRACKED']);
 
 const DEFAULT_SCHEDULE_SECONDS = [30, 300, 3600, 86400];
 const MIN_CHECK_SECONDS = 10;
@@ -64,30 +65,15 @@ function normalizeDeliveryFollowUp(config) {
 
 const isActive = (config) => Boolean(config && config.enabled === true && config.script);
 
-/**
- * The headline numbers for a period, from counts by delivery status. A read
- * message was delivered, so READ counts in both.
- */
+/** Counts by status as the scripts reported them, plus how many are followed at all. */
 function summarizeFollowUpStats(byStatus = {}) {
-  const count = (status) => byStatus[status] || 0;
   const total = Object.values(byStatus).reduce((sum, value) => sum + value, 0);
-  return {
-    total,
-    tracked: total - count('NOT_TRACKED'),
-    delivered: count('DELIVERED') + count('READ'),
-    read: count('READ'),
-    failed: count('FAILED'),
-    pending: count('PENDING') + count('SENT'),
-    unknown: count('UNKNOWN'),
-    notTracked: count('NOT_TRACKED'),
-    byStatus,
-  };
+  return { total, tracked: total - (byStatus.NOT_TRACKED || 0), byStatus };
 }
 
 module.exports = {
-  SCRIPT_STATUSES,
   summarizeFollowUpStats,
-  FINAL_STATUSES,
+  FINAL_BY_DEFAULT,
   DEFAULT_SCHEDULE_SECONDS,
   validateDeliveryFollowUp,
   normalizeDeliveryFollowUp,

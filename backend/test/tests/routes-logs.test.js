@@ -535,18 +535,17 @@ describe('GET /api/v1/logs/stats/delivery-follow-up', () => {
     });
   });
 
-  it('reports delivered, read and failed, counting a read as delivered', async () => {
+  it('reports the counts by whatever status the scripts returned, and how many are followed up', async () => {
+    mockFollowUpStats.mockResolvedValue({
+      byStatus: { READ: 6, DELIVERED: 3, FAILED: 2, SIGNED_OFF: 4, NOT_TRACKED: 5 },
+      topErrors: [{ code: '131026', message: 'Undeliverable', count: 2 }],
+    });
     const res = await request(app()).get('/api/v1/logs/stats/delivery-follow-up');
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      total: 22,
-      tracked: 17,
-      delivered: 9, // DELIVERED + READ
-      read: 6,
-      failed: 2,
-      pending: 5, // PENDING + SENT
-      unknown: 1,
-      notTracked: 5,
+    expect(res.body).toEqual({
+      total: 20,
+      tracked: 15,
+      byStatus: { READ: 6, DELIVERED: 3, FAILED: 2, SIGNED_OFF: 4, NOT_TRACKED: 5 },
       topErrors: [{ code: '131026', message: 'Undeliverable', count: 2 }],
     });
   });
@@ -567,7 +566,7 @@ describe('GET /api/v1/logs/stats/delivery-follow-up', () => {
   it('is empty when nothing is being followed up', async () => {
     mockFollowUpStats.mockResolvedValue({ byStatus: {}, topErrors: [] });
     const res = await request(app()).get('/api/v1/logs/stats/delivery-follow-up');
-    expect(res.body).toMatchObject({ total: 0, tracked: 0, delivered: 0, read: 0, failed: 0 });
+    expect(res.body).toMatchObject({ total: 0, tracked: 0, byStatus: {}, topErrors: [] });
   });
 
   it('limits a portal session to its allowed integrations', async () => {

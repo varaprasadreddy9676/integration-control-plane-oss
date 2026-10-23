@@ -126,8 +126,25 @@ describe('normalizeFollowUpResult', () => {
     expect(followUp.normalizeFollowUpResult('delivered').status).toBe('DELIVERED');
   });
 
-  it('rejects a status it does not know, so a typo is visible', () => {
-    expect(() => followUp.normalizeFollowUpResult({ status: 'DELIVRD' })).toThrow(/unknown status "DELIVRD"/i);
+  it('takes whatever status word the script chooses', () => {
+    expect(followUp.normalizeFollowUpResult({ status: 'Delivered' }).status).toBe('DELIVERED');
+    expect(followUp.normalizeFollowUpResult({ status: 'in progress' }).status).toBe('IN_PROGRESS');
+    expect(followUp.normalizeFollowUpResult({ status: 'signed-off' }).status).toBe('SIGNED_OFF');
+  });
+
+  it('rejects a status that is not a short word, so a mistake is visible', () => {
+    expect(() => followUp.normalizeFollowUpResult({ status: 'not a word!' })).toThrow(/status must be a short word/i);
+    expect(() => followUp.normalizeFollowUpResult({ status: 'x'.repeat(41) })).toThrow(/status must be a short word/i);
+    expect(() => followUp.normalizeFollowUpResult({ status: { a: 1 } })).toThrow(/status must be a short word/i);
+  });
+
+  it('lets the script say it is finished; READ and FAILED finish by default', () => {
+    expect(followUp.normalizeFollowUpResult({ status: 'COMPLETED', done: true }).done).toBe(true);
+    expect(followUp.normalizeFollowUpResult({ status: 'COMPLETED' }).done).toBe(false);
+    expect(followUp.normalizeFollowUpResult({ status: 'READ' }).done).toBe(true);
+    expect(followUp.normalizeFollowUpResult({ status: 'FAILED' }).done).toBe(true);
+    expect(followUp.normalizeFollowUpResult({ status: 'READ', done: false }).done).toBe(false);
+    expect(followUp.normalizeFollowUpResult(null).done).toBe(false);
   });
 
   it('ignores unusable timestamps instead of failing the check', () => {
@@ -282,11 +299,95 @@ describe('processFollowUp', () => {
     expect(mockQueue.markLog.mock.calls[0][2].lastError).toMatch(/ECONNRESET/);
   });
 
-  it('treats an unknown status from the script as a failed check, not a status', async () => {
-    mockApplyScriptTransform.mockResolvedValue({ status: 'DELIVRD' });
+  it('treats a status that is not a word as a failed check, not a status', async () => {
+    mockApplyScriptTransform.mockResolvedValue({ status: 'not a word!' });
     await followUp.processFollowUp(makeJob(), now);
     expect(lastSaved().deliveryStatus).toBe('PENDING');
-    expect(lastSaved().lastError).toMatch(/unknown status/i);
+    expect(lastSaved().lastError).toMatch(/status must be a short word/i);
+  });
+
+  it('stops on any status when the script says it is done, and goes on when it does not', async () => {
+    mockApplyScriptTransform.mockResolvedValue({ status: 'Signed off', done: true });
+    await followUp.processFollowUp(makeJob(), now);
+    expect(lastSaved()).toMatchObject({ deliveryStatus: 'SIGNED_OFF', status: 'DONE' });
+
+    jest.clearAllMocks();
+    mockGetIntegration.mockResolvedValue(integration());
+    mockApplyScriptTransform.mockResolvedValue({ status: 'Signed off' });
+    await followUp.processFollowUp(makeJob(), now);
+    expect(lastSaved()).toMatchObject({ deliveryStatus: 'SIGNED_OFF', status: 'PENDING' });
+  });
+
+  describe('what each check records', () => {
+    const spanFor = (extra = {}) => ({
+      name: 'script_http',
+      method: 'GET',
+      url: 'https://p.example/v1/messages?msgid=m1&api_key=url-secret',
+      requestHeaders: { 'QIKCHAT-API-KEY': 'header-secret', Accept: 'application/json' },
+      statusCode: 200,
+      duration: 42,
+      responseBody: '{"message":{"status":"delivered"}}',
+      ...extra,
+    });
+
+    it('keeps the request and response of every check, with credentials masked', async () => {
+      mockApplyScriptTransform.mockImplementation(async (_s, _d, _c, _i, spans) => {
+        spans.push(spanFor());
+        return { status: 'DELIVERED' };
+      });
+      await followUp.processFollowUp(makeJob(), now);
+
+      const entry = lastSaved().history[0];
+      expect(entry).toMatchObject({ check: 1, at: now, outcome: 'RESULT', status: 'DELIVERED' });
+      expect(entry.httpCalls[0]).toMatchObject({ method: 'GET', statusCode: 200, durationMs: 42 });
+      expect(entry.httpCalls[0].url).toContain('msgid=m1');
+      expect(JSON.stringify(entry)).not.toMatch(/url-secret|header-secret/);
+      expect(entry.httpCalls[0].headers).toEqual({ 'QIKCHAT-API-KEY': '********', Accept: 'application/json' });
+      expect(entry.httpCalls[0].responseBody).toContain('delivered');
+      expect(mockQueue.markLog.mock.calls[0][2].history).toEqual(lastSaved().history);
+    });
+
+    it('asks the sandbox to record request headers', async () => {
+      mockApplyScriptTransform.mockResolvedValue({ status: 'SENT' });
+      await followUp.processFollowUp(makeJob(), now);
+      expect(mockApplyScriptTransform.mock.calls[0][2].captureHttpHeaders).toBe(true);
+    });
+
+    it('adds to the history of the earlier checks and keeps at most 10', async () => {
+      mockApplyScriptTransform.mockResolvedValue({ status: 'SENT' });
+      const earlier = Array.from({ length: 10 }, (_, i) => ({ check: i + 1, outcome: 'RESULT', status: 'SENT', httpCalls: [] }));
+      await followUp.processFollowUp(makeJob({ checkIndex: 0, history: earlier }), now);
+      const history = lastSaved().history;
+      expect(history).toHaveLength(10);
+      expect(history[9]).toMatchObject({ check: 1, outcome: 'RESULT' });
+      expect(history[0].check).toBe(2); // the oldest fell off
+    });
+
+    it('records a failed check with its error and what the provider answered before it failed', async () => {
+      mockApplyScriptTransform.mockImplementation(async (_s, _d, _c, _i, spans) => {
+        spans.push(spanFor({ statusCode: 500, responseBody: '{"error":"down"}' }));
+        throw new Error('Script execution failed: Status check returned 500');
+      });
+      await followUp.processFollowUp(makeJob(), now);
+      const entry = lastSaved().history[0];
+      expect(entry).toMatchObject({ outcome: 'ERROR', error: expect.stringContaining('returned 500') });
+      expect(entry.httpCalls[0]).toMatchObject({ statusCode: 500 });
+    });
+
+    it('records a skip with its reason', async () => {
+      mockApplyScriptTransform.mockResolvedValue({ __skipped: true, reason: 'No message id in the response' });
+      await followUp.processFollowUp(makeJob(), now);
+      expect(lastSaved().history[0]).toMatchObject({ outcome: 'SKIPPED', reason: 'No message id in the response' });
+    });
+
+    it('truncates a very large response so the log stays small', async () => {
+      mockApplyScriptTransform.mockImplementation(async (_s, _d, _c, _i, spans) => {
+        spans.push(spanFor({ responseBody: 'x'.repeat(20000) }));
+        return { status: 'SENT' };
+      });
+      await followUp.processFollowUp(makeJob(), now);
+      expect(lastSaved().history[0].httpCalls[0].responseBody.length).toBeLessThanOrEqual(3100);
+    });
   });
 
   it('stops tracking when the script calls skip()', async () => {
@@ -354,10 +455,10 @@ describe('testFollowUpScript', () => {
       outcome: 'ERROR',
       error: expect.stringContaining('boom'),
     });
-    mockApplyScriptTransform.mockResolvedValueOnce({ status: 'DELIVRD' });
+    mockApplyScriptTransform.mockResolvedValueOnce({ status: 'not a word!' });
     expect(await followUp.testFollowUpScript({ integration: integration(), script: SCRIPT, delivery })).toMatchObject({
       outcome: 'ERROR',
-      error: expect.stringMatching(/unknown status/i),
+      error: expect.stringMatching(/status must be a short word/i),
     });
   });
 

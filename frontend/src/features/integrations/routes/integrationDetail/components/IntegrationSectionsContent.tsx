@@ -11,6 +11,7 @@ import {
   EyeOutlined,
   RadarChartOutlined,
   SwapOutlined,
+  CarryOutOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 
@@ -22,6 +23,7 @@ import { MultiActionHeader } from './MultiActionHeader';
 import { MultiActionList } from './MultiActionList';
 import { DeliveryReliabilitySection } from './DeliveryReliabilitySection';
 import { DeliveryReliabilitySummary } from './DeliveryReliabilitySummary';
+import { DeliveryFollowUpSection, DeliveryFollowUpView } from '../../../components/detail/DeliveryFollowUpSection';
 import { DeliveryTimingSection } from './DeliveryTimingSection';
 import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
@@ -497,13 +499,7 @@ export const buildIntegrationSectionItems = ({
         isReadOnly ? (
           <DeliveryReliabilitySummary uiConfig={uiConfig} spacing={spacing} form={form} />
         ) : (
-          <DeliveryReliabilitySection
-            uiConfig={uiConfig}
-            spacing={spacing}
-            form={form}
-            isLoading={isLoading}
-            integrationId={integrationId}
-          />
+          <DeliveryReliabilitySection uiConfig={uiConfig} spacing={spacing} form={form} isLoading={isLoading} />
         )
       ),
     }
@@ -617,6 +613,28 @@ export const buildIntegrationSectionItems = ({
             />
           )}
         </Space>
+      ),
+    });
+
+    // After a send is accepted, a script asks the provider what became of it (delivered, read, failed...).
+    items.push({
+      key: 'deliveryFollowUp',
+      label: (
+        <Space size={6}>
+          <CarryOutOutlined />
+          Delivery follow-up
+          {form?.getFieldValue(['deliveryFollowUp', 'enabled']) === true && (
+            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+          )}
+        </Space>
+      ),
+      disabled: !configComplete,
+      children: wrapContent(
+        isReadOnly ? (
+          <DeliveryFollowUpView form={form} />
+        ) : (
+          <DeliveryFollowUpSection form={form} integrationId={integrationId} />
+        )
       ),
     });
   }
