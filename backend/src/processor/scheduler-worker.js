@@ -18,6 +18,8 @@ const {
 const { createExecutionLogger } = require('../utils/execution-logger');
 const { checkRateLimit } = require('../middleware/rate-limiter');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
+const { createAttemptStages } = require('../stages/attempt');
+const { headersObject, withQuery } = require('../stages/send-helpers');
 const { applyTransform } = transformer;
 const getTransformationSkipReason = transformer.getTransformationSkipReason || (() => null);
 const isTransformationSkipped = transformer.isTransformationSkipped || (() => false);
@@ -510,6 +512,13 @@ function startSchedulerWorker() {
                 });
               }
             }
+          } else if (deliveryResult.status === 'SKIPPED') {
+            // A before_send stage skipped it (logged SKIPPED): not a failure of the target.
+            // eslint-disable-next-line no-await-in-loop
+            await data.updateScheduledIntegrationStatus(scheduled.id, 'CANCELLED', {
+              errorMessage: deliveryResult.errorMessage,
+              attemptCount: deliveryResult.attemptCount,
+            });
           } else if (deliveryResult.status === 'RETRYING') {
             log('warn', `[SCHEDULER #${pollCount}] Scheduled integration retrying`, {
               correlationId,
@@ -1214,6 +1223,20 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     );
   }
 
+  // Pipeline stages (src/stages): inline hooks around the send, and deferred work
+  // written with each log write. A no-op for integrations without stages.
+  const stages = createAttemptStages({
+    integration,
+    evt: { payload: scheduled.originalPayload || payload },
+    orgId,
+    attempt: attemptCount,
+  });
+  const recordAttempt = async (logPayload, outcome) => {
+    const recordedId = await data.recordLog(orgId, await stages.decorate(logPayload, { outcome }));
+    await stages.drain(recordedId);
+    return recordedId;
+  };
+
   try {
     const urlCheck = validateTargetUrl(scheduled.targetUrl, config.security);
     if (!urlCheck.valid) {
@@ -1226,7 +1249,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         })
         .catch(() => {});
 
-      await data.recordLog(orgId, {
+      await recordAttempt({
         integrationConfigId: integration.id,
         integrationName: integration.name,
         eventType: scheduled.eventType,
@@ -1268,18 +1291,52 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       .catch(() => {});
 
     // Pre-delivery checks: URLs the target will fetch itself must be reachable first
-    const checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
+    let checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
       requestPayload: payload,
       eventPayload: scheduled.originalPayload || payload,
       urlOptions: config.security,
       executionLogger,
     });
+
+    // before_send stages see the request about to go out; a gate can skip, fail or
+    // (when the stage allows it) retry the delivery. Nothing has been sent yet.
+    let gate = { proceed: true, headers: {}, query: {} };
+    if (!checkFailure) {
+      gate = await stages.beforeSend({ url: scheduled.targetUrl, method: scheduled.httpMethod, body: payload });
+      if (!gate.proceed && gate.status === 'SKIPPED') {
+        const skipMessage = `${prefix}Skipping delivery: ${gate.message}`;
+        await recordAttempt({
+          integrationConfigId: integration.id,
+          integrationName: integration.name,
+          eventType: scheduled.eventType,
+          direction: 'OUTBOUND',
+          triggerType: 'SCHEDULED',
+          status: 'SKIPPED',
+          responseStatus: 204,
+          responseTimeMs: Date.now() - start,
+          attemptCount,
+          originalPayload: scheduled.originalPayload || payload,
+          requestPayload: payload,
+          errorMessage: skipMessage,
+          targetUrl: scheduled.targetUrl,
+          httpMethod: scheduled.httpMethod,
+          correlationId: traceId,
+          traceId: traceId,
+          requestHeaders: null,
+        });
+        await executionLogger.updateStatus('skipped').catch(() => {});
+        return { status: 'SKIPPED', responseStatus: 204, errorMessage: skipMessage, attemptCount };
+      }
+      if (!gate.proceed) {
+        checkFailure = { errorMessage: gate.message, retryable: gate.status === 'RETRYING', responseStatus: null, code: 'STAGE_GATE_FAILED' };
+      }
+    }
     if (checkFailure) {
       const maxRetries = integration.retryCount || 3;
       const willRetry = checkFailure.retryable && attemptCount < maxRetries;
       const errorMessage = `${prefix}${checkFailure.errorMessage}`;
 
-      await data.recordLog(orgId, {
+      await recordAttempt({
         integrationConfigId: integration.id,
         integrationName: integration.name,
         eventType: scheduled.eventType,
@@ -1313,7 +1370,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       }
 
       const error = new Error(errorMessage);
-      error.code = 'PRE_DELIVERY_CHECK_FAILED';
+      error.code = checkFailure.code || 'PRE_DELIVERY_CHECK_FAILED';
       error.statusCode = checkFailure.responseStatus || null;
       await executionLogger
         .fail(error, {
@@ -1352,7 +1409,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
           const retryAfter = rateResult.retryAfter ? `, retry after ${rateResult.retryAfter}s` : '';
           const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
-          await data.recordLog(orgId, {
+          await recordAttempt({
             integrationConfigId: integration.id,
             integrationName: integration.name,
             eventType: scheduled.eventType,
@@ -1399,6 +1456,8 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
 
     const headers = await buildAuthHeaders(integration, scheduled.httpMethod, scheduled.targetUrl);
     headers['Content-Type'] = 'application/json';
+    // The Send step's bindings: values from before_send stages (a token, for example).
+    Object.assign(headers, gate.headers);
     headers['X-Correlation-ID'] = traceId;
     headers['X-Trace-ID'] = traceId;
     headers['X-Scheduled-Integration-ID'] = scheduled.id;
@@ -1436,7 +1495,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
 
     // Make HTTP request
     const httpStart = Date.now();
-    const resp = await fetch(scheduled.targetUrl, {
+    const resp = await fetch(withQuery(scheduled.targetUrl, gate.query), {
       method: scheduled.httpMethod,
       headers,
       body: JSON.stringify(payload),
@@ -1455,7 +1514,14 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     let errorMessage = null;
     let shouldRetry = false;
 
-    if (resp.status >= 200 && resp.status < 300) {
+    // after_response stages see every answer; a classifier can only turn an
+    // accepted send into a failure, and resend only under its explicit policy.
+    const verdict = await stages.afterResponse({ status: resp.status, headers: headersObject(resp), body: responseBody });
+
+    if (verdict.failed && resp.status >= 200 && resp.status < 300) {
+      errorMessage = verdict.message;
+      shouldRetry = verdict.retry;
+    } else if (resp.status >= 200 && resp.status < 300) {
       deliveryStatus = 'SUCCESS';
     } else if (resp.status >= 500) {
       errorMessage = `Server error: ${resp.status}`;
@@ -1482,8 +1548,10 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       })
       .catch(() => {});
 
-    // Record delivery log
-    await data.recordLog(orgId, {
+    // Record delivery log (a failure that will be retried is logged FAILED but is not terminal)
+    const maxRetries = integration.retryCount || 3;
+    const willRetry = deliveryStatus !== 'SUCCESS' && shouldRetry && attemptCount < maxRetries;
+    await recordAttempt({
       integrationConfigId: integration.id,
       integrationName: integration.name,
       eventType: scheduled.eventType,
@@ -1506,10 +1574,9 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
       signatureHeaders,
-    });
+    }, willRetry ? 'RETRYING' : deliveryStatus);
 
-    const maxRetries = integration.retryCount || 3;
-    if (deliveryStatus !== 'SUCCESS' && shouldRetry && attemptCount < maxRetries) {
+    if (willRetry) {
       const delaySeconds = computeRetryDelaySeconds(attemptCount);
 
       // Update status to retrying (don't create DLQ yet)
@@ -1568,8 +1635,10 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       })
       .catch(() => {});
 
-    // Record failure
-    await data.recordLog(orgId, {
+    // Record failure (logged FAILED; terminal only when it will not be retried)
+    const maxRetries = integration.retryCount || 3;
+    const willRetry = err.code !== 'SIGNING_FAILED' && attemptCount < maxRetries;
+    await recordAttempt({
       integrationConfigId: integration.id,
       integrationName: integration.name,
       eventType: scheduled.eventType,
@@ -1587,10 +1656,9 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       correlationId: traceId,
       traceId: traceId,
       requestHeaders: null,
-    });
+    }, willRetry ? 'RETRYING' : 'FAILED');
 
-    const maxRetries = integration.retryCount || 3;
-    if (err.code !== 'SIGNING_FAILED' && attemptCount < maxRetries) {
+    if (willRetry) {
       const delaySeconds = computeRetryDelaySeconds(attemptCount);
 
       // Update status to retrying (don't create DLQ yet)

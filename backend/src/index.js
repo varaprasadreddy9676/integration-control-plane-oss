@@ -31,6 +31,8 @@ const { getScheduledJobWorker } = require('./processor/scheduled-job-worker');
 const { startDLQWorker, stopDLQWorker } = require('./processor/dlq-worker');
 const { startFollowUpWorker, stopFollowUpWorker } = require('./processor/follow-up-worker');
 const { startStageRuntime, stopStageRuntime } = require('./stages/runtime');
+const { createJobWorker: createStageJobWorker } = require('./stages/job-worker');
+const { createDeadLetterAlerter } = require('./stages/alerts');
 const { startFailureEmailReportScheduler, sendAlertEmail } = require('./services/notifications/failure-report');
 const { raiseAlert } = require('./services/notifications/raise-alert');
 const { createDlqBacklogWatcher } = require('./services/dlq-backlog-health');
@@ -98,6 +100,8 @@ let stopDeliveryFailureHealthWatcher = () => {};
 let stopDlqBacklogWatcher = () => {};
 let stopDashboardAnalyticsRollupWorker = () => {};
 let dailyCleanupTimer = null;
+let stageJobWorker = null;
+
 let shutdownState = {
   draining: false,
   reason: null,
@@ -176,6 +180,7 @@ async function initiateGracefulDrain(reason, error = null, options = {}) {
     Promise.resolve().then(() => stopPendingDeliveriesWorker()),
     Promise.resolve().then(() => stopDLQWorker()),
     Promise.resolve().then(() => stopFollowUpWorker()),
+    Promise.resolve().then(() => stageJobWorker && stageJobWorker.stop()),
     Promise.resolve().then(() => stopStageRuntime()),
     Promise.resolve().then(() => stopDashboardAnalyticsRollupWorker()),
     Promise.resolve().then(() => getScheduledJobWorker().stop()),
@@ -485,6 +490,13 @@ async function bootstrap() {
       });
     })
     .catch((error) => log('error', 'Stage runtime failed to start', { error: error.message }));
+
+  // Deferred stages (after delivery, on failure) and the repair of left-behind outbox work.
+  stageJobWorker = createStageJobWorker({
+    concurrency: config.stages.poolSize,
+    onDeadLetter: createDeadLetterAlerter({ raise: raiseAlert, log }),
+  });
+  stageJobWorker.start();
 
   stopDeliveryWorker = await startDeliveryWorker();
   stopSchedulerWorker = startSchedulerWorker(); // Start scheduler for delayed/recurring integrations

@@ -21,6 +21,8 @@ const hl7 = require('../services/hl7/codec');
 const { sendMllpMessage } = require('../services/hl7/mllp-client');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { scheduleFollowUp } = require('../services/delivery-follow-up');
+const { createAttemptStages, NOOP: NO_STAGES } = require('../stages/attempt');
+const { headersObject, withQuery } = require('../stages/send-helpers');
 
 // Move dynamic require to top-level (was inside deliverSingleAction)
 const adapterRegistry = require('../services/communication/adapter-registry');
@@ -1532,6 +1534,24 @@ async function deliverToIntegration(
   // Use execution log ID for updates instead of creating new logs
   const logIdForUpdates = existingLogId || executionLogger.executionLogId;
 
+  // Pipeline stages (src/stages): inline hooks around the send, and deferred work
+  // written with each log update. A no-op for integrations without stages.
+  const stages = isMultiAction
+    ? NO_STAGES
+    : createAttemptStages({
+        integration,
+        evt,
+        orgId,
+        attempt: (evt.attempt_count || 0) + 1,
+        isTest: isTestEvent(evt),
+        deliveryId: logIdForUpdates,
+      });
+  const recordAttempt = async (payload) => {
+    const recordedId = await data.recordLog(orgId, await stages.decorate(payload));
+    await stages.drain(recordedId);
+    return recordedId;
+  };
+
   // CIRCUIT BREAKER: Check if circuit is open before attempting delivery
   const circuitStatus = await data.checkCircuitState(integration.id);
   if (circuitStatus.isOpen && !allowBypassCircuit) {
@@ -1550,7 +1570,7 @@ async function deliverToIntegration(
     const circuitMaxRetries = integration.retryCount || 3;
     const circuitFinalStatus = circuitAttemptCount > circuitMaxRetries ? 'ABANDONED' : 'RETRYING';
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,
@@ -1643,7 +1663,7 @@ async function deliverToIntegration(
       })
       .catch(() => {});
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,
@@ -1734,7 +1754,7 @@ async function deliverToIntegration(
   }
 
   if (errorMessage) {
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,
@@ -1780,7 +1800,7 @@ async function deliverToIntegration(
       eventType: evt.event_type,
     });
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,
@@ -1810,12 +1830,48 @@ async function deliverToIntegration(
   }
 
   // Pre-delivery checks: URLs the target will fetch itself must be reachable first
-  const checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
+  let checkFailure = await checkBeforeDelivery(integration.preDeliveryChecks, {
     requestPayload: transformed,
     eventPayload: evt.payload,
     urlOptions: config.security,
     executionLogger,
   });
+
+  // before_send stages see the transformed request; a gate can skip, fail or
+  // (when the stage allows it) retry the delivery. Nothing has been sent yet.
+  let gate = { proceed: true, headers: {}, query: {} };
+  if (!checkFailure) {
+    gate = await stages.beforeSend({ url: integration.targetUrl, method: integration.httpMethod || 'POST', body: transformed });
+    if (!gate.proceed && gate.status === 'SKIPPED') {
+      const skipMessage = `${prefix}Skipping delivery: ${gate.message}`;
+      const logId = await recordAttempt({
+        id: logIdForUpdates,
+        integrationConfigId: integration.id,
+        integrationName: integration.name,
+        eventId: evt.id || null,
+        eventType: evt.event_type,
+        status: 'SKIPPED',
+        responseStatus: 204,
+        responseTimeMs: Date.now() - start,
+        attemptCount: (evt.attempt_count || 0) + 1,
+        originalPayload: evt.payload,
+        requestPayload: transformed,
+        errorMessage: skipMessage,
+        targetUrl: integration.targetUrl,
+        httpMethod: integration.httpMethod || 'POST',
+        attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
+        correlationId: traceId,
+        traceId: traceId,
+        requestHeaders: null,
+      });
+      await data.recordDeliverySuccess(integration.id);
+      await executionLogger.updateStatus('skipped').catch(() => {});
+      return buildResult('SKIPPED', logId, null, { skipReason: gate.message });
+    }
+    if (!gate.proceed) {
+      checkFailure = { errorMessage: gate.message, retryable: gate.status === 'RETRYING', responseStatus: null, code: 'STAGE_GATE_FAILED' };
+    }
+  }
   if (checkFailure) {
     const attemptCount = (evt.attempt_count || 0) + 1;
     const maxRetries = integration.retryCount || 3;
@@ -1827,7 +1883,7 @@ async function deliverToIntegration(
     }
     log('warn', errorMessage, { integrationId: integration.id, integrationName: integration.name, finalStatus });
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,
@@ -1849,14 +1905,14 @@ async function deliverToIntegration(
       requestHeaders: null,
     });
 
-    // The checked URL failed, not the target: never trip the target's circuit.
+    // The check or gate failed, not the target: never trip the target's circuit.
     await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false, lastErrorMessage: errorMessage });
 
     if (finalStatus === 'RETRYING') {
       await executionLogger.updateStatus('retrying').catch(() => {});
     } else {
       const error = new Error(errorMessage);
-      error.code = 'PRE_DELIVERY_CHECK_FAILED';
+      error.code = checkFailure.code || 'PRE_DELIVERY_CHECK_FAILED';
       error.statusCode = checkFailure.responseStatus || null;
       await executionLogger
         .fail(error, {
@@ -1900,7 +1956,7 @@ async function deliverToIntegration(
         const retryAfter = rateResult.retryAfter ? `, retry after ${rateResult.retryAfter}s` : '';
         const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
-        const logId = await data.recordLog(orgId, {
+        const logId = await recordAttempt({
           id: logIdForUpdates,
           integrationConfigId: integration.id,
           integrationName: integration.name,
@@ -1949,6 +2005,8 @@ async function deliverToIntegration(
     const httpMethod = integration.httpMethod || 'POST';
     headers = await buildAuthHeaders(integration, httpMethod, integration.targetUrl);
     headers['Content-Type'] = 'application/json';
+    // The Send step's bindings: values from before_send stages (a token, for example).
+    Object.assign(headers, gate.headers);
     // Replaying an inbound call: send its {{partnerId}}-style customHeaders again, as the live call did.
     if (integration.direction === 'INBOUND' && evt.isReplay) {
       Object.assign(
@@ -1962,7 +2020,7 @@ async function deliverToIntegration(
 
     // TOKEN QUERY PARAM: If auth config specifies tokenLocation=query, move token from header to URL
     const legacyAuthCfg = integration.outgoingAuthConfig || integration.authConfig;
-    let legacyRequestUrl = integration.targetUrl;
+    let legacyRequestUrl = withQuery(integration.targetUrl, gate.query);
     if (legacyAuthCfg?.tokenLocation === 'query' && legacyAuthCfg?.tokenQueryParamName) {
       const paramName = legacyAuthCfg.tokenQueryParamName;
       const headerName = legacyAuthCfg.tokenHeaderName || 'Authorization';
@@ -2056,6 +2114,20 @@ async function deliverToIntegration(
         }
       } catch (err) {
         log('warn', `${prefix}Response transformation error`, { error: err.message });
+      }
+    }
+
+    // after_response stages see every answer; a classifier can only turn an
+    // accepted send into a failure, and resend only under its explicit policy.
+    if (stages.active) {
+      const answerText = await resp
+        .clone()
+        .text()
+        .catch(() => '');
+      const verdict = await stages.afterResponse({ status: resp.status, headers: headersObject(resp), body: answerText });
+      if (verdict.failed && statusOk) {
+        statusOk = false;
+        responseTransformSkip = { message: verdict.message, shouldRetry: verdict.retry };
       }
     }
 
@@ -2188,7 +2260,7 @@ async function deliverToIntegration(
     // A response body can be read once: read it here and reuse the text.
     const responseBodyText = await safeRead(resp);
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,
@@ -2306,7 +2378,7 @@ async function deliverToIntegration(
           ? `${catchErrorMessage} - Max retries (${maxRetries}) reached`
           : catchErrorMessage;
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: logIdForUpdates,
       integrationConfigId: integration.id,
       integrationName: integration.name,

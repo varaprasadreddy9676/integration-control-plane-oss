@@ -297,6 +297,32 @@ describeMongo('stage engine (MongoDB)', () => {
     });
   });
 
+  describe('replay', () => {
+    const { replayRun } = require('../../../src/stages/replay');
+
+    it('runs the original revision again for the same check, audited, and becomes the latest state', async () => {
+      const stage = checkStage({ runner: { type: 'script', config: { code: 'return { status: ctx.delivery.response.body.id === "m-1" ? "REPLAYED" : "WRONG" };' } } });
+      const integration = await insertIntegration([stage]);
+      const hash = await store.definitions.saveDefinition(ORG, stage);
+      const { insertedId } = await db.collection('execution_logs').insertOne({ orgId: ORG, status: 'SUCCESS', responseStatus: 200, responseBody: '{"id":"m-1"}', originalPayload: { a: 1 } });
+      const original = { ...fakeRecord('check', String(insertedId), 2), integrationId: integration.id, stage: { id: 'check', name: 'x', hook: 'after_delivery', definitionHash: hash }, status: 'FAILED' };
+      await store.projectRun(original);
+
+      const audits = [];
+      const loadIntegration = async () => ({ ...integration });
+      const executeDeps = { runners, pool, resolveCredential: async () => null };
+      await expect(replayRun(ORG, original.runId, {}, { loadIntegration, executeDeps, audit: async (a) => audits.push(a) })).rejects.toMatchObject({ status: 400 });
+
+      const replay = await replayRun(ORG, original.runId, { reason: 'provider fixed their API', user: { id: 'u1' } }, { loadIntegration, executeDeps, audit: async (a) => audits.push(a) });
+      expect(replay).toMatchObject({ replayOfRunId: original.runId, seq: 2, status: 'REPLAYED', stage: { definitionHash: hash } });
+      expect(audits).toEqual([expect.objectContaining({ action: 'stage_replayed', metadata: expect.objectContaining({ reason: 'provider fixed their API' }) })]);
+      const [state] = await store.state.getStates(ORG, String(insertedId));
+      expect(state).toMatchObject({ status: 'REPLAYED', lastRunId: replay.runId });
+      // Another org cannot replay it.
+      await expect(replayRun(ORG + 1, original.runId, { reason: 'x' }, { loadIntegration, executeDeps, audit: async () => {} })).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
   describe('our own limits', () => {
     afterEach(() => {
       delete config.stages.hostLimits;

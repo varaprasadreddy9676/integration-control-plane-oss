@@ -34,7 +34,7 @@ visible, with the cURL and the response, without anyone writing display code.
 | Inbound integrations, scheduled jobs, multi-action deliveries | **Out (product boundary)**; the API rejects stages there and the console says why | Different flows. The engine is direction-agnostic, so adding them later is wiring, not redesign. |
 | Script runtime | **Separate OS processes** running as an unprivileged user, memory capped by the OS, network denied by the OS; code runs in a `vm` context inside them; `http` and `lookup` are calls to the parent, which enforces policy, credentials, recording, caps and cancellation | A worker thread is not a boundary on Node 14: `resourceLimits` cover only heap, stack and code space (not `ArrayBuffer`/external memory), and a `vm` escape reaches the worker's `process`. Only OS-enforced limits are a real boundary. |
 | Legacy behavior | Migrated configurations run under **legacy contracts** that reproduce the old globals exactly, and switch ownership only after **shadow runs** match | Copying old scripts into the new `ctx` would change their behavior. |
-| Passing data to the send | **Typed stage outputs + `{{ }}` bindings** in the Send step's headers and query, and read-only `context.stages` for the request transform | So a token fetched before sending reaches the target request. |
+| Passing data to the send | **Typed stage outputs + `{{ }}` bindings** in the Send step's headers and query | So a token fetched before sending reaches the target request. `before_send` runs after the request transform (gates must see the final request), so the body is the transform's; a transform that needs fetched data uses its own `http` helper. |
 | Transactions | **Not assumed**: standalone MongoDB deployments (no replica set) have none | So every atomic step is a single-document write plus an idempotent repair worker. |
 | Recorded bodies | **Full, capped, masked by declared sensitive paths**; stored only in `stage_runs` (30-day TTL), never on the delivery log; `errors-only` available per stage | Requests and responses stay visible without keeping personal data indefinitely. |
 
@@ -142,7 +142,7 @@ group, named by default "Delivery status check", which the user can rename. Each
 integration's `preDeliveryChecks` become a `url-check` stage at "Before send", and its
 `responseTransformation` a `script` stage at "After the response". A new capability is a runner module; the console form for it is
 generated from `configSchema` using a small fixed set of widgets (text, select,
-code, key/value, duration list).
+code, key-value, rows, tags, duration list, checkbox).
 
 **Templates** are ready-made stage definitions (the Qikchat follow-up is the first),
 matched to an integration by provider/URL, offered with "Add from template" and
@@ -219,6 +219,10 @@ assumed able to escape a JavaScript sandbox. The boundary is therefore the OS.
   it) and every redirect hop; credential injection for approved origins; byte caps
   while reading; recording and masking; and cancellation of in-flight calls when the
   run ends or times out (abort-controller polyfill on Node 14).
+- `before_send` runs after the request transform and the existing pre-delivery
+  checks, and sees the final request (never the target's auth headers);
+  `after_response` sees every answer, and its gates can only turn an accepted send
+  into a failure.
 - Inline hooks share one latency budget per delivery attempt; a stage that would
   exceed it is cut off and handled by its `onError`.
 - Server prerequisites (the backend running as root, util-linux's `unshare` and
@@ -261,6 +265,16 @@ assumed able to escape a JavaScript sandbox. The boundary is therefore the OS.
   Pass a stable idempotency key to APIs that support it. For other APIs, document
   duplicate risk and do not automatically retry an uncertain side effect unless
   the stage explicitly allows it.
+- **Inline runs ride on the attempt's log write.** The send paths write each
+  attempt through one helper that adds, to the same single-document update as the
+  status, the attempt's inline run records (`stageProjection`, capped small) and
+  the outbox intents its status implies; both are drained right after and removed
+  from the log, so bodies never stay there. Where a path logs one status but means
+  another (the scheduler logs FAILED for a failure it will retry), the outbox
+  follows the real outcome, so `on_failure` fires only for terminal failures.
+- Today the scheduler path (delayed and recurring deliveries) runs neither the
+  response transform nor the follow-up: configurations that never ran there are
+  migrated as disabled stages and listed, so migration does not start them.
 - **The commit point is one document.** For a deferred stage it is the
   `stage_jobs` document; for an inline stage it is the delivery log's update for
   that attempt. A claim sets `state: RUNNING`, a lease token and the
@@ -315,7 +329,8 @@ integration.stages: [
     runner: { type, config },
     schedule?: { checkAfterSeconds: [...] } | { everySeconds, maxAgeSeconds },
     contract: 1,                     // script/ctx contract version
-    auth?: { credentialRef, allowedOrigins: [...] },
+    auth?: { credentialRef, headers: { <name>: '... {{ credential.<field> }}' }, allowedOrigins: [...] }
+         | { source: 'integration', allowedOrigins: [...] },   // the integration's own auth, explicitly
     onError: { action: 'ignore' | 'fail_stage' | 'retry_stage',
                maxAttempts?, backoffSeconds?, allowUncertainSideEffects? },
     timeoutMs,
@@ -443,8 +458,8 @@ scripts.
   only what exists at that position, with types.
 - **Handoff to the send:** after the `before_send` stages, the Send step resolves
   `send.bindings` into the target request's headers and query (for example
-  `Authorization: Bearer {{ stages.getToken.output.accessToken }}`), and the request
-  transform receives `context.stages` read-only for anything in the body.
+  `Authorization: Bearer {{ stages.getToken.output.accessToken }}`). A missing value
+  without a fallback fails the delivery before anything is sent.
 - **Sensitive outputs** (declared `sensitive`) are masked in every record and may
   be bound only into headers or query of the integration's own target origin.
 

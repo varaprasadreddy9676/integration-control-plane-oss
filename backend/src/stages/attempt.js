@@ -12,6 +12,7 @@
  *   const verdict = await stages.afterResponse({ status, headers, body });
  *   if (verdict.failed) -> the send counts as failed (verdict.retry: resending is allowed)
  *   await data.recordLog(orgId, await stages.decorate(payload));   // at every exit
+ *   (decorate(payload, { outcome }) when the logged status is not the outcome)
  *   await stages.drain(logId);
  *
  * decorate() adds to the attempt's own log write, so in the same single-document
@@ -149,8 +150,8 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     }
   }
 
-  function intentsFor(payload) {
-    const status = String(payload.status || '').toUpperCase();
+  function intentsFor(payload, outcome) {
+    const status = String(outcome || payload.status || '').toUpperCase();
     let hook = null;
     if (status === 'SUCCESS') hook = 'after_delivery';
     else if (TERMINAL_FAILURES.has(status)) hook = 'on_failure';
@@ -184,8 +185,13 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     }));
   }
 
-  async function decorate(payload) {
-    const intents = intentsFor(payload);
+  /**
+   * `outcome` overrides payload.status for deciding deferred work, where a path
+   * logs one status but means another (the scheduler logs FAILED for a failure
+   * it will retry: not terminal, so no on_failure).
+   */
+  async function decorate(payload, { outcome } = {}) {
+    const intents = intentsFor(payload, outcome);
     const pending = records;
     records = [];
     if (intents.length === 0 && pending.length === 0) return payload;
