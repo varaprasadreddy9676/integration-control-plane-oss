@@ -12,6 +12,7 @@ import {
   RadarChartOutlined,
   SwapOutlined,
   CarryOutOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 
@@ -28,6 +29,9 @@ import { DeliveryTimingSection } from './DeliveryTimingSection';
 import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
+import { DeliveryStagesSection } from '../../../../stages/components/delivery-tab/DeliveryStagesSection';
+import { DeliveryStagesView } from '../../../../stages/components/delivery-tab/DeliveryStagesView';
+import { Tooltip } from 'antd';
 
 export interface IntegrationSectionsContentProps {
   form: any;
@@ -504,6 +508,37 @@ export const buildIntegrationSectionItems = ({
       ),
     }
   );
+
+  // The stages around a delivery (checks before sending, response checks, scheduled
+  // follow-ups, failure handling), each named by the user. Not for multi-action integrations.
+  const stageCount = (form.getFieldValue('stages') || []).length;
+  items.push({
+    key: 'delivery',
+    label: isMultiAction ? (
+      <Tooltip title="Stages are not available for integrations with multiple actions">
+        <Space size={6}>
+          <NodeIndexOutlined />
+          Delivery
+        </Space>
+      </Tooltip>
+    ) : (
+      <Space size={6}>
+        <NodeIndexOutlined />
+        Delivery
+        {stageCount > 0 && <Tag style={{ margin: 0 }}>{stageCount}</Tag>}
+      </Space>
+    ),
+    disabled: !configComplete || isMultiAction,
+    children: wrapContent(
+      isReadOnly ? (
+        <DeliveryStagesView stages={values.stages} integrationId={integrationId} />
+      ) : (
+        <Form.Item name="stages" noStyle>
+          <DeliveryStagesSection form={form} integrationId={integrationId} />
+        </Form.Item>
+      )
+    ),
+  });
 
   if (!isMultiAction) {
     items.push({

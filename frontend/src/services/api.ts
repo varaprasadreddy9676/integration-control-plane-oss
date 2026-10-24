@@ -4659,3 +4659,6 @@ export interface SystemStatusResponse {
 
 export const getSystemStatus = async (orgId?: number | null): Promise<SystemStatusResponse> =>
   request(orgId && orgId > 0 ? `/system-status?orgId=${orgId}` : '/system-status');
+
+/** The authenticated request helper, for feature-specific API modules (services/stages-api.ts). */
+export { request as apiRequest };

@@ -1,0 +1,266 @@
+import { useState } from 'react';
+import { Alert, Button, Dropdown, Form, Popconfirm, Space, Switch, Tag, Typography } from 'antd';
+import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+import type { SendBindings, StageConfig, StageHook } from '../../../../services/stages-api';
+import { getStageRunners, getStageRuntime, getStageTemplates, stageFromTemplate } from '../../../../services/stages-api';
+import { HOOK_GROUPS } from '../../stageLabels';
+import { KeyValueEditor } from './SchemaForm';
+import { StageEditorDrawer } from './StageEditorDrawer';
+import { StageResultsCard } from './StageResultsCard';
+import { defaultStage, newStageId, outputsOf, scheduleSummary } from './stageDraft';
+
+const { Text } = Typography;
+
+const rowStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  padding: '10px 12px',
+  border: '1px solid var(--border-subtle, #e5e7eb)',
+  borderRadius: 8,
+};
+
+/** The Send step's bindings: values from stages that run before sending, into the request's headers and query. */
+const SendBindingsEditor = ({ value, onChange, available }: { value?: SendBindings | null; onChange?: (value: SendBindings | null) => void; available: string[] }) => {
+  const bindings = value?.bindings || {};
+  const write = (part: 'headers' | 'query', next?: Record<string, string>) => {
+    const merged = { ...bindings, [part]: next };
+    if (!merged.headers) delete merged.headers;
+    if (!merged.query) delete merged.query;
+    onChange?.(Object.keys(merged).length ? { bindings: merged } : null);
+  };
+  return (
+    <Space direction="vertical" size={10} style={{ width: '100%' }}>
+      <div>
+        <Text strong>Extra headers</Text>
+        <KeyValueEditor label="Send header" value={bindings.headers} onChange={(next) => write('headers', next)} />
+      </div>
+      <div>
+        <Text strong>Extra query parameters</Text>
+        <KeyValueEditor label="Send query parameter" value={bindings.query} onChange={(next) => write('query', next)} />
+      </div>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {available.length ? (
+          <>Available: {available.map((item) => <code key={item} style={{ marginRight: 8 }}>{item}</code>)}</>
+        ) : (
+          'Add a stage before send with outputs to pass its values on (a token, for example).'
+        )}
+      </Text>
+    </Space>
+  );
+};
+
+interface DeliveryStagesSectionProps {
+  /** The integration form (for the Send step, the switch, and validation context). */
+  form: any;
+  integrationId?: string;
+  value?: StageConfig[];
+  onChange?: (value: StageConfig[]) => void;
+}
+
+/**
+ * The Delivery tab: the stages around a delivery, grouped by where they run, each
+ * named by the user. Changes are kept in the form and saved with the integration.
+ */
+export const DeliveryStagesSection = ({ form, integrationId, value, onChange }: DeliveryStagesSectionProps) => {
+  const stages = value || [];
+  const [editing, setEditing] = useState<{ stage: StageConfig; index: number; tab: 'settings' | 'test' } | null>(null);
+  const runners = useQuery({ queryKey: ['stage-runners'], queryFn: getStageRunners, staleTime: 5 * 60 * 1000 });
+  const templates = useQuery({ queryKey: ['stage-templates', integrationId], queryFn: () => getStageTemplates(integrationId) });
+  const runtime = useQuery({ queryKey: ['stage-runtime'], queryFn: getStageRuntime, staleTime: 60 * 1000 });
+  const send = Form.useWatch('send', { form, preserve: true }) as SendBindings | null | undefined;
+  const migration = form.getFieldValue('stageMigration');
+
+  const write = (next: StageConfig[]) => onChange?.(next);
+  const taken = stages.map((stage) => stage.id);
+  const context = () => {
+    const values = form.getFieldsValue(true);
+    return { direction: values.direction || 'OUTBOUND', actions: values.actions || [], targetUrl: values.targetUrl };
+  };
+
+  const addFromRunner = (hook: StageHook, type: string) => {
+    const runner = runners.data?.find((candidate) => candidate.type === type);
+    if (!runner) return;
+    const name = `${runner.label} ${stages.filter((stage) => stage.hook === hook).length + 1}`;
+    setEditing({ stage: defaultStage(runner, hook, name, taken), index: stages.length, tab: 'settings' });
+  };
+  const addFromTemplate = async (templateId: string) => {
+    const stage = await stageFromTemplate(templateId);
+    setEditing({ stage: { ...stage, id: newStageId(stage.name, taken) }, index: stages.length, tab: 'settings' });
+  };
+
+  const move = (index: number, direction: -1 | 1) => {
+    const hook = stages[index].hook;
+    const same = stages.map((stage, i) => (stage.hook === hook ? i : -1)).filter((i) => i >= 0);
+    const position = same.indexOf(index);
+    const target = same[position + direction];
+    if (target === undefined) return;
+    const next = [...stages];
+    [next[index], next[target]] = [next[target], next[index]];
+    write(next);
+  };
+
+  const beforeSendOutputs = stages
+    .filter((stage) => stage.hook === 'before_send')
+    .flatMap((stage) => outputsOf(stage).map((output) => `{{ stages.${stage.id}.output.${output.name} }}`));
+
+  const groupRows = (hook: StageHook) =>
+    stages
+      .map((stage, index) => ({ stage, index }))
+      .filter(({ stage }) => stage.hook === hook)
+      .map(({ stage, index }, position, list) => (
+        <div key={stage.id} style={rowStyle}>
+          <Space direction="vertical" size={2} style={{ minWidth: 0 }}>
+            <Space wrap size={[6, 4]}>
+              <Text strong>{stage.name}</Text>
+              <Tag style={{ margin: 0 }}>{runners.data?.find((r) => r.type === stage.runner.type)?.label || stage.runner.type}</Tag>
+              {stage.hook === 'before_send' || stage.hook === 'after_response' ? (
+                <Tag color={stage.effect === 'observe' ? 'default' : 'blue'} style={{ margin: 0 }}>
+                  {stage.effect === 'observe' ? 'Records' : 'Decides'}
+                </Tag>
+              ) : null}
+              {stage.template && <Tag style={{ margin: 0 }}>From a template</Tag>}
+              {stage.migratedFrom && <Tag style={{ margin: 0 }}>Moved from the old {stage.migratedFrom}</Tag>}
+              {stage.shadow && <Tag color="purple" style={{ margin: 0 }}>Being compared</Tag>}
+            </Space>
+            {scheduleSummary(stage) && <Text type="secondary" style={{ fontSize: 12 }}>{scheduleSummary(stage)}</Text>}
+          </Space>
+          <Space size={4}>
+            <Switch
+              size="small"
+              checked={stage.enabled !== false}
+              aria-label={`Run ${stage.name}`}
+              onChange={(enabled) => write(stages.map((s, i) => (i === index ? { ...s, enabled } : s)))}
+            />
+            <Button type="text" icon={<ArrowUpOutlined />} aria-label={`Move ${stage.name} up`} disabled={position === 0} onClick={() => move(index, -1)} />
+            <Button type="text" icon={<ArrowDownOutlined />} aria-label={`Move ${stage.name} down`} disabled={position === list.length - 1} onClick={() => move(index, 1)} />
+            <Button type="text" icon={<PlayCircleOutlined />} aria-label={`Test ${stage.name}`} onClick={() => setEditing({ stage, index, tab: 'test' })} />
+            <Button type="text" icon={<EditOutlined />} aria-label={`Edit ${stage.name}`} onClick={() => setEditing({ stage, index, tab: 'settings' })} />
+            <Popconfirm
+              title={`Remove ${stage.name}?`}
+              description="Its scheduled checks are cancelled when the integration is saved. Its history stays."
+              okText="Remove"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => write(stages.filter((_, i) => i !== index))}
+            >
+              <Button type="text" danger icon={<DeleteOutlined />} aria-label={`Remove ${stage.name}`} />
+            </Popconfirm>
+          </Space>
+        </div>
+      ));
+
+  const addMenu = (hook: StageHook) => {
+    const fromRunners = (runners.data || []).filter((runner) => runner.hooks.includes(hook)).map((runner) => ({ key: `runner:${runner.type}`, label: runner.label }));
+    const fromTemplates = (templates.data || []).filter((template) => template.hook === hook).map((template) => ({
+      key: `template:${template.id}`,
+      label: `${template.label}${template.recommended ? ' (suggested)' : ''}`,
+    }));
+    return {
+      items: [
+        ...fromRunners,
+        ...(fromTemplates.length ? [{ type: 'divider' as const }, { key: 'templates', type: 'group' as const, label: 'From a template', children: fromTemplates }] : []),
+      ],
+      onClick: ({ key }: { key: string }) => {
+        const [kind, id] = key.split(':');
+        if (kind === 'runner') addFromRunner(hook, id);
+        else if (kind === 'template') void addFromTemplate(id);
+      },
+    };
+  };
+
+  return (
+    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      {runtime.data && !runtime.data.ready && stages.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Stages do not run on this server yet"
+          description={runtime.data.problems.join('. ')}
+        />
+      )}
+      {runtime.data && runtime.data.ready && !runtime.data.isolated && (
+        <Alert type="info" showIcon message="Scripts run without the operating system's isolation here (development only)." />
+      )}
+      {migration && migration.state && migration.state !== 'ROLLED_BACK' && (
+        <Alert
+          type="info"
+          showIcon
+          message={migration.state === 'SWITCHED' ? 'Moved from the old configuration' : 'Comparing with the old configuration'}
+          description={
+            migration.state === 'SWITCHED'
+              ? 'These stages now do what the old settings did, under the same rules.'
+              : 'The stages marked "Being compared" run beside the old settings without effect, until the comparison is conclusive.'
+          }
+        />
+      )}
+
+      <Space align="center">
+        <Form.Item name="stagesPaused" noStyle getValueProps={(paused) => ({ checked: !paused })} normalize={(checked) => !checked}>
+          <Switch aria-label="Run this integration's stages" />
+        </Form.Item>
+        <Text>Run this integration&apos;s stages</Text>
+      </Space>
+
+      {HOOK_GROUPS.map((group) => (
+        <div key={group.hook}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
+            <div>
+              <Text strong style={{ fontSize: 15 }}>{group.title}</Text>
+              <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                {group.description}
+              </Text>
+            </div>
+            <Dropdown menu={addMenu(group.hook)} trigger={['click']} disabled={!runners.data}>
+              <Button icon={<PlusOutlined />} aria-label={`Add a stage: ${group.title}`}>
+                Add a stage
+              </Button>
+            </Dropdown>
+          </div>
+          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+            {groupRows(group.hook)}
+            {!stages.some((stage) => stage.hook === group.hook) && <Text type="secondary">No stages here.</Text>}
+          </Space>
+
+          {group.hook === 'before_send' && (
+            <div style={{ ...rowStyle, display: 'block', marginTop: 16, background: 'var(--bg-subtle, #fafafa)' }}>
+              <Space style={{ marginBottom: 8 }}>
+                <SendOutlined />
+                <Text strong>Send</Text>
+                <Text type="secondary">The delivery itself: target, authentication and retries are on their own tabs.</Text>
+              </Space>
+              <Form.Item name="send" noStyle>
+                <SendBindingsEditor available={beforeSendOutputs} />
+              </Form.Item>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {integrationId && <StageResultsCard integrationId={integrationId} stages={stages} />}
+
+      {runners.data && (
+        <StageEditorDrawer
+          open={Boolean(editing)}
+          stage={editing?.stage || null}
+          index={editing?.index ?? 0}
+          initialTab={editing?.tab}
+          stages={stages}
+          send={send}
+          runners={runners.data}
+          integrationId={integrationId}
+          integration={context()}
+          onClose={() => setEditing(null)}
+          onApply={(stage) => {
+            const next = [...stages];
+            if (editing && editing.index < next.length) next[editing.index] = stage;
+            else next.push(stage);
+            write(next);
+            setEditing(null);
+          }}
+        />
+      )}
+    </Space>
+  );
+};

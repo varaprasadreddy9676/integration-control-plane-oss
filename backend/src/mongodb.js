@@ -715,15 +715,20 @@ async function ensureIndexes() {
       { key: { expiresAt: 1 }, expireAfterSeconds: 0, name: 'expires_ttl_idx' },
     ]);
 
-    // Pipeline stages: run records (TTL) and the latest outcome per delivery stage.
-    await require('./stages/indexes').ensureAllStageIndexes(db, safeCreateIndexes);
-
     await primeAllIndexCaches();
 
     log('info', 'MongoDB indexes created/verified');
   } catch (error) {
     log('warn', 'MongoDB index creation warning', { error: error.message });
     // Don't fail on index creation errors, indexes might already exist
+  }
+
+  // Pipeline stages, in a step of their own: their unique keys are what makes job
+  // creation and projection idempotent, so a problem above must not skip them.
+  try {
+    await require('./stages/indexes').ensureAllStageIndexes(db, safeCreateIndexes);
+  } catch (error) {
+    log('error', 'Pipeline stage index creation failed', { error: error.message });
   }
 }
 

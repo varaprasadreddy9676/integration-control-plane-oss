@@ -253,6 +253,7 @@ function mapLogFromMongo(doc) {
     executionTrace: doc.executionTrace || null,
     // What became of an accepted send, once its follow-up script has checked (see delivery-follow-up.js).
     followUp: doc.followUp || null,
+    stageSummary: doc.stageSummary || null, // latest status per pipeline stage (no bodies)
     shouldRetry: doc.shouldRetry,
     // Integration signing details (for audit trail)
     messageId: doc.messageId, // Unique message identifier

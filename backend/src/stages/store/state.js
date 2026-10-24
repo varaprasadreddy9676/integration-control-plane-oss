@@ -86,7 +86,7 @@ async function advanceSummary(run) {
       { _id: id, orgId: run.orgId, $or: olderThan(`${field}.`, run.seq, at) },
       {
         $set: Object.fromEntries(
-          Object.entries({ ...summaryOf(run, at), name: run.stage.name }).map(([key, value]) => [`${field}.${key}`, value])
+          Object.entries({ ...summaryOf(run, at), name: run.stage.name, hook: run.stage.hook || null }).map(([key, value]) => [`${field}.${key}`, value])
         ),
       }
     );
