@@ -13,6 +13,7 @@
  */
 
 const net = require('net');
+const { v6Groups } = require('../../utils/ip-address');
 
 // [first address, prefix length] in IPv4.
 const BLOCKED_V4 = [
@@ -43,21 +44,6 @@ function isBlockedV4(ip) {
     const start = v4ToNumber(base);
     return value >= start && value < start + size;
   });
-}
-
-/** An IPv6 address as eight 16-bit groups (handles `::` and a trailing dotted quad). */
-function v6Groups(ip) {
-  let text = ip.toLowerCase();
-  const dotted = text.match(/(\d+\.\d+\.\d+\.\d+)$/);
-  if (dotted) {
-    const parts = dotted[1].split('.').map(Number);
-    text = `${text.slice(0, -dotted[1].length)}${((parts[0] << 8) | parts[1]).toString(16)}:${((parts[2] << 8) | parts[3]).toString(16)}`;
-  }
-  const [head, tail] = text.split('::');
-  const headGroups = head ? head.split(':') : [];
-  const tailGroups = tail !== undefined && tail !== '' ? tail.split(':') : [];
-  const missing = tail === undefined ? 0 : 8 - headGroups.length - tailGroups.length;
-  return [...headGroups, ...Array(missing).fill('0'), ...tailGroups].map((group) => parseInt(group, 16) || 0);
 }
 
 const embeddedV4 = (groups) =>
