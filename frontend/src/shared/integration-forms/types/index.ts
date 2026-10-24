@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 /**
  * Shared types for integration forms
  */
@@ -44,6 +45,12 @@ export interface AuthenticationFieldsProps {
    * Defaults to 'outgoingAuthType' for backward compatibility
    */
   authTypeFieldName?: string;
+
+  /**
+   * How the label of a secret field is drawn (a "secure" badge, for example).
+   * Plain text when not given.
+   */
+  secretLabel?: (label: string) => ReactNode;
 }
 
 export interface TransformationFormProps {

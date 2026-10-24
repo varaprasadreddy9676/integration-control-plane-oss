@@ -40,7 +40,7 @@ import {
   DatabaseOutlined,
   BookOutlined,
 } from '@ant-design/icons';
-import Editor from '@monaco-editor/react';
+import { MonacoEditorInput } from './MonacoEditorInput';
 import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Divider as AntDivider } from 'antd';
@@ -1001,97 +1001,8 @@ items: payload.items?.map(item => ({
           ]}
         />
 
-        <div
-          style={{
-            borderRadius: token.borderRadiusLG,
-            overflow: 'hidden',
-            border: `1px solid ${withAlpha(colors.neutral[900], 0.6)}`,
-            boxShadow: token.boxShadowSecondary,
-            marginTop: spacing[2],
-          }}
-        >
-          <Editor
-            height="400px"
-            language="javascript"
-            value={scriptValue}
-            onChange={(value) => onScriptChange(value ?? '')}
-            options={{
-              // Display
-              minimap: { enabled: false },
-              fontSize: 14,
-              fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Monaco, "Courier New", monospace',
-              lineNumbers: 'on',
-              wordWrap: 'on',
-              glyphMargin: true,
-              folding: true,
-              lineDecorationsWidth: 10,
-              lineNumbersMinChars: 3,
-              renderLineHighlight: 'all',
-
-              // Editing behavior
-              tabSize: 2,
-              insertSpaces: true,
-              autoIndent: 'full',
-              formatOnPaste: true,
-              formatOnType: true,
-
-              // IntelliSense & suggestions
-              quickSuggestions: {
-                other: true,
-                comments: false,
-                strings: true,
-              },
-              suggestOnTriggerCharacters: true,
-              acceptSuggestionOnCommitCharacter: true,
-              acceptSuggestionOnEnter: 'on',
-              tabCompletion: 'on',
-              wordBasedSuggestions: 'currentDocument',
-              suggest: {
-                showKeywords: true,
-                showSnippets: true,
-                showFunctions: true,
-                showVariables: true,
-              },
-
-              // Bracket matching & pairing
-              matchBrackets: 'always',
-              autoClosingBrackets: 'always',
-              autoClosingQuotes: 'always',
-              autoSurround: 'languageDefined',
-              bracketPairColorization: {
-                enabled: true,
-              },
-
-              // Find/Replace
-              find: {
-                addExtraSpaceOnTop: false,
-                autoFindInSelection: 'never',
-                seedSearchStringFromSelection: 'always',
-              },
-
-              // Scrolling
-              scrollBeyondLastLine: false,
-              smoothScrolling: true,
-              mouseWheelZoom: true,
-
-              // Context menu
-              contextmenu: true,
-
-              // Additional features
-              parameterHints: {
-                enabled: true,
-              },
-              hover: {
-                enabled: true,
-              },
-              links: true,
-              colorDecorators: true,
-              comments: {
-                insertSpace: true,
-              },
-            }}
-            theme="vs-dark"
-          />
+        <div style={{ marginTop: spacing[2] }}>
+          <MonacoEditorInput value={scriptValue} onChange={onScriptChange} height="400px" />
         </div>
 
         {validationStatus !== 'idle' && (

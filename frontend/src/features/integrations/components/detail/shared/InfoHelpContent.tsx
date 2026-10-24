@@ -44,23 +44,6 @@ export const DataSecurityHelp = ({ entityCount }: { entityCount: number }) => (
 );
 
 /**
- * OAuth2 Requirements Help - OAuth2 token endpoint requirements
- */
-export const OAuth2RequirementsHelp = () => (
-  <div>
-    <Typography.Paragraph strong style={{ marginBottom: 4 }}>
-      Token endpoint requirements:
-    </Typography.Paragraph>
-    <ul style={{ margin: 0, paddingLeft: 20 }}>
-      <li><strong>Publicly accessible</strong> (5s timeout)</li>
-      <li><strong>No token caching</strong> - fetched before EVERY delivery</li>
-      <li><strong>Failures block delivery</strong> - integration will retry</li>
-      <li>Test with "Test Integration" button before enabling</li>
-    </ul>
-  </div>
-);
-
-/**
  * Scheduling Script Help - DELAYED vs RECURRING mode requirements
  */
 export const SchedulingScriptHelp = ({ mode }: { mode?: 'DELAYED' | 'RECURRING' }) => {

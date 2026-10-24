@@ -21,7 +21,7 @@ import {
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DatabaseOutlined, BookOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Editor from '@monaco-editor/react';
+import { MonacoEditorInput } from '../../integrations/components/MonacoEditorInput';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { getTemplateById, createTemplate, updateTemplate } from '../../../services/api';
 import { useDesignTokens, spacingToNumber, withAlpha, cssVar } from '../../../design-system/utils';
@@ -441,97 +441,8 @@ items: payload.items?.map(item => ({
                     )
                   }]}
                 />
-                <div
-                  style={{
-                    borderRadius: token.borderRadiusLG,
-                    overflow: 'hidden',
-                    border: `1px solid ${token.colorBorder}`,
-                    boxShadow: token.boxShadowSecondary,
-                    marginBottom: spacing[2]
-                  }}
-                >
-                  <Editor
-                    height="400px"
-                    language="javascript"
-                    value={transformScript}
-                    onChange={(value) => setTransformScript(value ?? '')}
-                    options={{
-                      // Display
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Monaco, "Courier New", monospace',
-                      lineNumbers: 'on',
-                      wordWrap: 'on',
-                      glyphMargin: true,
-                      folding: true,
-                      lineDecorationsWidth: 10,
-                      lineNumbersMinChars: 3,
-                      renderLineHighlight: 'all',
-
-                      // Editing behavior
-                      tabSize: 2,
-                      insertSpaces: true,
-                      autoIndent: 'full',
-                      formatOnPaste: true,
-                      formatOnType: true,
-
-                      // IntelliSense & suggestions
-                      quickSuggestions: {
-                        other: true,
-                        comments: false,
-                        strings: true
-                      },
-                      suggestOnTriggerCharacters: true,
-                      acceptSuggestionOnCommitCharacter: true,
-                      acceptSuggestionOnEnter: 'on',
-                      tabCompletion: 'on',
-                      wordBasedSuggestions: 'currentDocument',
-                      suggest: {
-                        showKeywords: true,
-                        showSnippets: true,
-                        showFunctions: true,
-                        showVariables: true
-                      },
-
-                      // Bracket matching & pairing
-                      matchBrackets: 'always',
-                      autoClosingBrackets: 'always',
-                      autoClosingQuotes: 'always',
-                      autoSurround: 'languageDefined',
-                      bracketPairColorization: {
-                        enabled: true
-                      },
-
-                      // Find/Replace
-                      find: {
-                        addExtraSpaceOnTop: false,
-                        autoFindInSelection: 'never',
-                        seedSearchStringFromSelection: 'always'
-                      },
-
-                      // Scrolling
-                      scrollBeyondLastLine: false,
-                      smoothScrolling: true,
-                      mouseWheelZoom: true,
-
-                      // Context menu
-                      contextmenu: true,
-
-                      // Additional features
-                      parameterHints: {
-                        enabled: true
-                      },
-                      hover: {
-                        enabled: true
-                      },
-                      links: true,
-                      colorDecorators: true,
-                      comments: {
-                        insertSpace: true
-                      }
-                    }}
-                    theme="vs-dark"
-                  />
+                <div style={{ marginBottom: spacing[2] }}>
+                  <MonacoEditorInput value={transformScript} onChange={setTransformScript} height="400px" />
                 </div>
                 <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                   JavaScript function to transform integration payloads
