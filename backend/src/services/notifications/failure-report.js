@@ -1,53 +1,10 @@
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
 const config = require('../../config');
 const mongodb = require('../../mongodb');
 const { log, logError } = require('../../logger');
 const data = require('../../data');
 const { isIntegrationMailConfigured, deliverEmail } = require('./integration-mailer');
+const { COMMUNICATION_SERVICE_URL, sendToCommunicationService } = require('./communication-service');
 const { maskLogSecrets } = require('../../utils/integration-secrets');
-
-const COMMUNICATION_SERVICE_URL =
-  config.communicationServiceUrl || 'https://notification.example.com/notification-service/api/sendNotification';
-
-function postJson(url, payload, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const body = JSON.stringify(payload);
-    const isHttps = parsed.protocol === 'https:';
-
-    const req = (isHttps ? https : http).request(
-      {
-        hostname: parsed.hostname,
-        port: parsed.port || (isHttps ? 443 : 80),
-        path: `${parsed.pathname}${parsed.search}`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-        },
-        timeout: timeoutMs,
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          resolve({ status: res.statusCode || 0, body: data });
-        });
-      }
-    );
-
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy(new Error('Request timed out'));
-    });
-    req.write(body);
-    req.end();
-  });
-}
 
 const DEFAULT_CONFIG = {
   enabled: false,
@@ -320,7 +277,7 @@ async function sendFailureReportEmail({ payload, subject }) {
     const result = await deliverEmail({ to: message.to, subject, html: message.html || message.content });
     return { status: 200, body: JSON.stringify({ messageId: result?.messageId || null }) };
   }
-  const response = await postJson(COMMUNICATION_SERVICE_URL, payload, 10000);
+  const response = await sendToCommunicationService(payload, 10000);
 
   log('info', 'Communication service response', {
     status: response.status,

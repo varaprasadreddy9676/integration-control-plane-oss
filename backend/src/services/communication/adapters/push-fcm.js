@@ -30,7 +30,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const https = require('https');
+const { httpPost } = require('../../../utils/http-post');
 const { log } = require('../../../logger');
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
@@ -250,90 +250,55 @@ class FcmAdapter {
   /**
    * Exchange a signed JWT for a Google OAuth2 access token.
    */
-  _exchangeJWTForToken(jwt) {
+  async _exchangeJWTForToken(jwt) {
     const body = new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
       assertion: jwt,
     }).toString();
-
-    return new Promise((resolve, reject) => {
-      const url = new URL(GOOGLE_TOKEN_URL);
-      const options = {
-        hostname: url.hostname,
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Content-Length': Buffer.byteLength(body),
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (c) => { data += c; });
-        res.on('end', () => {
-          let parsed;
-          try { parsed = JSON.parse(data); } catch {
-            return reject(new Error(`Google token endpoint returned non-JSON: ${data.slice(0, 200)}`));
-          }
-          if (res.statusCode === 200) {
-            resolve(parsed);
-          } else {
-            reject(new Error(`Google token exchange failed [${res.statusCode}]: ${parsed?.error_description ?? parsed?.error ?? data}`));
-          }
-        });
-      });
-
-      req.on('error', (err) => reject(new Error(`Google token endpoint network error: ${err.message}`)));
-      req.write(body);
-      req.end();
-    });
+    const url = new URL(GOOGLE_TOKEN_URL);
+    let res;
+    try {
+      res = await httpPost({ hostname: url.hostname, path: url.pathname, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    } catch (err) {
+      throw new Error(`Google token endpoint network error: ${err.message}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(res.body);
+    } catch {
+      throw new Error(`Google token endpoint returned non-JSON: ${res.body.slice(0, 200)}`);
+    }
+    if (res.status === 200) return parsed;
+    throw new Error(`Google token exchange failed [${res.status}]: ${parsed?.error_description ?? parsed?.error ?? res.body}`);
   }
 
   /**
    * POST the FCM message to the v1 send endpoint.
    */
-  _post(projectId, accessToken, body) {
-    const bodyStr = JSON.stringify(body);
-    const path = `/v1/projects/${projectId}/messages:send`;
-
-    return new Promise((resolve, reject) => {
-      const options = {
+  async _post(projectId, accessToken, body) {
+    let res;
+    try {
+      res = await httpPost({
         hostname: FCM_API_HOST,
-        path,
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(bodyStr),
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (c) => { data += c; });
-        res.on('end', () => {
-          let parsed;
-          try { parsed = JSON.parse(data); } catch {
-            return reject(new Error(`FCM returned non-JSON response (HTTP ${res.statusCode}): ${data.slice(0, 200)}`));
-          }
-
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(parsed);
-          } else {
-            // FCM v1 error shape: { error: { code, message, status, details } }
-            const err = parsed?.error;
-            const msg = err?.message ?? `FCM API error HTTP ${res.statusCode}`;
-            const status = err?.status ?? '';
-            reject(new Error(status ? `FCM [${status}]: ${msg}` : msg));
-          }
-        });
+        path: `/v1/projects/${projectId}/messages:send`,
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
-
-      req.on('error', (err) => reject(new Error(`FCM network error: ${err.message}`)));
-      req.write(bodyStr);
-      req.end();
-    });
+    } catch (err) {
+      throw new Error(`FCM network error: ${err.message}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(res.body);
+    } catch {
+      throw new Error(`FCM returned non-JSON response (HTTP ${res.status}): ${res.body.slice(0, 200)}`);
+    }
+    if (res.status >= 200 && res.status < 300) return parsed;
+    // FCM v1 error shape: { error: { code, message, status, details } }
+    const err = parsed?.error;
+    const msg = err?.message ?? `FCM API error HTTP ${res.status}`;
+    const status = err?.status ?? '';
+    throw new Error(status ? `FCM [${status}]: ${msg}` : msg);
   }
 
   /** Base64url encode a string */

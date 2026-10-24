@@ -17,7 +17,7 @@
  *   templateComponents — Array of template component objects (optional)
  */
 
-const https = require('https');
+const { httpPost } = require('../../../utils/http-post');
 const { log } = require('../../../logger');
 
 const META_API_VERSION = 'v19.0';
@@ -98,49 +98,28 @@ class WhatsAppMetaAdapter {
    * POST to Meta Graph API
    * @private
    */
-  _post(phoneNumberId, accessToken, body) {
-    return new Promise((resolve, reject) => {
-      const bodyStr = JSON.stringify(body);
-      const options = {
+  async _post(phoneNumberId, accessToken, body) {
+    let res;
+    try {
+      res = await httpPost({
         hostname: META_API_HOST,
         path: `/${META_API_VERSION}/${phoneNumberId}/messages`,
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(bodyStr),
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          let parsed;
-          try {
-            parsed = JSON.parse(data);
-          } catch {
-            return reject(
-              new Error(`Meta API returned non-JSON response (HTTP ${res.statusCode}): ${data.slice(0, 200)}`)
-            );
-          }
-
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(parsed);
-          } else {
-            const errMsg = parsed?.error?.message ?? `Meta API error HTTP ${res.statusCode}`;
-            const errCode = parsed?.error?.code;
-            reject(new Error(errCode ? `Meta API [${errCode}]: ${errMsg}` : errMsg));
-          }
-        });
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
-
-      req.on('error', (err) => reject(new Error(`Meta API network error: ${err.message}`)));
-      req.write(bodyStr);
-      req.end();
-    });
+    } catch (err) {
+      throw new Error(`Meta API network error: ${err.message}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(res.body);
+    } catch {
+      throw new Error(`Meta API returned non-JSON response (HTTP ${res.status}): ${res.body.slice(0, 200)}`);
+    }
+    if (res.status >= 200 && res.status < 300) return parsed;
+    const errMsg = parsed?.error?.message ?? `Meta API error HTTP ${res.status}`;
+    const errCode = parsed?.error?.code;
+    throw new Error(errCode ? `Meta API [${errCode}]: ${errMsg}` : errMsg);
   }
 }
 
