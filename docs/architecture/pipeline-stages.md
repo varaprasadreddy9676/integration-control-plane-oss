@@ -549,10 +549,11 @@ covers single-delivery outbound integrations; an integration with actions keeps 
 per-action pre-delivery checks and response script on the old path (they keep
 working) and can give its actions stages of their own.
 
-Known gap: delayed and recurring deliveries of integrations with actions
-(`scheduler-worker` `deliverScheduledAction`) run no stages yet. That function is a
-separate, HTTP-only copy of the engine's action send; it will be replaced by the
-engine's own (one send path per action), which brings stages with it.
+Delayed and recurring deliveries of integrations with actions send each action
+through the delivery engine's own action send (`deliverScheduledAction` is a thin
+adapter), so stages and every kind of action work there too. The scheduler keeps
+owning retries of the whole scheduled item, so the engine creates no DLQ entry for
+them (`noDlq`) and only reports whether a failure was retryable.
 
 ## Build order
 

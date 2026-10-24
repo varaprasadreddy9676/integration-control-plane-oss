@@ -19,6 +19,7 @@ const { createExecutionLogger } = require('../utils/execution-logger');
 const { checkRateLimit } = require('../middleware/rate-limiter');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { createAttemptStages } = require('../stages/attempt');
+const { deliverSingleAction } = require('./delivery-engine');
 const { headersObject, withQuery } = require('../stages/send-helpers');
 const { deliveryResponse } = require('../stages/delivery-shape');
 const { preDeliveryDecision } = require('../stages/migration/legacy-decisions');
@@ -638,6 +639,15 @@ async function safeRead(resp) {
   }
 }
 
+/**
+ * One action of a scheduled integration, sent by the delivery engine's own action
+ * send (so every kind of action works, with provider templates, response handling
+ * and stages), and reported in the scheduler's terms:
+ *   { status: SUCCESS | SKIPPED | FAILED, responseStatus, errorMessage, shouldRetry }
+ * The scheduler owns retries of the whole scheduled item, so the engine neither
+ * queues a DLQ entry nor decides on a retry here: `shouldRetry` just says the
+ * failure was retryable.
+ */
 async function deliverScheduledAction(
   action,
   actionIndex,
@@ -649,425 +659,31 @@ async function deliverScheduledAction(
   attemptCount,
   executionLogger = null
 ) {
-  const prefix = pollCount > 0 ? `[SCHEDULER #${pollCount}] ` : '';
-  const actionName = action.name || `Action ${actionIndex + 1}`;
-  const start = Date.now();
-  const targetUrl = action.targetUrl || integration.targetUrl;
   const orgId = scheduled.orgId || integration.orgId;
-
-  const urlCheck = validateTargetUrl(targetUrl, config.security);
-  if (!urlCheck.valid) {
-    if (executionLogger) {
-      await executionLogger
-        .addStep('action_url_validation', {
-          status: 'failed',
-          durationMs: 0,
-          metadata: { actionName, actionIndex, url: targetUrl },
-          error: { message: urlCheck.reason },
-        })
-        .catch(() => {});
-    }
-
-    await data.recordLog(orgId, {
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
-      actionName,
-      actionIndex,
-      status: 'FAILED',
-      responseStatus: 400,
-      responseTimeMs: 0,
-      attemptCount,
-      originalPayload: payload,
-      requestPayload: payload,
-      errorMessage: `${prefix}${urlCheck.reason}`,
-      targetUrl,
-      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      correlationId: traceId,
-      traceId: traceId,
-      requestHeaders: null,
-    });
-    return { status: 'FAILED', responseStatus: 400, errorMessage: urlCheck.reason, shouldRetry: false };
-  }
-
-  let transformed = payload;
-  const transformStart = Date.now();
-  try {
-    const hasActionTransformation = action.transformation && typeof action.transformation === 'object';
-    const hasActionScript =
-      typeof action.transformation?.script === 'string' && action.transformation.script.trim().length > 0;
-    const actionTransformationMode = action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : 'SIMPLE') : null);
-
-    if (hasActionTransformation || actionTransformationMode) {
-      const actionAsIntegration = {
-        ...integration,
-        transformation: hasActionTransformation ? action.transformation : integration.transformation,
-        transformationMode: actionTransformationMode || integration.transformationMode,
-      };
-      transformed = await applyTransform(actionAsIntegration, payload, {
-        eventType: scheduled.eventType,
-        orgId,
-      });
-    } else {
-      transformed = await applyTransform(integration, payload, {
-        eventType: scheduled.eventType,
-        orgId,
-      });
-    }
-
-    const transformedIsNull = transformed === null || isTransformationSkipped(transformed);
-    const transformationSkipReason = getTransformationSkipReason(transformed);
-    if (executionLogger) {
-      await executionLogger
-        .addStep('action_transformation', {
-          status: transformedIsNull ? 'warning' : 'success',
-          durationMs: Date.now() - transformStart,
-          metadata: { actionName, actionIndex, result: transformedIsNull ? 'skipped' : 'transformed' },
-        })
-        .catch(() => {});
-    }
-
-    if (transformedIsNull) {
-      const skipMessage = `${prefix}Skipping scheduled delivery for ${actionName}: ${transformationSkipReason || 'transformation returned null'}`;
-      log('info', skipMessage, {
-        integrationId: integration.id,
-        actionName,
-      });
-
-      await data.recordLog(orgId, {
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventType: scheduled.eventType,
-        direction: 'OUTBOUND',
-        triggerType: 'SCHEDULED',
-        actionName,
-        actionIndex,
-        status: 'SKIPPED',
-        responseStatus: 204,
-        responseTimeMs: Date.now() - start,
-        attemptCount,
-        originalPayload: payload,
-        requestPayload: null,
-        errorMessage: skipMessage,
-        targetUrl,
-        httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-        correlationId: traceId,
-        traceId: traceId,
-        requestHeaders: null,
-      });
-
-      await data.recordDeliverySuccess(integration.id);
-      if (executionLogger) {
-        await executionLogger.updateStatus('skipped').catch(() => {});
-      }
-
-      return { status: 'SKIPPED', responseStatus: 204, errorMessage: skipMessage, shouldRetry: false };
-    }
-  } catch (err) {
-    const errorMessage = `${prefix}Transform failed for ${actionName}: ${err.message}`;
-
-    if (executionLogger) {
-      await executionLogger
-        .addStep('action_transformation', {
-          status: 'failed',
-          durationMs: Date.now() - transformStart,
-          metadata: { actionName, actionIndex },
-          error: { message: err.message, stack: err.stack },
-        })
-        .catch(() => {});
-    }
-
-    await data.recordLog(orgId, {
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
-      actionName,
-      actionIndex,
-      status: 'FAILED',
-      responseStatus: 500,
-      responseTimeMs: Date.now() - start,
-      attemptCount,
-      originalPayload: payload,
-      requestPayload: transformed,
-      errorMessage,
-      targetUrl,
-      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      correlationId: traceId,
-      traceId: traceId,
-      requestHeaders: null,
-    });
-    return { status: 'FAILED', responseStatus: 500, errorMessage, shouldRetry: false };
-  }
-
-  // Pre-delivery checks: an action's own checks, else the integration's
-  const checkFailure = await checkBeforeDelivery(action.preDeliveryChecks || integration.preDeliveryChecks, {
-    requestPayload: transformed,
-    eventPayload: scheduled.originalPayload || payload,
-    urlOptions: config.security,
-    executionLogger,
-    stepMetadata: { actionName, actionIndex },
+  const evt = {
+    id: scheduled.id,
+    eventId: scheduled.originalEventId || null,
+    event_type: scheduled.eventType,
+    payload,
+    attempt_count: attemptCount - 1,
+    orgId,
+  };
+  let logged = null;
+  const outcome = await deliverSingleAction(integration, action, evt, pollCount, actionIndex, traceId, executionLogger, {
+    triggerType: 'SCHEDULED',
+    noDlq: true,
+    extraHeaders: { 'X-Scheduled-Integration-ID': scheduled.id },
+    onRecorded: (entry) => {
+      logged = entry;
+    },
   });
-  if (checkFailure) {
-    const errorMessage = `${prefix}${actionName}: ${checkFailure.errorMessage}`;
-    await data.recordLog(orgId, {
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
-      actionName,
-      actionIndex,
-      status: 'FAILED',
-      responseStatus: checkFailure.responseStatus,
-      responseTimeMs: Date.now() - start,
-      attemptCount,
-      originalPayload: payload,
-      requestPayload: transformed,
-      errorMessage,
-      targetUrl,
-      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      correlationId: traceId,
-      traceId: traceId,
-      requestHeaders: null,
-    });
-    // Same contract as an HTTP failure here: the caller decides on retry from shouldRetry.
-    return {
-      status: 'FAILED',
-      responseStatus: checkFailure.responseStatus,
-      errorMessage,
-      shouldRetry: checkFailure.retryable,
-    };
-  }
-
-  if (integration.rateLimits?.enabled) {
-    const rateStart = Date.now();
-    try {
-      const rateResult = await checkRateLimit(integration.id, orgId, integration.rateLimits);
-      const durationMs = Date.now() - rateStart;
-      const maxRequests = integration.rateLimits.maxRequests || 100;
-      const windowSeconds = integration.rateLimits.windowSeconds || 60;
-
-      if (executionLogger) {
-        await executionLogger
-          .addStep('rate_limit', {
-            status: rateResult.allowed ? 'success' : 'failed',
-            durationMs,
-            metadata: {
-              actionName,
-              actionIndex,
-              remaining: rateResult.remaining,
-              resetAt: rateResult.resetAt,
-              maxRequests,
-              windowSeconds,
-            },
-            error: rateResult.allowed ? null : { message: 'Rate limit exceeded' },
-          })
-          .catch(() => {});
-      }
-
-      if (!rateResult.allowed) {
-        const retryAfter = rateResult.retryAfter ? `, retry after ${rateResult.retryAfter}s` : '';
-        const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
-
-        await data.recordLog(orgId, {
-          integrationConfigId: integration.id,
-          integrationName: `${integration.name} - ${actionName}`,
-          eventType: scheduled.eventType,
-          direction: 'OUTBOUND',
-          triggerType: 'SCHEDULED',
-          actionName,
-          actionIndex,
-          status: 'RETRYING',
-          responseStatus: 429,
-          responseTimeMs: 0,
-          attemptCount,
-          originalPayload: payload,
-          requestPayload: transformed,
-          errorMessage,
-          shouldRetry: true,
-          targetUrl,
-          httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-          correlationId: traceId,
-          traceId: traceId,
-          requestHeaders: null,
-        });
-
-        if (executionLogger) {
-          await executionLogger.updateStatus('retrying').catch(() => {});
-        }
-
-        return { status: 'RETRYING', responseStatus: 429, errorMessage, shouldRetry: true };
-      }
-    } catch (error) {
-      log('warn', 'Rate limit check failed', {
-        integrationId: integration.id,
-        actionName,
-        error: error.message,
-      });
-    }
-  }
-
-  let headers = null;
-  let messageId = null;
-  let timestamp = null;
-  let signatureHeaders = null;
-
-  try {
-    const controller = new AbortController();
-    const timeout = integration.timeoutMs || config.worker?.timeoutMs || 10000;
-    const timer = setTimeout(() => controller.abort(), timeout);
-
-    const httpMethod = action.httpMethod || integration.httpMethod || 'POST';
-    headers = await buildAuthHeaders(integration, httpMethod, targetUrl);
-    headers['Content-Type'] = 'application/json';
-    headers['X-Correlation-ID'] = traceId;
-    headers['X-Trace-ID'] = traceId;
-    headers['X-Scheduled-Integration-ID'] = scheduled.id;
-
-    if (integration.enableSigning && integration.signingSecrets && integration.signingSecrets.length > 0) {
-      try {
-        messageId = uuidv4();
-        timestamp = Math.floor(Date.now() / 1000);
-        const payloadString = JSON.stringify(transformed);
-        signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
-        Object.assign(headers, signatureHeaders);
-      } catch (signError) {
-        log('error', `${prefix}Failed to generate integration signature`, {
-          error: signError.message,
-          scheduledId: scheduled.id,
-        });
-        const error = new Error(`Signing is enabled but signature generation failed: ${signError.message}`);
-        error.code = 'SIGNING_FAILED';
-        throw error;
-      }
-    }
-
-    const resp = await fetch(targetUrl, {
-      method: action.httpMethod || integration.httpMethod || 'POST',
-      headers,
-      body: JSON.stringify(transformed),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timer);
-    const responseTimeMs = Date.now() - start;
-    const statusOk = resp.status >= 200 && resp.status < 300;
-    let shouldRetry = false;
-    let errorMessage = statusOk ? null : 'Non-2xx response';
-
-    if (!statusOk) {
-      if (resp.status >= 500) {
-        shouldRetry = true;
-        errorMessage = `Server error: ${resp.status}`;
-      } else if (resp.status === 429) {
-        shouldRetry = true;
-        errorMessage = 'Rate limited';
-      } else if (resp.status >= 400 && resp.status < 500) {
-        shouldRetry = false;
-        errorMessage = `Client error: ${resp.status}`;
-      }
-    }
-
-    if (executionLogger) {
-      await executionLogger
-        .addStep('action_http_request', {
-          status: statusOk ? 'success' : 'failed',
-          durationMs: responseTimeMs,
-          metadata: {
-            actionName,
-            actionIndex,
-            statusCode: resp.status,
-            method: action.httpMethod || integration.httpMethod || 'POST',
-            url: targetUrl,
-          },
-          error: statusOk ? null : { message: errorMessage || `HTTP ${resp.status}` },
-        })
-        .catch(() => {});
-    }
-
-    await data.recordLog(orgId, {
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
-      actionName,
-      actionIndex,
-      status: statusOk ? 'SUCCESS' : 'FAILED',
-      responseStatus: resp.status,
-      responseTimeMs,
-      attemptCount,
-      originalPayload: payload,
-      requestPayload: transformed,
-      responseBody: await safeRead(resp),
-      errorMessage,
-      targetUrl,
-      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      correlationId: traceId,
-      traceId: traceId,
-      requestHeaders: headers,
-      messageId,
-      timestamp,
-      signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders,
-    });
-
-    return {
-      status: statusOk ? 'SUCCESS' : 'FAILED',
-      responseStatus: resp.status,
-      errorMessage,
-      shouldRetry,
-    };
-  } catch (err) {
-    const errorMessage =
-      err.name === 'AbortError'
-        ? `Request timeout after ${integration.timeoutMs || config.worker?.timeoutMs || 10000}ms`
-        : err.message;
-
-    if (executionLogger) {
-      await executionLogger
-        .addStep('action_http_request', {
-          status: 'failed',
-          durationMs: Date.now() - start,
-          metadata: { actionName, actionIndex },
-          error: { message: errorMessage, stack: err.stack, code: err.code },
-        })
-        .catch(() => {});
-    }
-
-    await data.recordLog(orgId, {
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
-      actionName,
-      actionIndex,
-      status: 'FAILED',
-      responseStatus: 500,
-      responseTimeMs: Date.now() - start,
-      attemptCount,
-      originalPayload: payload,
-      requestPayload: transformed,
-      errorMessage,
-      targetUrl,
-      httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      correlationId: traceId,
-      traceId: traceId,
-      requestHeaders: headers,
-    });
-
-    return {
-      status: 'FAILED',
-      responseStatus: 500,
-      errorMessage,
-      shouldRetry: err.code === 'SIGNING_FAILED' ? false : true,
-    };
-  }
+  const status = outcome.status === 'SUCCESS' || outcome.status === 'SKIPPED' ? outcome.status : 'FAILED';
+  return {
+    status,
+    responseStatus: logged ? logged.responseStatus : null,
+    errorMessage: logged ? logged.errorMessage || null : null,
+    shouldRetry: outcome.status === 'RETRYING',
+  };
 }
 
 async function deliverScheduledMultiAction(

@@ -122,6 +122,8 @@ async function deliverSingleAction(
   const recordAttempt = async (payload) => {
     const recordedId = await data.recordLog(orgId, await stages.decorate(payload));
     await stages.drain(recordedId);
+    // Callers that run the action for someone else (the scheduler) read what was logged.
+    if (options.onRecorded) options.onRecorded(payload);
     return recordedId;
   };
 
@@ -136,6 +138,8 @@ async function deliverSingleAction(
     // integration produced ~6,000 fresh DLQ rows an hour on production, each
     // with a full retry budget, and the disk pressure that came with it.
     if (options.fromDlqRetry) return;
+    // The caller owns retries and the DLQ (the scheduler, for scheduled actions).
+    if (options.noDlq) return;
 
     try {
       await dlqData.createDLQEntry({
@@ -1001,6 +1005,7 @@ async function deliverSingleAction(
     }
     // The Send step's bindings: values from before_send stages (a token, for example).
     Object.assign(headers, gate.headers);
+    if (options.extraHeaders) Object.assign(headers, options.extraHeaders);
     // DISTRIBUTED TRACING: Add correlation ID header
     headers['X-Correlation-ID'] = traceId;
     headers['X-Trace-ID'] = traceId;
