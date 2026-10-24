@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workflow canvas system</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1840px; box-sizing: border-box; padding: 64px 72px; display: flex; flex-direction: column; gap: 56px; background: #F5F3EE; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #16171B">
+
+<header style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 760px">
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; letter-spacing: 0.08em; color: #66676E">INTEGRATION GATEWAY · WORKFLOW CANVAS</span>
+<h1 style="margin: 0; font-size: 40px; line-height: 46px; font-weight: 600; letter-spacing: -0.025em">A precision instrument for deliveries</h1>
+<p style="margin: 0; font-size: 16px; line-height: 25px; color: #45464D">The canvas is drawn from the engine's rules, not by hand. Every branch it shows can happen; every branch that can happen is shown. Colour is kept for selection, actions and meaningful status.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; font-size: 13px; color: #45464D; max-width: 460px">
+<span><b style="color: #16171B">Trace</b> the flow top to bottom</span>
+<span><b style="color: #16171B">Explain</b> a branch by its label</span>
+<span><b style="color: #16171B">Edit</b> a step without leaving</span>
+<span><b style="color: #16171B">Diagnose</b> a failure in one click</span>
+</div>
+</header>
+
+<section aria-labelledby="anatomy" style="display: grid; grid-template-columns: 520px minmax(0, 1fr); gap: 48px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<h2 id="anatomy" style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600">Node anatomy</h2>
+<p style="margin: 0; font-size: 14px; line-height: 22px; color: #45464D">One shape for every step: 256 × 80, radius 10, one hairline border. The type shows in the icon tile and its tint only; the border belongs to state.</p>
+<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; line-height: 20px; color: #2A2B31">
+<li><b>Icon tile</b>: the type, tinted at 10% (16% dark).</li>
+<li><b>Eyebrow</b>: type · where it runs (Before send, Later…).</li>
+<li><b>Title</b>: the name the user chose.</li>
+<li><b>Summary</b>: one useful fact in mono: endpoint, condition, schedule.</li>
+<li><b>Status</b>: dot + word + metric (212 ms, ×3, READ). Never colour alone.</li>
+<li><b>Ports</b>: in at the top, out at the bottom; ends have no out port.</li>
+</ol>
+</div>
+<div style="position: relative; height: 260px; border-radius: 14px; background-color: #EFEDE7; background-image: radial-gradient(#D6D0C4 1px, transparent 1px); background-size: 16px 16px">
+<div style="position: absolute; left: 260px; top: 90px; transform: scale(1.4); transform-origin: 0 0"><dc-import name="Node" kind="http" eyebrow="HTTP request · Before send" title="Check patient consent" summary="GET consent-api/patients/{id}" state="ok" meta="212 ms" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 40px; top: 98px; width: 190px; text-align: right; font-size: 12px; color: #45464D">1 · icon tile</div>
+<div style="position: absolute; left: 40px; top: 130px; width: 190px; text-align: right; font-size: 12px; color: #45464D">2 · eyebrow &amp; 3 · title</div>
+<div style="position: absolute; left: 40px; top: 162px; width: 190px; text-align: right; font-size: 12px; color: #45464D">4 · summary</div>
+<div style="position: absolute; left: 640px; top: 98px; width: 170px; font-size: 12px; color: #45464D">5 · status</div>
+<div style="position: absolute; left: 432px; top: 50px; font-size: 12px; color: #45464D">6 · in port</div>
+<div style="position: absolute; left: 432px; top: 216px; font-size: 12px; color: #45464D">6 · out port</div>
+</div>
+</section>
+
+<section aria-labelledby="types" style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 id="types" style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600">Node types, one component in both themes</h2><span style="font-size: 13px; color: #45464D">Branches are not a node type: a gate's outcomes are its connectors.</span></div>
+<div style="display: grid; grid-template-columns: repeat(4, 256px); gap: 20px 40px; padding: 28px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DED5">
+<dc-import name="Node" kind="trigger" eyebrow="Event" title="Appointment confirmed" summary="APPOINTMENT_CONFIRMED" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="transform" eyebrow="Transform" title="Build the reminder" summary="script · 14 lines" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="gate" eyebrow="Gate · Before send" title="Consent granted?" summary="continue · skip · fail" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="send" eyebrow="Send" title="Send WhatsApp message" summary="POST api.qikchat.in/…" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="retry" eyebrow="Reliability" title="Retry up to 3 attempts" summary="5xx · 429 · timeout" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="schedule" eyebrow="Later" title="Check delivery status" summary="30 s · 5 m · 1 h" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="notify" eyebrow="On failure" title="Notify the front desk" summary="email desk@…" theme="light" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="done" eyebrow="Outcome" title="Delivered" summary="checks end at READ" theme="light" hint-size="256px,80px"></dc-import>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, 256px); gap: 20px 40px; padding: 28px; border-radius: 14px; background: #131416; border: 1px solid #2A2D32">
+<dc-import name="Node" kind="trigger" eyebrow="Event" title="Appointment confirmed" summary="APPOINTMENT_CONFIRMED" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="transform" eyebrow="Transform" title="Build the reminder" summary="script · 14 lines" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="gate" eyebrow="Gate · Before send" title="Consent granted?" summary="continue · skip · fail" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="send" eyebrow="Send" title="Send WhatsApp message" summary="POST api.qikchat.in/…" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="retry" eyebrow="Reliability" title="Retry up to 3 attempts" summary="5xx · 429 · timeout" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="schedule" eyebrow="Later" title="Check delivery status" summary="30 s · 5 m · 1 h" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="notify" eyebrow="On failure" title="Notify the front desk" summary="email desk@…" theme="dark" hint-size="256px,80px"></dc-import>
+<dc-import name="Node" kind="done" eyebrow="Outcome" title="Delivered" summary="checks end at READ" theme="dark" hint-size="256px,80px"></dc-import>
+</div>
+</section>
+
+<section aria-labelledby="states" style="display: flex; flex-direction: column; gap: 16px">
+<h2 id="states" style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600">States, each one distinct without colour</h2>
+<div style="display: grid; grid-template-columns: repeat(4, 256px); gap: 28px 40px; padding: 28px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DED5">
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" eyebrow="Script" title="Default" summary="hairline border, e1" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Default</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" eyebrow="Script" title="Selected" summary="accent border + 4 px halo" selected="true" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Selected: the one thing in cobalt</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="border-radius: 13px; outline: 2px solid #16171B; outline-offset: 3px; width: 256px"><dc-import name="Node" kind="script" eyebrow="Script" title="Keyboard focus" summary="ink ring, offset 3 px" theme="light" hint-size="256px,80px"></dc-import></div><span style="font-size: 12px; color: #45464D">Focus: ink ring, never removed</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" eyebrow="Script" title="Edited, not saved" summary="dot + word in the status" state="edited" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Edited (draft)</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Running" summary="pulsing dot, accent border" state="running" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Running: the only repeating motion</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Done" summary="metric in the status" state="ok" meta="640 ms" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Done</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Failed" summary="danger border + 3 px halo" state="failed" meta="Timeout" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Failed</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="gate" eyebrow="Gate" title="1 issue" summary="warning word, not a failure" state="issue" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Configuration issue</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="skipped" eyebrow="Outcome" title="Skipped" summary="dashed, neutral" state="skipped" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Skipped: neutral, never red</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="notify" eyebrow="On failure" title="Not taken" summary="42% opacity, no status" state="unvisited" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Not taken in this run: dimmed, not failed</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" eyebrow="Script" title="Switched off" summary="dashed + Off" state="off" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Off</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" title="Low zoom" compact="true" state="ok" theme="light" hint-size="208px,44px"></dc-import><span style="font-size: 12px; color: #45464D">Below 60%: name and status only</span></div>
+</div>
+</section>
+
+<section aria-labelledby="connectors" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 id="connectors" style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600">Connectors</h2>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; line-height: 20px; color: #2A2B31">
+<li>Orthogonal, 1.5 px, filled head. The main path runs straight down; alternatives leave sideways to the right.</li>
+<li>A label sits at the branch's source end, 8 px clear of every line, with its 24 h count in mono.</li>
+<li>Retry loops go round the outside, dashed, back to the top of the attempt: a retry runs everything again.</li>
+<li>Two lines into one edge meet it at a third and two thirds, never on top of each other.</li>
+<li>Links are never drawn by hand, so a wrong one cannot exist.</li>
+</ul>
+</div>
+<div style="display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: center; gap: 14px 20px; padding: 24px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DED5; font-size: 13px; color: #45464D">
+<div style="height: 2px; background: #9C9688"></div><span>Configured connection</span>
+<div style="height: 2px; background: #45464D"></div><span>Taken in this run (light) · mint in dark</span>
+<div style="height: 2px; background: #B42318"></div><span>Led to the failure</span>
+<div style="height: 0; border-top: 2px dashed #B4570B"></div><span>Retry: a new attempt from the top</span>
+<div style="height: 0; border-top: 1.5px dashed #CFC9BE"></div><span>Not taken in this run</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap; grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid #EFECE6">
+<span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 999px; background: #E6F2EA; color: #1E6B44; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px">Yes · 1,184</span>
+<span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 999px; background: #EEEDEA; color: #4D4E55; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px">No · 41</span>
+<span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 999px; background: #FDF0DC; color: #7A4700; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px">Retry · 6</span>
+<span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 999px; background: #FBE9E7; color: #9E1F15; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px">Rejected · 9</span>
+<span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 999px; background: #FBE9E7; color: #9E1F15; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px">Exhausted · 1</span>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="tokens" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px">
+<h2 id="tokens" style="grid-column: 1 / -1; margin: 0; font-size: 22px; line-height: 28px; font-weight: 600">Tokens</h2>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DED5">
+<span style="font-size: 13px; font-weight: 600">Type</span>
+<span style="font-size: 19px; line-height: 24px; font-weight: 600; letter-spacing: -0.015em">Title 19 / 24</span>
+<span style="font-size: 17px; line-height: 22px; font-weight: 600">Inspector 17 / 22</span>
+<span style="font-size: 14px; line-height: 20px; font-weight: 600">Node title 14 / 20</span>
+<span style="font-size: 13.5px; line-height: 20px">Body 13.5 / 20</span>
+<span style="font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #66676E">Eyebrow 11 caps</span>
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: #2A2B31">Mono 11.5–12 · ids, counts, code</span>
+<span style="font-size: 12px; color: #66676E">Instrument Sans · JetBrains Mono</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DED5; font-size: 12px; color: #45464D">
+<span style="font-size: 13px; font-weight: 600; color: #16171B">Colour · light</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #F5F3EE; border: 1px solid #E2DED5"></span>canvas #F5F3EE</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #1C1D21"></span>navigation #1C1D21</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #16171B"></span>ink #16171B · #45464D · #66676E</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #2B59E6"></span>cobalt #2B59E6</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #1E7A4C"></span>success #1E7A4C</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #B42318"></span>danger #B42318</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #8F5400"></span>warning #8F5400</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 14px; background: #16181B; border: 1px solid #2A2D32; font-size: 12px; color: #C2BFB7">
+<span style="font-size: 13px; font-weight: 600; color: #EDEAE3">Colour · dark</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #131416; border: 1px solid #2E3136"></span>canvas #131416</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #1C1E21; border: 1px solid #2E3136"></span>surface #1C1E21</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #EDEAE3"></span>warm white #EDEAE3</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #43D3B4"></span>mint #43D3B4</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #5FD394"></span>success #5FD394</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #F47C70"></span>danger #F47C70</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #EDB95A"></span>warning #EDB95A</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DED5; font-size: 12px; color: #45464D">
+<span style="font-size: 13px; font-weight: 600; color: #16171B">Space, shape, motion</span>
+<span>Spacing <b style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; color: #16171B">4 8 12 16 20 24 32 48</b></span>
+<span>Node grid <b style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; color: #16171B">row 120 · gap 44 · column 360</b></span>
+<span>Radius <b style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; color: #16171B">6 control · 8 field · 10 node · 12 panel · pill</b></span>
+<span>Elevation <b style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; color: #16171B">e0 border · e1 node · e2 popover</b></span>
+<span>Duration <b style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; color: #16171B">140 hover · 160 select · 180 insert · 240 panel · 280 settle · 320 trace</b></span>
+<span>Easing <b style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; color: #16171B">enter (.2,0,0,1) · exit (.4,0,1,1)</b></span>
+<span>Reduced motion: every change at once, every state written in words.</span>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1840}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
