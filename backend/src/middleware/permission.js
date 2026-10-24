@@ -7,6 +7,7 @@
 const { userHasPermission } = require('../rbac/permissions');
 const { ForbiddenError, UnauthorizedError } = require('../utils/errors');
 const { log } = require('../logger');
+const { requireSuperAdmin, requireAdmin } = require('./role-guards');
 
 /**
  * Middleware to check if user has required permission(s)
@@ -65,46 +66,6 @@ function requirePermission(requiredPermissions, options = {}) {
     // Access granted
     next();
   };
-}
-
-/**
- * Middleware to check if user is Super Admin
- */
-function requireSuperAdmin(req, _res, next) {
-  if (!req.user) {
-    return next(new UnauthorizedError('Authentication required'));
-  }
-
-  if (req.user.role !== 'SUPER_ADMIN') {
-    log('warn', 'Super Admin required', {
-      userId: req.user.id,
-      userRole: req.user.role,
-      path: req.path,
-    });
-    return next(new ForbiddenError('Super Admin access required'));
-  }
-
-  next();
-}
-
-/**
- * Middleware to check if user is Admin (SUPER_ADMIN or ADMIN)
- */
-function requireAdmin(req, _res, next) {
-  if (!req.user) {
-    return next(new UnauthorizedError('Authentication required'));
-  }
-
-  if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
-    log('warn', 'Admin required', {
-      userId: req.user.id,
-      userRole: req.user.role,
-      path: req.path,
-    });
-    return next(new ForbiddenError('Admin access required'));
-  }
-
-  next();
 }
 
 /**

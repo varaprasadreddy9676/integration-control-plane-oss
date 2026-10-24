@@ -7,6 +7,7 @@
 const { hasFeatureAccess, isGlobalRole } = require('../rbac/features');
 const { ForbiddenError, UnauthorizedError } = require('../utils/errors');
 const { log } = require('../logger');
+const { requireSuperAdmin, requireAdmin } = require('./role-guards');
 
 /**
  * Require access to a feature with specific operation(s)
@@ -66,46 +67,6 @@ function requireFeature(feature, operations, options = {}) {
       return next(new ForbiddenError('Permission check failed'));
     }
   };
-}
-
-/**
- * Require SUPER_ADMIN role
- */
-function requireSuperAdmin(req, _res, next) {
-  if (!req.user) {
-    return next(new UnauthorizedError('Authentication required'));
-  }
-
-  if (req.user.role !== 'SUPER_ADMIN') {
-    log('warn', 'Super Admin required', {
-      userId: req.user.id,
-      userRole: req.user.role,
-      path: req.path,
-    });
-    return next(new ForbiddenError('Super Admin access required'));
-  }
-
-  next();
-}
-
-/**
- * Require ADMIN or SUPER_ADMIN role
- */
-function requireAdmin(req, _res, next) {
-  if (!req.user) {
-    return next(new UnauthorizedError('Authentication required'));
-  }
-
-  if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
-    log('warn', 'Admin required', {
-      userId: req.user.id,
-      userRole: req.user.role,
-      path: req.path,
-    });
-    return next(new ForbiddenError('Admin access required'));
-  }
-
-  next();
 }
 
 /**
