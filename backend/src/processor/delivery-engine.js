@@ -127,6 +127,23 @@ async function deliverSingleAction(
     return recordedId;
   };
 
+  // What every log of this action carries; each exit adds what is its own (status, answer, target...).
+  const baseLog = {
+    id: existingLogId,
+    integrationConfigId: integration.id,
+    integrationName: `${integration.name} - ${actionName}`,
+    eventId: evt.id || null,
+    eventType: evt.event_type,
+    direction: integration.direction || 'OUTBOUND',
+    triggerType,
+    actionName,
+    actionIndex,
+    attemptCount,
+    originalPayload: evt.payload,
+    correlationId: traceId,
+    traceId,
+  };
+
   const maybeCreateActionDLQ = async ({ logId, errorMessage, errorCode, responseStatus, responseBody }) => {
     if (isTest) return;
     if (!errorMessage && !errorCode) return;
@@ -216,27 +233,14 @@ async function deliverSingleAction(
       }
 
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
-        direction: integration.direction || 'OUTBOUND',
-        triggerType,
-        actionName,
-        actionIndex,
+        ...baseLog,
         status: 'FAILED',
         responseStatus: 400,
         responseTimeMs: 0,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: evt.payload,
         errorMessage: `${prefix}${urlCheck.reason}`,
         targetUrl,
         httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-        // Distributed tracing
-        correlationId: traceId,
-        traceId: traceId,
         // Request details (not available yet at URL validation stage)
         requestHeaders: null,
       });
@@ -299,26 +303,14 @@ async function deliverSingleAction(
       });
 
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
-        direction: integration.direction || 'OUTBOUND',
-        triggerType,
-        actionName,
-        actionIndex,
+        ...baseLog,
         status: 'SKIPPED',
         responseStatus: 204,
         responseTimeMs: Date.now() - start,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: null,
         errorMessage: skipMessage,
         targetUrl,
         httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-        correlationId: traceId,
-        traceId: traceId,
         requestHeaders: null,
       });
 
@@ -352,27 +344,14 @@ async function deliverSingleAction(
         .catch(() => {});
     }
     const logId = await recordAttempt({
-      id: existingLogId,
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
-      direction: integration.direction || 'OUTBOUND',
-      triggerType,
-      actionName,
-      actionIndex,
+      ...baseLog,
       status: 'FAILED',
       responseStatus: 500,
       responseTimeMs: Date.now() - start,
-      attemptCount,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       errorMessage,
       targetUrl,
       httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details (not available yet at transformation stage)
       requestHeaders: null,
     });
@@ -410,26 +389,14 @@ async function deliverSingleAction(
     if (!gate.proceed && gate.status === 'SKIPPED') {
       const skipMessage = `${prefix}Skipping delivery for ${actionName}: ${gate.message}`;
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
-        direction: integration.direction || 'OUTBOUND',
-        triggerType,
-        actionName,
-        actionIndex,
+        ...baseLog,
         status: 'SKIPPED',
         responseStatus: 204,
         responseTimeMs: Date.now() - start,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: transformed,
         errorMessage: skipMessage,
         targetUrl: sendTarget,
         httpMethod: loggedMethodOf(action, integration),
-        correlationId: traceId,
-        traceId: traceId,
         requestHeaders: null,
       });
       await data.recordDeliverySuccess(integration.id);
@@ -451,27 +418,15 @@ async function deliverSingleAction(
     log('warn', errorMessage, { integrationId: integration.id, actionName, finalStatus });
 
     const logId = await recordAttempt({
-      id: existingLogId,
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
-      direction: integration.direction || 'OUTBOUND',
-      triggerType,
-      actionName,
-      actionIndex,
+      ...baseLog,
       status: finalStatus,
       responseStatus: checkFailure.responseStatus,
       responseTimeMs: Date.now() - start,
-      attemptCount,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       errorMessage,
       shouldRetry: finalStatus === 'RETRYING',
       targetUrl,
       httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      correlationId: traceId,
-      traceId: traceId,
       requestHeaders: null,
     });
 
@@ -524,27 +479,15 @@ async function deliverSingleAction(
         const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
         const logId = await recordAttempt({
-          id: existingLogId,
-          integrationConfigId: integration.id,
-          integrationName: `${integration.name} - ${actionName}`,
-          eventId: evt.id || null,
-          eventType: evt.event_type,
-          direction: integration.direction || 'OUTBOUND',
-          triggerType,
-          actionName,
-          actionIndex,
+          ...baseLog,
           status: 'RETRYING',
           responseStatus: 429,
           responseTimeMs: 0,
-          attemptCount,
-          originalPayload: evt.payload,
           requestPayload: transformed,
           errorMessage,
           shouldRetry: true,
           targetUrl,
           httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-          correlationId: traceId,
-          traceId: traceId,
           requestHeaders: null,
         });
 
@@ -633,28 +576,16 @@ async function deliverSingleAction(
       };
 
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
-        direction: integration.direction || 'OUTBOUND',
-        triggerType,
-        actionName,
-        actionIndex,
+        ...baseLog,
         status: accepted ? 'SUCCESS' : 'FAILED',
         responseStatus: result.accepted ? 200 : 422,
         responseTimeMs,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: hl7Message,
         responseBody: result.rawAck || null,
         errorMessage: accepted ? null : rejectionMessage,
         ...(stageRejected ? { errorCode: 'STAGE_REJECTED' } : {}),
         targetUrl: mllpTarget,
         httpMethod: 'HL7_MLLP',
-        correlationId: traceId,
-        traceId,
         requestHeaders: null,
         metadata,
       });
@@ -714,27 +645,15 @@ async function deliverSingleAction(
       }
 
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
-        direction: integration.direction || 'OUTBOUND',
-        triggerType,
-        actionName,
-        actionIndex,
+        ...baseLog,
         status: 'FAILED',
         responseStatus,
         responseTimeMs,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: transformed,
         errorMessage,
         errorCode: error.code || 'HL7_MLLP_ERROR',
         targetUrl: mllpTarget,
         httpMethod: 'HL7_MLLP',
-        correlationId: traceId,
-        traceId,
         requestHeaders: null,
       });
 
@@ -845,27 +764,16 @@ async function deliverSingleAction(
 
       // Record successful delivery log
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
+        ...baseLog,
         direction: 'COMMUNICATION', // Use COMMUNICATION direction for filtering
-        triggerType,
-        actionName,
-        actionIndex,
         status: stageRejected ? 'FAILED' : 'SUCCESS',
         responseStatus: 200,
         responseTimeMs: communicationTimeMs,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: effectivePayload,
         responseBody: JSON.stringify(result, null, 2),
         ...(stageRejected ? { errorMessage: `${prefix}${verdict.message}`, errorCode: 'STAGE_REJECTED' } : {}),
         targetUrl: communicationTargetOf(action, effectiveProvider),
         httpMethod: 'COMMUNICATION',
-        correlationId: traceId,
-        traceId: traceId,
         messageId: result.messageId,
         requestHeaders: { channel, provider: effectiveProvider, requestedProvider: provider },
         metadata: senderRoutingMetadata ? { senderRouting: senderRoutingMetadata } : {},
@@ -928,27 +836,16 @@ async function deliverSingleAction(
       }
 
       const logId = await recordAttempt({
-        id: existingLogId,
-        integrationConfigId: integration.id,
-        integrationName: `${integration.name} - ${actionName}`,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
+        ...baseLog,
         direction: 'COMMUNICATION', // Use COMMUNICATION direction for filtering
-        triggerType,
-        actionName,
-        actionIndex,
         status: 'FAILED',
         responseStatus: credentialFailure ? 401 : 500,
         responseTimeMs: Date.now() - communicationStart,
-        attemptCount,
-        originalPayload: evt.payload,
         requestPayload: effectivePayload,
         errorMessage,
         errorCode,
         targetUrl: communicationTargetOf(action, effectiveProvider),
         httpMethod: 'COMMUNICATION',
-        correlationId: traceId,
-        traceId: traceId,
         requestHeaders: { channel, provider: effectiveProvider, requestedProvider: provider },
         metadata: senderRoutingMetadata ? { senderRouting: senderRoutingMetadata } : {},
       });
@@ -1250,19 +1147,11 @@ async function deliverSingleAction(
         : null;
 
     const logId = await recordAttempt({
-      id: existingLogId,
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       direction: 'OUTBOUND',
-      triggerType,
-      actionName,
-      actionIndex,
       status: finalStatus,
       responseStatus: resp.status,
       responseTimeMs,
-      attemptCount,
       originalPayload: evt.payload, // Store original payload from notification_queue
       requestPayload: transformed, // Store transformed payload actually sent
       responseBody,
@@ -1270,9 +1159,6 @@ async function deliverSingleAction(
       shouldRetry: shouldRetry && attemptCount <= maxRetries, // Don't retry if exceeded max
       targetUrl,
       httpMethod,
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details for debugging
       requestHeaders: headers,
       attemptDetails,
@@ -1344,27 +1230,15 @@ async function deliverSingleAction(
           : catchErrorMessage;
 
     const logId = await recordAttempt({
-      id: existingLogId,
-      integrationConfigId: integration.id,
-      integrationName: `${integration.name} - ${actionName}`,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       direction: 'OUTBOUND',
-      triggerType,
-      actionName,
-      actionIndex,
       status: finalStatus,
       responseStatus: 500,
       responseTimeMs: Date.now() - start,
-      attemptCount,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       errorMessage: finalErrorMessage,
       targetUrl,
       httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details for debugging
       requestHeaders: headers || null,
       attemptDetails:

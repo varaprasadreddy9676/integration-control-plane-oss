@@ -161,3 +161,46 @@ describe('an HTTP action', () => {
     expect(fetch).toHaveBeenCalledWith('https://partner.test/hook?v=2', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer tok' }) }));
   });
 });
+
+describe('every exit of an action logs who it is', () => {
+  const identity = {
+    integrationConfigId: 'int-9',
+    integrationName: 'Gateway - Mail',
+    eventId: 'e1',
+    eventType: 'APPT',
+    triggerType: 'EVENT',
+    actionName: 'Mail',
+    actionIndex: 0,
+    attemptCount: 1,
+    originalPayload: { patientId: 'p1' },
+    correlationId: 'trace-1',
+    traceId: 'trace-1',
+  };
+  const mail = { ...emailAction(), name: 'Mail' };
+
+  it('after a send, a failed send, a skip and a transform failure', async () => {
+    await deliver(mail);
+    expect(lastLog()).toMatchObject({ ...identity, status: 'SUCCESS' });
+
+    mockSend.mockRejectedValueOnce(new Error('smtp down'));
+    await deliver(mail);
+    expect(lastLog()).toMatchObject({ ...identity, status: 'FAILED', errorCode: 'COMMUNICATION_ERROR' });
+
+    await deliver({ ...mail, stages: [script('g', 'before_send', 'return skip("no");', { effect: 'gate' })] });
+    expect(lastLog()).toMatchObject({ ...identity, status: 'SKIPPED' });
+
+    applyTransform.mockRejectedValueOnce(new Error('bad script'));
+    await deliver(mail);
+    expect(lastLog()).toMatchObject({ ...identity, status: 'FAILED', responseStatus: 500 });
+  });
+
+  it('after an HTTP answer and a network error', async () => {
+    const hook = { ...httpAction(), name: 'Mail' };
+    fetch.mockResolvedValueOnce(reply(202, '{}'));
+    await deliver(hook);
+    expect(lastLog()).toMatchObject({ ...identity, direction: 'OUTBOUND', status: 'SUCCESS', targetUrl: 'https://partner.test/hook' });
+    fetch.mockRejectedValueOnce(new Error('socket hang up'));
+    await deliver(hook);
+    expect(lastLog()).toMatchObject({ ...identity, status: 'RETRYING' });
+  });
+});
