@@ -31,10 +31,12 @@ visible, with the cURL and the response, without anyone writing display code.
 | What gets removed | Only call sites whose integrations are migrated **and** verified (shadow runs, below), plus the follow-up-specific code and `delivery_follow_ups` | Excluded flows still use the shared functions; deletion follows proven coverage, not finished code. |
 | Request transform, scheduling script | **Out, permanently** | They produce the payload and the schedule; they are not steps that observe or gate a delivery. |
 | `on_failure` | **In** | Cheap once deferred stages exist. |
-| Inbound integrations, scheduled jobs, multi-action deliveries | **Out (product boundary)**; the API rejects stages there and the console says why | Different flows. The engine is direction-agnostic, so adding them later is wiring, not redesign. |
+| Where stages live | **On each delivery**: an integration that sends once keeps them on itself; an integration with actions keeps them on each action (`actions[i].stages`, `actions[i].send`). Every kind of delivery is the same to stages: HTTP, email, SMS, WhatsApp, push and HL7 actions, of outbound integrations and of inbound email/SMS integrations. `stages/targets.js` is the one place that knows this. | Email or SMS is just another integration; nothing in stages is specific to a protocol. |
+| What a stage sees of the send | **One shape for every delivery** (`stages/delivery-shape.js`): `delivery.request` is `{ protocol, target, method, body }`, `delivery.response` is `{ protocol, ok, status, code, message, providerMessageId, headers, body }` (`status` is the HTTP status, null otherwise; `code` the answer's own code: `200`, `SENT`, `AA`) | Each send path fills it from its own result; stages never branch on the kind of send. |
+| Inbound proxy requests, scheduled jobs | **Out (product boundary)**; the API rejects stages there | A proxy request is answered while its caller waits and is never delivered later; a scheduled job is not a delivery. |
 | Script runtime | **Separate OS processes** running as an unprivileged user, memory capped by the OS, network denied by the OS; code runs in a `vm` context inside them; `http` and `lookup` are calls to the parent, which enforces policy, credentials, recording, caps and cancellation | A worker thread is not a boundary on Node 14: `resourceLimits` cover only heap, stack and code space (not `ArrayBuffer`/external memory), and a `vm` escape reaches the worker's `process`. Only OS-enforced limits are a real boundary. |
 | Legacy behavior | Migrated configurations run under **legacy contracts** that reproduce the old globals exactly, and switch ownership only after **shadow runs** match | Copying old scripts into the new `ctx` would change their behavior. |
-| Passing data to the send | **Typed stage outputs + `{{ }}` bindings** in the Send step's headers and query | So a token fetched before sending reaches the target request. `before_send` runs after the request transform (gates must see the final request), so the body is the transform's; a transform that needs fetched data uses its own `http` helper. |
+| Passing data to the send | **Typed stage outputs + `{{ }}` bindings** in the Send step: message fields for every delivery (`send.bindings.fields`, dotted paths set on a copy of the message), headers and query only where the request has them (HTTP) | So a token fetched before sending reaches the target request. `before_send` runs after the request transform (gates must see the final request), so the body is the transform's; a transform that needs fetched data uses its own `http` helper. |
 | Transactions | **Not assumed**: standalone MongoDB deployments (no replica set) have none | So every atomic step is a single-document write plus an idempotent repair worker. |
 | Recorded bodies | **Full, capped, masked by declared sensitive paths**; stored only in `stage_runs` (30-day TTL), never on the delivery log; `errors-only` available per stage | Requests and responses stay visible without keeping personal data indefinitely. |
 
@@ -58,8 +60,10 @@ Delivery
   On failure         [ + add a stage ]   (once the delivery has finally failed)
 ```
 
-Multi-action integrations show the tab disabled with the reason; inbound
-integrations and scheduled jobs do not have it.
+An integration with actions shows the same tab with an action picker: each action
+is its own delivery with its own stages and Send step. Inbound email/SMS
+integrations show the same tab for their one action. Inbound proxy integrations and
+scheduled jobs do not have it.
 
 - A stage is created by the user and **named whatever they want** ("Verify patient
   consent", "Ask Qikchat if delivered", "Notify partner"). The name titles its
@@ -539,8 +543,16 @@ migration of follow-up, pre-delivery checks and response transform for
 single-delivery outbound integrations; cleanup of recorded follow-up bodies; removal
 of migrated call sites and the follow-up-specific code.
 
-Out: request transformation and the scheduling script (not stages); inbound
-integrations, scheduled jobs and multi-action deliveries (product boundary).
+Out: request transformation and the scheduling script (not stages); inbound proxy
+requests and scheduled jobs (product boundary). Migration of the old configuration
+covers single-delivery outbound integrations; an integration with actions keeps its
+per-action pre-delivery checks and response script on the old path (they keep
+working) and can give its actions stages of their own.
+
+Known gap: delayed and recurring deliveries of integrations with actions
+(`scheduler-worker` `deliverScheduledAction`) run no stages yet. That function is a
+separate, HTTP-only copy of the engine's action send; it will be replaced by the
+engine's own (one send path per action), which brings stages with it.
 
 ## Build order
 

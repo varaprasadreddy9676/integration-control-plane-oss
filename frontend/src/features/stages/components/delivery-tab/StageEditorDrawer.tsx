@@ -56,6 +56,9 @@ interface StageEditorDrawerProps {
   runners: StageRunner[];
   integrationId?: string;
   integration: Record<string, unknown>;
+  /** The delivery the stage belongs to: its kind, and which one for the server (null: the integration itself). */
+  protocol?: string;
+  actionIndex?: number | null;
   initialTab?: 'settings' | 'test';
   onApply: (stage: StageConfig) => void;
   onClose: () => void;
@@ -70,6 +73,8 @@ export const StageEditorDrawer = ({
   runners,
   integrationId,
   integration,
+  protocol = 'http',
+  actionIndex = null,
   initialTab = 'settings',
   onApply,
   onClose,
@@ -106,7 +111,7 @@ export const StageEditorDrawer = ({
     if (index < next.length) next[index] = draft;
     else next.push(draft);
     try {
-      const result = await validate.mutateAsync({ integrationId, integration, stages: next, send });
+      const result = await validate.mutateAsync({ integrationId, integration, actionIndex, stages: next, send });
       const mine = result.errors.filter((error) => error.path.startsWith(`stages[${index}]`));
       setErrors(result.errors);
       if (mine.length === 0) onApply(draft);
@@ -389,7 +394,7 @@ export const StageEditorDrawer = ({
         onChange={(key) => setTab(key as 'settings' | 'test')}
         items={[
           { key: 'settings', label: 'Settings', children: settings },
-          { key: 'test', label: 'Test', children: <StageTestPanel stage={draft} integrationId={integrationId} /> },
+          { key: 'test', label: 'Test', children: <StageTestPanel stage={draft} integrationId={integrationId} protocol={protocol} /> },
         ]}
       />
       <Text type="secondary" style={{ fontSize: 12 }}>

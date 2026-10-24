@@ -22,7 +22,6 @@
 const { normalizePreDeliveryChecks } = require('../../services/pre-delivery-checks');
 const { normalizeDeliveryFollowUp, isActive } = require('../../services/delivery-follow-up-config');
 const { findPreset } = require('../../services/delivery-follow-up-presets');
-const { stagesNotSupported } = require('../config');
 
 const SOURCES = ['preDeliveryChecks', 'responseTransformation', 'deliveryFollowUp'];
 const SCHEDULER_MODES = new Set(['DELAYED', 'RECURRING']);
@@ -113,6 +112,20 @@ function followUpStage(config, allowedOrigins) {
 }
 
 /**
+ * Why an integration's old configuration does not move to stages, or null. The
+ * old features ran for single outbound deliveries; an integration with actions
+ * keeps its per-action pre-delivery checks and response script where they are
+ * (they keep working), and its actions can have stages of their own.
+ */
+function notMigratable(integration) {
+  if (String(integration.direction || 'OUTBOUND').toUpperCase() !== 'OUTBOUND') return 'Only outbound integrations have configuration to migrate';
+  if (Array.isArray(integration.actions) && integration.actions.length > 0) {
+    return 'An integration with actions keeps its checks and response script on the old path; give its actions stages of their own';
+  }
+  return null;
+}
+
+/**
  * planMigration(integration, { followUpOrigins }) ->
  *   { stages, unsupported: [{ source, reason }], notes: [{ source, note }], sources }
  * `sources` lists the legacy fields the stages take over. Sources that already
@@ -123,7 +136,7 @@ function planMigration(integration, { followUpOrigins = [] } = {}) {
   const notes = [];
   const stages = [];
   const sources = [];
-  const notSupported = stagesNotSupported(integration);
+  const notSupported = notMigratable(integration);
   if (notSupported) return { stages, unsupported: [{ source: 'integration', reason: notSupported }], notes, sources };
 
   const existing = new Set((integration.stages || []).map((stage) => stage && stage.migratedFrom).filter(Boolean));

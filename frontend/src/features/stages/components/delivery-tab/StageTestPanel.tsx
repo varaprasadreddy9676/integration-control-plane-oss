@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, Input, InputNumber, Radio, Space, Switch, Typography } from 'antd';
+import { Alert, Button, Input, Radio, Space, Switch, Typography } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import type { StageConfig, StageRun } from '../../../../services/stages-api';
 import { testStage } from '../../../../services/stages-api';
 import { StageRunView } from '../StageRunView';
 import { apiFieldErrors } from './stageDraft';
+import { sampleRequest, sampleResponse } from '../../deliveryTargets';
 
 const { Text } = Typography;
 
@@ -21,10 +22,13 @@ const parse = (text: string, what: string): { value?: unknown; error?: string } 
 };
 
 /** What the stage sees, for a sample run: the event plus what exists at its position. */
-export const sampleScope = (stage: StageConfig, { event, request, status, response }: { event: unknown; request: unknown; status: number; response: unknown }) => {
+export const sampleScope = (
+  stage: StageConfig,
+  { event, request, code, response, protocol = 'http' }: { event: unknown; request: unknown; code: string; response: unknown; protocol?: string }
+) => {
   const delivery: Record<string, unknown> = { attempt: 1 };
-  if (stage.hook === 'before_send') delivery.request = { url: '', method: 'POST', body: request };
-  else delivery.response = { status, headers: {}, body: response };
+  if (stage.hook === 'before_send') delivery.request = sampleRequest(protocol, request);
+  else delivery.response = sampleResponse(protocol, code, response);
   if (stage.hook === 'after_delivery') delivery.acceptedAt = new Date().toISOString();
   if (stage.hook === 'on_failure') Object.assign(delivery, { status: 'FAILED', errorMessage: 'Sample failure' });
   return { event: event ?? {}, delivery, stages: {}, run: { seq: 1, executionAttempt: 1 } };
@@ -33,6 +37,8 @@ export const sampleScope = (stage: StageConfig, { event, request, status, respon
 interface StageTestPanelProps {
   stage: StageConfig;
   integrationId?: string;
+  /** The kind of delivery the stage belongs to (http, email, sms, hl7...). */
+  protocol?: string;
 }
 
 /**
@@ -40,11 +46,11 @@ interface StageTestPanelProps {
  * runs. HTTP is answered by stand-ins unless "live" is switched on; a test
  * schedules nothing, changes no delivery, and is not kept.
  */
-export const StageTestPanel = ({ stage, integrationId }: StageTestPanelProps) => {
+export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: StageTestPanelProps) => {
   const [source, setSource] = useState<'sample' | 'delivery'>('sample');
   const [eventText, setEventText] = useState('{\n  "patientId": "P-1001"\n}');
   const [bodyText, setBodyText] = useState('{\n  "data": [{ "id": "message-id" }]\n}');
-  const [status, setStatus] = useState(200);
+  const [code, setCode] = useState(protocol === 'http' ? '200' : 'SENT');
   const [deliveryId, setDeliveryId] = useState('');
   const [stubText, setStubText] = useState('[\n  { "status": 200, "body": { "status": "delivered" } }\n]');
   const [live, setLive] = useState(false);
@@ -66,7 +72,7 @@ export const StageTestPanel = ({ stage, integrationId }: StageTestPanelProps) =>
       live,
       ...(source === 'delivery'
         ? { deliveryId: deliveryId.trim() }
-        : { sample: sampleScope(stage, { event: event.value, request: body.value, status, response: body.value }) }),
+        : { sample: sampleScope(stage, { event: event.value, request: body.value, code, response: body.value, protocol }) }),
       ...(live ? {} : { stubResponses: Array.isArray(stubs.value) ? (stubs.value as Array<{ status: number; body: unknown }>) : [] }),
     });
   };
@@ -97,8 +103,14 @@ export const StageTestPanel = ({ stage, integrationId }: StageTestPanelProps) =>
           ) : (
             <div>
               <Space>
-                <Text strong>What the target answered</Text>
-                <InputNumber aria-label="Sample answer status" min={100} max={599} value={status} onChange={(next) => setStatus(Number(next) || 200)} />
+                <Text strong>What came back</Text>
+                <Input
+                  aria-label="Sample answer code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  style={{ width: 120 }}
+                  placeholder={protocol === 'http' ? '200' : 'SENT'}
+                />
               </Space>
               <Input.TextArea aria-label="Sample answer body" value={bodyText} onChange={(e) => setBodyText(e.target.value)} autoSize={{ minRows: 3, maxRows: 10 }} style={mono} />
             </div>

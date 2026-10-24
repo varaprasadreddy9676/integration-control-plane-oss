@@ -43,6 +43,7 @@ import {
   MessageOutlined,
   WhatsAppOutlined,
   BellOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Editor from '@monaco-editor/react';
@@ -50,6 +51,8 @@ import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils
 import { MetaWhatsAppConfigFields } from '../components/MetaWhatsAppConfigFields';
 import { FcmConfigFields } from '../components/FcmConfigFields';
 import { SmsConfigFields } from '../components/SmsConfigFields';
+import { DeliveryTab } from '../../stages/components/delivery-tab/DeliveryTab';
+import { protocolOf } from '../../stages/deliveryTargets';
 import {
   getInboundIntegration,
   createInboundIntegration,
@@ -737,6 +740,10 @@ return {
           allowedIpCidrsText: (integration.requestPolicy?.allowedIpCidrs || []).join('\n'),
           allowedBrowserOriginsText: (integration.requestPolicy?.allowedBrowserOrigins || []).join('\n'),
         },
+        // Its one action is the delivery; its stages are edited on the Delivery tab.
+        stages: integration.actions?.[0]?.stages || [],
+        send: integration.actions?.[0]?.send || null,
+        stagesPaused: integration.stagesPaused === true,
         communicationConfig: integration.actions?.[0]?.communicationConfig || {
           channel: 'EMAIL',
           provider: 'SMTP',
@@ -895,8 +902,12 @@ return {
             name: `Send ${communicationConfig.channel}`,
             kind: 'COMMUNICATION',
             communicationConfig,
+            // Pipeline stages of this delivery (Delivery tab).
+            stages: values.stages,
+            send: values.send,
           },
         ];
+        payload.stagesPaused = values.stagesPaused;
         // Response transformation not used for COMMUNICATION
       } else {
         // HTTP integration
@@ -1984,6 +1995,42 @@ return {
                             </Button>
                           </div>
                         </Space>
+                      </Card>
+                    ),
+                  },
+                ]
+              : []),
+            // Email, SMS, WhatsApp and push are deliveries like any other: the same Delivery tab.
+            ...(actionType === 'COMMUNICATION'
+              ? [
+                  {
+                    key: 'delivery',
+                    label: (
+                      <Space size={6}>
+                        <NodeIndexOutlined />
+                        Delivery
+                      </Space>
+                    ),
+                    disabled: !basicComplete || !httpComplete,
+                    children: (
+                      <Card style={{ marginTop: spacing[2] }} size="small">
+                        <DeliveryTab
+                          form={form}
+                          integrationId={isCreate ? undefined : id}
+                          targets={[
+                            {
+                              key: 'action-0',
+                              label: null,
+                              namePath: [],
+                              protocol: protocolOf({ kind: 'COMMUNICATION', communicationConfig: { channel: communicationChannel } }),
+                              actionIndex: 0,
+                            },
+                          ]}
+                          context={() => ({
+                            direction: 'INBOUND',
+                            actions: [{ kind: 'COMMUNICATION', communicationConfig: form.getFieldValue('communicationConfig') }],
+                          })}
+                        />
                       </Card>
                     ),
                   },

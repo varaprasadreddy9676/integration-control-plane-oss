@@ -14,7 +14,9 @@ const { Text } = Typography;
 
 /** "status.from" reads value.status.from. */
 export const getPath = (value: Record<string, any> | undefined, path: string) =>
-  path.split('.').reduce<any>((current, key) => (current === undefined || current === null ? undefined : current[key]), value);
+  path
+    .split('.')
+    .reduce<any>((current, key) => (current === undefined || current === null ? undefined : current[key]), value);
 
 /** A copy of `value` with `path` set; nested objects are created as needed. */
 export const setPath = (value: Record<string, any> | undefined, path: string, next: unknown): Record<string, any> => {
@@ -71,7 +73,13 @@ export const KeyValueEditor = ({ value, onChange, label, disabled }: Omit<Widget
           />
         </Space>
       ))}
-      <Button icon={<PlusOutlined />} size="small" disabled={disabled} aria-label={`Add ${label}`} onClick={() => write([...entries, ['', '']])}>
+      <Button
+        icon={<PlusOutlined />}
+        size="small"
+        disabled={disabled}
+        aria-label={`Add ${label}`}
+        onClick={() => write([...entries, ['', '']])}
+      >
         Add
       </Button>
     </Space>
@@ -93,7 +101,9 @@ const RowsEditor = ({ field, value, onChange, label, disabled }: WidgetProps) =>
               label={`${label} ${index + 1} ${column.label}`}
               value={row[column.name]}
               disabled={disabled}
-              onChange={(next) => write(rows.map((current, i) => (i === index ? setPath(current, column.name, next) : current)))}
+              onChange={(next) =>
+                write(rows.map((current, i) => (i === index ? setPath(current, column.name, next) : current)))
+              }
             />
           ))}
           <Button
@@ -110,7 +120,12 @@ const RowsEditor = ({ field, value, onChange, label, disabled }: WidgetProps) =>
         icon={<PlusOutlined />}
         size="small"
         disabled={disabled}
-        onClick={() => write([...rows, Object.fromEntries(columns.filter((c) => c.default !== undefined).map((c) => [c.name, c.default]))])}
+        onClick={() =>
+          write([
+            ...rows,
+            Object.fromEntries(columns.filter((c) => c.default !== undefined).map((c) => [c.name, c.default])),
+          ])
+        }
       >
         Add a row
       </Button>
@@ -121,9 +136,17 @@ const RowsEditor = ({ field, value, onChange, label, disabled }: WidgetProps) =>
 /** JSON when it parses, text otherwise (a body may be a template string). */
 const CodeText = ({ value, onChange, label, disabled, field }: WidgetProps) => {
   if (field.language === 'javascript') {
-    return <MonacoEditorInput value={value || ''} onChange={(next) => onChange(next)} height="280px" readOnly={disabled || field.readOnly} />;
+    return (
+      <MonacoEditorInput
+        value={value || ''}
+        onChange={(next) => onChange(next)}
+        height="280px"
+        readOnly={disabled || field.readOnly}
+      />
+    );
   }
-  const text = value === undefined || value === null ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const text =
+    value === undefined || value === null ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return (
     <Input.TextArea
       aria-label={label}
@@ -160,7 +183,12 @@ export const Widget = ({ field, value, onChange, label, disabled }: WidgetProps)
       );
     case 'checkbox':
       return (
-        <Checkbox aria-label={label} checked={Boolean(value)} disabled={disabled} onChange={(e) => onChange(e.target.checked || undefined)}>
+        <Checkbox
+          aria-label={label}
+          checked={Boolean(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked || undefined)}
+        >
           {field.label}
         </Checkbox>
       );
@@ -187,10 +215,14 @@ export const Widget = ({ field, value, onChange, label, disabled }: WidgetProps)
       );
     case 'duration-list':
       return <CheckScheduleEditor value={value} onChange={onChange} />;
-    case 'text':
-    default:
+    default: // text
       return field.valueType === 'number' ? (
-        <InputNumber aria-label={label} value={value} disabled={disabled} onChange={(next) => onChange(next ?? undefined)} />
+        <InputNumber
+          aria-label={label}
+          value={value}
+          disabled={disabled}
+          onChange={(next) => onChange(next ?? undefined)}
+        />
       ) : (
         <Input
           aria-label={label}
@@ -228,7 +260,13 @@ export const SchemaForm = ({ fields, value, onChange, errors = {}, disabled }: S
             </label>
           )}
           <div id={id}>
-            <Widget field={field} label={field.label} value={getPath(value, field.name)} disabled={disabled} onChange={(next) => onChange(setPath(value, field.name, next))} />
+            <Widget
+              field={field}
+              label={field.label}
+              value={getPath(value, field.name)}
+              disabled={disabled}
+              onChange={(next) => onChange(setPath(value, field.name, next))}
+            />
           </div>
           {field.hint && !error && (
             <Text type="secondary" style={{ fontSize: 12 }}>

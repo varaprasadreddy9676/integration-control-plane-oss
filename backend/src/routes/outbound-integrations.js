@@ -47,16 +47,7 @@ const isTransformationSkipped = transformer.isTransformationSkipped || (() => fa
 const router = express.Router();
 
 // Changing stages or the Send bindings is its own permission (stages:edit).
-function assertMayEditStages(req, before = null) {
-  const { changesStages } = require('../stages/integration-config');
-  const changed = changesStages(req.body || {}, before);
-  if (!changed) return;
-  const { userHasPermission } = require('../rbac/permissions');
-  if (!userHasPermission(req.user, 'stages:edit')) {
-    const { ForbiddenError } = require('../utils/errors');
-    throw new ForbiddenError('Changing pipeline stages needs the stages:edit permission');
-  }
-}
+const { assertMayEditStages } = require('../stages/integration-config');
 
 router.get(
   '/',

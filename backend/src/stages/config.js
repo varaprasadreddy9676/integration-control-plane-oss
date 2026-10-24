@@ -5,14 +5,19 @@
  * Runner-specific config is checked by the runner (runners/index.js); this
  * checks everything the engine relies on: unique IDs, hook/effect combinations,
  * schedules, error policies, timeouts, recording, outputs and the references
- * between stages, and the product boundary (single-delivery outbound only).
+ * between stages.
  *
  * validateStages(...) -> { ok, errors: [{ path, message }], stages, send }
- * The returned stages and send are new objects with defaults applied.
+ *   one delivery's stages and Send bindings
+ * validateIntegrationStages(...) -> { ok, errors, integration }
+ *   every delivery of an integration (see targets.js), with error paths such as
+ *   actions[1].stages[0].name; stage IDs are unique across the integration
+ * The returned stages, send and integration are new objects with defaults applied.
  */
 
 const { expressionsIn, BindingError } = require('./binding');
 const { STAGE_ID } = require('./store');
+const { stageTargets, mapTargets, targetsNotSupported, requestParts } = require('./targets');
 
 const HOOKS = ['before_send', 'after_response', 'after_delivery', 'on_failure'];
 const INLINE_HOOKS = new Set(['before_send', 'after_response']);
@@ -53,6 +58,15 @@ const OUTPUT_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const LEGACY_TIMEOUT_MAX = { 'legacy:pre-delivery-checks': 5 * 120000 + 5000, 'legacy:response-transform': 30000 };
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$/;
 const QUERY_NAME = /^[A-Za-z0-9_.~-]{1,128}$/;
+// A field of the outgoing message, as a dotted path: to, recipient.phone, items.0.sku
+const FIELD_PATH = /^(?=.{1,200}$)[A-Za-z0-9_$-]+(\.[A-Za-z0-9_$-]+)*$/;
+
+// What the Send step may set, by part of the request.
+const BINDING_PARTS = {
+  headers: { kind: 'header', rule: HEADER_NAME },
+  query: { kind: 'query parameter', rule: QUERY_NAME },
+  fields: { kind: 'message field', rule: FIELD_PATH },
+};
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isInt = (value) => Number.isInteger(value);
@@ -60,17 +74,6 @@ const isInt = (value) => Number.isInteger(value);
 function defaultOnError(hook, effect) {
   if (INLINE_HOOKS.has(hook)) return { action: effect === 'gate' ? 'fail_stage' : 'ignore' };
   return { action: 'retry_stage', maxAttempts: 3, backoffSeconds: [30, 120, 600] };
-}
-
-/** Is this integration one that can have stages at all? Returns a reason when not. */
-function stagesNotSupported(integration = {}) {
-  if (String(integration.direction || 'OUTBOUND').toUpperCase() !== 'OUTBOUND') {
-    return 'Stages are available for outbound integrations only';
-  }
-  if (Array.isArray(integration.actions) && integration.actions.length > 0) {
-    return 'Stages are not available for integrations with multiple actions';
-  }
-  return null;
 }
 
 function checkSchedule(schedule, path, add) {
@@ -236,10 +239,11 @@ function normalizeStage(stage) {
 }
 
 /**
- * Validate `stages` (and `send`, the Send step's bindings) for `integration`.
- * `runners` is the runner registry ({ get(type) }).
+ * Validate one delivery's `stages` (and `send`, its Send step's bindings).
+ * `runners` is the runner registry ({ get(type) }); `parts` are the parts of
+ * this delivery's request the Send step may set (targets.requestParts).
  */
-function validateStages(stages, { integration = {}, send, runners }) {
+function validateStages(stages, { send, runners, parts = requestParts('http') }) {
   const errors = [];
   const add = (path, message) => {
     errors.push({ path, message });
@@ -248,8 +252,6 @@ function validateStages(stages, { integration = {}, send, runners }) {
   if (!Array.isArray(list))
     return { ok: false, errors: [{ path: 'stages', message: 'stages is a list' }], stages: [], send };
 
-  const unsupported = stagesNotSupported(integration);
-  if (unsupported && list.length > 0) add('stages', unsupported);
   if (list.length > LIMITS.maxStages) add('stages', `Up to ${LIMITS.maxStages} stages`);
 
   const normalized = list.map((stage) => (isPlainObject(stage) ? normalizeStage(stage) : stage));
@@ -376,31 +378,46 @@ function validateStages(stages, { integration = {}, send, runners }) {
         .map((stage) => [stage.id, outputsOf(stage)])
     );
     if (bindings !== undefined) {
-      if (!isPlainObject(bindings)) add('send.bindings', 'send.bindings has headers and query');
+      if (!isPlainObject(bindings)) add('send.bindings', `send.bindings has ${parts.join(', ')}`);
       else {
-        checkTemplates(
-          bindings.headers,
-          'header',
-          HEADER_NAME,
-          beforeSend,
-          'send.bindings.headers',
-          add,
-          LIMITS.maxBindings
-        );
-        checkTemplates(
-          bindings.query,
-          'query parameter',
-          QUERY_NAME,
-          beforeSend,
-          'send.bindings.query',
-          add,
-          LIMITS.maxBindings
-        );
+        for (const [part, { kind, rule }] of Object.entries(BINDING_PARTS)) {
+          if (bindings[part] === undefined) continue;
+          if (!parts.includes(part)) {
+            add(`send.bindings.${part}`, `This delivery has no ${kind}s; the Send step can set ${parts.join(', ')}`);
+            continue;
+          }
+          checkTemplates(bindings[part], kind, rule, beforeSend, `send.bindings.${part}`, add, LIMITS.maxBindings);
+        }
       }
     }
   }
 
   return { ok: errors.length === 0, errors, stages: normalized, send };
+}
+
+/**
+ * Validate the stages of every delivery of `integration`: each one's list with
+ * its own request parts, stage IDs unique across them, and none configured where
+ * no delivery runs them. Error paths are prefixed with where the stages live.
+ */
+function validateIntegrationStages(integration = {}, { runners }) {
+  const errors = [...targetsNotSupported(integration)];
+  const seen = new Map();
+  const results = [];
+  for (const target of stageTargets(integration)) {
+    const result = validateStages(target.stages, { send: target.send || undefined, runners, parts: target.requestParts });
+    errors.push(...result.errors.map((error) => ({ ...error, path: `${target.path}${error.path}` })));
+    result.stages.forEach((stage, index) => {
+      if (!isPlainObject(stage) || !stage.id) return;
+      if (seen.has(stage.id) && seen.get(stage.id) !== target.path) {
+        errors.push({ path: `${target.path}stages[${index}].id`, message: `Stage ID ${stage.id} is already used by another action` });
+      }
+      seen.set(stage.id, target.path);
+    });
+    results.push(result);
+  }
+  const normalized = mapTargets(integration, (_value, target, index) => ({ stages: results[index].stages, send: target.send || null }));
+  return { ok: errors.length === 0, errors, integration: normalized };
 }
 
 function isOrigin(value) {
@@ -414,8 +431,8 @@ function isOrigin(value) {
 
 module.exports = {
   validateStages,
+  validateIntegrationStages,
   normalizeStage,
-  stagesNotSupported,
   HOOKS,
   INLINE_HOOKS,
   EFFECTS,

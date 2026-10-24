@@ -29,9 +29,8 @@ import { DeliveryTimingSection } from './DeliveryTimingSection';
 import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
-import { DeliveryStagesSection } from '../../../../stages/components/delivery-tab/DeliveryStagesSection';
-import { DeliveryStagesView } from '../../../../stages/components/delivery-tab/DeliveryStagesView';
-import { Tooltip } from 'antd';
+import { DeliveryTab } from '../../../../stages/components/delivery-tab/DeliveryTab';
+import { deliveriesOf, stageCountOf } from '../../../../stages/deliveryTargets';
 
 export interface IntegrationSectionsContentProps {
   form: any;
@@ -509,34 +508,31 @@ export const buildIntegrationSectionItems = ({
     }
   );
 
-  // The stages around a delivery (checks before sending, response checks, scheduled
-  // follow-ups, failure handling), each named by the user. Not for multi-action integrations.
-  const stageCount = (form.getFieldValue('stages') || []).length;
+  // The stages around each delivery (checks before sending, response checks,
+  // scheduled follow-ups, failure handling), each named by the user: the
+  // integration's own, or each action's.
+  const stageCount = stageCountOf(form.getFieldsValue(true));
   items.push({
     key: 'delivery',
-    label: isMultiAction ? (
-      <Tooltip title="Stages are not available for integrations with multiple actions">
-        <Space size={6}>
-          <NodeIndexOutlined />
-          Delivery
-        </Space>
-      </Tooltip>
-    ) : (
+    label: (
       <Space size={6}>
         <NodeIndexOutlined />
         Delivery
         {stageCount > 0 && <Tag style={{ margin: 0 }}>{stageCount}</Tag>}
       </Space>
     ),
-    disabled: !configComplete || isMultiAction,
+    disabled: !configComplete,
     children: wrapContent(
-      isReadOnly ? (
-        <DeliveryStagesView stages={values.stages} integrationId={integrationId} />
-      ) : (
-        <Form.Item name="stages" noStyle>
-          <DeliveryStagesSection form={form} integrationId={integrationId} />
-        </Form.Item>
-      )
+      <DeliveryTab
+        form={form}
+        integrationId={integrationId}
+        readOnly={isReadOnly}
+        targets={deliveriesOf(form.getFieldsValue(true))}
+        context={() => {
+          const current = form.getFieldsValue(true);
+          return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
+        }}
+      />
     ),
   });
 

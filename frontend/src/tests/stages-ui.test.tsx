@@ -25,7 +25,9 @@ import { apiFieldErrors, errorsForStage, newStageId, outputsOf, scheduleSummary 
 import { SchemaForm, getPath, setPath } from '../features/stages/components/delivery-tab/SchemaForm';
 import { StageRunView, buildStageCurl } from '../features/stages/components/StageRunView';
 import { buildStageTabItems, StageSummaryTags } from '../features/stages/components/DeliveryStageTabs';
-import { DeliveryStagesSection } from '../features/stages/components/delivery-tab/DeliveryStagesSection';
+import { DeliveryTab } from '../features/stages/components/delivery-tab/DeliveryTab';
+import { deliveriesOf, protocolOf, requestParts, stageCountOf } from '../features/stages/deliveryTargets';
+import { sampleScope } from '../features/stages/components/delivery-tab/StageTestPanel';
 import { buildIntegrationSavePayload } from '../features/integrations/routes/integrationDetail/utils/savePayload';
 
 const RUNNERS = [
@@ -239,9 +241,7 @@ describe('the Delivery tab', () => {
       <ThemeProvider>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <Form form={form} initialValues={initial}>
-            <Form.Item name="stages" noStyle>
-              <DeliveryStagesSection form={form} />
-            </Form.Item>
+            <DeliveryTab form={form} targets={deliveriesOf(initial as any)} context={() => form.getFieldsValue(true)} />
             <button type="button" onClick={() => ((window as any).__values = form.getFieldsValue(true))}>
               read
             </button>
@@ -317,11 +317,60 @@ describe('the Delivery tab', () => {
     expect(values().send).toEqual({ bindings: { headers: { Authorization: 'Bearer {{ stages.tok.output.token }}' } } });
   });
 
+  it('an integration with actions edits each action\'s stages; the Send step offers what that delivery\'s request has', async () => {
+    const actions = [
+      { name: 'Webhook', kind: 'HTTP', targetUrl: 'https://a.test', stages: [existing[0]] },
+      { name: 'Mail', kind: 'COMMUNICATION', communicationConfig: { channel: 'EMAIL' }, stages: [] },
+    ];
+    render(<Harness initial={{ actions }} />);
+    expect(await screen.findByText('First gate')).toBeInTheDocument();
+    expect(screen.getByText('Extra headers')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Mail · Email'));
+    await waitFor(() => expect(screen.queryByText('First gate')).not.toBeInTheDocument());
+    expect(screen.queryByText('Extra headers')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Send message field' }));
+    fireEvent.change(screen.getByLabelText('Send message field name 1'), { target: { value: 'to' } });
+    fireEvent.change(screen.getByLabelText('Send message field value 1'), { target: { value: '{{ event.email }}' } });
+    expect(values().actions[1].send).toEqual({ bindings: { fields: { to: '{{ event.email }}' } } });
+    expect(values().actions[0].stages.map((s: StageConfig) => s.id)).toEqual(['first']);
+
+    const add = screen.getByRole('button', { name: 'Add a stage: On failure' });
+    await waitFor(() => expect(add).not.toBeDisabled());
+    fireEvent.click(add);
+    fireEvent.click(await screen.findByText('Script'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(values().actions[1].stages).toHaveLength(1));
+    expect(api.validateStages.mock.lastCall?.[0]).toMatchObject({ actionIndex: 1 });
+  });
+
   it('warns when stages cannot run on this server', async () => {
     api.getStageRuntime.mockResolvedValue({ ready: false, mode: 'host', isolated: false, problems: ['unshare is not installed'], switchedOff: false });
     render(<Harness initial={{ stages: existing }} />);
     expect(await screen.findByText('Stages do not run on this server yet')).toBeInTheDocument();
     expect(screen.getByText('unshare is not installed')).toBeInTheDocument();
+  });
+});
+
+describe('deliveries', () => {
+  it('an integration sends once, or once per action; each kind of delivery is the same to stages', () => {
+    expect(deliveriesOf({})).toEqual([expect.objectContaining({ namePath: [], protocol: 'http', actionIndex: null })]);
+    expect(deliveriesOf({ actions: [{ name: 'S', kind: 'COMMUNICATION', communicationConfig: { channel: 'SMS' } }, { kind: 'HL7_MLLP' }] })).toEqual([
+      expect.objectContaining({ label: 'S', namePath: ['actions', 0], protocol: 'sms', actionIndex: 0 }),
+      expect.objectContaining({ label: 'Action 2', protocol: 'hl7', actionIndex: 1 }),
+    ]);
+    expect(protocolOf({ kind: 'COMMUNICATION', communicationConfig: { channel: 'WHATSAPP' } })).toBe('whatsapp');
+    expect(requestParts('http')).toEqual(['headers', 'query', 'fields']);
+    expect(requestParts('email')).toEqual(['fields']);
+    expect(stageCountOf({ stages: [{}], actions: [{ stages: [{}, {}] }, {}] })).toBe(3);
+  });
+
+  it('a sample run shows the stage the same shape as a real delivery of its kind', () => {
+    const stage = { id: 'c', name: 'c', hook: 'after_response', runner: { type: 'script', config: {} } } as StageConfig;
+    expect(sampleScope(stage, { event: {}, request: null, code: 'SENT', response: { id: 1 }, protocol: 'sms' }).delivery).toMatchObject({
+      response: { protocol: 'sms', ok: true, status: null, code: 'SENT', body: { id: 1 } },
+    });
+    expect(sampleScope(stage, { event: {}, request: null, code: '503', response: 'down' }).delivery).toMatchObject({ response: { protocol: 'http', ok: false, status: 503 } });
   });
 });
 

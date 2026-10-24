@@ -18,7 +18,8 @@ const { log } = require('../logger');
 const store = require('./store');
 const jobs = require('./store/jobs');
 const outbox = require('./outbox');
-const { executeStage } = require('./executor');
+const { executeStage, executeDeps } = require('./executor');
+const { findStage, stageRunsNow } = require('./targets');
 const { normalizeStage } = require('./config');
 const { nextJobState, isExpired, finalState } = require('./schedule');
 
@@ -32,29 +33,9 @@ function defaultLoadIntegration() {
     const key = `${orgId}:${integrationId}`;
     const hit = cache.get(key);
     if (hit && hit.until > Date.now()) return hit.value;
-    const db = await mongodb.getDbSafe();
-    const id = mongodb.toObjectId(integrationId);
-    const doc = id ? await db.collection('integration_configs').findOne({ _id: id, orgId }) : null;
-    const { mapIntegrationFromMongo } = require('../data/helpers');
-    const value = doc ? mapIntegrationFromMongo(doc) : null;
+    const value = await require('../data/integrations').getOrgIntegration(orgId, integrationId);
     cache.set(key, { value, until: Date.now() + INTEGRATION_CACHE_MS });
     return value;
-  };
-}
-
-function defaultDeps() {
-  const runners = require('./runners');
-  const { getStageRuntime } = require('./runtime');
-  const { resolveCredential } = require('./credentials');
-  const { admit } = require('./limits');
-  return {
-    runners,
-    get pool() {
-      return getStageRuntime().pool;
-    },
-    resolveCredential,
-    admit,
-    policy: { allowPrivate: !(config.security && config.security.blockPrivateNetworks !== false) },
   };
 }
 
@@ -92,13 +73,13 @@ async function processJob(job, { deps, loadIntegration, onDeadLetter = () => {} 
     return 'FAILED';
   }
   const integration = await loadIntegration(job.orgId, job.integrationId);
-  const current = integration && (integration.stages || []).find((stage) => stage && stage.id === job.stageId);
-  if (!integration || !current) {
+  const found = findStage(integration, job.stageId);
+  const current = found && found.stage;
+  if (!current) {
     const { committed } = await jobs.commit(job, finalState('CANCELLED', now, { lastError: 'The stage or integration was deleted' }));
     return committed ? 'CANCELLED' : null;
   }
-  const switchedOff = (config.stages || {}).disabled || integration.stagesPaused || current.enabled === false || integration.isActive === false;
-  if (switchedOff) {
+  if (!stageRunsNow(integration, current)) {
     const { committed } = await jobs.commit(job, { state: 'PAUSED', pausedAt: now, lease: null });
     return committed ? 'PAUSED' : null;
   }
@@ -201,14 +182,14 @@ async function repair({ loadIntegration = defaultLoadIntegration() } = {}) {
   if ((config.stages || {}).disabled) return;
   for (const group of await jobs.pausedGroups()) {
     const integration = await loadIntegration(group.orgId, group.integrationId);
-    const stage = integration && (integration.stages || []).find((candidate) => candidate && candidate.id === group.stageId);
-    if (integration && stage && integration.isActive !== false && !integration.stagesPaused && stage.enabled !== false) {
+    const found = findStage(integration, group.stageId);
+    if (found && stageRunsNow(integration, found.stage)) {
       await jobs.resumeJobs(group.orgId, group.integrationId, group.stageId);
     }
   }
 }
 
-function createJobWorker({ concurrency = 4, maxPerOrg = 2, deps = defaultDeps(), loadIntegration = defaultLoadIntegration(), onDeadLetter } = {}) {
+function createJobWorker({ concurrency = 4, maxPerOrg = 2, deps = executeDeps(), loadIntegration = defaultLoadIntegration(), onDeadLetter } = {}) {
   let running = 0;
   const perOrg = new Map();
   let pollTimer = null;

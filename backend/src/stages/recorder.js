@@ -16,6 +16,7 @@
 
 const client = require('./http/client');
 const { createMasker } = require('./mask');
+const { parseBody } = require('./delivery-shape');
 
 const DEFAULT_LIMITS = {
   maxCalls: 25, // calls one run may make
@@ -64,17 +65,6 @@ function withParams(url, params) {
     if (value !== undefined && value !== null) target.searchParams.append(key, String(value));
   }
   return target.href;
-}
-
-function parseBody(text) {
-  if (typeof text !== 'string') return text;
-  const trimmed = text.trim();
-  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return text;
-  try {
-    return JSON.parse(trimmed);
-  } catch (_error) {
-    return text;
-  }
 }
 
 /** A body cut to `max` characters when stored, as { body, cut }. */

@@ -425,7 +425,8 @@ async function addIntegration(orgId, payload) {
     transformation: payload.transformation || null,
     transformMode: payload.transformationMode || 'SIMPLE',
     transformConfig: payload.transformation || null,
-    actions: payload.actions || null,
+    // Stage fields may have normalized each action's stages.
+    actions: stageFields.actions || payload.actions || null,
     resourceType: payload.resourceType || null,
     subjectExtraction:
       lifecycleValidation.normalizedSubjectExtraction || conditionValidation.normalizedSubjectExtraction,
@@ -758,6 +759,15 @@ async function listEventTypes(orgId) {
     .filter(Boolean);
 }
 
+/** The integration if it belongs to `orgId` (mapped), else null. */
+async function getOrgIntegration(orgId, integrationId) {
+  const objectId = mongodb.toObjectId(integrationId);
+  if (!objectId) return null;
+  const db = await mongodb.getDbSafe();
+  const integration = await db.collection('integration_configs').findOne({ _id: objectId, orgId });
+  return integration ? mapIntegrationFromMongo(integration) : null;
+}
+
 async function getIntegrationById(integrationId) {
   const db = await mongodb.getDbSafe();
   const integration = await db.collection('integration_configs').findOne({ _id: mongodb.toObjectId(integrationId) });
@@ -783,4 +793,5 @@ module.exports = {
   bulkDeleteIntegrations,
   listEventTypes,
   getIntegrationById,
+  getOrgIntegration,
 };

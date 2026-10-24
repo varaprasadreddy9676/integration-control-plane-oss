@@ -96,6 +96,24 @@ function readResult(value, stage, declaredOutputs) {
   return { ok: true, status, done: stage.hook === 'after_delivery' ? value.done === true : false, data };
 }
 
+/** What a stage needs to run in this process: runners, runtime, credentials, limits, network policy. */
+function executeDeps() {
+  const config = require('../config');
+  const runners = require('./runners');
+  const { getStageRuntime } = require('./runtime');
+  const { resolveCredential } = require('./credentials');
+  const { admit } = require('./limits');
+  return {
+    runners,
+    get pool() {
+      return getStageRuntime().pool;
+    },
+    resolveCredential,
+    admit,
+    policy: { allowPrivate: !(config.security && config.security.blockPrivateNetworks !== false) },
+  };
+}
+
 /**
  * meta: { orgId, deliveryId, integrationId, integrationRevision, definitionHash,
  *         seq, executionAttempt, deliveryAttempt, jobId, replayOfRunId, acceptedAt }
@@ -247,4 +265,4 @@ async function executeStage({ stage, integration = {}, scope, deadline, signal, 
   };
 }
 
-module.exports = { executeStage, readResult, credentialHeaders };
+module.exports = { executeStage, executeDeps, readResult, credentialHeaders };

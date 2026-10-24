@@ -159,7 +159,7 @@ describe('after_response and after the send', () => {
         expect.objectContaining({
           hook: 'after_delivery',
           stageId: 'check',
-          input: expect.objectContaining({ response: { status: 202, headers: { 'content-type': 'application/json' }, body: { id: 'm-1' } } }),
+          input: expect.objectContaining({ response: expect.objectContaining({ status: 202, headers: { 'content-type': 'application/json' }, body: { id: 'm-1' } }) }),
         }),
       ],
     });

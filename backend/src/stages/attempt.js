@@ -1,15 +1,17 @@
 'use strict';
 
 /**
- * The stages of one delivery attempt, as both send paths use them (the delivery
- * engine for immediate deliveries, the scheduler worker for delayed and
- * recurring ones):
+ * The stages of one delivery attempt, as every send path uses them (the delivery
+ * engine for immediate deliveries and for each action, the scheduler worker for
+ * delayed and recurring ones), whatever the delivery sends (HTTP, email, SMS,
+ * HL7...):
  *
- *   const stages = createAttemptStages({ integration, evt, orgId, attempt, isTest });
- *   const gate = await stages.beforeSend({ url, method, body });    // after the transform
+ *   const stages = createAttemptStages({ integration, actionIndex, evt, orgId, attempt, isTest });
+ *   const gate = await stages.beforeSend({ target, method, body });  // after the transform
  *   if (!gate.proceed) -> record gate.status (SKIPPED, FAILED or RETRYING) with gate.message
- *   ...add gate.headers and gate.query to the target request, send it...
- *   const verdict = await stages.afterResponse({ status, headers, body });
+ *   ...send gate.body (with the Send step's message fields set), adding gate.headers
+ *      and gate.query where the request has them (HTTP)...
+ *   const verdict = await stages.afterResponse(deliveryResponse({ ... }));  // delivery-shape.js
  *   if (verdict.failed) -> the send counts as failed (verdict.retry: resending is allowed)
  *   await data.recordLog(orgId, await stages.decorate(payload));   // at every exit
  *   (decorate(payload, { outcome }) when the logged status is not the outcome)
@@ -41,6 +43,8 @@ const { normalizeStage } = require('./config');
 const { resolveMap, BindingError } = require('./binding');
 const { definitions } = require('./store');
 const { runInlineHook } = require('./inline');
+const { targetOf } = require('./targets');
+const { deliveryRequest, fromLog } = require('./delivery-shape');
 
 const DEFAULT_BUDGET_MS = 5000;
 const TERMINAL_FAILURES = new Set(['FAILED', 'ABANDONED']);
@@ -48,7 +52,7 @@ const TERMINAL_FAILURES = new Set(['FAILED', 'ABANDONED']);
 const NOOP = Object.freeze({
   active: false,
   hasShadow: () => false,
-  beforeSend: async () => ({ proceed: true, headers: {}, query: {} }),
+  beforeSend: async ({ body } = {}) => ({ proceed: true, headers: {}, query: {}, body }),
   afterResponse: async () => ({ failed: false }),
   shadow: async () => {},
   decorate: async (payload) => payload,
@@ -62,47 +66,38 @@ function switchedOn(integration) {
   return !((config.stages || {}).disabled || integration.stagesPaused);
 }
 
-/** The stages that run for this integration now, normalized; [] when switched off. */
-function activeStages(integration) {
-  if (!switchedOn(integration)) return [];
-  return (integration.stages || []).filter((stage) => stage && stage.enabled !== false && !stage.shadow).map(normalizeStage);
+/**
+ * The stages of one delivery (the integration's own, or one action's) that run
+ * now, normalized: the acting ones, or with `shadow` the migrated ones being
+ * compared with the old path (they never act). [] when switched off.
+ */
+function deliveryStages(integration, target, shadow = false) {
+  if (!target || !switchedOn(integration)) return [];
+  return target.stages.filter((stage) => stage && stage.enabled !== false && Boolean(stage.shadow) === shadow).map(normalizeStage);
 }
 
-/** Migrated stages being compared with the old path (they never act). */
-function shadowStages(integration) {
-  if (!switchedOn(integration)) return [];
-  return (integration.stages || []).filter((stage) => stage && stage.enabled !== false && stage.shadow).map(normalizeStage);
-}
-
-function parseBody(body) {
-  if (typeof body !== 'string') return body === undefined ? null : body;
-  try {
-    return JSON.parse(body);
-  } catch (_error) {
-    return body;
+/** A copy of `body` with each { 'path.to.field': value } set (objects are copied, never changed). */
+function withFields(body, fields) {
+  const entries = Object.entries(fields || {});
+  if (entries.length === 0) return body;
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw new BindingError('Message fields can only be set on a message that is an object', null);
   }
-}
-
-function defaultDeps() {
-  const runners = require('./runners');
-  const { getStageRuntime } = require('./runtime');
-  const { resolveCredential } = require('./credentials');
-  const { admit } = require('./limits');
-  return {
-    runners,
-    pool: getStageRuntime().pool,
-    resolveCredential,
-    admit,
-    policy: { allowPrivate: !(config.security && config.security.blockPrivateNetworks !== false) },
+  const set = (value, [head, ...rest], next) => {
+    const base = Array.isArray(value) ? [...value] : { ...(value && typeof value === 'object' ? value : {}) };
+    base[head] = rest.length === 0 ? next : set(base[head], rest, next);
+    return base;
   };
+  return entries.reduce((current, [path, value]) => set(current, path.split('.'), value), body);
 }
 
-function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest = false, deliveryId = null, deps }) {
-  const stages = activeStages(integration || {});
-  const shadows = shadowStages(integration || {});
+function createAttemptStages({ integration, actionIndex = null, evt = {}, orgId, attempt = 1, isTest = false, deliveryId = null, deps }) {
+  const target = targetOf(integration || {}, actionIndex);
+  const stages = deliveryStages(integration || {}, target);
+  const shadows = deliveryStages(integration || {}, target, true);
   if (stages.length === 0 && shadows.length === 0) return NOOP;
 
-  const runDeps = deps || defaultDeps();
+  const runDeps = deps || require('./executor').executeDeps();
   const hashes = Object.fromEntries([...stages, ...shadows].map((stage) => [stage.id, definitions.definitionHash(orgId, stage)]));
   const budgetMs = Number(integration.stageBudgetMs) || Number((config.stages || {}).inlineBudgetMs) || DEFAULT_BUDGET_MS;
   let budgetDeadline = null;
@@ -133,25 +128,32 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     return result;
   }
 
-  async function beforeSend({ url, method, body }) {
-    scope.delivery.request = { url, method, body };
+  /** `request`: { target, method, body } as the delivery is about to send it. */
+  async function beforeSend({ target: to, method, body }) {
+    scope.delivery.request = deliveryRequest({ protocol: target.protocol, target: to, method, body });
     if (at('before_send').length > 0) {
       const result = await runHook('before_send');
       if (result.decision === 'skip') return { proceed: false, status: 'SKIPPED', message: result.message };
       if (result.decision === 'fail') return { proceed: false, status: 'FAILED', message: result.message };
       if (result.decision === 'retry') return { proceed: false, status: 'RETRYING', message: result.message };
     }
-    const bindings = (integration.send && integration.send.bindings) || {};
+    const bindings = (target.send && target.send.bindings) || {};
     try {
-      return { proceed: true, headers: resolveMap(bindings.headers, scope), query: resolveMap(bindings.query, scope) };
+      return {
+        proceed: true,
+        headers: resolveMap(bindings.headers, scope),
+        query: resolveMap(bindings.query, scope),
+        body: withFields(body, resolveMap(bindings.fields, scope)),
+      };
     } catch (error) {
       if (!(error instanceof BindingError)) throw error;
       return { proceed: false, status: 'FAILED', message: `Send binding: ${error.message}` };
     }
   }
 
-  async function afterResponse({ status, headers, body }) {
-    scope.delivery.response = { status, headers: headers || {}, body: parseBody(body) };
+  /** `response`: what came back, as deliveryResponse() shapes it (the protocol is this delivery's). */
+  async function afterResponse(response) {
+    scope.delivery.response = { ...response, protocol: target.protocol };
     if (at('after_response').length === 0) return { failed: false };
     const result = await runHook('after_response');
     if (result.decision === 'fail' || result.decision === 'retry') {
@@ -173,8 +175,8 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
         ...scope,
         delivery: {
           ...scope.delivery,
-          request: request || scope.delivery.request,
-          response: response ? { status: response.status, headers: response.headers || {}, body: parseBody(response.body) } : scope.delivery.response,
+          request: request ? deliveryRequest({ protocol: target.protocol, ...request }) : scope.delivery.request,
+          response: response ? { ...response, protocol: target.protocol } : scope.delivery.response,
         },
       };
       const result = await runInlineHook({
@@ -225,14 +227,12 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
     const due = [...at(hook), ...(shadowing ? shadows.filter((stage) => stage.hook === hook) : [])];
     if (due.length === 0) return [];
     const now = new Date().toISOString();
+    // What this attempt saw; for a send that ended before stages saw it, what the log records.
+    const logged = fromLog(payload);
     const input = {
       event: scope.event,
-      request: scope.delivery.request || { url: payload.targetUrl, method: payload.httpMethod, body: payload.requestPayload },
-      response: scope.delivery.response || {
-        status: payload.responseStatus === undefined ? null : payload.responseStatus,
-        headers: {},
-        body: parseBody(payload.responseBody),
-      },
+      request: scope.delivery.request || logged.request,
+      response: scope.delivery.response || logged.response,
       attempt,
       status,
       errorMessage: payload.errorMessage || null,
@@ -282,4 +282,4 @@ function createAttemptStages({ integration, evt = {}, orgId, attempt = 1, isTest
   return { active: stages.length > 0, hasShadow: (source) => shadows.some((stage) => stage.migratedFrom === source), beforeSend, afterResponse, shadow, decorate, drain };
 }
 
-module.exports = { createAttemptStages, activeStages, NOOP };
+module.exports = { createAttemptStages, deliveryStages, withFields, NOOP };

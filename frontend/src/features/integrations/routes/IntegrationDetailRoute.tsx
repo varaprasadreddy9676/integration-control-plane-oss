@@ -477,7 +477,10 @@ const firstTime = addHours(now(), 1);
     try {
       // Tabs may preserve fields that are not currently mounted. Read the
       // complete store so a collapsed or unvisited section is still saved.
-      const values = { ...form.getFieldsValue(true), ...submittedValues };
+      // Actions always come from the store: fields of an action registered on
+      // another tab (its stages, on the Delivery tab) would submit as partial actions.
+      const store = form.getFieldsValue(true);
+      const values = { ...store, ...submittedValues, actions: store.actions ?? submittedValues.actions };
       const urlPattern = /^https?:\/\/.+/i;
       const isMultiActionSubmit = isMultiAction;
       const formActions = form.getFieldValue('actions');
@@ -931,7 +934,6 @@ const firstTime = addHours(now(), 1);
     messageApi,
   });
 
-
   return (
     <div style={{ paddingBottom: spacing[12] }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
@@ -1193,7 +1195,9 @@ const firstTime = addHours(now(), 1);
               // Without a transformation the event payload is sent as-is, which is valid.
               advisory: true,
               warning:
-                !transformationHasContent && !isMultiAction ? 'No transformation: the event payload is sent as-is' : undefined,
+                !transformationHasContent && !isMultiAction
+                  ? 'No transformation: the event payload is sent as-is'
+                  : undefined,
             },
             {
               label: 'No validation errors',

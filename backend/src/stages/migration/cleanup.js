@@ -15,21 +15,13 @@
 const mongodb = require('../../mongodb');
 const store = require('../store');
 const { createMasker } = require('../mask');
+const { parseBody } = require('../delivery-shape');
 
 const KEEP_DAYS = 30;
 const PERSONAL_KEYS = ['to', 'from', 'recipient', 'recipient_id', 'phone', 'mobile', 'msisdn', 'wa_id', 'email'];
 const OUTCOMES = { RESULT: 'ok', SKIPPED: 'skipped', ERROR: 'error' };
 
 const hasBodies = { 'followUp.history.httpCalls': { $elemMatch: { $or: [{ responseBody: { $ne: null } }, { headers: { $ne: null } }] } } };
-
-function parse(text) {
-  if (typeof text !== 'string') return text;
-  try {
-    return JSON.parse(text);
-  } catch (_error) {
-    return text;
-  }
-}
 
 function runFromCheck(logDoc, check) {
   const masker = createMasker({ sensitiveKeys: PERSONAL_KEYS });
@@ -41,7 +33,7 @@ function runFromCheck(logDoc, check) {
     durationMs: call.durationMs === undefined ? null : call.durationMs,
     error: call.error ? { code: 'NETWORK', message: String(call.error) } : undefined,
     requestHeaders: call.headers ? masker.maskHeaders(call.headers) : undefined,
-    responseBody: call.responseBody === null || call.responseBody === undefined ? undefined : masker.maskJson(parse(call.responseBody)),
+    responseBody: call.responseBody === null || call.responseBody === undefined ? undefined : masker.maskJson(parseBody(call.responseBody)),
     // The old follow-up kept at most 3000 characters of each body.
     responseBodyCut: typeof call.responseBody === 'string' && call.responseBody.length >= 3000 ? 'recording' : undefined,
   }));

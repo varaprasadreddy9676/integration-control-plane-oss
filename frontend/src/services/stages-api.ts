@@ -34,7 +34,8 @@ export interface StageConfig {
 }
 
 export interface SendBindings {
-  bindings?: { headers?: Record<string, string>; query?: Record<string, string> };
+  /** fields: the outgoing message's fields (any delivery); headers and query: HTTP only. */
+  bindings?: { headers?: Record<string, string>; query?: Record<string, string>; fields?: Record<string, string> };
 }
 
 export interface SchemaField {
@@ -150,6 +151,8 @@ export const stageFromTemplate = async (templateId: string, body: { id?: string;
 export const validateStages = async (body: {
   integrationId?: string;
   integration?: Record<string, unknown>;
+  /** Which delivery's stages: an action's index, or absent for the integration itself. */
+  actionIndex?: number | null;
   stages: StageConfig[];
   send?: SendBindings | null;
 }): Promise<{ ok: boolean; errors: StageValidationError[]; stages: StageConfig[] }> => apiRequest('/stages/validate', json(body));

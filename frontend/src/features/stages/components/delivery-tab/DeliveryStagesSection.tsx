@@ -9,6 +9,8 @@ import { KeyValueEditor } from './SchemaForm';
 import { StageEditorDrawer } from './StageEditorDrawer';
 import { StageResultsCard } from './StageResultsCard';
 import { defaultStage, newStageId, outputsOf, scheduleSummary } from './stageDraft';
+import type { DeliveryTarget, RequestPart } from '../../deliveryTargets';
+import { requestParts } from '../../deliveryTargets';
 
 const { Text } = Typography;
 
@@ -22,25 +24,39 @@ const rowStyle = {
   borderRadius: 8,
 };
 
-/** The Send step's bindings: values from stages that run before sending, into the request's headers and query. */
-const SendBindingsEditor = ({ value, onChange, available }: { value?: SendBindings | null; onChange?: (value: SendBindings | null) => void; available: string[] }) => {
+// What the Send step can set, by part of the delivery's request.
+const SEND_PARTS: Record<RequestPart, { title: string; label: string; hint?: string }> = {
+  fields: { title: 'Message fields', label: 'Send message field', hint: 'A field of the outgoing message by its path, such as to or recipient.phone.' },
+  headers: { title: 'Extra headers', label: 'Send header' },
+  query: { title: 'Extra query parameters', label: 'Send query parameter' },
+};
+
+/** The Send step's bindings: values from stages that run before sending, into the parts of the request this delivery has. */
+const SendBindingsEditor = ({
+  value,
+  onChange,
+  available,
+  parts,
+}: {
+  value?: SendBindings | null;
+  onChange?: (value: SendBindings | null) => void;
+  available: string[];
+  parts: RequestPart[];
+}) => {
   const bindings = value?.bindings || {};
-  const write = (part: 'headers' | 'query', next?: Record<string, string>) => {
-    const merged = { ...bindings, [part]: next };
-    if (!merged.headers) delete merged.headers;
-    if (!merged.query) delete merged.query;
+  const write = (part: RequestPart, next?: Record<string, string>) => {
+    const merged = Object.fromEntries(Object.entries({ ...bindings, [part]: next }).filter(([, entries]) => entries));
     onChange?.(Object.keys(merged).length ? { bindings: merged } : null);
   };
   return (
     <Space direction="vertical" size={10} style={{ width: '100%' }}>
-      <div>
-        <Text strong>Extra headers</Text>
-        <KeyValueEditor label="Send header" value={bindings.headers} onChange={(next) => write('headers', next)} />
-      </div>
-      <div>
-        <Text strong>Extra query parameters</Text>
-        <KeyValueEditor label="Send query parameter" value={bindings.query} onChange={(next) => write('query', next)} />
-      </div>
+      {parts.map((part) => (
+        <div key={part}>
+          <Text strong>{SEND_PARTS[part].title}</Text>
+          {SEND_PARTS[part].hint && <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{SEND_PARTS[part].hint}</Text>}
+          <KeyValueEditor label={SEND_PARTS[part].label} value={bindings[part]} onChange={(next) => write(part, next)} />
+        </div>
+      ))}
       <Text type="secondary" style={{ fontSize: 12 }}>
         {available.length ? (
           <>Available: {available.map((item) => <code key={item} style={{ marginRight: 8 }}>{item}</code>)}</>
@@ -53,32 +69,32 @@ const SendBindingsEditor = ({ value, onChange, available }: { value?: SendBindin
 };
 
 interface DeliveryStagesSectionProps {
-  /** The integration form (for the Send step, the switch, and validation context). */
+  /** The integration form (for the Send step and the migration state). */
   form: any;
   integrationId?: string;
+  /** The delivery these stages belong to: the integration itself, or one action. */
+  target: DeliveryTarget;
+  /** The integration as the server should validate these stages against. */
+  context: () => Record<string, unknown>;
   value?: StageConfig[];
   onChange?: (value: StageConfig[]) => void;
 }
 
 /**
- * The Delivery tab: the stages around a delivery, grouped by where they run, each
- * named by the user. Changes are kept in the form and saved with the integration.
+ * The stages around one delivery, grouped by where they run, each named by the
+ * user. Changes are kept in the form and saved with the integration.
  */
-export const DeliveryStagesSection = ({ form, integrationId, value, onChange }: DeliveryStagesSectionProps) => {
+export const DeliveryStagesSection = ({ form, integrationId, target, context, value, onChange }: DeliveryStagesSectionProps) => {
   const stages = value || [];
   const [editing, setEditing] = useState<{ stage: StageConfig; index: number; tab: 'settings' | 'test' } | null>(null);
   const runners = useQuery({ queryKey: ['stage-runners'], queryFn: getStageRunners, staleTime: 5 * 60 * 1000 });
   const templates = useQuery({ queryKey: ['stage-templates', integrationId], queryFn: () => getStageTemplates(integrationId) });
   const runtime = useQuery({ queryKey: ['stage-runtime'], queryFn: getStageRuntime, staleTime: 60 * 1000 });
-  const send = Form.useWatch('send', { form, preserve: true }) as SendBindings | null | undefined;
+  const send = Form.useWatch([...target.namePath, 'send'], { form, preserve: true }) as SendBindings | null | undefined;
   const migration = form.getFieldValue('stageMigration');
 
   const write = (next: StageConfig[]) => onChange?.(next);
   const taken = stages.map((stage) => stage.id);
-  const context = () => {
-    const values = form.getFieldsValue(true);
-    return { direction: values.direction || 'OUTBOUND', actions: values.actions || [], targetUrl: values.targetUrl };
-  };
 
   const addFromRunner = (hook: StageHook, type: string) => {
     const runner = runners.data?.find((candidate) => candidate.type === type);
@@ -196,13 +212,6 @@ export const DeliveryStagesSection = ({ form, integrationId, value, onChange }: 
         />
       )}
 
-      <Space align="center">
-        <Form.Item name="stagesPaused" noStyle getValueProps={(paused) => ({ checked: !paused })} normalize={(checked) => !checked}>
-          <Switch aria-label="Run this integration's stages" />
-        </Form.Item>
-        <Text>Run this integration&apos;s stages</Text>
-      </Space>
-
       {HOOK_GROUPS.map((group) => (
         <div key={group.hook}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
@@ -230,8 +239,8 @@ export const DeliveryStagesSection = ({ form, integrationId, value, onChange }: 
                 <Text strong>Send</Text>
                 <Text type="secondary">The delivery itself: target, authentication and retries are on their own tabs.</Text>
               </Space>
-              <Form.Item name="send" noStyle>
-                <SendBindingsEditor available={beforeSendOutputs} />
+              <Form.Item name={[...target.namePath, 'send']} noStyle>
+                <SendBindingsEditor available={beforeSendOutputs} parts={requestParts(target.protocol)} />
               </Form.Item>
             </div>
           )}
@@ -251,6 +260,8 @@ export const DeliveryStagesSection = ({ form, integrationId, value, onChange }: 
           runners={runners.data}
           integrationId={integrationId}
           integration={context()}
+          protocol={target.protocol}
+          actionIndex={target.actionIndex}
           onClose={() => setEditing(null)}
           onApply={(stage) => {
             const next = [...stages];

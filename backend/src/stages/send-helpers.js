@@ -1,6 +1,8 @@
 'use strict';
 
-/** Small helpers both send paths use around stages. */
+/** Small helpers the send paths use around stages. */
+
+const { deliveryResponse } = require('./delivery-shape');
 
 /** A fetch Response's headers as a plain object. */
 function headersObject(resp) {
@@ -18,4 +20,17 @@ function withQuery(url, query) {
   return target.href;
 }
 
-module.exports = { headersObject, withQuery };
+/**
+ * after_response stages on a fetch Response (its body read from a clone, so the
+ * caller can still read it). { failed: false } when no stage acts.
+ */
+async function afterHttpResponse(stages, resp) {
+  if (!stages.active) return { failed: false };
+  const body = await resp
+    .clone()
+    .text()
+    .catch(() => '');
+  return stages.afterResponse(deliveryResponse({ status: resp.status, headers: headersObject(resp), body }));
+}
+
+module.exports = { headersObject, withQuery, afterHttpResponse };

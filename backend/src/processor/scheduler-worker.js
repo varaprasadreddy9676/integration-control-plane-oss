@@ -20,6 +20,7 @@ const { checkRateLimit } = require('../middleware/rate-limiter');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { createAttemptStages } = require('../stages/attempt');
 const { headersObject, withQuery } = require('../stages/send-helpers');
+const { deliveryResponse } = require('../stages/delivery-shape');
 const { preDeliveryDecision } = require('../stages/migration/legacy-decisions');
 const { applyTransform } = transformer;
 const getTransformationSkipReason = transformer.getTransformationSkipReason || (() => null);
@@ -1237,6 +1238,8 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     await stages.drain(recordedId);
     return recordedId;
   };
+  // What is sent: the payload, until the Send step sets message fields on it.
+  let outgoing = payload;
 
   try {
     const urlCheck = validateTargetUrl(scheduled.targetUrl, config.security);
@@ -1300,7 +1303,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     });
     // While migrating, the stage that takes them over runs alongside and is compared.
     const shadowChecks = stages.shadow('preDeliveryChecks', {
-      request: { url: scheduled.targetUrl, method: scheduled.httpMethod, body: payload },
+      request: { target: scheduled.targetUrl, method: scheduled.httpMethod, body: payload },
       legacy: legacyChecks.then(preDeliveryDecision),
     });
     let checkFailure = await legacyChecks;
@@ -1308,9 +1311,9 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
 
     // before_send stages see the request about to go out; a gate can skip, fail or
     // (when the stage allows it) retry the delivery. Nothing has been sent yet.
-    let gate = { proceed: true, headers: {}, query: {} };
+    let gate = { proceed: true, headers: {}, query: {}, body: payload };
     if (!checkFailure) {
-      gate = await stages.beforeSend({ url: scheduled.targetUrl, method: scheduled.httpMethod, body: payload });
+      gate = await stages.beforeSend({ target: scheduled.targetUrl, method: scheduled.httpMethod, body: payload });
       if (!gate.proceed && gate.status === 'SKIPPED') {
         const skipMessage = `${prefix}Skipping delivery: ${gate.message}`;
         await recordAttempt({
@@ -1390,6 +1393,8 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         .catch(() => {});
       return { status: 'FAILED', responseStatus: checkFailure.responseStatus, errorMessage, attemptCount };
     }
+    // The message as the Send step completed it (its message fields set).
+    outgoing = gate.body;
 
     if (integration.rateLimits?.enabled) {
       const rateStart = Date.now();
@@ -1428,7 +1433,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
             responseTimeMs: 0,
             attemptCount,
             originalPayload: scheduled.originalPayload || payload,
-            requestPayload: payload,
+            requestPayload: outgoing,
             errorMessage,
             shouldRetry: true,
             targetUrl: scheduled.targetUrl,
@@ -1479,7 +1484,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       try {
         messageId = uuidv4();
         timestamp = Math.floor(Date.now() / 1000);
-        const payloadString = JSON.stringify(payload);
+        const payloadString = JSON.stringify(outgoing);
 
         signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
 
@@ -1506,7 +1511,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     const resp = await fetch(withQuery(scheduled.targetUrl, gate.query), {
       method: scheduled.httpMethod,
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(outgoing),
       signal: controller.signal,
     });
 
@@ -1524,7 +1529,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
 
     // after_response stages see every answer; a classifier can only turn an
     // accepted send into a failure, and resend only under its explicit policy.
-    const verdict = await stages.afterResponse({ status: resp.status, headers: headersObject(resp), body: responseBody });
+    const verdict = await stages.afterResponse(deliveryResponse({ status: resp.status, headers: headersObject(resp), body: responseBody }));
 
     if (verdict.failed && resp.status >= 200 && resp.status < 300) {
       errorMessage = verdict.message;
@@ -1571,7 +1576,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       responseTimeMs,
       attemptCount,
       originalPayload: scheduled.originalPayload || payload,
-      requestPayload: payload,
+      requestPayload: outgoing,
       errorMessage,
       targetUrl: scheduled.targetUrl,
       httpMethod: scheduled.httpMethod,
@@ -1657,7 +1662,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       responseTimeMs,
       attemptCount,
       originalPayload: scheduled.originalPayload || payload,
-      requestPayload: payload,
+      requestPayload: outgoing,
       errorMessage,
       targetUrl: scheduled.targetUrl,
       httpMethod: scheduled.httpMethod,

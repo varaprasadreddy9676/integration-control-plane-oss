@@ -6,7 +6,7 @@
  */
 
 const { resolveTemplate, resolveMap, BindingError } = require('../../../src/stages/binding');
-const { validateStages } = require('../../../src/stages/config');
+const { validateStages, validateIntegrationStages } = require('../../../src/stages/config');
 const runners = require('../../../src/stages/runners');
 const { executeStage } = require('../../../src/stages/executor');
 const { createRuntimePool } = require('../../../src/stages/runtime/pool');
@@ -66,7 +66,7 @@ describe('validateStages', () => {
   });
 
   const errorsFor = (stages, extra = {}) =>
-    validateStages(stages, { integration: { direction: 'OUTBOUND' }, runners, ...extra }).errors.map((e) => `${e.path}: ${e.message}`);
+    validateStages(stages, { runners, ...extra }).errors.map((e) => `${e.path}: ${e.message}`);
 
   it.each([
     ['a duplicate ID', [valid[0], { ...valid[3], id: 'getToken' }], /used twice/],
@@ -86,9 +86,26 @@ describe('validateStages', () => {
     expect(errorsFor(stages).join('\n')).toMatch(pattern);
   });
 
-  it('rejects stages on multi-action and inbound integrations', () => {
-    expect(errorsFor([valid[3]], { integration: { direction: 'OUTBOUND', actions: [{}] } }).join()).toMatch(/multiple actions/);
-    expect(errorsFor([valid[3]], { integration: { direction: 'INBOUND' } }).join()).toMatch(/outbound integrations only/);
+  it('validates every delivery of an integration: its own stages, or each action\'s', () => {
+    const check = (integration) => validateIntegrationStages(integration, { runners });
+    const email = { name: 'Mail', kind: 'COMMUNICATION', communicationConfig: { channel: 'EMAIL' } };
+    expect(check({ direction: 'OUTBOUND', actions: [{ name: 'A' }], stages: [valid[3]] }).errors.map((e) => e.message).join()).toMatch(/put stages on each action/);
+    expect(check({ direction: 'INBOUND', stages: [valid[3]] }).errors.map((e) => e.message).join()).toMatch(/inbound proxy/);
+    const ok = check({ direction: 'INBOUND', actions: [{ ...email, stages: [valid[3]] }] });
+    expect(ok.errors).toEqual([]);
+    expect(ok.integration.actions[0].stages[0]).toMatchObject({ id: valid[3].id, enabled: true });
+    // Error paths say where the stages live; IDs are unique across actions.
+    const dup = check({ actions: [{ name: 'A', stages: [valid[3]] }, { ...email, stages: [{ ...valid[3], name: '' }] }] });
+    expect(dup.errors.map((e) => e.path)).toEqual(expect.arrayContaining(['actions[1].stages[0].name', 'actions[1].stages[0].id']));
+  });
+
+  it('lets the Send step set what the delivery\'s request has: message fields always, headers and query only over HTTP', () => {
+    const send = { bindings: { fields: { 'recipient.email': '{{ event.email }}' }, headers: { 'X-A': 'b' } } };
+    const email = { kind: 'COMMUNICATION', communicationConfig: { channel: 'EMAIL' } };
+    const errors = validateIntegrationStages({ actions: [{ ...email, name: 'Mail', stages: [], send }] }, { runners }).errors;
+    expect(errors).toEqual([{ path: 'actions[0].send.bindings.headers', message: expect.stringMatching(/no headers.*fields/) }]);
+    expect(validateIntegrationStages({ stages: [], send }, { runners }).errors).toEqual([]);
+    expect(errorsFor([], { send: { bindings: { fields: { 'bad path!': 'x' } } } }).join()).toMatch(/not a valid message field name/);
   });
 
   it('lets the Send step bind only outputs of stages that run before sending', () => {

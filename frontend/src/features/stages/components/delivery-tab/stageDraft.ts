@@ -21,13 +21,14 @@ export const newStageId = (name: string, taken: string[]): string => {
 };
 
 const STARTER_SCRIPTS: Record<StageHook, string> = {
-  before_send: `// ctx.event: the event; ctx.delivery.request: { url, method, body } about to be sent
+  before_send: `// ctx.event: the event; ctx.delivery.request: { protocol, target, method, body } about to be sent
 // return skip('reason') to not send it, fail('reason') to fail it
 return { status: 'OK' };`,
-  after_response: `// ctx.delivery.response: { status, headers, body } the target answered
+  after_response: `// ctx.delivery.response: { ok, status, code, providerMessageId, body } what came back
+// (status is the HTTP status; code is the answer's own code: 200, SENT, AA...)
 // return fail('reason') when the answer means the send did not work
 return { status: 'OK' };`,
-  after_delivery: `// ctx.delivery.response: what the target answered when the message was sent
+  after_delivery: `// ctx.delivery.response: what came back when the message was sent (providerMessageId, body...)
 // ctx.run.seq: which check this is; http.get(url) to ask the provider
 // return { status: 'DELIVERED', done: true } when there is nothing more to wait for
 return { status: 'PENDING' };`,

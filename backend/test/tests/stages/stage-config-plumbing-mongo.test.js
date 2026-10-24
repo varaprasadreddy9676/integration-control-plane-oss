@@ -105,7 +105,18 @@ describeMongo('stages in the configuration paths (MongoDB)', () => {
       const error = await integrations.addIntegration(ORG, base({ stages: [script('a', 'after_delivery')] })).catch((e) => e);
       expect(error).toMatchObject({ name: 'ValidationError', statusCode: 400, details: [expect.objectContaining({ path: 'stages[0].schedule' })] });
       const multi = await integrations.addIntegration(ORG, base({ actions: [{ name: 'x' }], stages: [script('b', 'on_failure')] })).catch((e) => e);
-      expect(multi.details[0].message).toMatch(/multiple actions/);
+      expect(multi.details[0].message).toMatch(/put stages on each action/);
+    });
+
+    it('an integration with actions stores each action\'s stages, and its work follows them', async () => {
+      const mail = { name: 'Mail', kind: 'COMMUNICATION', communicationConfig: { channel: 'EMAIL', provider: 'SMTP' } };
+      const created = await integrations.addIntegration(ORG, base({ actions: [{ ...mail, stages: [script('bounce', 'on_failure')] }] }));
+      expect(created.actions[0].stages[0]).toMatchObject({ id: 'bounce', enabled: true, effect: 'observe' });
+      await pendingJob(created.id, 'bounce', 'd-mail');
+      await integrations.updateIntegration(ORG, created.id, { actions: [{ ...mail, stages: [{ ...created.actions[0].stages[0], enabled: false }] }] });
+      expect(await stateOf('bounce')).toBe('PAUSED');
+      await integrations.updateIntegration(ORG, created.id, { actions: [{ ...mail, stages: [] }] });
+      expect(await stateOf('bounce')).toBe('CANCELLED');
     });
 
     it('an enabled stage needs a credential of this org; a disabled one may wait for it', async () => {

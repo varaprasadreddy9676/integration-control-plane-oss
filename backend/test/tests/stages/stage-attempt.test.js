@@ -8,7 +8,8 @@
 
 const store = require('../../../src/stages/store');
 const runners = require('../../../src/stages/runners');
-const { createAttemptStages, NOOP } = require('../../../src/stages/attempt');
+const { createAttemptStages, withFields, NOOP } = require('../../../src/stages/attempt');
+const { deliveryResponse } = require('../../../src/stages/delivery-shape');
 const { createRuntimePool } = require('../../../src/stages/runtime/pool');
 
 jest.setTimeout(30000);
@@ -45,30 +46,30 @@ describe('before_send', () => {
       [script('getToken', 'before_send', 'return { data: { token: "t-" + ctx.event.patientId } };', { effect: 'gate', outputs: [{ name: 'token', type: 'string' }] })],
       { send: { bindings: { headers: { Authorization: 'Bearer {{ stages.getToken.output.token }}' }, query: { p: '{{ event.patientId }}' } } } }
     );
-    const gate = await attemptFor(integration).beforeSend({ url: 'https://t.test', method: 'POST', body: { a: 1 } });
-    expect(gate).toEqual({ proceed: true, headers: { Authorization: 'Bearer t-p1' }, query: { p: 'p1' } });
+    const gate = await attemptFor(integration).beforeSend({ target: 'https://t.test', method: 'POST', body: { a: 1 } });
+    expect(gate).toEqual({ proceed: true, headers: { Authorization: 'Bearer t-p1' }, query: { p: 'p1' }, body: { a: 1 } });
   });
 
   it('a gate sees the transformed request; skip() skips the delivery; fail() fails it', async () => {
     const skipping = integrationWith([script('g', 'before_send', 'return ctx.delivery.request.body.ok ? null : skip("not ready");', { effect: 'gate' })]);
-    expect(await attemptFor(skipping).beforeSend({ url: 'u', method: 'POST', body: { ok: true } })).toMatchObject({ proceed: true });
-    expect(await attemptFor(skipping).beforeSend({ url: 'u', method: 'POST', body: { ok: false } })).toMatchObject({
+    expect(await attemptFor(skipping).beforeSend({ target: 'u', method: 'POST', body: { ok: true } })).toMatchObject({ proceed: true });
+    expect(await attemptFor(skipping).beforeSend({ target: 'u', method: 'POST', body: { ok: false } })).toMatchObject({
       proceed: false,
       status: 'SKIPPED',
       message: 'g: not ready',
     });
     const failing = integrationWith([script('g', 'before_send', 'return fail("consent missing");', { effect: 'gate' })]);
-    expect(await attemptFor(failing).beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: false, status: 'FAILED' });
+    expect(await attemptFor(failing).beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: false, status: 'FAILED' });
   });
 
   it('gate errors fail closed; the delivery retries only when the stage allows it', async () => {
     const broken = (extra) => integrationWith([script('g', 'before_send', 'throw new Error("check API down");', { effect: 'gate', ...extra })]);
-    expect(await attemptFor(broken()).beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: false, status: 'FAILED' });
-    expect(await attemptFor(broken({ allowDeliveryRetry: true })).beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({
+    expect(await attemptFor(broken()).beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: false, status: 'FAILED' });
+    expect(await attemptFor(broken({ allowDeliveryRetry: true })).beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({
       proceed: false,
       status: 'RETRYING',
     });
-    expect(await attemptFor(broken({ onError: { action: 'ignore' } })).beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: true });
+    expect(await attemptFor(broken({ onError: { action: 'ignore' } })).beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: true });
   });
 
   it('an observer that fails never stops the delivery, and later stages still run', async () => {
@@ -77,7 +78,7 @@ describe('before_send', () => {
       script('g', 'before_send', 'return { status: "CHECKED" };', { effect: 'gate' }),
     ]);
     const attempt = attemptFor(integration);
-    expect(await attempt.beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: true });
+    expect(await attempt.beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: true });
     const decorated = await attempt.decorate({ status: 'SUCCESS' });
     expect(decorated.stageRecords.map((r) => [r.stage.id, r.outcome])).toEqual([
       ['watch', 'error'],
@@ -93,7 +94,7 @@ describe('before_send', () => {
       }),
     ]);
     const attempt = attemptFor(integration);
-    expect(await attempt.beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: false, status: 'FAILED' });
+    expect(await attempt.beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({ proceed: false, status: 'FAILED' });
     const { stageRecords } = await attempt.decorate({ status: 'FAILED' });
     expect(stageRecords.map((r) => r.executionAttempt)).toEqual([1, 2, 3]);
   });
@@ -106,7 +107,7 @@ describe('before_send', () => {
       ],
       { stageBudgetMs: 300 }
     );
-    const result = await attemptFor(integration).beforeSend({ url: 'u', method: 'POST', body: {} });
+    const result = await attemptFor(integration).beforeSend({ target: 'u', method: 'POST', body: {} });
     expect(result).toMatchObject({ proceed: false, status: 'FAILED' });
     expect(result.message).toMatch(/g:/);
   });
@@ -115,7 +116,7 @@ describe('before_send', () => {
     const integration = integrationWith([script('w', 'before_send', 'return null;')], {
       send: { bindings: { headers: { 'X-Id': '{{ event.notThere }}' } } },
     });
-    expect(await attemptFor(integration).beforeSend({ url: 'u', method: 'POST', body: {} })).toMatchObject({
+    expect(await attemptFor(integration).beforeSend({ target: 'u', method: 'POST', body: {} })).toMatchObject({
       proceed: false,
       status: 'FAILED',
       message: expect.stringMatching(/Send binding/),
@@ -128,7 +129,7 @@ describe('after_response', () => {
 
   it('a classifier can turn an accepted send into a failure, without resending', async () => {
     const attempt = attemptFor(classifier('return ctx.delivery.response.body.ok ? null : fail("rejected: " + ctx.delivery.response.body.reason);'));
-    expect(await attempt.afterResponse({ status: 200, headers: {}, body: '{"ok":false,"reason":"bad number"}' })).toEqual({
+    expect(await attempt.afterResponse(deliveryResponse({ status: 200, headers: {}, body: '{"ok":false,"reason":"bad number"}' }))).toEqual({
       failed: true,
       retry: false,
       message: 'c: rejected: bad number',
@@ -137,17 +138,17 @@ describe('after_response', () => {
 
   it('resends only with an explicit policy and an explicit request', async () => {
     const code = 'return fail("try later", { retryDelivery: true });';
-    expect(await attemptFor(classifier(code)).afterResponse({ status: 200, body: '{}' })).toMatchObject({ failed: true, retry: false });
-    expect(await attemptFor(classifier(code, { allowDeliveryRetry: true })).afterResponse({ status: 200, body: '{}' })).toMatchObject({ failed: true, retry: true });
+    expect(await attemptFor(classifier(code)).afterResponse(deliveryResponse({ status: 200, body: '{}' }))).toMatchObject({ failed: true, retry: false });
+    expect(await attemptFor(classifier(code, { allowDeliveryRetry: true })).afterResponse(deliveryResponse({ status: 200, body: '{}' }))).toMatchObject({ failed: true, retry: true });
   });
 
   it('an error of the classifier itself never resends, even when allowed', async () => {
     const attempt = attemptFor(classifier('throw new Error("parser broke");', { allowDeliveryRetry: true }));
-    expect(await attempt.afterResponse({ status: 200, body: '{}' })).toMatchObject({ failed: true, retry: false });
+    expect(await attempt.afterResponse(deliveryResponse({ status: 200, body: '{}' }))).toMatchObject({ failed: true, retry: false });
   });
 
   it('skip() means no opinion: the answer stands', async () => {
-    expect(await attemptFor(classifier('return skip("not mine");')).afterResponse({ status: 200, body: '{}' })).toEqual({ failed: false });
+    expect(await attemptFor(classifier('return skip("not mine");')).afterResponse(deliveryResponse({ status: 200, body: '{}' }))).toEqual({ failed: false });
   });
 });
 
@@ -161,8 +162,8 @@ describe('what an attempt writes to its delivery log', () => {
 
   it('an accepted send carries its inline records and after_delivery intents with the context they need', async () => {
     const attempt = attemptFor(pipeline);
-    await attempt.beforeSend({ url: 'https://t.test', method: 'POST', body: { a: 1 } });
-    await attempt.afterResponse({ status: 202, headers: {}, body: '{"id":"m-1"}' });
+    await attempt.beforeSend({ target: 'https://t.test', method: 'POST', body: { a: 1 } });
+    await attempt.afterResponse(deliveryResponse({ status: 202, headers: {}, body: '{"id":"m-1"}' }));
     const payload = await attempt.decorate({ status: 'SUCCESS', responseStatus: 202 });
     expect(payload.stageRecords).toHaveLength(1);
     expect(payload.stageIntents).toEqual([
@@ -172,8 +173,8 @@ describe('what an attempt writes to its delivery log', () => {
         definitionHash: expect.any(String),
         input: expect.objectContaining({
           event: { patientId: 'p1' },
-          request: { url: 'https://t.test', method: 'POST', body: { a: 1 } },
-          response: { status: 202, headers: {}, body: { id: 'm-1' } },
+          request: { protocol: 'http', target: 'https://t.test', method: 'POST', body: { a: 1 } },
+          response: expect.objectContaining({ protocol: 'http', ok: true, status: 202, code: '202', body: { id: 'm-1' } }),
           stages: { pre: { status: 'OK', output: { n: 1 } } },
         }),
       }),
@@ -190,12 +191,46 @@ describe('what an attempt writes to its delivery log', () => {
 
   it('a retrying attempt or a test event schedules nothing; records are written once', async () => {
     const attempt = attemptFor(pipeline);
-    await attempt.beforeSend({ url: 'u', method: 'POST', body: {} });
+    await attempt.beforeSend({ target: 'u', method: 'POST', body: {} });
     const retrying = await attempt.decorate({ status: 'RETRYING' });
     expect(retrying.stageIntents).toEqual([]);
     expect(retrying.stageRecords).toHaveLength(1);
     expect(await attempt.decorate({ status: 'RETRYING' })).toEqual({ status: 'RETRYING' });
     const test = attemptFor(pipeline, { options: { isTest: true } });
     expect(await test.decorate({ status: 'SUCCESS' })).toEqual({ status: 'SUCCESS' });
+  });
+});
+
+describe('every delivery is the same to stages', () => {
+  const email = (stages, send) => ({
+    id: 'int2',
+    name: 'Mail',
+    direction: 'INBOUND',
+    actions: [{ name: 'Send EMAIL', kind: 'COMMUNICATION', communicationConfig: { channel: 'EMAIL' }, stages, send }],
+  });
+
+  it('an action runs its own stages; the Send step sets message fields from their outputs', async () => {
+    const lookup = script('lookup', 'before_send', 'return { data: { to: "a@b.test" } };', { outputs: [{ name: 'to', type: 'string' }] });
+    const integration = email([lookup], { bindings: { fields: { 'recipient.to': '{{ stages.lookup.output.to }}' } } });
+    const attempt = createAttemptStages({ integration, actionIndex: 0, evt: { payload: {} }, orgId: 9, deps: deps() });
+    const gate = await attempt.beforeSend({ target: 'EMAIL:SMTP', body: { subject: 'Hi', recipient: { name: 'A' } } });
+    expect(gate).toMatchObject({ proceed: true, body: { subject: 'Hi', recipient: { name: 'A', to: 'a@b.test' } } });
+    // The integration itself (actionIndex absent) has no stages of its own here.
+    expect(createAttemptStages({ integration, evt: { payload: {} }, orgId: 9, deps: deps() })).toBe(NOOP);
+  });
+
+  it('a stage sees what any send answered in one shape, stamped with the delivery\'s protocol', async () => {
+    const classify = script('c', 'after_response', 'return ctx.delivery.response.providerMessageId === "m-9" ? fail(ctx.delivery.response.protocol) : null;', { effect: 'gate' });
+    const attempt = createAttemptStages({ integration: email([classify]), actionIndex: 0, evt: { payload: {} }, orgId: 9, deps: deps() });
+    const verdict = await attempt.afterResponse(deliveryResponse({ ok: true, code: 'SENT', providerMessageId: 'm-9', body: { messageId: 'm-9' } }));
+    expect(verdict).toMatchObject({ failed: true, message: 'c: email' });
+  });
+
+  it('message fields are set on a copy, never on the message itself', () => {
+    const body = { a: { b: 1 }, list: [1, 2] };
+    const out = withFields(body, { 'a.c': 2, 'list.1': 9 });
+    expect(out).toEqual({ a: { b: 1, c: 2 }, list: [1, 9] });
+    expect(body).toEqual({ a: { b: 1 }, list: [1, 2] });
+    expect(() => withFields('text', { a: 1 })).toThrow(/object/);
   });
 });

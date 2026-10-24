@@ -17,6 +17,8 @@ const mongodb = require('../mongodb');
 const store = require('./store');
 const { executeStage } = require('./executor');
 const { normalizeStage } = require('./config');
+const { findStage } = require('./targets');
+const { fromLog } = require('./delivery-shape');
 
 class ReplayError extends Error {
   constructor(status, message) {
@@ -25,22 +27,14 @@ class ReplayError extends Error {
   }
 }
 
-function parse(value) {
-  if (typeof value !== 'string') return value === undefined ? null : value;
-  try {
-    return JSON.parse(value);
-  } catch (_error) {
-    return value;
-  }
-}
-
 /** The scope a stage sees, rebuilt from the delivery log. */
 function scopeFromLog(logDoc, integration, run) {
+  const { request, response } = fromLog(logDoc);
   return {
     event: logDoc.originalPayload || {},
     delivery: {
-      request: { url: logDoc.targetUrl || null, method: logDoc.httpMethod || null, body: logDoc.requestPayload || null },
-      response: { status: logDoc.responseStatus === undefined ? null : logDoc.responseStatus, headers: {}, body: parse(logDoc.responseBody) },
+      request,
+      response,
       attempt: logDoc.attemptCount || null,
       status: logDoc.status || null,
       errorMessage: logDoc.errorMessage || null,
@@ -64,7 +58,8 @@ async function replayRun(orgId, runId, { useCurrentRevision = false, user = null
   if (!original) throw new ReplayError(404, 'Stage run not found');
 
   const integration = await deps.loadIntegration(orgId, original.integrationId);
-  const current = integration && (integration.stages || []).find((stage) => stage && stage.id === original.stage.id);
+  const found = findStage(integration, original.stage.id);
+  const current = found && found.stage;
   let definition;
   let definitionHash;
   if (useCurrentRevision) {

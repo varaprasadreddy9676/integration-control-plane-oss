@@ -19,12 +19,12 @@ const runners = require('../stages/runners');
 const store = require('../stages/store');
 const jobs = require('../stages/store/jobs');
 const templates = require('../stages/templates');
-const { validateStages, normalizeStage } = require('../stages/config');
-const { executeStage } = require('../stages/executor');
+const { validateStages, validateIntegrationStages, normalizeStage } = require('../stages/config');
+const { findStage, mapTargets } = require('../stages/targets');
+const { executeStage, executeDeps } = require('../stages/executor');
 const { replayRun, ReplayError } = require('../stages/replay');
 const { getStageRuntime } = require('../stages/runtime');
-const { resolveCredential } = require('../stages/credentials');
-const { usageToday, admit } = require('../stages/limits');
+const { usageToday } = require('../stages/limits');
 const config = require('../config');
 
 const router = express.Router();
@@ -32,25 +32,7 @@ const router = express.Router();
 const MAX_STUB_RESPONSES = 25;
 const TEST_DEADLINE_MS = 30000;
 
-async function loadIntegration(orgId, integrationId) {
-  const id = mongodb.toObjectId(integrationId);
-  if (!id) return null;
-  const db = await mongodb.getDbSafe();
-  const doc = await db.collection('integration_configs').findOne({ _id: id, orgId });
-  if (!doc) return null;
-  const { mapIntegrationFromMongo } = require('../data/helpers');
-  return mapIntegrationFromMongo(doc);
-}
-
-function executeDeps() {
-  return {
-    runners,
-    pool: getStageRuntime().pool,
-    resolveCredential,
-    admit,
-    policy: { allowPrivate: !(config.security && config.security.blockPrivateNetworks !== false) },
-  };
-}
+const loadIntegration = (orgId, integrationId) => require('../data/integrations').getOrgIntegration(orgId, integrationId);
 
 /** A stand-in for HTTP in tests: answers each call with the next given response (default 200 {}). */
 function stubTransport(responses = []) {
@@ -86,15 +68,26 @@ router.post('/templates/:templateId/stage', (req, res) => {
   res.json({ stage });
 });
 
-/** Check stages (and Send bindings) as the integration would be saved, without saving. */
+/**
+ * Check one delivery's stages (and Send bindings) as the integration would be
+ * saved, without saving: the integration's own (actionIndex absent) or one
+ * action's. Errors are relative to that delivery (stages[0].name, send...).
+ */
 router.post(
   '/validate',
   asyncHandler(async (req, res) => {
     const body = req.body || {};
     const existing = body.integrationId ? await loadIntegration(req.orgId, body.integrationId) : null;
-    const integration = { ...(existing || {}), ...(body.integration || {}) };
-    const result = validateStages(body.stages, { integration, send: body.send, runners });
-    res.json({ ok: result.ok, errors: result.errors, stages: result.stages });
+    const actionIndex = Number.isInteger(body.actionIndex) ? body.actionIndex : null;
+    const edited = mapTargets({ ...(existing || {}), ...(body.integration || {}) }, (_value, target) =>
+      target.actionIndex === actionIndex ? { stages: body.stages, send: body.send } : {}
+    );
+    const result = validateIntegrationStages(edited, { runners });
+    const prefix = actionIndex === null ? '' : `actions[${actionIndex}].`;
+    const mine = (path) => (prefix ? path.startsWith(prefix) : !path.startsWith('actions['));
+    const errors = result.errors.filter((error) => mine(error.path)).map((error) => ({ ...error, path: error.path.slice(prefix.length) }));
+    const stages = actionIndex === null ? result.integration.stages : ((result.integration.actions || [])[actionIndex] || {}).stages;
+    res.json({ ok: errors.length === 0, errors, stages: stages || [] });
   })
 );
 
@@ -109,7 +102,7 @@ router.post(
     const body = req.body || {};
     const integration = body.integrationId ? await loadIntegration(req.orgId, body.integrationId) : null;
     if (body.integrationId && !integration) throw new NotFoundError('Integration not found');
-    const checked = validateStages([body.stage], { integration: integration || {}, runners });
+    const checked = validateStages([body.stage], { runners });
     if (!checked.ok) throw new ValidationError('The stage is not valid', checked.errors);
     const stage = checked.stages[0];
 
@@ -198,8 +191,9 @@ router.post(
   requirePermission('stages:replay'),
   asyncHandler(async (req, res) => {
     const integration = await loadIntegration(req.orgId, req.params.integrationId);
-    const current = integration && (integration.stages || []).find((stage) => stage && stage.id === req.params.stageId);
-    if (!current) throw new NotFoundError('Stage not found');
+    const found = findStage(integration, req.params.stageId);
+    if (!found) throw new NotFoundError('Stage not found');
+    const current = found.stage;
     const hash = await store.definitions.saveDefinition(req.orgId, normalizeStage(current));
     const moved = await jobs.repinJobs(req.orgId, req.params.integrationId, req.params.stageId, hash);
     await audit(req, {

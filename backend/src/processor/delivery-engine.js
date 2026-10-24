@@ -22,7 +22,8 @@ const { sendMllpMessage } = require('../services/hl7/mllp-client');
 const { checkBeforeDelivery } = require('../services/pre-delivery-checks');
 const { scheduleFollowUp } = require('../services/delivery-follow-up');
 const { createAttemptStages, NOOP: NO_STAGES } = require('../stages/attempt');
-const { headersObject, withQuery } = require('../stages/send-helpers');
+const { headersObject, withQuery, afterHttpResponse } = require('../stages/send-helpers');
+const { deliveryResponse } = require('../stages/delivery-shape');
 const { preDeliveryDecision, responseDecision } = require('../stages/migration/legacy-decisions');
 
 // Move dynamic require to top-level (was inside deliverSingleAction)
@@ -49,6 +50,26 @@ function isCredentialError(errMsg) {
     msg.includes('534 ') || // SMTP 534: auth required
     msg.includes('530 ') // SMTP 530: auth required
   );
+}
+
+// Where an action's message goes, and the method its log records, by kind of
+// action: one definition for the send, its logs, its DLQ entries and its stages.
+const hl7ConfigOf = (action, integration) =>
+  action.hl7Config || action.mllpConfig || integration.hl7Config || integration.mllpConfig || {};
+
+function mllpTargetOf(action, integration) {
+  const hl7Config = hl7ConfigOf(action, integration);
+  const host = String(hl7Config.host || '').trim();
+  const port = Number(hl7Config.port);
+  return host && Number.isInteger(port) ? `mllp://${host}:${port}` : 'mllp://unconfigured';
+}
+
+const communicationTargetOf = (action, provider = (action.communicationConfig || {}).provider) =>
+  action.communicationConfig ? `${action.communicationConfig.channel}:${provider}` : 'unknown';
+
+function loggedMethodOf(action, integration) {
+  if (action.kind === 'COMMUNICATION' || action.kind === 'HL7_MLLP') return action.kind;
+  return action.httpMethod || integration.httpMethod || 'POST';
 }
 
 async function resolveMultiActionDelayMs(orgId) {
@@ -95,6 +116,15 @@ async function deliverSingleAction(
   const manualReason = options.retryReason || options.reason || null;
   const orgId = evt.orgId || integration.orgId;
 
+  // Pipeline stages of this action (src/stages): the same hooks as a single
+  // delivery, whatever the action sends. A no-op for actions without stages.
+  const stages = createAttemptStages({ integration, actionIndex, evt, orgId, attempt: attemptCount, isTest, deliveryId: existingLogId });
+  const recordAttempt = async (payload) => {
+    const recordedId = await data.recordLog(orgId, await stages.decorate(payload));
+    await stages.drain(recordedId);
+    return recordedId;
+  };
+
   const maybeCreateActionDLQ = async ({ logId, errorMessage, errorCode, responseStatus, responseBody }) => {
     if (isTest) return;
     if (!errorMessage && !errorCode) return;
@@ -127,8 +157,7 @@ async function deliverSingleAction(
           eventType: evt.event_type,
           integrationName: integration.name,
           targetUrl: action.targetUrl || integration.targetUrl,
-          httpMethod:
-            action.httpMethod || integration.httpMethod || (action.kind === 'COMMUNICATION' ? 'COMMUNICATION' : 'POST'),
+          httpMethod: loggedMethodOf(action, integration),
           responseBody,
         },
       });
@@ -182,7 +211,7 @@ async function deliverSingleAction(
           .catch((err) => log('warn', 'Failed to record action URL validation step', { error: err.message }));
       }
 
-      const logId = await data.recordLog(orgId, {
+      const logId = await recordAttempt({
         id: existingLogId,
         integrationConfigId: integration.id,
         integrationName: `${integration.name} - ${actionName}`,
@@ -265,7 +294,7 @@ async function deliverSingleAction(
         actionName,
       });
 
-      const logId = await data.recordLog(orgId, {
+      const logId = await recordAttempt({
         id: existingLogId,
         integrationConfigId: integration.id,
         integrationName: `${integration.name} - ${actionName}`,
@@ -318,7 +347,7 @@ async function deliverSingleAction(
         })
         .catch(() => {});
     }
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: existingLogId,
       integrationConfigId: integration.id,
       integrationName: `${integration.name} - ${actionName}`,
@@ -353,13 +382,60 @@ async function deliverSingleAction(
   }
 
   // Pre-delivery checks: an action's own checks, else the integration's
-  const checkFailure = await checkBeforeDelivery(action.preDeliveryChecks || integration.preDeliveryChecks, {
+  let checkFailure = await checkBeforeDelivery(action.preDeliveryChecks || integration.preDeliveryChecks, {
     requestPayload: transformed,
     eventPayload: evt.payload,
     urlOptions: config.security,
     executionLogger,
     stepMetadata: { actionName, actionIndex },
   });
+
+  // before_send stages see the message about to go out, as for a single delivery.
+  const sendTarget = isHl7MllpAction
+    ? mllpTargetOf(action, integration)
+    : isCommunicationAction
+      ? communicationTargetOf(action)
+      : targetUrl;
+  let gate = { proceed: true, headers: {}, query: {}, body: transformed };
+  if (!checkFailure) {
+    gate = await stages.beforeSend({
+      target: sendTarget,
+      method: isProtocolAction ? null : resolvedAction.httpMethod || action.httpMethod || integration.httpMethod || 'POST',
+      body: transformed,
+    });
+    if (!gate.proceed && gate.status === 'SKIPPED') {
+      const skipMessage = `${prefix}Skipping delivery for ${actionName}: ${gate.message}`;
+      const logId = await recordAttempt({
+        id: existingLogId,
+        integrationConfigId: integration.id,
+        integrationName: `${integration.name} - ${actionName}`,
+        eventId: evt.id || null,
+        eventType: evt.event_type,
+        direction: integration.direction || 'OUTBOUND',
+        triggerType,
+        actionName,
+        actionIndex,
+        status: 'SKIPPED',
+        responseStatus: 204,
+        responseTimeMs: Date.now() - start,
+        attemptCount,
+        originalPayload: evt.payload,
+        requestPayload: transformed,
+        errorMessage: skipMessage,
+        targetUrl: sendTarget,
+        httpMethod: loggedMethodOf(action, integration),
+        correlationId: traceId,
+        traceId: traceId,
+        requestHeaders: null,
+      });
+      await data.recordDeliverySuccess(integration.id);
+      if (executionLogger) await executionLogger.updateStatus('skipped').catch(() => {});
+      return { status: 'SKIPPED', logId, skipReason: gate.message };
+    }
+    if (!gate.proceed) {
+      checkFailure = { errorMessage: gate.message, retryable: gate.status === 'RETRYING', responseStatus: null, code: 'STAGE_GATE_FAILED' };
+    }
+  }
   if (checkFailure) {
     const maxRetries = integration.retryCount || 3;
     const retryable = checkFailure.retryable && !isTest;
@@ -370,7 +446,7 @@ async function deliverSingleAction(
     }
     log('warn', errorMessage, { integrationId: integration.id, actionName, finalStatus });
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: existingLogId,
       integrationConfigId: integration.id,
       integrationName: `${integration.name} - ${actionName}`,
@@ -409,6 +485,8 @@ async function deliverSingleAction(
     }
     return { status: finalStatus, logId };
   }
+  // The message as the Send step completed it (its message fields set).
+  transformed = gate.body;
 
   // Rate limit check (per integration)
   if (integration.rateLimits?.enabled) {
@@ -441,7 +519,7 @@ async function deliverSingleAction(
         const retryAfter = rateResult.retryAfter ? `, retry after ${rateResult.retryAfter}s` : '';
         const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
-        const logId = await data.recordLog(orgId, {
+        const logId = await recordAttempt({
           id: existingLogId,
           integrationConfigId: integration.id,
           integrationName: `${integration.name} - ${actionName}`,
@@ -483,10 +561,8 @@ async function deliverSingleAction(
 
   if (isHl7MllpAction) {
     const hl7Start = Date.now();
-    const hl7Config = action.hl7Config || action.mllpConfig || integration.hl7Config || integration.mllpConfig || {};
-    const host = String(hl7Config.host || '').trim();
-    const port = Number(hl7Config.port);
-    const mllpTarget = host && Number.isInteger(port) ? `mllp://${host}:${port}` : 'mllp://unconfigured';
+    const hl7Config = hl7ConfigOf(action, integration);
+    const mllpTarget = sendTarget;
 
     try {
       const hl7Message = hl7.toMessageString(transformed);
@@ -513,6 +589,15 @@ async function deliverSingleAction(
       const ackCode = result.ack?.code || null;
       const ackReason = result.ack?.errorMessage || null;
       const messageControlId = result.ack?.messageControlId || parsedMessage.messageControlId || null;
+      // after_response stages see the ACK; one may turn an accepted message into a failure.
+      const verdict = await stages.afterResponse(
+        deliveryResponse({ ok: result.accepted, code: ackCode, message: ackReason, providerMessageId: messageControlId, body: result.rawAck || null })
+      );
+      const stageRejected = result.accepted && verdict.failed;
+      const accepted = result.accepted && !stageRejected;
+      const rejectionMessage = stageRejected
+        ? `${prefix}${verdict.message}`
+        : `${prefix}HL7 ACK rejected message: ${ackReason || ackCode || 'Unknown reason'}`;
 
       if (executionLogger) {
         await executionLogger
@@ -543,7 +628,7 @@ async function deliverSingleAction(
         },
       };
 
-      const logId = await data.recordLog(orgId, {
+      const logId = await recordAttempt({
         id: existingLogId,
         integrationConfigId: integration.id,
         integrationName: `${integration.name} - ${actionName}`,
@@ -553,16 +638,15 @@ async function deliverSingleAction(
         triggerType,
         actionName,
         actionIndex,
-        status: result.accepted ? 'SUCCESS' : 'FAILED',
+        status: accepted ? 'SUCCESS' : 'FAILED',
         responseStatus: result.accepted ? 200 : 422,
         responseTimeMs,
         attemptCount,
         originalPayload: evt.payload,
         requestPayload: hl7Message,
         responseBody: result.rawAck || null,
-        errorMessage: result.accepted
-          ? null
-          : `${prefix}HL7 ACK rejected message: ${ackReason || ackCode || 'Unknown reason'}`,
+        errorMessage: accepted ? null : rejectionMessage,
+        ...(stageRejected ? { errorCode: 'STAGE_REJECTED' } : {}),
         targetUrl: mllpTarget,
         httpMethod: 'HL7_MLLP',
         correlationId: traceId,
@@ -571,7 +655,7 @@ async function deliverSingleAction(
         metadata,
       });
 
-      if (result.accepted) {
+      if (accepted) {
         await data.recordDeliverySuccess(integration.id);
         if (executionLogger) {
           await executionLogger
@@ -582,13 +666,16 @@ async function deliverSingleAction(
       }
 
       await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false });
-      await maybeCreateActionDLQ({
-        logId,
-        errorMessage: `${prefix}HL7 ACK rejected message: ${ackReason || ackCode || 'Unknown reason'}`,
-        errorCode: 'HL7_ACK_REJECTED',
-        responseStatus: 422,
-        responseBody: result.rawAck || null,
-      });
+      // A stage that rejects without allowing a resend keeps it out of the DLQ.
+      if (!stageRejected || verdict.retry) {
+        await maybeCreateActionDLQ({
+          logId,
+          errorMessage: rejectionMessage,
+          errorCode: stageRejected ? 'STAGE_REJECTED' : 'HL7_ACK_REJECTED',
+          responseStatus: result.accepted ? 200 : 422,
+          responseBody: result.rawAck || null,
+        });
+      }
       if (executionLogger) {
         await executionLogger
           .updateStatus('failed')
@@ -622,7 +709,7 @@ async function deliverSingleAction(
           .catch((err) => log('warn', 'Failed to record HL7 delivery failure step', { error: err.message }));
       }
 
-      const logId = await data.recordLog(orgId, {
+      const logId = await recordAttempt({
         id: existingLogId,
         integrationConfigId: integration.id,
         integrationName: `${integration.name} - ${actionName}`,
@@ -732,6 +819,9 @@ async function deliverSingleAction(
       const result = await adapterRegistry.send(channel, effectiveProvider, effectivePayload, adapterConfig);
 
       const communicationTimeMs = Date.now() - communicationStart;
+      // after_response stages see what the provider answered; one may turn the send into a failure.
+      const verdict = await stages.afterResponse(deliveryResponse({ ok: true, code: 'SENT', providerMessageId: result.messageId, body: result }));
+      const stageRejected = verdict.failed;
 
       if (executionLogger) {
         await executionLogger
@@ -750,7 +840,7 @@ async function deliverSingleAction(
       }
 
       // Record successful delivery log
-      const logId = await data.recordLog(orgId, {
+      const logId = await recordAttempt({
         id: existingLogId,
         integrationConfigId: integration.id,
         integrationName: `${integration.name} - ${actionName}`,
@@ -760,14 +850,15 @@ async function deliverSingleAction(
         triggerType,
         actionName,
         actionIndex,
-        status: 'SUCCESS',
+        status: stageRejected ? 'FAILED' : 'SUCCESS',
         responseStatus: 200,
         responseTimeMs: communicationTimeMs,
         attemptCount,
         originalPayload: evt.payload,
         requestPayload: effectivePayload,
         responseBody: JSON.stringify(result, null, 2),
-        targetUrl: `${channel}:${effectiveProvider}`,
+        ...(stageRejected ? { errorMessage: `${prefix}${verdict.message}`, errorCode: 'STAGE_REJECTED' } : {}),
+        targetUrl: communicationTargetOf(action, effectiveProvider),
         httpMethod: 'COMMUNICATION',
         correlationId: traceId,
         traceId: traceId,
@@ -775,6 +866,16 @@ async function deliverSingleAction(
         requestHeaders: { channel, provider: effectiveProvider, requestedProvider: provider },
         metadata: senderRoutingMetadata ? { senderRouting: senderRoutingMetadata } : {},
       });
+
+      if (stageRejected) {
+        await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false, lastErrorMessage: verdict.message });
+        // A stage that rejects without allowing a resend keeps it out of the DLQ.
+        if (verdict.retry) {
+          await maybeCreateActionDLQ({ logId, errorMessage: `${prefix}${verdict.message}`, errorCode: 'STAGE_REJECTED', responseStatus: 200 });
+        }
+        if (executionLogger) await executionLogger.updateStatus('failed').catch(() => {});
+        return { status: 'FAILED', logId };
+      }
 
       await data.recordDeliverySuccess(integration.id);
 
@@ -822,7 +923,7 @@ async function deliverSingleAction(
         });
       }
 
-      const logId = await data.recordLog(orgId, {
+      const logId = await recordAttempt({
         id: existingLogId,
         integrationConfigId: integration.id,
         integrationName: `${integration.name} - ${actionName}`,
@@ -840,9 +941,7 @@ async function deliverSingleAction(
         requestPayload: effectivePayload,
         errorMessage,
         errorCode,
-        targetUrl: action.communicationConfig
-          ? `${action.communicationConfig.channel}:${effectiveProvider}`
-          : 'unknown',
+        targetUrl: communicationTargetOf(action, effectiveProvider),
         httpMethod: 'COMMUNICATION',
         correlationId: traceId,
         traceId: traceId,
@@ -900,12 +999,14 @@ async function deliverSingleAction(
     if (resolvedAction.customHeaders && typeof resolvedAction.customHeaders === 'object') {
       Object.assign(headers, resolvedAction.customHeaders);
     }
+    // The Send step's bindings: values from before_send stages (a token, for example).
+    Object.assign(headers, gate.headers);
     // DISTRIBUTED TRACING: Add correlation ID header
     headers['X-Correlation-ID'] = traceId;
     headers['X-Trace-ID'] = traceId;
 
     // TOKEN QUERY PARAM: If auth config specifies tokenLocation=query, move token from header to URL
-    let requestUrl = targetUrl;
+    let requestUrl = withQuery(targetUrl, gate.query);
     const authCfg = integration.outgoingAuthConfig || integration.authConfig;
     if (authCfg?.tokenLocation === 'query' && authCfg?.tokenQueryParamName) {
       const paramName = authCfg.tokenQueryParamName;
@@ -999,6 +1100,13 @@ async function deliverSingleAction(
       } catch (err) {
         log('warn', `${prefix}Response transformation error`, { error: err.message });
       }
+    }
+
+    // after_response stages see every answer, as for a single delivery.
+    const verdict = await afterHttpResponse(stages, resp);
+    if (verdict.failed && statusOk) {
+      statusOk = false;
+      responseTransformSkip = { message: verdict.message, shouldRetry: verdict.retry };
     }
 
     if (executionLogger) {
@@ -1136,7 +1244,7 @@ async function deliverSingleAction(
           }
         : null;
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: existingLogId,
       integrationConfigId: integration.id,
       integrationName: `${integration.name} - ${actionName}`,
@@ -1230,7 +1338,7 @@ async function deliverSingleAction(
           ? `${catchErrorMessage} - Max retries (${maxRetries}) reached`
           : catchErrorMessage;
 
-    const logId = await data.recordLog(orgId, {
+    const logId = await recordAttempt({
       id: existingLogId,
       integrationConfigId: integration.id,
       integrationName: `${integration.name} - ${actionName}`,
@@ -1839,7 +1947,7 @@ async function deliverToIntegration(
   });
   // While migrating, the stage that takes them over runs alongside and is compared.
   const shadowChecks = stages.shadow('preDeliveryChecks', {
-    request: { url: integration.targetUrl, method: integration.httpMethod || 'POST', body: transformed },
+    request: { target: integration.targetUrl, method: integration.httpMethod || 'POST', body: transformed },
     legacy: legacyChecks.then(preDeliveryDecision),
   });
   let checkFailure = await legacyChecks;
@@ -1847,9 +1955,9 @@ async function deliverToIntegration(
 
   // before_send stages see the transformed request; a gate can skip, fail or
   // (when the stage allows it) retry the delivery. Nothing has been sent yet.
-  let gate = { proceed: true, headers: {}, query: {} };
+  let gate = { proceed: true, headers: {}, query: {}, body: transformed };
   if (!checkFailure) {
-    gate = await stages.beforeSend({ url: integration.targetUrl, method: integration.httpMethod || 'POST', body: transformed });
+    gate = await stages.beforeSend({ target: integration.targetUrl, method: integration.httpMethod || 'POST', body: transformed });
     if (!gate.proceed && gate.status === 'SKIPPED') {
       const skipMessage = `${prefix}Skipping delivery: ${gate.message}`;
       const logId = await recordAttempt({
@@ -1935,6 +2043,8 @@ async function deliverToIntegration(
 
     return buildResult(finalStatus, logId);
   }
+  // The message as the Send step completed it (its message fields set).
+  transformed = gate.body;
 
   // Rate limit check (per integration)
   if (integration.rateLimits?.enabled) {
@@ -2132,23 +2242,17 @@ async function deliverToIntegration(
         .text()
         .catch(() => '');
       await stages.shadow('responseTransformation', {
-        response: { status: resp.status, headers: headersObject(resp), body: answer },
+        response: deliveryResponse({ status: resp.status, headers: headersObject(resp), body: answer }),
         legacy: responseDecision(responseTransformSkip),
       });
     }
 
     // after_response stages see every answer; a classifier can only turn an
     // accepted send into a failure, and resend only under its explicit policy.
-    if (stages.active) {
-      const answerText = await resp
-        .clone()
-        .text()
-        .catch(() => '');
-      const verdict = await stages.afterResponse({ status: resp.status, headers: headersObject(resp), body: answerText });
-      if (verdict.failed && statusOk) {
-        statusOk = false;
-        responseTransformSkip = { message: verdict.message, shouldRetry: verdict.retry };
-      }
+    const verdict = await afterHttpResponse(stages, resp);
+    if (verdict.failed && statusOk) {
+      statusOk = false;
+      responseTransformSkip = { message: verdict.message, shouldRetry: verdict.retry };
     }
 
     // Log HTTP request step
