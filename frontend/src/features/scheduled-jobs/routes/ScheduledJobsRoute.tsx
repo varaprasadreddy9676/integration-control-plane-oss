@@ -12,7 +12,6 @@ import {
   message,
   Modal,
   Typography,
-  Input,
   Select,
   Divider,
   Grid,
@@ -26,11 +25,9 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   SyncOutlined,
-  SearchOutlined,
-  ReloadOutlined,
-  FilterOutlined,
-} from '@ant-design/icons';
+  } from '@ant-design/icons';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { ListActions, SearchInput } from '../../../components/common/ListControls';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
 import { getAllScheduledJobs, deleteScheduledJob, executeScheduledJob } from '../../../services/api';
@@ -388,24 +385,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
 
           <Divider type="vertical" style={{ height: 24, margin: 0 }} />
 
-          {/* Search */}
-          <Input
-            placeholder="Search..."
-            prefix={<SearchOutlined />}
-            suffix={
-              searchQuery ? (
-                <CloseCircleOutlined
-                  onClick={() => setSearchQuery('')}
-                  style={{ cursor: 'pointer', color: token.colorTextSecondary }}
-                />
-              ) : null
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: isNarrow ? '100%' : 200 }}
-            size="small"
-            allowClear
-          />
+          <SearchInput value={searchQuery} onChange={setSearchQuery} isNarrow={isNarrow} />
 
           {/* Status Filter */}
           <Select
@@ -421,26 +401,14 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
             ]}
           />
 
-          {/* Actions */}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: spacing[1] }}>
-            <Button
-              icon={<FilterOutlined />}
-              size="small"
-              type="text"
-              onClick={() => {
-                setSearchQuery('');
-                setStatusFilter(undefined);
-              }}
-            >
-              Reset
-            </Button>
-            <Button
-              icon={<ReloadOutlined />}
-              size="small"
-              aria-label="Refresh scheduled jobs"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-jobs'] })}
-            />
-          </div>
+          <ListActions
+            onReset={() => {
+              setSearchQuery('');
+              setStatusFilter(undefined);
+            }}
+            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['scheduled-jobs'] })}
+            refreshLabel="Refresh scheduled jobs"
+          />
         </div>
 
         <ModernTable

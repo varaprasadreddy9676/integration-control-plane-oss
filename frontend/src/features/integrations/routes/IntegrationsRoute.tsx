@@ -10,7 +10,6 @@ import {
   Typography,
   Card,
   Grid,
-  Input,
   Switch,
   Divider,
   Empty,
@@ -21,8 +20,6 @@ import {
   FilterOutlined,
   MoreOutlined,
   ReloadOutlined,
-  SearchOutlined,
-  CloseCircleOutlined,
   DownloadOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -36,6 +33,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { useAuth } from '../../../app/auth-context';
+import { ListActions, SearchInput } from '../../../components/common/ListControls';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { ModernTable } from '../../../components/common/ModernTable';
@@ -465,24 +463,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
 
         <Divider type="vertical" style={{ height: 24, margin: 0 }} />
 
-        {/* Search */}
-        <Input
-          placeholder="Search..."
-          prefix={<SearchOutlined />}
-          suffix={
-            searchQuery ? (
-              <CloseCircleOutlined
-                onClick={() => setSearchQuery('')}
-                style={{ cursor: 'pointer', color: token.colorTextSecondary }}
-              />
-            ) : null
-          }
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: isNarrow ? '100%' : 200 }}
-          size="small"
-          allowClear
-        />
+        <SearchInput value={searchQuery} onChange={setSearchQuery} isNarrow={isNarrow} />
 
         {/* Filters */}
         <Select
@@ -528,32 +509,21 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
           options={providerOptions.map((p) => ({ value: p, label: p }))}
         />
 
-        {/* Actions */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: spacing[1] }}>
-          <Button
-            icon={<FilterOutlined />}
-            size="small"
-            type="text"
-            onClick={() => {
-              setEventFilter(undefined);
-              setStatusFilter(undefined);
-              setScopeFilter(undefined);
-              setProviderFilter(undefined);
-              setSearchQuery('');
-            }}
-          >
-            Reset
-          </Button>
-          <Button
-            icon={<ReloadOutlined />}
-            size="small"
-            aria-label="Refresh outbound integrations"
-            onClick={() => refetch()}
-          />
+        <ListActions
+          onReset={() => {
+            setEventFilter(undefined);
+            setStatusFilter(undefined);
+            setScopeFilter(undefined);
+            setProviderFilter(undefined);
+            setSearchQuery('');
+          }}
+          onRefresh={() => refetch()}
+          refreshLabel="Refresh outbound integrations"
+        >
           <Button icon={<AppstoreOutlined />} size="small" onClick={() => navigate('/templates')}>
             Templates
           </Button>
-        </div>
+        </ListActions>
       </div>
 
       {/* Error state */}
