@@ -854,6 +854,21 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     await stages.drain(recordedId);
     return recordedId;
   };
+
+  // What every log of this scheduled delivery carries; each exit adds what is its own.
+  const baseLog = {
+    integrationConfigId: integration.id,
+    integrationName: integration.name,
+    eventType: scheduled.eventType,
+    direction: 'OUTBOUND',
+    triggerType: 'SCHEDULED',
+    attemptCount,
+    originalPayload: scheduled.originalPayload || payload,
+    targetUrl: scheduled.targetUrl,
+    httpMethod: scheduled.httpMethod,
+    correlationId: traceId,
+    traceId,
+  };
   // What is sent: the payload, until the Send step sets message fields on it.
   let outgoing = payload;
 
@@ -870,22 +885,12 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         .catch(() => {});
 
       await recordAttempt({
-        integrationConfigId: integration.id,
-        integrationName: integration.name,
-        eventType: scheduled.eventType,
-        direction: 'OUTBOUND',
-        triggerType: 'SCHEDULED',
+        ...baseLog,
         status: 'FAILED',
         responseStatus: 400,
         responseTimeMs: 0,
-        attemptCount,
-        originalPayload: scheduled.originalPayload || payload,
         requestPayload: payload,
         errorMessage: `${prefix}${urlCheck.reason}`,
-        targetUrl: scheduled.targetUrl,
-        httpMethod: scheduled.httpMethod,
-        correlationId: traceId,
-        traceId: traceId,
         requestHeaders: null,
       });
 
@@ -933,22 +938,12 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       if (!gate.proceed && gate.status === 'SKIPPED') {
         const skipMessage = `${prefix}Skipping delivery: ${gate.message}`;
         await recordAttempt({
-          integrationConfigId: integration.id,
-          integrationName: integration.name,
-          eventType: scheduled.eventType,
-          direction: 'OUTBOUND',
-          triggerType: 'SCHEDULED',
+          ...baseLog,
           status: 'SKIPPED',
           responseStatus: 204,
           responseTimeMs: Date.now() - start,
-          attemptCount,
-          originalPayload: scheduled.originalPayload || payload,
           requestPayload: payload,
           errorMessage: skipMessage,
-          targetUrl: scheduled.targetUrl,
-          httpMethod: scheduled.httpMethod,
-          correlationId: traceId,
-          traceId: traceId,
           requestHeaders: null,
         });
         await executionLogger.updateStatus('skipped').catch(() => {});
@@ -964,23 +959,13 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       const errorMessage = `${prefix}${checkFailure.errorMessage}`;
 
       await recordAttempt({
-        integrationConfigId: integration.id,
-        integrationName: integration.name,
-        eventType: scheduled.eventType,
-        direction: 'OUTBOUND',
-        triggerType: 'SCHEDULED',
+        ...baseLog,
         status: willRetry ? 'RETRYING' : 'FAILED',
         responseStatus: checkFailure.responseStatus,
         responseTimeMs: Date.now() - start,
-        attemptCount,
-        originalPayload: scheduled.originalPayload || payload,
         requestPayload: payload,
         errorMessage,
         shouldRetry: willRetry,
-        targetUrl: scheduled.targetUrl,
-        httpMethod: scheduled.httpMethod,
-        correlationId: traceId,
-        traceId: traceId,
         requestHeaders: null,
       });
 
@@ -1039,23 +1024,13 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
           const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
           await recordAttempt({
-            integrationConfigId: integration.id,
-            integrationName: integration.name,
-            eventType: scheduled.eventType,
-            direction: 'OUTBOUND',
-            triggerType: 'SCHEDULED',
+            ...baseLog,
             status: 'RETRYING',
             responseStatus: 429,
             responseTimeMs: 0,
-            attemptCount,
-            originalPayload: scheduled.originalPayload || payload,
             requestPayload: outgoing,
             errorMessage,
             shouldRetry: true,
-            targetUrl: scheduled.targetUrl,
-            httpMethod: scheduled.httpMethod,
-            correlationId: traceId,
-            traceId: traceId,
             requestHeaders: null,
           });
 
@@ -1181,23 +1156,13 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     const maxRetries = integration.retryCount || 3;
     const willRetry = deliveryStatus !== 'SUCCESS' && shouldRetry && attemptCount < maxRetries;
     await recordAttempt({
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
+      ...baseLog,
       status: deliveryStatus,
       responseStatus: resp.status,
       responseBody,
       responseTimeMs,
-      attemptCount,
-      originalPayload: scheduled.originalPayload || payload,
       requestPayload: outgoing,
       errorMessage,
-      targetUrl: scheduled.targetUrl,
-      httpMethod: scheduled.httpMethod,
-      correlationId: traceId,
-      traceId: traceId,
       requestHeaders: headers,
       messageId,
       timestamp,
@@ -1268,22 +1233,12 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     const maxRetries = integration.retryCount || 3;
     const willRetry = err.code !== 'SIGNING_FAILED' && attemptCount < maxRetries;
     await recordAttempt({
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventType: scheduled.eventType,
-      direction: 'OUTBOUND',
-      triggerType: 'SCHEDULED',
+      ...baseLog,
       status: 'FAILED',
       responseStatus: 500,
       responseTimeMs,
-      attemptCount,
-      originalPayload: scheduled.originalPayload || payload,
       requestPayload: outgoing,
       errorMessage,
-      targetUrl: scheduled.targetUrl,
-      httpMethod: scheduled.httpMethod,
-      correlationId: traceId,
-      traceId: traceId,
       requestHeaders: null,
     }, willRetry ? 'RETRYING' : 'FAILED');
 

@@ -1540,6 +1540,19 @@ async function deliverToIntegration(
     return recordedId;
   };
 
+  // What every log of this delivery carries; each exit adds what is its own.
+  const baseLog = {
+    id: logIdForUpdates,
+    integrationConfigId: integration.id,
+    integrationName: integration.name,
+    eventId: evt.id || null,
+    eventType: evt.event_type,
+    originalPayload: evt.payload,
+    httpMethod: integration.httpMethod || 'POST',
+    correlationId: traceId,
+    traceId,
+  };
+
   // CIRCUIT BREAKER: Check if circuit is open before attempting delivery
   const circuitStatus = await data.checkCircuitState(integration.id);
   if (circuitStatus.isOpen && !allowBypassCircuit) {
@@ -1559,28 +1572,20 @@ async function deliverToIntegration(
     const circuitFinalStatus = circuitAttemptCount > circuitMaxRetries ? 'ABANDONED' : 'RETRYING';
 
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: circuitFinalStatus,
       responseStatus: 503,
       responseTimeMs: 0,
       attemptCount: circuitAttemptCount,
-      originalPayload: evt.payload,
       requestPayload: evt.payload,
       errorMessage,
       shouldRetry: circuitFinalStatus === 'RETRYING',
       targetUrl: integration.targetUrl || integration.actions?.[0]?.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(
         null,
         integration.targetUrl || integration.actions?.[0]?.targetUrl,
         integration.httpMethod || 'POST'
       ),
-      correlationId: traceId,
-      traceId: traceId,
       requestHeaders: null,
     });
 
@@ -1652,24 +1657,15 @@ async function deliverToIntegration(
       .catch(() => {});
 
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: 'FAILED',
       responseStatus: 400,
       responseTimeMs: 0,
       attemptCount: (evt.attempt_count || 0) + 1,
-      originalPayload: evt.payload,
       requestPayload: evt.payload,
       errorMessage: `${prefix}${urlCheck.reason}`,
       targetUrl: integration.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details (not available yet at URL validation stage)
       requestHeaders: null,
     });
@@ -1743,24 +1739,15 @@ async function deliverToIntegration(
 
   if (errorMessage) {
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: 'FAILED',
       responseStatus: 500,
       responseTimeMs: Date.now() - start,
       attemptCount: (evt.attempt_count || 0) + 1,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       errorMessage,
       targetUrl: integration.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details (not available yet at transformation stage)
       requestHeaders: null,
     });
@@ -1789,23 +1776,15 @@ async function deliverToIntegration(
     });
 
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: 'SKIPPED',
       responseStatus: 204,
       responseTimeMs: Date.now() - start,
       attemptCount: (evt.attempt_count || 0) + 1,
-      originalPayload: evt.payload,
       requestPayload: null,
       errorMessage: skipMessage,
       targetUrl: integration.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
-      correlationId: traceId,
-      traceId: traceId,
       requestHeaders: null,
     });
 
@@ -1840,23 +1819,15 @@ async function deliverToIntegration(
     if (!gate.proceed && gate.status === 'SKIPPED') {
       const skipMessage = `${prefix}Skipping delivery: ${gate.message}`;
       const logId = await recordAttempt({
-        id: logIdForUpdates,
-        integrationConfigId: integration.id,
-        integrationName: integration.name,
-        eventId: evt.id || null,
-        eventType: evt.event_type,
+        ...baseLog,
         status: 'SKIPPED',
         responseStatus: 204,
         responseTimeMs: Date.now() - start,
         attemptCount: (evt.attempt_count || 0) + 1,
-        originalPayload: evt.payload,
         requestPayload: transformed,
         errorMessage: skipMessage,
         targetUrl: integration.targetUrl,
-        httpMethod: integration.httpMethod || 'POST',
         attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
-        correlationId: traceId,
-        traceId: traceId,
         requestHeaders: null,
       });
       await data.recordDeliverySuccess(integration.id);
@@ -1879,24 +1850,16 @@ async function deliverToIntegration(
     log('warn', errorMessage, { integrationId: integration.id, integrationName: integration.name, finalStatus });
 
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: finalStatus,
       responseStatus: checkFailure.responseStatus,
       responseTimeMs: Date.now() - start,
       attemptCount,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       errorMessage,
       shouldRetry: finalStatus === 'RETRYING',
       targetUrl: integration.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
-      correlationId: traceId,
-      traceId: traceId,
       requestHeaders: null,
     });
 
@@ -1954,24 +1917,16 @@ async function deliverToIntegration(
         const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
         const logId = await recordAttempt({
-          id: logIdForUpdates,
-          integrationConfigId: integration.id,
-          integrationName: integration.name,
-          eventId: evt.id || null,
-          eventType: evt.event_type,
+          ...baseLog,
           status: 'RETRYING',
           responseStatus: 429,
           responseTimeMs: 0,
           attemptCount,
-          originalPayload: evt.payload,
           requestPayload: transformed,
           errorMessage,
           shouldRetry: true,
           targetUrl: integration.targetUrl,
-          httpMethod: integration.httpMethod || 'POST',
           attemptDetails: buildAttemptDetails(null, integration.targetUrl, integration.httpMethod || 'POST'),
-          correlationId: traceId,
-          traceId: traceId,
           requestHeaders: null,
         });
 
@@ -2264,26 +2219,17 @@ async function deliverToIntegration(
     const responseBodyText = await safeRead(resp);
 
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: finalStatus,
       responseStatus: resp.status,
       responseTimeMs,
       attemptCount,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       responseBody: responseBodyText,
       errorMessage: errorMessage,
       shouldRetry: shouldRetry && attemptCount <= maxRetries, // Don't retry if exceeded max
       targetUrl: integration.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, httpMethod),
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details for debugging
       requestHeaders: headers,
       // Integration signing audit trail
@@ -2382,24 +2328,15 @@ async function deliverToIntegration(
           : catchErrorMessage;
 
     const logId = await recordAttempt({
-      id: logIdForUpdates,
-      integrationConfigId: integration.id,
-      integrationName: integration.name,
-      eventId: evt.id || null,
-      eventType: evt.event_type,
+      ...baseLog,
       status: finalStatus,
       responseStatus: 500,
       responseTimeMs: Date.now() - start,
       attemptCount,
-      originalPayload: evt.payload,
       requestPayload: transformed,
       errorMessage: finalErrorMessage,
       targetUrl: integration.targetUrl,
-      httpMethod: integration.httpMethod || 'POST',
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
-      // Distributed tracing
-      correlationId: traceId,
-      traceId: traceId,
       // Request details
       requestHeaders: headers || null,
       // Integration signing audit trail
