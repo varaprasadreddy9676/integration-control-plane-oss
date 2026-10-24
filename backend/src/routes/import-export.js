@@ -1,6 +1,6 @@
 const express = require('express');
 const { log } = require('../logger');
-const { stagesForExport, prepareStagesForImport } = require('../stages/integration-config');
+const { stagesForExport, actionsForExport, prepareStagesForImport, prepareActionsForImport } = require('../stages/integration-config');
 const data = require('../data');
 const templates = require('../data/templates');
 const asyncHandler = require('../utils/async-handler');
@@ -315,6 +315,13 @@ router.post(
           });
           if (stageImport.stages) integrationForImport.stages = stageImport.stages;
           else delete integrationForImport.stages;
+          // An integration with actions: each action's secrets and stages.
+          const actionImport = await prepareActionsForImport(importedIntegration.actions, {
+            orgId: req.orgId,
+            existingActions: (existingIntegration && existingIntegration.actions) || [],
+          });
+          if (actionImport.actions) integrationForImport.actions = actionImport.actions;
+          else delete integrationForImport.actions;
 
           if (existingIntegration) {
             // Update existing integration
@@ -568,6 +575,8 @@ function sanitizeIntegrationForExport(integration, includeSensitive = false, for
     metadata: integration.metadata || {},
     // Pipeline stages and their Send bindings (scripts left out without sensitive data).
     stages: stagesForExport(integration.stages, includeSensitive),
+    // The deliveries of an integration with actions (email, SMS, HL7, HTTP), each with its stages.
+    ...(Array.isArray(integration.actions) && integration.actions.length ? { actions: actionsForExport(integration.actions, includeSensitive) } : {}),
     send: integration.send || null,
     stagesPaused: integration.stagesPaused === true,
     stageBudgetMs: integration.stageBudgetMs || null,
@@ -691,9 +700,13 @@ function validateImportData(importData, format) {
           errors.push(`Integration at index ${index}: Missing name`);
           valid = false;
         }
+        const hasActions = Array.isArray(integration.actions) && integration.actions.length > 0;
         if (!integration.targetUrl) {
-          errors.push(`Integration at index ${index}: Missing targetUrl`);
-          valid = false;
+          // An integration with actions names its targets per action.
+          if (!hasActions) {
+            errors.push(`Integration at index ${index}: Missing targetUrl`);
+            valid = false;
+          }
         } else if (!isValidUrl(integration.targetUrl)) {
           errors.push(`Integration at index ${index}: Invalid targetUrl`);
           valid = false;

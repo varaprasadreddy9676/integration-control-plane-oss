@@ -200,6 +200,37 @@ async function prepareStagesForImport(stages, { orgId, existingStages = [], cred
   return { stages: prepared, attention };
 }
 
+/** An integration's actions for an export: each action's stages as stagesForExport leaves them. */
+function actionsForExport(actions, includeSensitive) {
+  if (!Array.isArray(actions)) return undefined;
+  return actions.map((action) => (action && Array.isArray(action.stages) ? { ...action, stages: stagesForExport(action.stages, includeSensitive) } : action));
+}
+
+/**
+ * Imported actions made safe to save: masked secrets restored from the action at
+ * the same position of the integration being updated (or stripped), and each
+ * action's stages prepared like an integration's (prepareStagesForImport).
+ * Resolves to { actions, attention: [{ actionIndex, stageId, reason }] }.
+ */
+async function prepareActionsForImport(actions, { orgId, existingActions = [], credentialExists } = {}) {
+  if (!Array.isArray(actions)) return { actions: undefined, attention: [] };
+  const { restoreMaskedSecrets } = require('../utils/integration-secrets');
+  const restored = restoreMaskedSecrets({ actions }, { actions: Array.isArray(existingActions) ? existingActions : [] }).actions;
+  const attention = [];
+  const prepared = [];
+  for (const [actionIndex, action] of restored.entries()) {
+    if (!action || !Array.isArray(action.stages)) {
+      prepared.push(action);
+      continue;
+    }
+    const before = (existingActions || [])[actionIndex];
+    const result = await prepareStagesForImport(action.stages, { orgId, existingStages: (before && before.stages) || [], credentialExists });
+    attention.push(...result.attention.map((item) => ({ ...item, actionIndex })));
+    prepared.push({ ...action, stages: result.stages });
+  }
+  return { actions: prepared, attention };
+}
+
 /**
  * The actions' stages and Send steps, for comparing two saves: actions without
  * any are left out, and the order of actions does not matter (stages move with
@@ -255,6 +286,8 @@ module.exports = {
   stageFieldsForUpdate,
   applyStageLifecycle,
   stagesForExport,
+  actionsForExport,
+  prepareActionsForImport,
   prepareStagesForImport,
   StageConfigError,
   STAGE_FIELDS,
