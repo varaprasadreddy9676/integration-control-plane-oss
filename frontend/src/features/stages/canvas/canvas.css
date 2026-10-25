@@ -665,8 +665,15 @@
 
 /* ── Inspector (spec 6.7) */
 .wf-inspector {
-  width: 400px;
-  flex: 0 0 400px;
+  /* A drawer over the right of the canvas: the canvas does not shrink or move when it opens. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  width: min(440px, 92%);
+  border-left: 1px solid var(--wf-border);
+  box-shadow: var(--wf-shadow-2);
   display: flex;
   flex-direction: column;
   background: var(--wf-surface);
@@ -816,15 +823,18 @@
   .wf-search { width: 150px; }
 }
 
-/* Narrow screens: the inspector covers the canvas instead of sitting beside it (a 400 px
-   panel would leave no canvas). */
-@container wfroot (max-width: 960px) {
-  .wf-inspector {
-    position: absolute;
-    inset: 0;
+/* Very narrow screens: the drawer becomes a sheet from the bottom, so the diagram stays in view above it. */
+@container wfroot (max-width: 640px) {
+  .wf-inspector,
+  .wf-inspector--wide {
+    top: auto;
+    left: 0;
+    right: 0;
     width: auto;
-    flex: none;
-    z-index: 20;
+    height: 58%;
+    border-left: 0;
+    border-top: 1px solid var(--wf-border);
+    border-radius: 14px 14px 0 0;
     animation: wf-insp-up 220ms var(--wf-ease);
   }
 }
@@ -885,3 +895,18 @@
   pointer-events: none;
   transition: top 140ms var(--wf-ease);
 }
+
+/* A fixed step edits the page's own forms: they need more room. */
+.wf-inspector--wide {
+  width: min(560px, 92%);
+}
+
+/* What sits at the top right moves aside while the drawer is open, so nothing is hidden under it. */
+.wf-topbar { right: calc(16px + var(--wf-drawer-w, 0px)); transition: right 220ms var(--wf-ease); }
+.wf-minimap { right: calc(16px + var(--wf-drawer-w, 0px)); transition: right 220ms var(--wf-ease); }
+
+/* With the drawer open the canvas is what is left beside it: the top bar's two groups take two rows
+   instead of colliding, and the minimap (which would sit at the drawer's edge) steps aside. */
+.wf-body[data-drawer='open'] .wf-topbar { flex-wrap: wrap; row-gap: 8px; justify-content: flex-start; }
+.wf-body[data-drawer='open'] .wf-palette { top: 108px; }
+.wf-body[data-drawer='open'] .wf-minimap { display: none; }

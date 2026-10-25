@@ -928,6 +928,14 @@ Differences from the artifact, and why:
 
 ---
 
+- **Everything is edited in the diagram.** Clicking any step opens a drawer on the right and the diagram stays where it is:
+  a stage opens its editor (settings, test, runs); the fixed steps open the integration page's own sections in place
+  (the event and target, the transformation, the send with authentication and timing, retries and limits), so nothing
+  sends you to another tab and back. The drawer floats over the canvas without resizing it; the selected step is panned
+  into view beside it by the least needed, zoom and position otherwise stay. On a canvas narrower than 640 px the
+  drawer is a sheet from the bottom (the diagram stays above it). While it is open the top bar takes two rows and the
+  minimap steps aside.
+
 ### 11.5 Acceptance check of the built canvas (against section 12)
 
 Checked on the running console (light and dark) with seeded data:

@@ -156,7 +156,7 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
 
   /** Pan by the least needed so the host rectangle (padded) is inside the stage. */
   const ensureVisible = useCallback(
-    (rect: { x: number; y: number; width: number; height: number }, availableWidth: number = size.width) => {
+    (rect: { x: number; y: number; width: number; height: number }, availableWidth: number = size.width, availableHeight: number = size.height) => {
       glideTo((current) => {
         const pad = 24;
         const left = rect.x * current.z + current.x;
@@ -164,7 +164,7 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
         const top = rect.y * current.z + current.y;
         const bottom = (rect.y + rect.height) * current.z + current.y;
         const dx = left < pad ? pad - left : right > availableWidth - pad ? availableWidth - pad - right : 0;
-        const dy = top < 64 ? 64 - top : bottom > size.height - pad ? size.height - pad - bottom : 0;
+        const dy = top < 64 ? 64 - top : bottom > availableHeight - pad ? availableHeight - pad - bottom : 0;
         return dx === 0 && dy === 0 ? current : { ...current, x: current.x + dx, y: current.y + dy };
       });
     },

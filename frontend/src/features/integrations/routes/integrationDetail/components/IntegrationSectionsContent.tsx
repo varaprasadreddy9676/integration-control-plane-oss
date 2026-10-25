@@ -30,6 +30,7 @@ import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
 import { DeliveryTab } from '../../../../stages/components/delivery-tab/DeliveryTab';
+import type { StepEditors } from '../../../../stages/canvas/stepEditors';
 import { deliveriesOf, stageCountOf } from '../../../../stages/deliveryTargets';
 
 export interface IntegrationSectionsContentProps {
@@ -525,23 +526,7 @@ export const buildIntegrationSectionItems = ({
       </Space>
     ),
     disabled: !configComplete,
-    // Not inside the page's disabled fieldset: the tab handles read-only itself, and a
-    // disabled fieldset would make the workflow canvas's buttons unclickable.
-    children: (
-      <Card style={{ marginTop: spacing[2] }} size="small">
-        <DeliveryTab
-          form={form}
-          integrationId={integrationId}
-          readOnly={isReadOnly}
-          targets={deliveriesOf(form.getFieldsValue(true))}
-          onOpenTab={onOpenTab}
-          context={() => {
-            const current = form.getFieldsValue(true);
-            return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
-          }}
-        />
-      </Card>
-    ),
+    children: null, // filled in once every tab's content exists (below): the diagram edits their sections in place
   });
 
   if (!isMultiAction) {
@@ -731,5 +716,39 @@ export const buildIntegrationSectionItems = ({
     });
   }
 
-  return items;
+  // The Delivery tab's diagram edits the fixed steps (the event, the transformation, the send, the retries)
+  // in place, with the very sections the other tabs show: no leaving the diagram and finding the way back.
+  const sectionOf = (key: string) => items.find((item) => item.key === key)?.children;
+  const section = (key: string, title: string) => ({ key, title, node: sectionOf(key) });
+  const stepEditors: StepEditors = {
+    trigger: [section('configuration', 'Event and target')],
+    transform: isMultiAction ? [section('multiAction', 'Actions')] : [section('transformation', 'Transformation')],
+    send: [section('configuration', 'Target'), section('authentication', 'Authentication'), section('timingFollowUp', 'Timing and follow-up')],
+    retry: [section('reliability', 'Retries and limits')],
+  };
+  return items.map((item) =>
+    item.key === 'delivery'
+      ? {
+          ...item,
+          // Not inside the page's disabled fieldset: the tab handles read-only itself, and a
+          // disabled fieldset would make the diagram's buttons unclickable.
+          children: (
+            <Card style={{ marginTop: spacing[2] }} size="small">
+              <DeliveryTab
+                form={form}
+                integrationId={integrationId}
+                readOnly={isReadOnly}
+                targets={deliveriesOf(form.getFieldsValue(true))}
+                onOpenTab={onOpenTab}
+                stepEditors={stepEditors}
+                context={() => {
+                  const current = form.getFieldsValue(true);
+                  return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
+                }}
+              />
+            </Card>
+          ),
+        }
+      : item
+  );
 };

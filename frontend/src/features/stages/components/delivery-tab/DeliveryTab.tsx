@@ -6,6 +6,7 @@ import { protocolLabel } from '../../deliveryTargets';
 import { DeliveryStagesSection } from './DeliveryStagesSection';
 import { DeliveryStagesView } from './DeliveryStagesView';
 import { WorkflowCanvas } from '../../canvas/WorkflowCanvas';
+import type { StepEditors } from '../../canvas/stepEditors';
 
 const { Text } = Typography;
 
@@ -19,6 +20,8 @@ interface DeliveryTabProps {
   readOnly?: boolean;
   /** Open another tab of the integration page (the canvas links its fixed steps to theirs). */
   onOpenTab?: (tab: string) => void;
+  /** What the diagram edits in place for the steps that are not stages (the page's own sections). */
+  stepEditors?: StepEditors;
 }
 
 type View = 'workflow' | 'list';
@@ -37,7 +40,7 @@ const savedView = (): View => {
  * stages of each of its deliveries. An integration with actions picks the
  * action; every kind of delivery is edited the same way.
  */
-export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = false, onOpenTab }: DeliveryTabProps) => {
+export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = false, onOpenTab, stepEditors }: DeliveryTabProps) => {
   const [picked, setPicked] = useState(0);
   const [view, setView] = useState<View>(savedView);
   const [fullscreen, setFullscreen] = useState(false);
@@ -91,6 +94,7 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
             fullscreen={fullscreen}
             onToggleFullscreen={() => setFullscreen(!fullscreen)}
             onOpenTab={onOpenTab}
+            stepEditors={stepEditors}
           />
         </div>
       ) : (

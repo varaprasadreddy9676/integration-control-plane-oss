@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dropdown } from 'antd';
+import { Collapse, Dropdown } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { DeliveryLog } from '../../../mocks/types';
@@ -17,6 +17,7 @@ import { StageRunsList } from '../components/StageRunView';
 import { StageEditor } from '../components/delivery-tab/StageEditorDrawer';
 import { canMoveStage } from '../components/delivery-tab/stageDraft';
 import { FailurePanel } from './FailurePanel';
+import type { StepEditors } from './stepEditors';
 import { Icon } from './CanvasNode';
 import type { FlowNode } from './model';
 
@@ -65,6 +66,7 @@ interface InspectorProps {
   onAction: (action: StageAction) => void;
   onClose: () => void;
   onOpenTab?: (tab: string) => void;
+  stepEditors?: StepEditors;
   onChanged: () => void;
 }
 
@@ -121,6 +123,19 @@ const Facts = ({
  * Delivery tab's drawer), a test, and its runs; the fixed steps explain themselves and
  * point to where they are configured; in Executions a failed send shows its cause first.
  */
+/** The page's own sections for a fixed step, edited in place: one is shown as it is, several fold. */
+const StepSections = ({ sections }: { sections: NonNullable<StepEditors[keyof StepEditors]> }) => {
+  const present = sections.filter((section) => section.node);
+  if (present.length === 1) return <>{present[0].node}</>;
+  return (
+    <Collapse
+      bordered={false}
+      defaultActiveKey={present[0]?.key}
+      items={present.map((section) => ({ key: section.key, label: section.title, children: section.node }))}
+    />
+  );
+};
+
 export const Inspector = (props: InspectorProps) => {
   const {
     node,
@@ -137,6 +152,7 @@ export const Inspector = (props: InspectorProps) => {
     integrationId,
     onClose,
     onOpenTab,
+    stepEditors,
     onAction,
   } = props;
   const [tab, setTab] = useState<'configure' | 'test' | 'runs'>(mode === 'executions' ? 'runs' : 'configure');
@@ -198,9 +214,10 @@ export const Inspector = (props: InspectorProps) => {
 
   if (!stage) {
     const home = HOME_TAB[node.kind];
+    const editors = (stepEditors as Record<string, StepEditors[keyof StepEditors]> | undefined)?.[node.kind];
     const failedLog = log && (node.kind === 'send' || node.kind === 'failedEnd' || node.kind === 'retry');
     return (
-      <aside className="wf-inspector" tabIndex={-1} aria-label="Step details">
+      <aside className={`wf-inspector${editors ? ' wf-inspector--wide' : ''}`} tabIndex={-1} aria-label="Step details">
         <div className="wf-inspector__head">
           {head}
           <div style={{ height: 12 }} />
@@ -213,7 +230,8 @@ export const Inspector = (props: InspectorProps) => {
             {ABOUT[node.kind]}
           </p>
           <div className="wf-help wf-mono">{node.summary}</div>
-          {home && onOpenTab && !readOnly && (
+          {editors && <StepSections sections={editors} />}
+          {!editors && home && onOpenTab && !readOnly && (
             <div>
               <button type="button" className="wf-btn" onClick={() => onOpenTab(home.tab)}>
                 {home.label}

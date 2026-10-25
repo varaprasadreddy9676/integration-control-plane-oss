@@ -26,6 +26,7 @@ import type { NodeView } from './execution';
 import { traceExecution } from './execution';
 import type { Flow, FlowLabel, FlowNode } from './model';
 import { boxOf, buildFlow, insertStage } from './model';
+import type { StepEditors } from './stepEditors';
 import { ownerOf, stagesOf, useCanvasData } from './useCanvasData';
 import { useExecution } from './useExecution';
 import { useViewport } from './useViewport';
@@ -41,6 +42,8 @@ interface WorkflowCanvasProps {
   onToggleFullscreen?: () => void;
   /** Open one of the integration page's tabs (Transformation, Reliability...). */
   onOpenTab?: (tab: string) => void;
+  /** What to edit in place for the steps that are not stages. */
+  stepEditors?: StepEditors;
 }
 
 type Snapshot = Record<string, StageConfig[]>;
@@ -48,7 +51,10 @@ const COMPACT_AT = 0.6;
 /** How far (px) a press must move before it is a drag and not a click. */
 const DRAG_THRESHOLD = 6;
 const COUNTS_HIDDEN_BELOW = 0.5;
-const INSPECTOR_WIDTH = 400;
+/** The drawer's width for a stage, and for a fixed step that edits one of the page's own forms. */
+const DRAWER_WIDTH = { stage: 440, fixed: 560 };
+/** Below this canvas width the drawer is a sheet from the bottom (58% of the height). */
+const SHEET_BELOW = 640;
 
 /** The neighbouring node in an arrow key's direction among the nodes it is connected to. */
 function neighbour(flow: Flow, id: string, key: string): string | null {
@@ -89,6 +95,7 @@ export const WorkflowCanvas = ({
   fullscreen = false,
   onToggleFullscreen,
   onOpenTab,
+  stepEditors,
 }: WorkflowCanvasProps) => {
   const { mode: themeMode } = useThemeMode();
   const watched = Form.useWatch([], { form, preserve: true }) as Record<string, any> | undefined;
@@ -200,6 +207,14 @@ export const WorkflowCanvas = ({
     if (selectedId && !selected) setSelectedId(null);
   }, [selectedId, selected]);
 
+  /** How much of the canvas the drawer covers when it shows `node`: width beside it, or height as a sheet. */
+  const drawerFor = (node: FlowNode | null) => {
+    if (!node) return { width: 0, height: 0 };
+    if (viewport.size.width <= SHEET_BELOW) return { width: 0, height: viewport.size.height * 0.58 };
+    const fixed = node.stageIndex === undefined && Boolean(stepEditors?.[node.kind as keyof StepEditors]);
+    return { width: Math.min(fixed ? DRAWER_WIDTH.fixed : DRAWER_WIDTH.stage, viewport.size.width * 0.92), height: 0 };
+  };
+
   const select = useCallback(
     (node: FlowNode) => {
       if (node.kind === 'group') {
@@ -211,15 +226,18 @@ export const WorkflowCanvas = ({
         document.querySelector<HTMLElement>('.wf-inspector')?.focus();
         return;
       }
-      const wasOpen = Boolean(selectedId);
       setSelectedId(node.id);
+      // Pan only as far as needed to show the step beside the drawer (spec 10); zoom and position otherwise stay.
+      const drawer = drawerFor(node);
       const box = boxOf(node, flow.compact);
       viewport.ensureVisible(
         { x: box.x, y: box.y, width: box.width, height: box.height },
-        wasOpen ? viewport.size.width : viewport.size.width - INSPECTOR_WIDTH
+        viewport.size.width - drawer.width,
+        viewport.size.height - drawer.height
       );
     },
-    [flow.compact, selectedId, viewport]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flow.compact, selectedId, viewport, stepEditors]
   );
 
   // Executions: one delivery drawn over the flow.
@@ -444,7 +462,7 @@ export const WorkflowCanvas = ({
       data-theme={themeMode === 'dark' ? 'dark' : 'light'}
     >
       {holder}
-      <div className="wf-body">
+      <div className="wf-body" data-drawer={selected ? 'open' : 'closed'} style={{ ['--wf-drawer-w' as string]: `${selected ? drawerFor(selected).width : 0}px` }}>
         <div className="wf-main">
           <div className="wf-topbar">
             <div className="wf-group">
@@ -746,6 +764,7 @@ export const WorkflowCanvas = ({
             }}
             onAction={(action) => act(selected, action)}
             onClose={() => setSelectedId(null)}
+            stepEditors={stepEditors}
             onOpenTab={onOpenTab && ((tab) => onOpenTab(tab === 'transformation' && targets[0]?.actionIndex !== null ? 'multiAction' : tab))}
             onChanged={() => void execution.refetch()}
           />

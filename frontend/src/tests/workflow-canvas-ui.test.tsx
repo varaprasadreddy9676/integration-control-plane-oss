@@ -33,6 +33,7 @@ vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
 
 import { DeliveryTab } from '../features/stages/components/delivery-tab/DeliveryTab';
 import { deliveriesOf } from '../features/stages/deliveryTargets';
+import type { StepEditors } from '../features/stages/canvas/stepEditors';
 import { RUNNERS } from './fixtures/stage-runners';
 
 const script = (id: string, name: string, hook: StageConfig['hook'], extra: Partial<StageConfig> = {}): StageConfig => ({
@@ -72,14 +73,14 @@ const STATS = {
 
 const known = (extra: object) => ({ known: true, statuses: [], skips: [], fails: [], dynamicStatus: false, ...extra });
 
-const Harness = ({ initial, onValues }: { initial: Record<string, unknown>; onValues?: (values: any) => void }) => {
+const Harness = ({ initial, onValues, stepEditors }: { initial: Record<string, unknown>; onValues?: (values: any) => void; stepEditors?: StepEditors }) => {
   const [form] = Form.useForm();
   return (
     <MemoryRouter>
       <ThemeProvider>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <Form form={form} initialValues={initial}>
-            <DeliveryTab form={form} integrationId="int-1" targets={deliveriesOf(initial as any)} context={() => form.getFieldsValue(true)} />
+            <DeliveryTab form={form} integrationId="int-1" targets={deliveriesOf(initial as any)} stepEditors={stepEditors} context={() => form.getFieldsValue(true)} />
             <button type="button" onClick={() => onValues?.(form.getFieldsValue(true))}>
               read values
             </button>
@@ -243,6 +244,44 @@ describe('the workflow canvas', () => {
 
 // Under the full suite's parallel load a modal and two queries can take longer than the default second.
 const SLOW = { timeout: 6000 };
+
+describe('the fixed steps are edited in the diagram', () => {
+  const stepEditors: StepEditors = {
+    trigger: [{ key: 'configuration', title: 'Event', node: <div>EVENT FORM</div> }],
+    transform: [{ key: 'transformation', title: 'Transformation', node: <div>TRANSFORMATION FORM</div> }],
+    send: [
+      { key: 'configuration', title: 'Target', node: <div>TARGET FORM</div> },
+      { key: 'authentication', title: 'Authentication', node: <div>AUTH FORM</div> },
+    ],
+    retry: [{ key: 'reliability', title: 'Retries', node: <div>RETRY FORM</div> }],
+  };
+
+  it('opens each fixed step\'s own form in the inspector, without leaving the diagram', async () => {
+    render(<Harness initial={integration} stepEditors={stepEditors} />);
+    const open = async (name: RegExp, text: string) => {
+      fireEvent.click((await screen.findAllByRole('button', { name }))[0]);
+      const inspector = await screen.findByRole('complementary', { name: /details/ });
+      expect(await within(inspector).findByText(text)).toBeInTheDocument();
+      return inspector;
+    };
+    await open(/^Build the request/, 'TRANSFORMATION FORM');
+    await open(/^Retry up to/, 'RETRY FORM');
+    await open(/^APPOINTMENT_CONFIRMED/, 'EVENT FORM');
+    const send = await open(/^Send HTTP message/, 'TARGET FORM');
+    // Several sections fold; the first is open and the others are one click away.
+    expect(within(send).getByText('Authentication')).toBeInTheDocument();
+    fireEvent.click(within(send).getByText('Authentication'));
+    expect(await within(send).findByText('AUTH FORM')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Build the request/ }).length).toBeGreaterThan(0);
+  });
+
+  it('shows only the description when the page supplies no form for a step', async () => {
+    render(<Harness initial={integration} />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Build the request/ }))[0]);
+    const inspector = await screen.findByRole('complementary', { name: /details/ });
+    expect(within(inspector).getByText(/Builds the message from the event/)).toBeInTheDocument();
+  });
+});
 
 describe('a runner the console has never heard of', () => {
   // Described only by what the server sends: no console code knows "wait".
