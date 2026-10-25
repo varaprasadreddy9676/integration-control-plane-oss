@@ -15,6 +15,8 @@ export interface Size {
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 1.5;
 const READABLE_ZOOM = 0.7;
+/** Zoom steps of the - and + buttons (each press is a visible step, not a sliver). */
+const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.6, 0.7, 0.85, 1, 1.25, 1.5];
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 /** The rectangle of the host (in host coordinates) that is visible in the stage. */
@@ -25,17 +27,40 @@ export const visibleRect = (view: View, size: Size) => ({
   height: size.height / view.z,
 });
 
+const nextStep = (z: number, direction: 1 | -1) => {
+  const rounded = Math.round(z * 100) / 100;
+  if (direction === 1) return ZOOM_STEPS.find((step) => step > rounded + 0.001) ?? MAX_ZOOM;
+  return [...ZOOM_STEPS].reverse().find((step) => step < rounded - 0.001) ?? MIN_ZOOM;
+};
+
 /**
  * Zoom and pan of the canvas. The view only changes when the user asks (buttons, wheel,
- * drag, minimap) or the selected step would be hidden by the inspector: then it moves by
- * the least that shows the step (spec 10), never re-centring.
+ * drag, pinch, minimap) or the selected step would be hidden by the inspector: then it
+ * moves by the least that shows the step (spec 10), never re-centring.
+ *
+ * Moves the user makes with a button, Fit, the minimap or a selection are animated
+ * (`smooth`); dragging, the wheel and a pinch follow the hand with no delay.
  */
 export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) {
-  const [view, setView] = useState<View>({ x: 40, y: 56, z: 0.82 });
+  const [view, setViewState] = useState<View>({ x: 40, y: 56, z: 0.82 });
+  const [smooth, setSmooth] = useState(false);
   const [size, setSize] = useState<Size>({ width: 800, height: 600 });
   const dragging = useRef<{ x: number; y: number; view: View } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; view: View } | null>(null);
   const fitted = useRef(false);
   const { width: contentWidth, height: contentHeight } = content;
+
+  /** Move with the hand: no animation. */
+  const setView = useCallback((next: View | ((current: View) => View)) => {
+    setSmooth(false);
+    setViewState(next);
+  }, []);
+  /** Move for the user: animated. */
+  const glideTo = useCallback((next: View | ((current: View) => View)) => {
+    setSmooth(true);
+    setViewState(next);
+  }, []);
 
   /** Fit the whole flow, but never smaller than a readable size: a tall flow is panned, not shrunk to dots. */
   const fitTo = useCallback((box: Size, within: Size, floor = READABLE_ZOOM): View => {
@@ -60,17 +85,16 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     observer?.observe(element);
     return () => observer?.disconnect();
-  }, [stageRef, contentWidth, contentHeight, fitTo]);
+  }, [stageRef, contentWidth, contentHeight, fitTo, setView]);
 
-  const zoomTo = useCallback(
-    (nextZoom: number, around?: { x: number; y: number }) => {
-      setView((current) => {
-        const z = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
-        const anchor = around || { x: size.width / 2, y: size.height / 2 };
-        const hostX = (anchor.x - current.x) / current.z;
-        const hostY = (anchor.y - current.y) / current.z;
-        return { z, x: anchor.x - hostX * z, y: anchor.y - hostY * z };
-      });
+  /** Zoom to `nextZoom` keeping the point under `around` (stage coordinates) where it is. */
+  const zoomView = useCallback(
+    (current: View, nextZoom: number, around?: { x: number; y: number }): View => {
+      const z = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
+      const anchor = around || { x: size.width / 2, y: size.height / 2 };
+      const hostX = (anchor.x - current.x) / current.z;
+      const hostY = (anchor.y - current.y) / current.z;
+      return { z, x: anchor.x - hostX * z, y: anchor.y - hostY * z };
     },
     [size]
   );
@@ -83,38 +107,57 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
       event.preventDefault();
       if (event.ctrlKey || event.metaKey) {
         const bounds = element.getBoundingClientRect();
-        zoomTo(view.z * Math.exp(-event.deltaY * 0.01), {
-          x: event.clientX - bounds.left,
-          y: event.clientY - bounds.top,
-        });
+        const around = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+        setView((current) => zoomView(current, current.z * Math.exp(-event.deltaY * 0.01), around));
       } else {
         setView((current) => ({ ...current, x: current.x - event.deltaX, y: current.y - event.deltaY }));
       }
     };
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, [stageRef, view.z, zoomTo]);
+  }, [stageRef, setView, zoomView]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     // React bubbles events out of portals (the add-a-step menu): only a press on the canvas itself drags it.
     if (!event.currentTarget.contains(event.target as Node)) return;
     if ((event.target as HTMLElement).closest('button, input, a, [data-no-pan]')) return;
-    dragging.current = { x: event.clientX, y: event.clientY, view };
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { distance: Math.hypot(a.x - b.x, a.y - b.y) || 1, view };
+      dragging.current = null;
+    } else {
+      dragging.current = { x: event.clientX, y: event.clientY, view };
+    }
   };
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch.current && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const around = { x: (a.x + b.x) / 2 - bounds.left, y: (a.y + b.y) / 2 - bounds.top };
+      const start = pinch.current;
+      setView(zoomView(start.view, start.view.z * (Math.hypot(a.x - b.x, a.y - b.y) / start.distance), around));
+      return;
+    }
     const start = dragging.current;
     if (!start) return;
     setView({ ...start.view, x: start.view.x + event.clientX - start.x, y: start.view.y + event.clientY - start.y });
   };
-  const onPointerUp = () => {
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    pointers.current.delete(event.pointerId);
+    pinch.current = null;
     dragging.current = null;
+    // One finger stays down after a pinch: carry on dragging from where it is.
+    const [rest] = [...pointers.current.values()];
+    if (rest) dragging.current = { x: rest.x, y: rest.y, view };
   };
 
   /** Pan by the least needed so the host rectangle (padded) is inside the stage. */
   const ensureVisible = useCallback(
     (rect: { x: number; y: number; width: number; height: number }, availableWidth: number = size.width) => {
-      setView((current) => {
+      glideTo((current) => {
         const pad = 24;
         const left = rect.x * current.z + current.x;
         const right = (rect.x + rect.width) * current.z + current.x;
@@ -125,16 +168,20 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
         return dx === 0 && dy === 0 ? current : { ...current, x: current.x + dx, y: current.y + dy };
       });
     },
-    [size]
+    [size, glideTo]
   );
 
   return {
     view,
+    smooth,
     size,
+    /** Move with the hand (dragging the minimap): no animation. */
     setView,
-    zoomIn: () => zoomTo(Math.round((view.z + 0.1) * 100) / 100),
-    zoomOut: () => zoomTo(Math.round((view.z - 0.1) * 100) / 100),
-    fit: () => setView(fitTo(content, size, MIN_ZOOM)),
+    /** Move to a view the user chose (the minimap): animated. */
+    jumpTo: glideTo,
+    zoomIn: () => glideTo((current) => zoomView(current, nextStep(current.z, 1))),
+    zoomOut: () => glideTo((current) => zoomView(current, nextStep(current.z, -1))),
+    fit: () => glideTo(fitTo(content, size, MIN_ZOOM)),
     ensureVisible,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp },
   };

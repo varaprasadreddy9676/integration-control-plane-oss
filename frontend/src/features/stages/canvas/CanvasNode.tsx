@@ -169,10 +169,16 @@ interface CanvasNodeProps {
   selected?: boolean;
   /** Found by the search box. */
   matched?: boolean;
+  /** Appeared since the canvas was drawn: settles in. */
+  entering?: boolean;
   compact?: boolean;
   left: number;
   top: number;
   onSelect: () => void;
+  /** Pressing on the step may start dragging it (reordering within its group). */
+  onPress?: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  /** Being dragged: follows the hand by this much (host pixels). */
+  dragOffset?: number | null;
   onKeyNav?: (key: string) => void;
 }
 
@@ -188,10 +194,13 @@ export const CanvasNode = ({
   view,
   selected,
   matched,
+  entering,
   compact,
   left,
   top,
   onSelect,
+  onPress,
+  dragOffset,
   onKeyNav,
 }: CanvasNodeProps) => {
   const state = view?.state || '';
@@ -202,7 +211,12 @@ export const CanvasNode = ({
   const noTopPort = kind === 'trigger';
   const noBottomPort = kind === 'done' || kind === 'skipped' || kind === 'failedEnd';
   const label = [title, shownEyebrow, word].filter(Boolean).join(', ');
-  const style = { left, top, '--tint': `var(--t-${kind})` } as CSSProperties;
+  const style = {
+    left,
+    top,
+    '--tint': `var(--t-${kind})`,
+    ...(dragOffset !== null && dragOffset !== undefined ? { transform: `translateY(${dragOffset}px)` } : {}),
+  } as CSSProperties;
   const status = word ? (
     <span className={`wf-status wf-status--${state || 'ok'}${HOLLOW.has(state) ? ' wf-status--hollow' : ''}`}>
       {word}
@@ -215,12 +229,13 @@ export const CanvasNode = ({
       id={id}
       data-node-id={id}
       data-match={matched || undefined}
-      className={`wf-node${compact ? ' wf-node--compact' : ''}${state ? ` wf-node--${state}` : ''}`}
+      className={`wf-node${compact ? ' wf-node--compact' : ''}${state ? ` wf-node--${state}` : ''}${entering ? ' wf-node--enter' : ''}${dragOffset !== null && dragOffset !== undefined ? ' wf-node--dragging' : ''}`}
       style={style}
       title={title}
       aria-pressed={Boolean(selected)}
       aria-label={label}
       onClick={onSelect}
+      onPointerDown={onPress}
       onKeyDown={(event) => {
         if (onKeyNav && ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
           event.preventDefault();

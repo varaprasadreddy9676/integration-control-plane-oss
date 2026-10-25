@@ -1,5 +1,6 @@
 import './canvas.css';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Dropdown, Form, message } from 'antd';
 import { useThemeMode } from '../../../app/theme-provider';
 import type { SendBindings, StageConfig, StageHook } from '../../../services/stages-api';
@@ -44,6 +45,8 @@ interface WorkflowCanvasProps {
 
 type Snapshot = Record<string, StageConfig[]>;
 const COMPACT_AT = 0.6;
+/** How far (px) a press must move before it is a drag and not a click. */
+const DRAG_THRESHOLD = 6;
 const COUNTS_HIDDEN_BELOW = 0.5;
 const INSPECTOR_WIDTH = 400;
 
@@ -103,7 +106,7 @@ export const WorkflowCanvas = ({
   const stageRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const data = useCanvasData({ integrationId, values, targets, readOnly });
+  const data = useCanvasData({ integrationId, values, targets, readOnly, context });
   const execution = useExecution(integrationId, mode === 'executions');
   const deliveries = targets.map((target) => ({
     target,
@@ -126,7 +129,7 @@ export const WorkflowCanvas = ({
         deliveries,
         eventType: values.eventType,
         retryCount: values.retryCount,
-        runnerLabels: data.runnerLabels,
+        runners: data.runnerMap,
         outcomes: data.outcomes,
         collapsed,
       }),
@@ -144,7 +147,7 @@ export const WorkflowCanvas = ({
       ),
       values.eventType,
       values.retryCount,
-      data.runnerLabels,
+      data.runnerMap,
       data.outcomes,
       collapsed.join(','),
     ]
@@ -158,7 +161,7 @@ export const WorkflowCanvas = ({
             deliveries,
             eventType: values.eventType,
             retryCount: values.retryCount,
-            runnerLabels: data.runnerLabels,
+            runners: data.runnerMap,
             outcomes: data.outcomes,
             collapsed,
             compact: true,
@@ -228,6 +231,8 @@ export const WorkflowCanvas = ({
     if (trace) return trace.nodes[node.id];
     const stage = node.stageIndex === undefined ? undefined : deliveries[node.group].stages[node.stageIndex];
     if (!stage) return undefined;
+    const problems = data.issues[stage.id];
+    if (problems?.length) return { state: 'issue', meta: `${problems.length} issue${problems.length === 1 ? '' : 's'}` };
     if (stage.enabled === false) return { state: 'off' };
     return data.isEdited(stage) ? { state: 'edited' } : undefined;
   };
@@ -249,6 +254,60 @@ export const WorkflowCanvas = ({
         ? label.text
         : labelText(label, labelCount(label.fact, factsOf(edge?.group ?? 0), data.outcomes));
     return { variant, text };
+  };
+
+  // Reordering: drag a step up or down within its group; the others stay where they are and a line shows where it lands.
+  const [drag, setDrag] = useState<{ id: string; offset: number; lineY: number } | null>(null);
+  const dragging = useRef<{ startY: number; moved: boolean } | null>(null);
+  const clickedAfterDrag = useRef(false);
+  const latestView = useRef(viewport.view);
+  latestView.current = viewport.view;
+
+  const startPress = (node: FlowNode, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (readOnly || mode !== 'configure' || node.stageIndex === undefined || event.button !== 0) return;
+    const siblings = flow.nodes.filter((other) => other.group === node.group && other.hook === node.hook && other.stageIndex !== undefined).sort((a, b) => a.row - b.row);
+    if (siblings.length < 2) return;
+    const others = siblings.filter((other) => other.id !== node.id);
+    const heightOf = (other: FlowNode) => boxOf(other, flow.compact).height;
+    const topOf = (other: FlowNode) => boxOf(other, flow.compact).y;
+    const state = { startY: event.clientY, moved: false };
+    dragging.current = state;
+    let landing = siblings.indexOf(node);
+
+    const place = (clientY: number) => {
+      const offset = (clientY - state.startY) / latestView.current.z;
+      const centre = topOf(node) + heightOf(node) / 2 + offset;
+      landing = others.filter((other) => topOf(other) + heightOf(other) / 2 < centre).length;
+      const before = others[landing - 1];
+      const after = others[landing];
+      const lineY = before && after ? (topOf(before) + heightOf(before) + topOf(after)) / 2 : before ? topOf(before) + heightOf(before) + 22 : topOf(after) - 22;
+      setDrag({ id: node.id, offset, lineY });
+    };
+    const onMove = (move: PointerEvent) => {
+      if (!state.moved && Math.abs(move.clientY - state.startY) < DRAG_THRESHOLD) return;
+      state.moved = true;
+      place(move.clientY);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      dragging.current = null;
+      setDrag(null);
+      if (!state.moved) return;
+      // The click that ends a drag is not a selection.
+      clickedAfterDrag.current = true;
+      window.setTimeout(() => {
+        clickedAfterDrag.current = false;
+      }, 0);
+      if (landing === siblings.indexOf(node)) return;
+      const delivery = deliveries[node.group];
+      const moved = delivery.stages[node.stageIndex as number];
+      writeStages(delivery.target, insertStage(removeStageAt(delivery.stages, node.stageIndex as number), moved, node.hook as StageHook, landing));
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   };
 
   const act = (node: FlowNode, action: StageAction) => {
@@ -309,12 +368,14 @@ export const WorkflowCanvas = ({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const root = stageRef.current?.closest('.wf-root');
-      if (!root || (!root.contains(document.activeElement) && document.activeElement !== document.body)) return;
-      const typing = (event.target as HTMLElement | null)?.closest(
+      // Only while the keyboard is in the canvas: the console has its own shortcuts (⌘K opens its command palette).
+      if (!root || !root.contains(document.activeElement)) return;
+      const typing = (event.target as HTMLElement | null)?.closest?.(
         'input, textarea, select, [contenteditable="true"], .monaco-editor'
       );
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
+        event.stopImmediatePropagation();
         searchRef.current?.focus();
       } else if (!typing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !readOnly) {
         event.preventDefault();
@@ -334,10 +395,11 @@ export const WorkflowCanvas = ({
         const inInspector = Boolean(document.activeElement?.closest('.wf-inspector'));
         document.getElementById(selectedId)?.focus();
         if (!inInspector) setSelectedId(null);
-      }
+      } else if (event.key === 'Escape' && fullscreen && !typing) onToggleFullscreen?.();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture, so a shortcut the canvas takes is not also taken by the page.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   });
 
   const matches = useMemo(() => {
@@ -359,11 +421,24 @@ export const WorkflowCanvas = ({
   const send = selectedDelivery
     ? (form.getFieldValue([...selectedDelivery.target.namePath, 'send']) as SendBindings | null | undefined)
     : undefined;
+  // Steps that appear after the canvas was first drawn settle in; the first drawing does not animate.
+  // The class stays for the length of the animation (taking it off early would cut it short).
+  const knownNodes = useRef<Set<string> | null>(null);
+  const [entering, setEntering] = useState<Set<string>>(new Set());
+  useLayoutEffect(() => {
+    const known = knownNodes.current;
+    knownNodes.current = new Set(flow.nodes.map((node) => node.id));
+    if (!known) return;
+    const added = flow.nodes.filter((node) => !known.has(node.id)).map((node) => node.id);
+    if (added.length === 0) return;
+    setEntering((current) => new Set([...current, ...added]));
+    window.setTimeout(() => setEntering((current) => new Set([...current].filter((id) => !added.includes(id)))), 400);
+  }, [flow.nodes]);
   const sortedNodes = [...flow.nodes].sort((a, b) => a.group - b.group || a.row - b.row || (a.col === 'main' ? -1 : 1));
   const zoomLabel = `${Math.round(viewport.view.z * 100)}%`;
   const changedCount = data.impact ? data.impact.stages.filter((entry) => entry.change !== 'unchanged').length : 0;
 
-  return (
+  const canvas = (
     <div
       className={`wf wf-root${fullscreen ? ' wf-root--full' : ''}`}
       data-theme={themeMode === 'dark' ? 'dark' : 'light'}
@@ -483,6 +558,7 @@ export const WorkflowCanvas = ({
           <div
             ref={stageRef}
             className="wf-stage"
+            tabIndex={-1}
             {...viewport.handlers}
             onClick={(event) => {
               if (event.target === event.currentTarget) setSelectedId(null);
@@ -494,6 +570,7 @@ export const WorkflowCanvas = ({
                 width: flow.width,
                 height: flow.height,
                 transform: `translate(${viewport.view.x}px, ${viewport.view.y}px) scale(${viewport.view.z})`,
+                transition: viewport.smooth ? 'transform 240ms cubic-bezier(0.2, 0, 0, 1)' : 'none',
               }}
               onClick={(event) => {
                 if (event.target === event.currentTarget) setSelectedId(null);
@@ -527,7 +604,7 @@ export const WorkflowCanvas = ({
                     {entry.collapsed ? '▸' : '▾'} {entry.title}
                   </button>
                 ))}
-              <Connectors flow={flow} states={trace?.edges} />
+              <Connectors flow={flow} states={trace?.edges} traceKey={trace ? execution.selectedId : null} />
               {flow.labels.map((label) => {
                 const view = labelView(label);
                 return (
@@ -547,6 +624,7 @@ export const WorkflowCanvas = ({
                     key={node.id}
                     id={node.id}
                     matched={matches.has(node.id)}
+                    entering={entering.has(node.id)}
                     kind={node.kind}
                     eyebrow={node.eyebrow}
                     title={node.title}
@@ -556,7 +634,11 @@ export const WorkflowCanvas = ({
                     compact={flow.compact}
                     left={box.x}
                     top={box.y}
-                    onSelect={() => select(node)}
+                    onSelect={() => {
+                      if (!clickedAfterDrag.current) select(node);
+                    }}
+                    onPress={(event) => startPress(node, event)}
+                    dragOffset={drag?.id === node.id ? drag.offset : null}
                     onKeyNav={(key) => {
                       const next = neighbour(flow, node.id, key);
                       if (next) document.getElementById(next)?.focus();
@@ -564,6 +646,7 @@ export const WorkflowCanvas = ({
                   />
                 );
               })}
+              {drag && <div className="wf-drop" style={{ left: boxOf(flow.nodes.find((n) => n.id === drag.id) as FlowNode, flow.compact).x, top: drag.lineY, width: flow.compact ? 208 : 256 }} />}
               {mode === 'configure' &&
                 !readOnly &&
                 flow.insertions.map((point) => (
@@ -597,7 +680,8 @@ export const WorkflowCanvas = ({
                 view={viewport.view}
                 size={viewport.size}
                 selectedId={selectedId}
-                onView={viewport.setView}
+                onView={viewport.jumpTo}
+                onDrag={viewport.setView}
               />
             ) : null}
           </div>
@@ -648,6 +732,7 @@ export const WorkflowCanvas = ({
             protocol={selectedDelivery.target.protocol}
             actionIndex={selectedDelivery.target.actionIndex}
             impact={data.impact}
+            issues={selected.stageId ? data.issues[selected.stageId] : undefined}
             stats={factsOf(selected.group)?.stages.find((entry) => entry.stageId === selected.stageId)}
             runs={(execution.stageData?.runs || []).filter((run) => run.stage.id === selected.stageId)}
             state={execution.stageData?.states.find((entry) => entry.stageId === selected.stageId)}
@@ -668,4 +753,6 @@ export const WorkflowCanvas = ({
       </div>
     </div>
   );
+  // Full screen is the canvas over the whole window: out of the page, whose animated sections would pin `fixed` to themselves.
+  return fullscreen ? createPortal(canvas, document.body) : canvas;
 };

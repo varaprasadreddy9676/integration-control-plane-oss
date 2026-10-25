@@ -55,11 +55,26 @@ export interface SchemaField {
   columns?: SchemaField[];
 }
 
+/** How a runner is shown, from the server: the console needs no knowledge of any particular runner. */
+export interface RunnerPresentation {
+  /** One of the canvas icons. */
+  icon?: string;
+  /** The step's one-line summary, built from its configuration. */
+  summary?: Array<{ field: string; as?: 'text' | 'host' | 'lines' | 'count'; unit?: string }>;
+  /** Can it skip or fail the delivery (assumed for a gate whose outcomes are not read yet). */
+  mayDecide?: boolean;
+  /** What the step hands on: listed by the user on the stage, or named in a list in its configuration. */
+  outputs?: { declaredOnStage?: boolean; fromConfig?: string };
+  defaultConfig?: Record<string, unknown>;
+  defaultConfigByHook?: Partial<Record<StageHook, Record<string, unknown>>>;
+}
+
 export interface StageRunner {
   type: string;
   label: string;
   hooks: StageHook[];
   configSchema: { fields: SchemaField[] };
+  presentation?: RunnerPresentation;
 }
 
 export interface StageTemplate {

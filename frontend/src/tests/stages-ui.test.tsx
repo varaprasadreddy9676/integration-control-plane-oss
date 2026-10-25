@@ -28,30 +28,8 @@ import { buildStageTabItems, StageSummaryTags } from '../features/stages/compone
 import { DeliveryTab } from '../features/stages/components/delivery-tab/DeliveryTab';
 import { deliveriesOf, protocolOf, requestParts, stageCountOf } from '../features/stages/deliveryTargets';
 import { sampleScope } from '../features/stages/components/delivery-tab/StageTestPanel';
+import { RUNNERS } from './fixtures/stage-runners';
 import { buildIntegrationSavePayload } from '../features/integrations/routes/integrationDetail/utils/savePayload';
-
-const RUNNERS = [
-  {
-    type: 'script',
-    label: 'Script',
-    hooks: ['before_send', 'after_response', 'after_delivery', 'on_failure'],
-    configSchema: { fields: [{ name: 'code', label: 'Script', widget: 'code', language: 'javascript', required: true }] },
-  },
-  {
-    type: 'http',
-    label: 'HTTP request',
-    hooks: ['before_send', 'after_response', 'after_delivery', 'on_failure'],
-    configSchema: {
-      fields: [
-        { name: 'method', label: 'Method', widget: 'select', options: ['GET', 'POST'], default: 'GET' },
-        { name: 'url', label: 'URL', widget: 'text', required: true },
-        { name: 'headers', label: 'Headers', widget: 'key-value' },
-        { name: 'expectStatus', label: 'Accepted status codes', widget: 'tags', valueType: 'number' },
-        { name: 'status.from', label: 'Status comes from', widget: 'text' },
-      ],
-    },
-  },
-];
 
 const run = (overrides: Partial<StageRun> = {}): StageRun => ({
   runId: 'r1',
@@ -91,7 +69,7 @@ describe('stage draft helpers', () => {
     expect(scheduleSummary({ id: 'a', name: 'a', hook: 'after_delivery', runner: { type: 'script', config: {} }, schedule: { checkAfterSeconds: [30, 3600] } })).toBe(
       '2 checks: 30 seconds, 1 hour after the send'
     );
-    expect(outputsOf({ id: 'h', name: 'h', hook: 'before_send', runner: { type: 'http', config: { extract: [{ name: 'token', from: 'response.body.t' }] } } })).toEqual([
+    expect(outputsOf({ id: 'h', name: 'h', hook: 'before_send', runner: { type: 'http', config: { extract: [{ name: 'token', from: 'response.body.t' }] } } }, RUNNERS[1])).toEqual([
       { name: 'token', type: 'string' },
     ]);
   });

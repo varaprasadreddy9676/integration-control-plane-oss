@@ -61,6 +61,37 @@ module.exports = {
   configSchema: {
     fields: [{ name: 'code', label: 'Script', widget: 'code', language: 'javascript', required: true }],
   },
+  exportOmits: ['code'], // never leaves in an export without sensitive data
+  // How the console shows it, so a new runner needs no console change (see runners/index.js).
+  presentation: {
+    icon: 'script',
+    summary: [{ field: 'code', as: 'lines', unit: 'line of script' }],
+    mayDecide: true, // can call skip() and fail()
+    outputs: { declaredOnStage: true }, // what it hands on is listed on the stage (stage.outputs)
+    defaultConfigByHook: {
+      before_send: {
+        code: `// ctx.event: the event; ctx.delivery.request: { protocol, target, method, body } about to be sent
+// return skip('reason') to not send it, fail('reason') to fail it
+return { status: 'OK' };`,
+      },
+      after_response: {
+        code: `// ctx.delivery.response: { ok, status, code, providerMessageId, body } what came back
+// (status is the HTTP status; code is the answer's own code: 200, SENT, AA...)
+// return fail('reason') when the answer means the send did not work
+return { status: 'OK' };`,
+      },
+      after_delivery: {
+        code: `// ctx.delivery.response: what came back when the message was sent (providerMessageId, body...)
+// ctx.run.seq: which check this is; http.get(url) to ask the provider
+// return { status: 'DELIVERED', done: true } when there is nothing more to wait for
+return { status: 'PENDING' };`,
+      },
+      on_failure: {
+        code: `// ctx.delivery.status: FAILED or ABANDONED; ctx.delivery.errorMessage: why
+return { status: 'NOTED' };`,
+      },
+    },
+  },
   validate,
   outputs: null, // declared on the stage (stage.outputs)
   outcomes: (config) => scanScript(config.code),

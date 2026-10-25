@@ -25,9 +25,10 @@ type View = 'workflow' | 'list';
 const VIEW_KEY = 'stages-delivery-view';
 const savedView = (): View => {
   try {
-    return window.localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'workflow';
+    // The list (each step by name, in order) is the plain way in; the diagram is opt-in.
+    return window.localStorage.getItem(VIEW_KEY) === 'workflow' ? 'workflow' : 'list';
   } catch {
-    return 'workflow';
+    return 'list';
   }
 };
 
@@ -61,8 +62,8 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
           value={view}
           onChange={(next) => chooseView(next as View)}
           options={[
-            { value: 'workflow', label: 'Workflow' },
             { value: 'list', label: 'List' },
+            { value: 'workflow', label: 'Diagram' },
           ]}
         />
         {view === 'workflow' && (

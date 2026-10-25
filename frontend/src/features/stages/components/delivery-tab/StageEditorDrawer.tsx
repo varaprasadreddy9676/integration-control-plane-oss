@@ -110,6 +110,7 @@ export const StageEditor = ({
   const credentials = useQuery({ queryKey: ['stage-credentials'], queryFn: listCredentialOptions, enabled: open, retry: false });
   const validate = useMutation({ mutationFn: validateStages });
 
+  const runnerOf = (candidate: StageConfig) => runners.find((entry) => entry.type === candidate.runner.type);
   const runner = runners.find((candidate) => candidate.type === draft?.runner.type);
   const { runnerFields, other } = useMemo(() => errorsForStage(errors, index), [errors, index]);
   const errorAt = (path: string) => other.find((error) => error.path === path || error.path.startsWith(`${path}.`) || error.path.startsWith(`${path}[`))?.message;
@@ -182,7 +183,7 @@ export const StageEditor = ({
         <Alert type="warning" showIcon message={`The ${draft.runner.type} runner is not offered for new stages; its settings are kept as they are.`} />
       )}
 
-      {draft.runner.type === 'script' && (
+      {runner?.presentation?.outputs?.declaredOnStage && (
         <Field label="Outputs" error={errorAt('outputs')} hint="What later stages and the Send step may use: return { data: { name: value } }.">
           <Widget field={{ name: 'outputs', label: 'Output', widget: 'rows', columns: OUTPUT_COLUMNS }} label="Output" value={draft.outputs} onChange={(outputs) => update({ outputs })} />
         </Field>
@@ -390,10 +391,10 @@ export const StageEditor = ({
             children: (
               <Field label="Values the stage receives" error={errorAt('inputs')} hint={'Use {{ event.field }}, {{ delivery.response.body.id }} or an earlier stage\'s output; add ?? "default" for a fallback.'}>
                 <KeyValueEditor label="Input" value={draft.inputs} onChange={(inputs) => update({ inputs })} />
-                {earlier.some((candidate) => outputsOf(candidate).length) && (
+                {earlier.some((candidate) => outputsOf(candidate, runnerOf(candidate)).length) && (
                   <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 6 }}>
                     Available:{' '}
-                    {earlier.flatMap((candidate) => outputsOf(candidate).map((output) => `{{ stages.${candidate.id}.output.${output.name} }}`)).join('  ')}
+                    {earlier.flatMap((candidate) => outputsOf(candidate, runnerOf(candidate)).map((output) => `{{ stages.${candidate.id}.output.${output.name} }}`)).join('  ')}
                   </Text>
                 )}
               </Field>

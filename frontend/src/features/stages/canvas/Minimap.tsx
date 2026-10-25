@@ -14,21 +14,27 @@ export const Minimap = ({
   size,
   selectedId,
   onView,
+  onDrag,
 }: {
   flow: Flow;
   view: View;
   size: Size;
   selectedId: string | null;
   onView: (view: View) => void;
+  onDrag: (view: View) => void;
 }) => {
   const scale = Math.min((WIDTH - 12) / flow.width, (HEIGHT - 12) / flow.height);
   const frame = visibleRect(view, size);
-  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.type === 'pointermove' && event.buttons !== 1) return;
+  const centreOn = (event: ReactPointerEvent<HTMLDivElement>): View => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const hostX = (event.clientX - bounds.left - 6) / scale;
     const hostY = (event.clientY - bounds.top - 6) / scale;
-    onView({ ...view, x: size.width / 2 - hostX * view.z, y: size.height / 2 - hostY * view.z });
+    return { ...view, x: size.width / 2 - hostX * view.z, y: size.height / 2 - hostY * view.z };
+  };
+  // A click glides there; dragging the frame follows the hand.
+  const press = (event: ReactPointerEvent<HTMLDivElement>) => onView(centreOn(event));
+  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.buttons === 1) onDrag(centreOn(event));
   };
   return (
     <div
@@ -36,7 +42,7 @@ export const Minimap = ({
       role="img"
       aria-label="Overview of the workflow"
       data-no-pan
-      onPointerDown={move}
+      onPointerDown={press}
       onPointerMove={move}
     >
       <svg width={WIDTH} height={HEIGHT} aria-hidden="true">

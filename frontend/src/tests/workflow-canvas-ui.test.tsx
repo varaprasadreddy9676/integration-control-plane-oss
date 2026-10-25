@@ -33,10 +33,8 @@ vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
 
 import { DeliveryTab } from '../features/stages/components/delivery-tab/DeliveryTab';
 import { deliveriesOf } from '../features/stages/deliveryTargets';
+import { RUNNERS } from './fixtures/stage-runners';
 
-const RUNNERS = [
-  { type: 'script', label: 'Script', hooks: ['before_send', 'after_response', 'after_delivery', 'on_failure'], configSchema: { fields: [{ name: 'code', label: 'Script', widget: 'code', language: 'javascript', required: true }] } },
-];
 const script = (id: string, name: string, hook: StageConfig['hook'], extra: Partial<StageConfig> = {}): StageConfig => ({
   id,
   name,
@@ -96,7 +94,7 @@ const integration = { eventType: 'APPOINTMENT_CONFIRMED', targetUrl: 'https://ap
 
 beforeEach(() => {
   vi.clearAllMocks();
-  window.localStorage.removeItem('stages-delivery-view');
+  window.localStorage.setItem('stages-delivery-view', 'workflow');
   api.getStageRunners.mockResolvedValue(RUNNERS);
   api.getStageTemplates.mockResolvedValue([]);
   api.getStageRuntime.mockResolvedValue({ ready: true, mode: 'host', isolated: true, problems: [], switchedOff: false });
@@ -125,7 +123,7 @@ describe('the workflow canvas', () => {
     const nodes = await screen.findAllByRole('button', { name: /Consent granted\?/ });
     expect(nodes[0]).toHaveAttribute('data-node-id', 'g0-stage-consent');
     for (const name of ['Build the request', 'Read the provider reply', 'Check delivery status', 'Notify the front desk', 'Delivered', 'Delivery failed', 'Skipped', 'Retry up to 3 attempts']) {
-      expect(screen.getAllByRole('button', { name: new RegExp(name.replace('?', '\\?')) }).length).toBeGreaterThan(0);
+      expect((await screen.findAllByRole('button', { name: new RegExp(name.replace('?', '\\?')) })).length).toBeGreaterThan(0);
     }
     expect(await screen.findByText('Yes · 1,184')).toBeInTheDocument();
     expect(screen.getByText('No · 41')).toBeInTheDocument();
@@ -165,6 +163,21 @@ describe('the workflow canvas', () => {
     fireEvent.keyDown(inspector, { key: 'Escape' });
     expect(document.activeElement).toBe(first);
     expect(screen.getByRole('complementary', { name: /details/ })).toBeInTheDocument();
+  });
+
+  it('marks the step the server finds a problem with, and says what it is in the inspector', async () => {
+    api.validateStages.mockImplementation(async ({ stages }: { stages: StageConfig[] }) =>
+      stages.some((stage) => stage.id === 'consent')
+        ? { ok: false, errors: [{ path: 'stages[0].runner.config.code', message: 'The script is empty' }], stages: [] }
+        : { ok: true, errors: [], stages: [] }
+    );
+    render(<Harness initial={integration} />);
+    const marked = await screen.findByRole('button', { name: /Consent granted\?.*1 issue/ }, { timeout: 4000 });
+    fireEvent.click(marked);
+    const inspector = await screen.findByRole('complementary', { name: /Consent granted\? details/ });
+    expect(within(inspector).getByText('Fix this before saving')).toBeInTheDocument();
+    expect(within(inspector).getByText('runner.config.code: The script is empty')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Read the provider reply.*issue/ })).not.toBeInTheDocument();
   });
 
   it('applies an edit to the draft only after the server accepts it, and says so', async () => {
@@ -217,17 +230,54 @@ describe('the workflow canvas', () => {
     expect(await screen.findByText(/41 waiting checks keep their version/)).toBeInTheDocument();
   });
 
-  it('falls back to the list, which keeps working', async () => {
+  it('has a list and a diagram of the same steps, the list being the default', async () => {
     render(<Harness initial={integration} />);
     await screen.findAllByRole('button', { name: /Consent granted\?/ });
     fireEvent.click(screen.getByText('List'));
     expect(await screen.findByText('Before send')).toBeInTheDocument();
     expect(window.localStorage.getItem('stages-delivery-view')).toBe('list');
+    fireEvent.click(screen.getByText('Diagram'));
+    expect((await screen.findAllByRole('button', { name: /Consent granted\?/ })).length).toBeGreaterThan(0);
   });
 });
 
 // Under the full suite's parallel load a modal and two queries can take longer than the default second.
 const SLOW = { timeout: 6000 };
+
+describe('a runner the console has never heard of', () => {
+  // Described only by what the server sends: no console code knows "wait".
+  const WAIT = {
+    type: 'wait',
+    label: 'Wait',
+    hooks: ['on_failure'],
+    configSchema: { fields: [{ name: 'seconds', label: 'Seconds to wait', widget: 'text', valueType: 'number' }] },
+    presentation: { icon: 'script', summary: [{ field: 'seconds' }], mayDecide: false, outputs: {}, defaultConfig: { seconds: 60 } },
+  };
+
+  it('is offered where it can run, starts with its own defaults, is drawn with its own summary, and gets its own form', async () => {
+    api.getStageRunners.mockResolvedValue([...RUNNERS, WAIT]);
+    let values: any;
+    render(<Harness initial={integration} onValues={(v) => (values = v)} />);
+    await screen.findAllByRole('button', { name: /Consent granted\?/ });
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a failure step' }));
+    fireEvent.click(await screen.findByText('Wait'));
+    fireEvent.click(screen.getByText('read values'));
+    await waitFor(() => expect(values.stages.at(-1)).toMatchObject({ name: 'Wait 2', hook: 'on_failure', runner: { type: 'wait', config: { seconds: 60 } } }));
+    const node = await screen.findByRole('button', { name: /^Wait 2, Wait · on failure/ });
+    expect(node).toHaveTextContent('60');
+    const inspector = await screen.findByRole('complementary', { name: /Wait 2 details/ });
+    expect(await within(inspector).findByLabelText('Seconds to wait')).toBeInTheDocument();
+  });
+
+  it('is not offered at a hook it cannot run at', async () => {
+    api.getStageRunners.mockResolvedValue([...RUNNERS, WAIT]);
+    render(<Harness initial={integration} />);
+    await screen.findAllByRole('button', { name: /Consent granted\?/ });
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Add a step before the send' }))[0]);
+    expect(await screen.findByText('HTTP request')).toBeInTheDocument();
+    expect(screen.queryByText('Wait')).not.toBeInTheDocument();
+  });
+});
 
 describe('many deliveries', () => {
   const actions = [1, 2, 3, 4].map((n) => ({ name: `Action ${n}`, kind: 'HTTP', targetUrl: `https://p.test/${n}`, stages: [script(`g${n}`, `Gate ${n}`, 'before_send', { effect: 'gate' })] }));

@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { StageConfig, StageOutcomes } from '../../../services/stages-api';
-import { getFlowStats, getSaveImpact, getStageOutcomes } from '../../../services/stages-api';
+import { getFlowStats, getSaveImpact, getStageOutcomes, validateStages } from '../../../services/stages-api';
 import type { DeliveryTarget } from '../deliveryTargets';
 import { useStageLibrary } from '../components/delivery-tab/stageLibrary';
 
@@ -49,11 +49,14 @@ export function useCanvasData({
   values,
   targets,
   readOnly,
+  context,
 }: {
   integrationId?: string;
   values: FormValues;
   targets: DeliveryTarget[];
   readOnly: boolean;
+  /** The integration as the server should validate stages against. */
+  context: () => Record<string, unknown>;
 }) {
   const library = useStageLibrary(integrationId);
   const initial = useRef<string | null>(null);
@@ -102,19 +105,54 @@ export function useCanvasData({
     staleTime: 30 * 1000,
   });
 
-  const runnerLabels = useMemo(
-    () => Object.fromEntries((library.runners.data || []).map((runner) => [runner.type, runner.label])),
+  // The server's checks of every delivery's stages, as they are in the draft: the steps with a problem say so.
+  const checkSignature = useDeferredValue(
+    JSON.stringify(targets.map((target) => [target.actionIndex, stagesOf(values, target), ownerOf(values, target).send ?? null]))
+  );
+  const validation = useQuery({
+    queryKey: ['stage-issues', integrationId, checkSignature],
+    queryFn: async () => {
+      const issues: Record<string, string[]> = {};
+      await Promise.all(
+        targets.map(async (target) => {
+          const stages = stagesOf(values, target);
+          if (stages.length === 0) return;
+          const result = await validateStages({
+            integrationId,
+            integration: context(),
+            actionIndex: target.actionIndex,
+            stages,
+            send: ownerOf(values, target).send ?? null,
+          });
+          for (const error of result.errors) {
+            const index = Number(error.path.match(/^stages\[(\d+)\]/)?.[1]);
+            const stage = Number.isInteger(index) ? stages[index] : undefined;
+            if (stage) issues[stage.id] = [...(issues[stage.id] || []), `${error.path.replace(/^stages\[\d+\]\./, '')}: ${error.message}`];
+          }
+        })
+      );
+      return issues;
+    },
+    enabled: !readOnly && targets.some((target) => stagesOf(values, target).length > 0),
+    placeholderData: keepPreviousData,
+    retry: false,
+    staleTime: 15 * 1000,
+  });
+
+  const runnerMap = useMemo(
+    () => Object.fromEntries((library.runners.data || []).map((runner) => [runner.type, runner])),
     [library.runners.data]
   );
   const isEdited = (stage: StageConfig) => savedStages.get(stage.id) !== JSON.stringify(stage);
 
   return {
     library,
-    runnerLabels,
+    runnerMap,
     outcomes: outcomes.data || {},
     stats: stats.data,
     statsError: stats.isError,
     impact: impact.data,
+    issues: validation.data || {},
     dirty,
     isEdited,
   };

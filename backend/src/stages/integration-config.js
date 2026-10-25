@@ -155,9 +155,17 @@ function stagesForExport(stages, includeSensitive) {
   if (!Array.isArray(stages)) return [];
   if (includeSensitive) return stages;
   return stages.map((stage) => {
-    if (!stage || !stage.runner || stage.runner.type !== 'script') return stage;
-    const code = (stage.runner.config && stage.runner.config.code) || '';
-    return { ...stage, runner: { ...stage.runner, config: { codeOmitted: true, codeLength: code.length } } };
+    // A runner names the configuration fields that never leave in an export (a script's code).
+    const omits = (stage && stage.runner && (runners.get(stage.runner.type) || {}).exportOmits) || [];
+    if (omits.length === 0) return stage;
+    const config = { ...(stage.runner.config || {}) };
+    for (const field of omits) {
+      const value = config[field] === undefined || config[field] === null ? '' : String(config[field]);
+      delete config[field];
+      config[`${field}Omitted`] = true;
+      config[`${field}Length`] = value.length;
+    }
+    return { ...stage, runner: { ...stage.runner, config } };
   });
 }
 
@@ -182,10 +190,22 @@ async function prepareStagesForImport(stages, { orgId, existingStages = [], cred
       attention.push({ stageId: stage.id, reason });
     };
 
-    if (stage.runner && stage.runner.config && stage.runner.config.codeOmitted) {
-      const storedCode = stored && stored.runner && stored.runner.config && stored.runner.config.code;
-      stage.runner = { ...stage.runner, config: { code: storedCode || OMITTED_SCRIPT } };
-      if (!storedCode) switchOff('The script was not in the export; paste it before switching the stage on');
+    // A field left out of the export (see stagesForExport) comes back from the stored stage, or the stage is imported off.
+    const omittedFields = Object.keys((stage.runner && stage.runner.config) || {})
+      .filter((key) => key.endsWith('Omitted') && stage.runner.config[key] === true)
+      .map((key) => key.slice(0, -'Omitted'.length));
+    if (omittedFields.length > 0) {
+      const config = { ...stage.runner.config };
+      let missing = false;
+      for (const field of omittedFields) {
+        delete config[`${field}Omitted`];
+        delete config[`${field}Length`];
+        const storedValue = stored && stored.runner && stored.runner.config && stored.runner.config[field];
+        config[field] = storedValue || OMITTED_SCRIPT;
+        if (!storedValue) missing = true;
+      }
+      stage.runner = { ...stage.runner, config };
+      if (missing) switchOff('The script was not in the export; paste it before switching the stage on');
     }
     if (containsSecretMask({ stage })) {
       if (stored) stage = restoreMaskedSecrets({ stage }, { stage: stored }).stage;

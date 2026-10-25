@@ -108,7 +108,7 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
 
   const beforeSendOutputs = stages
     .filter((stage) => stage.hook === 'before_send')
-    .flatMap((stage) => outputsOf(stage).map((output) => `{{ stages.${stage.id}.output.${output.name} }}`));
+    .flatMap((stage) => outputsOf(stage, runners.data?.find((candidate) => candidate.type === stage.runner.type)).map((output) => `{{ stages.${stage.id}.output.${output.name} }}`));
 
   const groupRows = (hook: StageHook) =>
     stages

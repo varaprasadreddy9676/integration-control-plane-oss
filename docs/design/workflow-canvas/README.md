@@ -885,8 +885,8 @@ canvas shows it on the stage, never inside a branch label.
 
 ### 11.4 What is built, and where it differs from the artifact
 
-The canvas is in the console: **Delivery tab → Workflow** (the list stays one click away as
-**List**; the choice is remembered). Code: `frontend/src/features/stages/canvas/`.
+The canvas is in the console: **Delivery tab → Diagram**. The **List** (each step by name, in order) is the default and
+the plain way in; the choice is remembered. Code: `frontend/src/features/stages/canvas/`.
 
 | File | What it does |
 |------|--------------|

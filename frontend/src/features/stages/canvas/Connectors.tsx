@@ -31,12 +31,13 @@ const lookOf = (state: EdgeState | undefined, dashed?: boolean): { key: string; 
 interface ConnectorsProps {
   flow: Flow;
   states?: Record<string, EdgeState>;
-  /** Edge ids to draw as the insertion preview. */
-  previewEdge?: string | null;
+  /** Changes when another run is shown: the path it took is traced in again. */
+  traceKey?: string | null;
 }
 
 /** Every connector of the flow, in one SVG laid over the host. */
-export const Connectors = ({ flow, states }: ConnectorsProps) => {
+export const Connectors = ({ flow, states, traceKey }: ConnectorsProps) => {
+  let traced = 0;
   const used = new Map<string, Look>();
   const paths = flow.edges.map((edge) => {
     const { key, look } = lookOf(states?.[edge.id], edge.dashed);
@@ -69,18 +70,28 @@ export const Connectors = ({ flow, states }: ConnectorsProps) => {
           </marker>
         ))}
       </defs>
-      {paths.map(({ edge, key, look }) => (
-        <path
-          key={edge.id}
-          data-edge={edge.id}
-          d={pathOf(edge.points, look.head ? 3 : 0)}
-          stroke={look.stroke}
-          strokeWidth={look.width}
-          strokeDasharray={look.dash}
-          markerEnd={look.head ? `url(#wf-head-${key})` : undefined}
-          style={{ transition: 'stroke 160ms cubic-bezier(.2,0,0,1)' }}
-        />
-      ))}
+      {paths.map(({ edge, key, look }) => {
+        const d = pathOf(edge.points, look.head ? 3 : 0);
+        // A taken, unbroken line is drawn from its start in turn (spec 5.6: 320 ms, top to bottom).
+        const trace = Boolean(traceKey) && !look.dash && (key === 'taken' || key === 'failure');
+        const order = trace ? traced++ : 0;
+        return (
+          <path
+            // The trace restarts when another delivery is shown.
+            key={trace ? `${edge.id}:${traceKey}` : edge.id}
+            data-edge={edge.id}
+            d={d}
+            pathLength={trace ? 1 : undefined}
+            stroke={look.stroke}
+            strokeWidth={look.width}
+            strokeDasharray={look.dash}
+            markerEnd={look.head ? `url(#wf-head-${key})` : undefined}
+            className={trace ? 'wf-edge--trace' : 'wf-edge'}
+            // The path glides when steps move (browsers that animate `d`); elsewhere it just moves.
+            style={{ d: `path("${d}")`, animationDelay: trace ? `${Math.min(order, 8) * 50}ms` : undefined } as React.CSSProperties}
+          />
+        );
+      })}
     </svg>
   );
 };

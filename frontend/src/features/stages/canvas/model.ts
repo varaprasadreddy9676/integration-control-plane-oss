@@ -11,7 +11,7 @@
  * be able to do both.
  */
 
-import type { StageConfig, StageHook, StageOutcomes } from '../../../services/stages-api';
+import type { StageConfig, StageHook, StageOutcomes, StageRunner } from '../../../services/stages-api';
 import type { DeliveryTarget } from '../deliveryTargets';
 import { protocolLabel } from '../deliveryTargets';
 
@@ -144,7 +144,8 @@ export interface FlowInput {
   deliveries: DeliveryInput[];
   eventType?: string | null;
   retryCount?: number | null;
-  runnerLabels?: Record<string, string>;
+  /** The runners by type: their label, icon, summary and whether they can decide, all from the server. */
+  runners?: Record<string, StageRunner>;
   /** What each stage can end with (by stage id); a missing entry means unknown. */
   outcomes?: Record<string, StageOutcomes | undefined>;
   compact?: boolean;
@@ -202,18 +203,22 @@ const isInline = (hook: StageHook) => hook === 'before_send' || hook === 'after_
 const effectOf = (stage: StageConfig) => stage.effect || (isInline(stage.hook) ? 'gate' : 'observe');
 const isGate = (stage: StageConfig) => isInline(stage.hook) && effectOf(stage) === 'gate';
 
-const kindOf = (stage: StageConfig): NodeKind => {
+const ICON_KINDS = new Set<NodeKind>(['http', 'script', 'transform', 'send']);
+
+/** What a step is drawn as: by where it runs, else by the icon its runner names. */
+const kindOf = (stage: StageConfig, runner?: StageRunner): NodeKind => {
   if (stage.hook === 'on_failure') return 'notify';
   if (stage.hook === 'after_delivery') return 'schedule';
   if (isGate(stage)) return 'gate';
-  return stage.runner.type === 'http' || stage.runner.type === 'url-check' ? 'http' : 'script';
+  const icon = runner?.presentation?.icon as NodeKind | undefined;
+  return icon && ICON_KINDS.has(icon) ? icon : 'script';
 };
 
-/** A gate can skip only before the send, and only if its script says so (unknown: assume it can). */
-export const canSkip = (stage: StageConfig, outcomes?: StageOutcomes) =>
+/** A gate can skip only before the send, and only if its outcomes say so (unread: if its runner can decide at all). */
+export const canSkip = (stage: StageConfig, outcomes?: StageOutcomes, runner?: StageRunner) =>
   isGate(stage) &&
   stage.hook === 'before_send' &&
-  (outcomes?.known ? outcomes.skips.length > 0 : stage.runner.type === 'script' && !outcomes);
+  (outcomes?.known ? outcomes.skips.length > 0 : !outcomes && Boolean(runner?.presentation?.mayDecide));
 
 /** A gate fails the delivery by `fail()`, or when it breaks and is set to fail closed. */
 export const canFail = (stage: StageConfig, outcomes?: StageOutcomes) => {
@@ -234,18 +239,22 @@ const hostOf = (url: unknown) => {
   }
 };
 
-const stageSummary = (stage: StageConfig): string => {
+/** The step's one line, built the way its runner says (presentation.summary). */
+const stageSummary = (stage: StageConfig, runner?: StageRunner): string => {
   const config = stage.runner.config || {};
-  if (stage.runner.type === 'http') return `${config.method || 'GET'} ${hostOf(config.url) || 'request'}`;
-  if (stage.runner.type === 'url-check')
-    return `${(config.checks || []).length} linked URL${(config.checks || []).length === 1 ? '' : 's'}`;
-  if (stage.runner.type === 'script') {
-    const lines = String(config.code || '')
-      .split('\n')
-      .filter((line) => line.trim() && !line.trim().startsWith('//')).length;
-    return `${lines} line${lines === 1 ? '' : 's'} of script`;
-  }
-  return stage.runner.type;
+  const parts = (runner?.presentation?.summary || []).map(({ field, as, unit }) => {
+    const value = config[field];
+    if (as === 'count') return plural(Array.isArray(value) ? value.length : 0, unit || 'item');
+    if (as === 'lines') {
+      const lines = String(value || '')
+        .split('\n')
+        .filter((line) => line.trim() && !line.trim().startsWith('//')).length;
+      return plural(lines, unit || 'line');
+    }
+    if (as === 'host') return hostOf(value) || '';
+    return value === undefined || value === null ? '' : String(value);
+  });
+  return parts.filter(Boolean).join(' ') || runner?.label || stage.runner.type;
 };
 
 const sendSummary = (delivery: DeliveryInput): string => {
@@ -296,7 +305,8 @@ function buildCollapsed(delivery: DeliveryInput, group: number, compact: boolean
 function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput, compact: boolean): Built {
   if ((input.collapsed || []).includes(group)) return buildCollapsed(delivery, group, compact);
   const dx = group * GROUP_PITCH;
-  const labelOf = (type: string) => (input.runnerLabels || {})[type] || type;
+  const runnerOf = (stage: StageConfig) => (input.runners || {})[stage.runner.type];
+  const labelOf = (stage: StageConfig) => runnerOf(stage)?.label || stage.runner.type;
   const outcomesOf = (stage: StageConfig) => (input.outcomes || {})[stage.id];
   const stages = delivery.stages.map((stage, stageIndex) => ({ stage, stageIndex }));
   const at = (hook: StageHook) => stages.filter(({ stage }) => stage.hook === hook);
@@ -319,10 +329,10 @@ function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput,
   const stageNode = ({ stage, stageIndex }: (typeof stages)[number], row: number, col: 'main' | 'right') =>
     make({
       id: `g${group}-stage-${stage.id}`,
-      kind: kindOf(stage),
-      eyebrow: `${isGate(stage) ? 'Gate' : labelOf(stage.runner.type)} · ${WHERE[stage.hook]}`,
+      kind: kindOf(stage, runnerOf(stage)),
+      eyebrow: `${isGate(stage) ? 'Gate' : labelOf(stage)} · ${WHERE[stage.hook]}`,
       title: stage.name,
-      summary: stage.schedule ? scheduleWords(stage) : stageSummary(stage),
+      summary: stage.schedule ? scheduleWords(stage) : stageSummary(stage, runnerOf(stage)),
       col,
       row,
       stageId: stage.id,
@@ -386,7 +396,7 @@ function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput,
   const stageOf = (node: FlowNode): StageConfig | undefined =>
     node.stageIndex === undefined ? undefined : delivery.stages[node.stageIndex];
   const skippers = beforeNodes.filter((node) =>
-    canSkip(stageOf(node) as StageConfig, outcomesOf(stageOf(node) as StageConfig))
+    canSkip(stageOf(node) as StageConfig, outcomesOf(stageOf(node) as StageConfig), runnerOf(stageOf(node) as StageConfig))
   );
   const skipped = skippers.length
     ? make({
@@ -465,7 +475,7 @@ function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput,
     else if (
       kind === 'yes' &&
       fromStage &&
-      (canSkip(fromStage, outcomesOf(fromStage)) || canFail(fromStage, outcomesOf(fromStage)))
+      (canSkip(fromStage, outcomesOf(fromStage), runnerOf(fromStage)) || canFail(fromStage, outcomesOf(fromStage)))
     ) {
       labelAt('Yes', 'success', { type: 'stage', stageId: from.stageId as string, field: 'ok' });
     } else if (kind === 'accepted' && fromStage && canFail(fromStage, outcomesOf(fromStage))) {
@@ -478,7 +488,7 @@ function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput,
     const stage = stageOf(node) as StageConfig;
     const outcomes = outcomesOf(stage);
     const start = rightOf(node, compact);
-    if (skipped && canSkip(stage, outcomes)) {
+    if (skipped && canSkip(stage, outcomes, runnerOf(stage))) {
       const target = leftOf(skipped, compact);
       const points: Point[] =
         start[1] === target[1]

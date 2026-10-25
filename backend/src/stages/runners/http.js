@@ -203,6 +203,13 @@ module.exports = {
       { name: 'doneWhen', label: 'Done when status is', widget: 'tags' },
     ],
   },
+  presentation: {
+    icon: 'http',
+    summary: [{ field: 'method' }, { field: 'url', as: 'host' }],
+    mayDecide: false,
+    outputs: { fromConfig: 'extract' }, // what it hands on is its extract rules
+    defaultConfig: { method: 'GET', url: '' },
+  },
   validate,
   outputs,
   outcomes,

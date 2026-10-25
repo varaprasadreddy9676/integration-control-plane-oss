@@ -38,6 +38,7 @@ module.exports = {
   internal: true,
   hooks: ['after_response'],
   configSchema: { fields: [{ name: 'transformation', label: 'Mapping', widget: 'code', language: 'json', readOnly: true }] },
+  presentation: { icon: 'script', summary: [], mayDecide: false, outputs: {} },
   validate,
   outputs: () => [{ name: 'mapped', type: 'object' }],
   outcomes: () => ({ statuses: [{ status: 'MAPPED', done: false }] }),

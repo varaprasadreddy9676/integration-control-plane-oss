@@ -20,22 +20,6 @@ export const newStageId = (name: string, taken: string[]): string => {
   return id;
 };
 
-const STARTER_SCRIPTS: Record<StageHook, string> = {
-  before_send: `// ctx.event: the event; ctx.delivery.request: { protocol, target, method, body } about to be sent
-// return skip('reason') to not send it, fail('reason') to fail it
-return { status: 'OK' };`,
-  after_response: `// ctx.delivery.response: { ok, status, code, providerMessageId, body } what came back
-// (status is the HTTP status; code is the answer's own code: 200, SENT, AA...)
-// return fail('reason') when the answer means the send did not work
-return { status: 'OK' };`,
-  after_delivery: `// ctx.delivery.response: what came back when the message was sent (providerMessageId, body...)
-// ctx.run.seq: which check this is; http.get(url) to ask the provider
-// return { status: 'DELIVERED', done: true } when there is nothing more to wait for
-return { status: 'PENDING' };`,
-  on_failure: `// ctx.delivery.status: FAILED or ABANDONED; ctx.delivery.errorMessage: why
-return { status: 'NOTED' };`,
-};
-
 /** A new stage of `runner` at `hook`, with sensible defaults (the server fills in the rest). */
 export const defaultStage = (runner: StageRunner, hook: StageHook, name: string, taken: string[]): StageConfig => ({
   id: newStageId(name, taken),
@@ -45,7 +29,7 @@ export const defaultStage = (runner: StageRunner, hook: StageHook, name: string,
   effect: isInline(hook) ? 'gate' : 'observe',
   runner: {
     type: runner.type,
-    config: runner.type === 'script' ? { code: STARTER_SCRIPTS[hook] } : runner.type === 'http' ? { method: 'GET', url: '' } : {},
+    config: JSON.parse(JSON.stringify(runner.presentation?.defaultConfigByHook?.[hook] ?? runner.presentation?.defaultConfig ?? {})),
   },
   ...(hook === 'after_delivery' ? { schedule: { checkAfterSeconds: [30, 300, 3600, 86400] } } : {}),
 });
@@ -82,10 +66,15 @@ export const errorsForStage = (errors: StageValidationError[], index: number) =>
   return { runnerFields, other };
 };
 
-/** The outputs a stage offers to later stages and the Send step. */
-export const outputsOf = (stage: StageConfig): Array<{ name: string; type: string }> => {
-  if (stage.runner.type === 'http') {
-    return ((stage.runner.config.extract as Array<{ name: string; type?: string }>) || [])
+/**
+ * The outputs a stage offers to later stages and the Send step: the ones the user lists on
+ * the stage, or, for a runner that names them in its configuration, those (the runner says
+ * which list: presentation.outputs.fromConfig).
+ */
+export const outputsOf = (stage: StageConfig, runner?: StageRunner): Array<{ name: string; type: string }> => {
+  const field = runner?.presentation?.outputs?.fromConfig;
+  if (field) {
+    return ((stage.runner.config[field] as Array<{ name: string; type?: string }>) || [])
       .filter((rule) => rule && rule.name)
       .map((rule) => ({ name: rule.name, type: rule.type || 'string' }));
   }

@@ -67,6 +67,12 @@ module.exports = {
       },
     ],
   },
+  presentation: {
+    icon: 'http',
+    summary: [{ field: 'checks', as: 'count', unit: 'linked URL' }],
+    mayDecide: true, // fails the delivery when a linked URL is not ready
+    outputs: {},
+  },
   validate,
   outputs: () => [{ name: 'results', type: 'object' }],
   outcomes: () => ({

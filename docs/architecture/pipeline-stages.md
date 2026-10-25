@@ -648,3 +648,20 @@ Internal sequencing only; nothing ships until all of it is done.
 | A different kind of step (e.g. SFTP upload) | runner, transport policy, recording and contract tests | none if supported widgets and result shape suffice |
 | Show what a step did | nothing | none (generic viewer) |
 | Count outcomes of a step | nothing | none (generic stats) |
+
+### Adding a runner (a new kind of step)
+
+A runner is one module in `backend/src/stages/runners/` and nothing in the console changes. Besides
+`type`, `label`, `hooks`, `configSchema`, `validate`, `outputs` and `run`, it declares:
+
+- `presentation`: `icon`, `summary` (which config fields make the step's one line), `mayDecide`
+  (can it skip or fail the delivery), `outputs` (listed on the stage, or named in a config list) and
+  its starting configuration (`defaultConfig`, or `defaultConfigByHook`). The console draws the step,
+  builds its form and starts a new one from this alone. `backend/test/tests/stages/stage-runner-presentation.test.js`
+  holds every runner to it, and `frontend/src/tests/workflow-canvas-ui.test.tsx` shows a runner the console has
+  never heard of ("wait") being offered, started, drawn and edited.
+- `outcomes(config)` (optional): the statuses, skips and failures it can end with, so the diagram draws its branches.
+- `exportOmits` (optional): config fields that stay out of an export without sensitive data (a script's code).
+
+The console shows the **List** of steps by default (each step by its name, in order, with its runner's
+options); the **Diagram** is opt-in.

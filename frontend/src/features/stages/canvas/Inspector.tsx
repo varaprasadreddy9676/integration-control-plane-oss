@@ -55,6 +55,8 @@ interface InspectorProps {
   protocol: string;
   actionIndex: number | null;
   impact?: SaveImpact;
+  /** What the server's check of the draft says is wrong with this step. */
+  issues?: string[];
   stats?: StageFlowStats;
   runs: StageRun[];
   state?: StageState;
@@ -128,6 +130,7 @@ export const Inspector = (props: InspectorProps) => {
     stages,
     runners,
     impact,
+    issues,
     stats,
     runs,
     log,
@@ -256,6 +259,14 @@ export const Inspector = (props: InspectorProps) => {
               </div>
             </div>
             <div className="wf-inspector__body">
+              {issues && issues.length > 0 && (
+                <div className="wf-callout" role="alert">
+                  <h4>{issues.length === 1 ? 'Fix this before saving' : 'Fix these before saving'}</h4>
+                  {issues.map((issue) => (
+                    <p key={issue}>{issue}</p>
+                  ))}
+                </div>
+              )}
               {tab === 'configure' &&
                 (readOnly ? <div className="wf-help">Settings are read-only here.</div> : editor.settings)}
               {tab === 'test' && editor.test}

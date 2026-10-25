@@ -160,7 +160,12 @@
   flex-direction: column;
   border-right: 1px solid var(--wf-border);
 }
+.wf-stage:focus {
+  outline: none;
+}
 .wf-stage {
+  user-select: none;
+  -webkit-user-select: none;
   position: relative;
   flex: 1;
   min-height: 0;
@@ -812,8 +817,8 @@
 }
 
 /* Narrow screens: the inspector covers the canvas instead of sitting beside it (a 400 px
-   panel would leave no canvas), and the top bar may take two rows. */
-@container wfroot (max-width: 760px) {
+   panel would leave no canvas). */
+@container wfroot (max-width: 960px) {
   .wf-inspector {
     position: absolute;
     inset: 0;
@@ -822,11 +827,61 @@
     z-index: 20;
     animation: wf-insp-up 220ms var(--wf-ease);
   }
+}
+/* A canvas narrower than its top bar: the bar takes two rows and what sits under it moves down. */
+@container wf (max-width: 680px) {
+  .wf-minimap { display: none; }
   .wf-topbar { flex-wrap: wrap; row-gap: 8px; }
+  .wf-group { flex-wrap: wrap; row-gap: 8px; }
   .wf-palette { top: 108px; }
   .wf-minimap { top: 108px; width: 96px; height: 88px; }
   .wf-bottombar { flex-wrap: wrap; gap: 4px 12px; padding: 6px 12px; }
+  .wf-picker { max-width: 120px; }
 }
 @keyframes wf-insp-up {
   from { opacity: 0; transform: translateY(12px); }
+}
+
+/* ── Motion (spec 5.6): steps make room and settle, labels follow, a run is traced in. */
+.wf-node {
+  transition: box-shadow 160ms var(--wf-ease), border-color 160ms var(--wf-ease), background-color 160ms var(--wf-ease),
+    left 280ms var(--wf-ease), top 280ms var(--wf-ease);
+}
+.wf-node--enter {
+  animation: wf-settle 280ms var(--wf-ease) backwards;
+}
+@keyframes wf-settle {
+  from { opacity: 0; transform: scale(0.97); }
+}
+.wf-label, .wf-plus, .wf-band, .wf-group-title {
+  transition: left 280ms var(--wf-ease), top 280ms var(--wf-ease), opacity 180ms var(--wf-ease), transform 180ms var(--wf-ease);
+}
+.wf-edge, .wf-edge--trace {
+  transition: stroke 160ms var(--wf-ease), d 280ms var(--wf-ease);
+}
+.wf-edge--trace {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: wf-trace 320ms var(--wf-ease) forwards;
+}
+@keyframes wf-trace {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Reordering: the step follows the hand and a line shows where it will land. */
+.wf-node--dragging {
+  z-index: 30;
+  cursor: grabbing;
+  box-shadow: var(--wf-shadow-2);
+  transition: box-shadow 140ms var(--wf-ease) !important;
+}
+.wf-node { cursor: pointer; }
+.wf-drop {
+  position: absolute;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--wf-accent);
+  box-shadow: 0 0 0 3px var(--wf-accent-soft);
+  pointer-events: none;
+  transition: top 140ms var(--wf-ease);
 }

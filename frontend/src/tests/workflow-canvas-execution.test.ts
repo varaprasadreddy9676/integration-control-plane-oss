@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DeliveryLog } from '../mocks/types';
 import type { StageConfig, StageOutcomes, StageRun } from '../services/stages-api';
 import { deliveriesOf } from '../features/stages/deliveryTargets';
+import { RUNNER_MAP } from './fixtures/stage-runners';
 import { buildFlow } from '../features/stages/canvas/model';
 import { traceExecution } from '../features/stages/canvas/execution';
 import type { TargetFacts } from '../features/stages/canvas/facts';
@@ -14,7 +15,7 @@ const stages = [
   script('status', 'after_delivery', { schedule: { checkAfterSeconds: [30] } }),
   script('notify', 'on_failure'),
 ];
-const flow = buildFlow({ deliveries: [{ target: deliveriesOf({})[0], owner: {}, stages }], retryCount: 3 });
+const flow = buildFlow({ deliveries: [{ target: deliveriesOf({})[0], owner: {}, stages }], retryCount: 3, runners: RUNNER_MAP });
 const log = (extra: Partial<DeliveryLog>) => ({ id: 'l1', status: 'SUCCESS', attemptCount: 1, responseStatus: 200, responseTimeMs: 212, createdAt: '2026-10-25T08:00:00Z', ...extra }) as DeliveryLog;
 const run = (id: string, outcome: StageRun['outcome'], extra: Partial<StageRun> = {}) =>
   ({ runId: `r-${id}`, stage: { id, name: id, hook: 'before_send' }, seq: 1, executionAttempt: 1, at: '', durationMs: 5, outcome, status: null, done: false, calls: [], logs: [], ...extra }) as StageRun;

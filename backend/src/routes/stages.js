@@ -54,7 +54,7 @@ const audit = (req, entry) =>
 
 router.get('/runners', (_req, res) => {
   res.json({
-    runners: runners.list().map(({ type, label, hooks, configSchema }) => ({ type, label, hooks, configSchema })),
+    runners: runners.list().map(({ type, label, hooks, configSchema, presentation }) => ({ type, label, hooks, configSchema, presentation: presentation || {} })),
   });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StageConfig, StageOutcomes } from '../services/stages-api';
 import { deliveriesOf } from '../features/stages/deliveryTargets';
+import { RUNNER_MAP } from './fixtures/stage-runners';
 import { ROW_TOP, buildFlow, insertStage, pathOf } from '../features/stages/canvas/model';
 
 const script = (id: string, hook: StageConfig['hook'], extra: Partial<StageConfig> = {}): StageConfig => ({
@@ -14,7 +15,7 @@ const known = (outcomes: Partial<StageOutcomes>): StageOutcomes => ({ known: tru
 
 const flowOf = (stages: StageConfig[], outcomes: Record<string, StageOutcomes> = {}, extra: Record<string, unknown> = {}) => {
   const owner = { targetUrl: 'https://api.example.com/v1', httpMethod: 'POST', stages };
-  return buildFlow({ deliveries: [{ target: deliveriesOf({})[0], owner, stages }], eventType: 'APPOINTMENT_CONFIRMED', retryCount: 3, outcomes, ...extra });
+  return buildFlow({ deliveries: [{ target: deliveriesOf({})[0], owner, stages }], eventType: 'APPOINTMENT_CONFIRMED', retryCount: 3, outcomes, runners: RUNNER_MAP, ...extra });
 };
 const node = (flow: ReturnType<typeof buildFlow>, id: string) => flow.nodes.find((candidate) => candidate.id.endsWith(id))!;
 const edges = (flow: ReturnType<typeof buildFlow>, kind: string) => flow.edges.filter((edge) => edge.kind === kind);
@@ -160,6 +161,7 @@ describe('actions', () => {
     const flow = buildFlow({
       deliveries: targets.map((target, index) => ({ target, owner: actions[index], stages: actions[index].stages as StageConfig[] })),
       outcomes: {},
+      runners: RUNNER_MAP,
     });
     expect(flow.groups.map((group) => group.title)).toEqual(['Message · HTTP', 'Mail · Email']);
     expect(flow.nodes.filter((n) => n.kind === 'trigger')).toHaveLength(1);
@@ -173,7 +175,7 @@ describe('actions', () => {
 describe('folded deliveries', () => {
   const actions = [0, 1, 2].map((n) => ({ name: `Action ${n}`, kind: 'HTTP', stages: [script(`s${n}`, 'before_send', { effect: 'gate' }), script(`n${n}`, 'on_failure', { enabled: false })] }));
   const build = (collapsed: number[]) =>
-    buildFlow({ deliveries: deliveriesOf({ actions }).map((target, index) => ({ target, owner: actions[index], stages: actions[index].stages as StageConfig[] })), outcomes: {}, collapsed });
+    buildFlow({ deliveries: deliveriesOf({ actions }).map((target, index) => ({ target, owner: actions[index], stages: actions[index].stages as StageConfig[] })), outcomes: {}, runners: RUNNER_MAP, collapsed });
 
   it('a folded delivery is one step with its stage count, joined to the trigger, with no steps of its own to add to', () => {
     const flow = build([1, 2]);
