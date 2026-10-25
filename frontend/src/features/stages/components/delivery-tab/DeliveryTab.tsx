@@ -80,7 +80,7 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
         </Space>
       )}
       {view === 'workflow' ? (
-        <div style={{ height: fullscreen ? undefined : 'max(640px, calc(100vh - 260px))' }}>
+        <div style={{ width: '100%', height: fullscreen ? undefined : 'max(640px, calc(100vh - 260px))' }}>
           <WorkflowCanvas
             form={form}
             integrationId={integrationId}

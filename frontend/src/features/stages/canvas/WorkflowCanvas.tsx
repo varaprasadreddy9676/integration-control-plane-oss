@@ -203,6 +203,11 @@ export const WorkflowCanvas = ({
         toggleGroup(node.group);
         return;
       }
+      // Activating the step that is already open moves the keyboard into its inspector.
+      if (node.id === selectedId) {
+        document.querySelector<HTMLElement>('.wf-inspector')?.focus();
+        return;
+      }
       const wasOpen = Boolean(selectedId);
       setSelectedId(node.id);
       const box = boxOf(node, flow.compact);
@@ -324,7 +329,12 @@ export const WorkflowCanvas = ({
       ) {
         event.preventDefault();
         act(selected, 'remove');
-      } else if (event.key === 'Escape' && selectedId && !typing) setSelectedId(null);
+      } else if (event.key === 'Escape' && selectedId && !typing) {
+        // From inside the inspector go back to the step; from the step, close the inspector.
+        const inInspector = Boolean(document.activeElement?.closest('.wf-inspector'));
+        document.getElementById(selectedId)?.focus();
+        if (!inInspector) setSelectedId(null);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -418,13 +428,21 @@ export const WorkflowCanvas = ({
                 Fit
               </button>
               {mode === 'executions' && !readOnly && (
-                <button type="button" className="wf-btn wf-btn--primary" onClick={() => setMode('configure')}>
-                  <Icon name="pencil" size={15} /> Edit workflow
+                <button type="button" className="wf-btn wf-btn--primary" aria-label="Edit workflow" onClick={() => setMode('configure')}>
+                  <Icon name="pencil" size={15} /> <span className="wf-hide-narrow">Edit workflow</span>
                 </button>
               )}
               {onToggleFullscreen && (
-                <button type="button" className="wf-btn" aria-pressed={fullscreen} onClick={onToggleFullscreen}>
-                  {fullscreen ? 'Exit full screen' : 'Full screen'}
+                <button
+                  type="button"
+                  className="wf-btn"
+                  aria-pressed={fullscreen}
+                  aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
+                  title={fullscreen ? 'Exit full screen' : 'Full screen'}
+                  onClick={onToggleFullscreen}
+                >
+                  <Icon name="fit" size={15} />
+                  <span className="wf-hide-narrow">{fullscreen ? 'Exit full screen' : 'Full screen'}</span>
                 </button>
               )}
             </div>

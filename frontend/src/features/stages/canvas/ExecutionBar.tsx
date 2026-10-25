@@ -27,7 +27,7 @@ export const RunPicker = ({ logs, selectedId, position, onSelect, onPrevious, on
     </button>
     <select
       aria-label="Delivery to show"
-      className="wf-btn"
+      className="wf-btn wf-picker"
       style={{ maxWidth: 240 }}
       value={selectedId || ''}
       onChange={(event) => onSelect(event.target.value)}

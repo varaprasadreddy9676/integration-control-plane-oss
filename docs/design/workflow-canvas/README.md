@@ -928,6 +928,19 @@ Differences from the artifact, and why:
 
 ---
 
+### 11.5 Acceptance check of the built canvas (against section 12)
+
+Checked on the running console (light and dark) with seeded data:
+
+- **Measurements match the spec:** node 256 × 80, radius 10, padding 12 / 14, gap 12; icon tile 32 / radius 8; eyebrow 11 / 14 / 500 uppercase 0.04em; title 14 / 20 / 600; summary mono 11.5 / 16; ports 8 px at −5; connector label 20 high, padding 0 7, mono 11.5; band labels 12 / 16 at 0.06em; inspector 400 wide with the spec's paddings; dot grid 16.
+- **Contrast:** every text and background pair in the tokens is at least 4.5:1 in both themes (lowest: warning retry status 4.87 light, ink-3 on the canvas 5.08 light). Translucent dark pills measured over the canvas and over a node.
+- **Top bar at 792 px with the inspector open:** fits on one row, nothing wraps. Below 880 px of canvas the words give way to icons (Edit workflow, Full screen) and the picker shortens.
+- **Keyboard only:** Tab reaches the top bar, then every step in reading order (rows top to bottom, main column before the right); arrows move along connected steps; Enter opens a step, Enter again moves into its inspector, Escape returns to the step and a second Escape closes it; focus is visible on every step; the `+` points appear on focus.
+- **Reduced motion:** every canvas transition and animation drops to ~0 and the running pulse does not loop; every state has a word.
+- **Narrow screens:** below 760 px of canvas the inspector covers the canvas instead of sitting beside it and the top bar may take two rows. Pinch to zoom is not built (use − / + / Fit); dragging pans.
+- **Not compared pixel by pixel** with the artifact (the numbers above are compared; the screens were not overlaid).
+- **The console's own page does not shrink to a phone width** (the integration page overflows horizontally on a 375 px viewport, with or without the canvas), so the canvas was checked in a 360 px container.
+
 ## Revision log
 
 - **Built into the console** (section 11.4): canvas, inspector, Executions, failure investigation, save impact, add and edit steps, undo and redo, search, minimap, light and dark.

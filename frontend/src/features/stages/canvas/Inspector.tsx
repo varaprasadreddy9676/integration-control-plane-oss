@@ -197,7 +197,7 @@ export const Inspector = (props: InspectorProps) => {
     const home = HOME_TAB[node.kind];
     const failedLog = log && (node.kind === 'send' || node.kind === 'failedEnd' || node.kind === 'retry');
     return (
-      <aside className="wf-inspector" aria-label="Step details">
+      <aside className="wf-inspector" tabIndex={-1} aria-label="Step details">
         <div className="wf-inspector__head">
           {head}
           <div style={{ height: 12 }} />
@@ -223,7 +223,7 @@ export const Inspector = (props: InspectorProps) => {
   }
 
   return (
-    <aside className="wf-inspector" aria-label={`${stage.name} details`}>
+    <aside className="wf-inspector" tabIndex={-1} aria-label={`${stage.name} details`}>
       <StageEditor
         key={`${stage.id}-${reset}`}
         open

@@ -149,6 +149,24 @@ describe('the workflow canvas', () => {
     await waitFor(() => expect(screen.queryByRole('complementary', { name: /details/ })).not.toBeInTheDocument());
   });
 
+  it('is usable from the keyboard: arrows move along connected steps, Enter opens, Enter again enters the inspector, Escape comes back', async () => {
+    render(<Harness initial={integration} />);
+    const first = (await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0];
+    first.focus();
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+    expect(document.activeElement?.getAttribute('data-node-id')).toBe('g0-send');
+    fireEvent.keyDown(document.activeElement as Element, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(first);
+
+    fireEvent.click(first);
+    const inspector = await screen.findByRole('complementary', { name: /Consent granted\? details/ });
+    fireEvent.click(first);
+    expect(document.activeElement).toBe(inspector);
+    fireEvent.keyDown(inspector, { key: 'Escape' });
+    expect(document.activeElement).toBe(first);
+    expect(screen.getByRole('complementary', { name: /details/ })).toBeInTheDocument();
+  });
+
   it('applies an edit to the draft only after the server accepts it, and says so', async () => {
     let values: any;
     render(<Harness initial={integration} onValues={(v) => (values = v)} />);
