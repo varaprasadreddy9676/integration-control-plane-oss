@@ -16,6 +16,7 @@ import type { DeliveryTarget } from '../deliveryTargets';
 import { protocolLabel } from '../deliveryTargets';
 
 export type NodeKind =
+  | 'group'
   | 'trigger'
   | 'transform'
   | 'http'
@@ -112,6 +113,7 @@ export interface Band {
 
 export interface FlowGroup {
   index: number;
+  collapsed: boolean;
   target: DeliveryTarget;
   title: string | null;
   titlePos: Point;
@@ -146,6 +148,8 @@ export interface FlowInput {
   /** What each stage can end with (by stage id); a missing entry means unknown. */
   outcomes?: Record<string, StageOutcomes | undefined>;
   compact?: boolean;
+  /** Deliveries (by index) drawn as one summary step instead of their whole flow. */
+  collapsed?: number[];
 }
 
 // ── Geometry (spec section 7.1)
@@ -269,7 +273,28 @@ interface Built {
   title: string | null;
 }
 
+/** A delivery drawn as one step: its name, how many steps it has, and whether anything in it is off. */
+function buildCollapsed(delivery: DeliveryInput, group: number, compact: boolean): Built {
+  const steps = delivery.stages.length;
+  const off = delivery.stages.filter((stage) => stage.enabled === false).length;
+  const node: FlowNode = {
+    id: `g${group}-group`,
+    kind: 'group',
+    eyebrow: `Delivery · ${protocolLabel(delivery.target.protocol)}`,
+    title: delivery.target.label || 'Delivery',
+    summary: `${plural(steps, 'stage')}${off ? ` · ${off} off` : ''}`,
+    group,
+    col: 'main',
+    row: 1,
+    x: MAIN_X + group * GROUP_PITCH,
+    y: ROW_TOP(1),
+  };
+  void compact;
+  return { nodes: [node], edges: [], labels: [], bands: [], brackets: [], insertions: [], firstNode: node, title: `${delivery.target.label || 'Delivery'} · ${protocolLabel(delivery.target.protocol)}` };
+}
+
 function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput, compact: boolean): Built {
+  if ((input.collapsed || []).includes(group)) return buildCollapsed(delivery, group, compact);
   const dx = group * GROUP_PITCH;
   const labelOf = (type: string) => (input.runnerLabels || {})[type] || type;
   const outcomesOf = (stage: StageConfig) => (input.outcomes || {})[stage.id];
@@ -676,6 +701,7 @@ export function buildFlow(input: FlowInput): Flow {
     insertions: built.flatMap((entry) => entry.insertions),
     groups: built.map((entry, index) => ({
       index,
+      collapsed: (input.collapsed || []).includes(index),
       target: input.deliveries[index].target,
       title: entry.title,
       titlePos: [MAIN_X + index * GROUP_PITCH + NODE_WIDTH / 2 + 14, ROW_TOP(1) - 20] as Point,

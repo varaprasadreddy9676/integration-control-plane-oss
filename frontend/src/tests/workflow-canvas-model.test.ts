@@ -170,6 +170,23 @@ describe('actions', () => {
   });
 });
 
+describe('folded deliveries', () => {
+  const actions = [0, 1, 2].map((n) => ({ name: `Action ${n}`, kind: 'HTTP', stages: [script(`s${n}`, 'before_send', { effect: 'gate' }), script(`n${n}`, 'on_failure', { enabled: false })] }));
+  const build = (collapsed: number[]) =>
+    buildFlow({ deliveries: deliveriesOf({ actions }).map((target, index) => ({ target, owner: actions[index], stages: actions[index].stages as StageConfig[] })), outcomes: {}, collapsed });
+
+  it('a folded delivery is one step with its stage count, joined to the trigger, with no steps of its own to add to', () => {
+    const flow = build([1, 2]);
+    const folded = flow.nodes.find((node) => node.id === 'g1-group')!;
+    expect(folded).toMatchObject({ kind: 'group', title: 'Action 1', summary: '2 stages · 1 off', x: 1200 });
+    expect(flow.nodes.filter((node) => node.group === 1)).toHaveLength(1);
+    expect(flow.edges.filter((edge) => edge.group === 1).map((edge) => edge.kind)).toEqual(['fan-out']);
+    expect(flow.insertions.filter((point) => point.group === 1)).toHaveLength(0);
+    expect(flow.nodes.filter((node) => node.group === 0).length).toBeGreaterThan(5);
+    expect(flow.groups.map((group) => group.collapsed)).toEqual([false, true, true]);
+  });
+});
+
 describe('connector paths', () => {
   it('stops 3 px short of the tip so the arrowhead sits on it', () => {
     expect(pathOf([[328, 0], [328, 40]])).toBe('M 328 0 L 328 37');

@@ -902,7 +902,9 @@ Differences from the artifact, and why:
 - **The failure bus.** Failures from the main column (a gate's `fail()`, a rejected answer, a send that is refused) join one vertical lane at x 546 and enter On failure from its left. The artifact draws only the sample's single rejected-answer connector; with several sources, one shared lane stays readable. `Retry` from a gate (`retryDelivery`) uses its own lane at x 534. A send also has a drawn `Refused: not retried` branch (a 4xx fails at once).
 - **Adding a step** puts the step in the draft at once and opens it, instead of a ghost preview.
 - **Reordering** is Move up / Move down in the step's ⋯ menu (inside its hook), not drag and drop.
-- **Not built:** group collapse and the outline for large flows (zoom, search and the minimap are the way around), Pan tool, `N` to add.
+- **Many deliveries:** each action's group has a ▾ / ▸ title that folds it into one step (name, stage count, how many are off). With more than three actions all but the first start folded; Executions always opens the delivery it shows. There is no separate outline panel: search, zoom and the minimap are the way around a large flow.
+- **A check can be marked for "Check status, then replay":** the stage editor of a later check has *Ask this before sending again* (the status words that mean the provider does not have the message, stored as `verification.resendWhen`).
+- **Not built:** Pan tool and `N` to add (dragging the canvas pans it; the `+` tool shows every insertion point).
 - **Read-only pages** (viewing an integration) show the canvas and Executions; settings are not editable there. The Delivery tab is not inside the page's disabled `<fieldset>`, which would make every canvas button unclickable.
 - The font is Instrument Sans (added to the console's font import); everything else in the console keeps Inter.
 

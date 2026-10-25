@@ -211,6 +211,20 @@ describe('the workflow canvas', () => {
 // Under the full suite's parallel load a modal and two queries can take longer than the default second.
 const SLOW = { timeout: 6000 };
 
+describe('many deliveries', () => {
+  const actions = [1, 2, 3, 4].map((n) => ({ name: `Action ${n}`, kind: 'HTTP', targetUrl: `https://p.test/${n}`, stages: [script(`g${n}`, `Gate ${n}`, 'before_send', { effect: 'gate' })] }));
+
+  it('opens the first and folds the rest into one step each, which open when asked', async () => {
+    render(<Harness initial={{ eventType: 'E', actions }} />);
+    await screen.findByRole('button', { name: /Fold Action 1/ });
+    expect(screen.getAllByRole('button', { name: /^Action [234],/ })).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: /^Gate 2,/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Open Action 2/ }));
+    expect(await screen.findByRole('button', { name: /^Gate 2,/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Action [34],/ })).toHaveLength(2);
+  });
+});
+
 describe('Executions', () => {
   const failed = {
     id: 'log-1',

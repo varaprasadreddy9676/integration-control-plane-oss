@@ -215,6 +215,27 @@ export const StageEditor = ({
         </Field>
       )}
 
+      {draft.hook === 'after_delivery' && (
+        <Field
+          label="Ask this before sending again"
+          error={errorAt('verification')}
+          hint="Status words that mean the provider does not have the message, such as NOT_FOUND. When someone replays a failed delivery, this check runs first and the message is sent again only if it returns one of these. Leave empty if this check cannot tell."
+        >
+          <Select
+            aria-label="Status words that allow sending again"
+            mode="tags"
+            style={{ width: '100%' }}
+            tokenSeparators={[',', ' ']}
+            value={draft.verification?.resendWhen || []}
+            onChange={(words: string[]) => {
+              const resendWhen = [...new Set(words.map((word) => word.trim().toUpperCase()).filter(Boolean))];
+              const { verification: _dropped, ...rest } = draft;
+              setDraft(resendWhen.length ? { ...rest, verification: { resendWhen } } : rest);
+            }}
+          />
+        </Field>
+      )}
+
       <Collapse
         bordered={false}
         items={[
@@ -380,7 +401,7 @@ export const StageEditor = ({
           },
         ]}
       />
-      {other.filter((error) => !['name', 'effect', 'schedule', 'onError', 'timeoutMs', 'outputs', 'inputs'].some((key) => error.path.startsWith(key)) && !error.path.startsWith('auth')).length > 0 && (
+      {other.filter((error) => !['name', 'effect', 'schedule', 'onError', 'timeoutMs', 'outputs', 'inputs', 'verification'].some((key) => error.path.startsWith(key)) && !error.path.startsWith('auth')).length > 0 && (
         <Alert
           type="error"
           showIcon

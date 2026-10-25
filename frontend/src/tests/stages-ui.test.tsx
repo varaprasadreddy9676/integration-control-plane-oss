@@ -303,6 +303,19 @@ describe('the Delivery tab', () => {
     expect(api.validateStages.mock.lastCall?.[0]).toMatchObject({ stages: [expect.objectContaining({ name: 'Ask Qikchat' })] });
   });
 
+  it('marks a later check as the one to ask before sending again', async () => {
+    const check: StageConfig = { id: 'ask', name: 'Ask the provider', hook: 'after_delivery', schedule: { checkAfterSeconds: [30] }, runner: { type: 'script', config: { code: 'return null;' } } };
+    render(<Harness initial={{ stages: [check] }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Ask the provider' }));
+    const drawer = await screen.findByRole('dialog');
+    const words = within(drawer).getByRole('combobox', { name: 'Status words that allow sending again' });
+    fireEvent.change(words, { target: { value: 'not_found' } });
+    fireEvent.keyDown(words, { key: 'Enter', keyCode: 13 });
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(values().stages[0].verification).toEqual({ resendWhen: ['NOT_FOUND'] }));
+    expect(api.validateStages.mock.lastCall?.[0].stages[0].verification).toEqual({ resendWhen: ['NOT_FOUND'] });
+  });
+
   it('passes before-send outputs to the request through the Send bindings', async () => {
     render(
       <Harness

@@ -95,6 +95,8 @@ export const WorkflowCanvas = ({
   const [mode, setMode] = useState<'configure' | 'executions'>('configure');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // A flow with many deliveries starts with all but the first folded into one step each.
+  const [folded, setFolded] = useState<number[]>(() => (targets.length > 3 ? targets.slice(1).map((_, index) => index + 1) : []));
   const [query, setQuery] = useState('');
   const history = useRef<{ past: Snapshot[]; future: Snapshot[] }>({ past: [], future: [] });
   const [, bump] = useState(0);
@@ -109,6 +111,14 @@ export const WorkflowCanvas = ({
     stages: stagesOf(values, target),
   }));
 
+  // The delivery an Executions run belongs to is always shown open.
+  const loggedGroup = Math.max(
+    targets.findIndex((target) => target.actionIndex === (execution.log?.actionIndex ?? null)),
+    0
+  );
+  const collapsed = folded.filter((index) => !(mode === 'executions' && index === loggedGroup));
+  const toggleGroup = (index: number) => setFolded((current) => (current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]));
+
   // The flow is built twice at most: full size, and compact once the zoom is low (spec 10).
   const baseFlow = useMemo(
     () =>
@@ -118,6 +128,7 @@ export const WorkflowCanvas = ({
         retryCount: values.retryCount,
         runnerLabels: data.runnerLabels,
         outcomes: data.outcomes,
+        collapsed,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -135,6 +146,7 @@ export const WorkflowCanvas = ({
       values.retryCount,
       data.runnerLabels,
       data.outcomes,
+      collapsed.join(','),
     ]
   );
   const viewport = useViewport(stageRef, { width: baseFlow.width, height: baseFlow.height });
@@ -148,6 +160,7 @@ export const WorkflowCanvas = ({
             retryCount: values.retryCount,
             runnerLabels: data.runnerLabels,
             outcomes: data.outcomes,
+            collapsed,
             compact: true,
           })
         : baseFlow,
@@ -186,6 +199,10 @@ export const WorkflowCanvas = ({
 
   const select = useCallback(
     (node: FlowNode) => {
+      if (node.kind === 'group') {
+        toggleGroup(node.group);
+        return;
+      }
       const wasOpen = Boolean(selectedId);
       setSelectedId(node.id);
       const box = boxOf(node, flow.compact);
@@ -198,10 +215,7 @@ export const WorkflowCanvas = ({
   );
 
   // Executions: one delivery drawn over the flow.
-  const group = Math.max(
-    targets.findIndex((target) => target.actionIndex === (execution.log?.actionIndex ?? null)),
-    0
-  );
+  const group = loggedGroup;
   const trace =
     mode === 'executions' && execution.log ? traceExecution(flow, group, execution.log, execution.stageData) : null;
 
@@ -480,15 +494,20 @@ export const WorkflowCanvas = ({
                 />
               ))}
               {flow.groups
-                .filter((entry) => entry.title)
+                .filter((entry) => entry.title && flow.groups.length > 1)
                 .map((entry) => (
-                  <div
+                  <button
                     key={entry.index}
+                    type="button"
+                    data-no-pan
                     className="wf-group-title"
                     style={{ left: entry.titlePos[0], top: entry.titlePos[1] }}
+                    aria-expanded={!entry.collapsed}
+                    aria-label={`${entry.collapsed ? 'Open' : 'Fold'} ${entry.title}`}
+                    onClick={() => toggleGroup(entry.index)}
                   >
-                    {entry.title}
-                  </div>
+                    {entry.collapsed ? '▸' : '▾'} {entry.title}
+                  </button>
                 ))}
               <Connectors flow={flow} states={trace?.edges} />
               {flow.labels.map((label) => {

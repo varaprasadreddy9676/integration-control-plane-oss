@@ -391,6 +391,10 @@
 }
 .wf-group-title {
   position: absolute;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
   font: 600 13px/18px var(--wf-font);
   color: var(--wf-ink-2);
   white-space: nowrap;
