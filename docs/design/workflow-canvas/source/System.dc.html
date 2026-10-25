@@ -14,7 +14,7 @@
 body{margin:0}
 </style>
 </helmet>
-<div style="width: 1440px; height: 1840px; box-sizing: border-box; padding: 64px 72px; display: flex; flex-direction: column; gap: 56px; background: #F5F3EE; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #16171B">
+<div style="width: 1440px; height: 2080px; box-sizing: border-box; padding: 64px 72px; display: flex; flex-direction: column; gap: 56px; background: #F5F3EE; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #16171B">
 
 <header style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px">
 <div style="display: flex; flex-direction: column; gap: 10px; max-width: 760px">
@@ -39,7 +39,8 @@ body{margin:0}
 <li><b>Eyebrow</b>: type · where it runs (Before send, Later…).</li>
 <li><b>Title</b>: the name the user chose.</li>
 <li><b>Summary</b>: one useful fact in mono: endpoint, condition, schedule.</li>
-<li><b>Status</b>: dot + word + metric (212 ms, ×3, READ). Never colour alone.</li>
+<li><b>Status</b>: dot + word + metric (212 ms, ×3, READ), at the end of the summary row. Never colour alone.</li>
+<li><b>Long names</b> wrap to two lines (past 24 characters; 19 compact) and the summary gives way. A name is never cut short.</li>
 <li><b>Ports</b>: in at the top, out at the bottom; ends have no out port.</li>
 </ol>
 </div>
@@ -48,7 +49,7 @@ body{margin:0}
 <div style="position: absolute; left: 40px; top: 98px; width: 190px; text-align: right; font-size: 12px; color: #45464D">1 · icon tile</div>
 <div style="position: absolute; left: 40px; top: 130px; width: 190px; text-align: right; font-size: 12px; color: #45464D">2 · eyebrow &amp; 3 · title</div>
 <div style="position: absolute; left: 40px; top: 162px; width: 190px; text-align: right; font-size: 12px; color: #45464D">4 · summary</div>
-<div style="position: absolute; left: 640px; top: 98px; width: 170px; font-size: 12px; color: #45464D">5 · status</div>
+<div style="position: absolute; left: 640px; top: 160px; width: 170px; font-size: 12px; color: #45464D">5 · status</div>
 <div style="position: absolute; left: 432px; top: 50px; font-size: 12px; color: #45464D">6 · in port</div>
 <div style="position: absolute; left: 432px; top: 216px; font-size: 12px; color: #45464D">6 · out port</div>
 </div>
@@ -87,11 +88,13 @@ body{margin:0}
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" eyebrow="Script" title="Edited, not saved" summary="dot + word in the status" state="edited" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Edited (draft)</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Running" summary="pulsing dot, accent border" state="running" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Running: the only repeating motion</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Done" summary="metric in the status" state="ok" meta="640 ms" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Done</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Passed (test)" summary="sample data, nothing sent" state="passed" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Passed: a test result, never shown as Done</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="send" eyebrow="Send" title="Failed" summary="danger border + 3 px halo" state="failed" meta="Timeout" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Failed</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="gate" eyebrow="Gate" title="1 issue" summary="warning word, not a failure" state="issue" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Configuration issue</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="skipped" eyebrow="Outcome" title="Skipped" summary="dashed, neutral" state="skipped" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Skipped: neutral, never red</span></div>
-<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="notify" eyebrow="On failure" title="Not taken" summary="42% opacity, no status" state="unvisited" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Not taken in this run: dimmed, not failed</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="notify" eyebrow="On failure" title="Not taken" summary="quiet surface, dashed edge" state="unvisited" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Not taken in this run: quiet surface, words still readable</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" eyebrow="Script" title="Switched off" summary="dashed + Off" state="off" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Off</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="gate" eyebrow="Gate · Before send" title="Check that the patient consented to WhatsApp reminders" summary="status moves up to the eyebrow" state="ok" meta="3 ms" theme="light" hint-size="256px,80px"></dc-import><span style="font-size: 12px; color: #45464D">Long name: two lines, nothing truncated</span></div>
 <div style="display: flex; flex-direction: column; gap: 8px"><dc-import name="Node" kind="script" title="Low zoom" compact="true" state="ok" theme="light" hint-size="208px,44px"></dc-import><span style="font-size: 12px; color: #45464D">Below 60%: name and status only</span></div>
 </div>
 </section>
@@ -168,7 +171,7 @@ body{margin:0}
 </section>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1840}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2080}}'>
 class Component extends DCLogic {
   renderVals() {
     return {};

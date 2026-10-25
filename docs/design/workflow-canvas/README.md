@@ -134,7 +134,7 @@ are in [`source/canvas.json`](source/canvas.json).
 | # | File | Theme | Mode | Shows |
 |---|------|-------|------|-------|
 | 1 | `Main.dc.html` | light | Configure | Selected after-response gate with inspector (Configure tab), unsaved draft, 24 h counts |
-| 2 | `Execution.dc.html` | dark | Executions | A delivered run: path in mint, unvisited dimmed, Runs tab of the schedule step, trace drawer open |
+| 2 | `Execution.dc.html` | dark | Executions | A delivered run: path in mint, not-taken steps on a quiet dashed surface, Runs tab of the schedule step, trace drawer open |
 | 3 | `Failure.dc.html` | light | Executions | Timeout ×3, retries exhausted, On failure ran; Send selected with cause, actions, attempts, cURL |
 | 4 | `AddStep.dc.html` | light | Configure | Insertion preview (ghost step), valid `+` points, node library popover, "where a step can go" panel |
 | 5 | `LargeWorkflow.dc.html` | dark | Configure | 3 actions as groups (one collapsed), outline with search, minimap, compact nodes at 55%, validation callout |
@@ -230,7 +230,8 @@ Fonts (Google Fonts):
 | warning | `#EDB95A` |
 | neutral | `#97958F` |
 | connector (unvisited) | `#3A3D43` dashed `4 4`; configured `#5A5E66` |
-| unvisited label | text `#75736E`, border `#2E3136`, no fill |
+| not-taken label | text `#8E8C86`, border `#2E3136`, no fill (light: text `#66676E`, border `#E2DED5`) |
+| not-taken surface | `#17191C`, dashed border `#3A3E44` (light: `#F8F7F3`, `#D3CDC1`) |
 
 ### 5.4 Type tints (icon tile only)
 
@@ -292,38 +293,47 @@ Props: `kind` (table in 5.4), `eyebrow`, `title`, `summary`, `state`
 (boolean), `compact` (boolean), `theme` (`light | dark`).
 
 Full node: 256 × 80, `box-sizing: border-box`, radius 10,
-`padding: 14px 14px 0 14px`, `display: flex; gap: 12px; align-items: flex-start`,
-background surface, border `1px solid border`, shadow e1.
+`padding: 12px 14px 0 14px`, `display: flex; gap: 12px; align-items: flex-start`,
+background surface, border `1px solid border`, shadow e1. The root carries
+`title="<full name>"`.
 
 - **Icon tile:** 32 × 32, radius 8, tinted (5.4), 18 px stroke icon (stroke-width 1.75, round caps).
-- **Text column:** flex 1, `padding-right: 64px` (room for status), gap 2:
-  eyebrow, title, summary (5.1).
-- **Status:** absolute `top: 12px; right: 12px`, mono 11.5, `gap: 6px`,
-  7 px dot + word, coloured by state.
+- **Text column:** flex 1, min-width 0, gap 2, three rows:
+  1. **Eyebrow** (type · where it runs), one line, ellipsis.
+  2. **Title.** One line, 14 / 20. Past **24 characters** (19 in compact) it wraps to
+     **two lines** (14 / 18, clamped at 2) and is never cut short to make room.
+  3. **Summary row** (mono 11.5): the summary (one line, ellipsis) and, at the end of
+     the same row, the **status**. When the title is two lines there is no room for
+     the summary, so the row is dropped and the status moves to the end of the
+     eyebrow row.
+- **Status:** dot (7 px) + word + metric, mono 11.5 / 14, weight 500, `gap: 6px`,
+  `flex: 0 0 auto`; coloured by state. Hollow dot for skipped, off and not taken.
 - **Ports:** 8 px circles, `border: 1.5px solid border-strong`, surface fill, centred
   at `top: -5px` and `bottom: -5px`. Trigger has no top port; done, skipped and
-  failedEnd have no bottom port.
+  failedEnd have no bottom port. (Dashed on a not-taken node.)
 
-Compact (low zoom): 208 × 44, padding `0 12px`, centred, 24 × 24 tile, title only,
-status shows as a dot only.
+Compact (low zoom): 208 × 44, padding `0 26px 0 12px`, centred, 24 × 24 tile, title
+only (13 / 16, bold; two lines past 19 characters, clamped), status as a dot at
+`right: 12px` with `aria-label` and `role="img"`.
 
 State styles:
 
-| state | border | shadow / other | status word (default) |
-|-------|--------|----------------|-----------------------|
-| default | `1px solid border` | e1 | — |
+| state | surface / border | shadow / other | status word (default) |
+|-------|------------------|----------------|-----------------------|
+| default | surface, `1px solid border` | e1 | — |
 | selected (prop) | `1px solid accent` | `0 0 0 1px accent, 0 0 0 5px accent-soft` | — |
 | running | `1px solid accent` | dot pulses | Running |
-| ok | default | — | `meta` or Done (success colour) |
+| ok (production) | default | — | `meta` or Done (success) |
+| passed (test) | default | — | `meta` or Passed (success); never shown as Done |
 | failed | `1px solid danger` | `0 0 0 3px danger-soft` | `meta` or Failed |
 | skipped | `1px dashed border-strong` | hollow dot | Skipped (neutral) |
 | off | `1px dashed border-strong` | hollow dot | Off |
 | issue | default | — | `meta` or `1 issue` (warning) |
 | edited | default | — | Edited (accent) |
-| unvisited | default | `opacity: 0.42`, no shadow | — |
+| not taken (`unvisited`) | **quiet surface** (`#F8F7F3` / `#17191C`), `1px dashed` quiet border (`#D3CDC1` / `#3A3E44`) | no shadow; neutral icon tile at 8 %; title and summary in ink-3; **no opacity** | Not taken (hollow dot) |
 | keyboard focus | — | `outline: 2px solid ink; outline-offset: 3px` on the wrapper | — |
 
-Transitions: `box-shadow` and `border-color` 160 ms `ease.enter`.
+Transitions: `box-shadow`, `border-color` and `background-color` 160 ms `ease.enter`.
 
 Icons (24 × 24 viewBox, `fill="none" stroke="currentColor"`):
 
@@ -372,7 +382,9 @@ Props: `theme`, `title`, `subtitle`, `env`, `saveState`
   latest execution: never merged into one indicator.
 - Row 1, right: save state (`role="status"`, dot + text; a spinner while saving),
   History and Test (ghost buttons, 36 tall, radius 8), **Save changes** (primary,
-  accent fill).
+  accent fill). With `mode="executions"` (read-only history) the save state is
+  hidden and the primary button is **Edit workflow** (pencil icon), the way back
+  into configuration; Save changes never appears over a past run.
 - Save state colours: unsaved warning dot + ink-2 text; saving spinner + ink-3;
   saved success; failed danger.
 - Subtitle row: subtitle · env badge (mono 11, bordered, radius 4).
@@ -582,36 +594,41 @@ must contain, so it can be checked or rebuilt.
 - Header: `saveState clean` "All changes saved"; run ok.
 - Top bar: Executions active; run picker "Delivery 6adc…2df · today 14:02:09";
   "Production data" badge; Fit.
+- Header `mode="executions"`: Edit workflow, no Save changes; run "Last delivery:
+  accepted · 3 min ago" (the delivery was accepted; checks are still waiting or
+  have finished: the latest outcome is not the same as the enabled switch).
 - Taken path (mint connectors 1–7, labels `Yes`, `Answered · 200`, `Accepted`,
-  `READ · checks end`); everything else dashed `#3A3D43` with unvisited labels
+  `READ · checks end`); everything else dashed `#3A3D43` with not-taken labels
   `No`, `Error`, `Retry · new attempt`, `Exhausted`, `Rejected`.
 - Node states and metas: trigger ok `14:02:09`; transform ok `6 ms`; consent ok
   `212 ms`; gate ok `3 ms` (summary "consent: true → continue"); send ok `640 ms`
   (eyebrow "Send · attempt 1", summary "POST api.qikchat.in → 200"); reply ok
   `4 ms` (summary "ACCEPTED · messageId wa-8f2c…"); schedule ok `READ`, **selected**
-  (summary "3 checks · READ at 1 h"); delivered ok `Done` (summary "read 1 h 02 m after
-  sending"). Right column all `unvisited` with summary "not taken" / "not needed".
-- Drawer open: Trace tab; outcome chip "Delivered · 9 steps · 1 attempt"; rows:
+  (summary "3 checks · READ at the 1 h check"); delivered ok `Done` (summary "read 14:31 ·
+  seen at 15:02"). Right column all `unvisited` (status "Not taken", summary "not taken" /
+  "not needed").
+- Drawer open: Trace tab; outcome chip "Delivered · 1 attempt · sent in 0.9 s"; two scales:
   Check patient consent 212 ms; Consent granted? 3 ms; Send WhatsApp message 640 ms
-  (bar `#7EA2FF`); Read the provider reply 4 ms; Check delivery status ×3, 1 h 02 m
-  (three thin ticks at 58 %, 74 %, 97 %).
+  (bar `#7EA2FF`); Read the provider reply 4 ms, on a 0 – 900 ms scale (sending
+  14:02:09.4 → 14:02:10.3); then a second scale, 0 – 1 h, for the scheduled checks
+  (after the accepted send at 14:02:10): three ticks at 14:02:40, 14:07:10 and 15:02:10.
 - Inspector, "Runs · this delivery" tab: "Checks after the accepted send ·
-  30 s · 5 m · 1 h · 24 h"; vertical timeline: Check 1 · SENT (+30 s · 181 ms),
-  Check 2 · DELIVERED (+5 m · 174 ms), Check 3 · READ · finished (+1 h · 190 ms)
+  30 s · 5 m · 1 h · 24 h"; vertical timeline: Check 1 · SENT (14:02:40 · +30 s),
+  Check 2 · DELIVERED (14:07:10 · +5 m), Check 3 · READ · finished (15:02:10 · +1 h)
   with the request as cURL (API key masked `••••••••`), the response JSON with
-  `"to": "•••••3210"`, and "Decided READ, done: nothing more to wait for. The 24 h
-  check was not needed."
+  `"to": "•••••3210"`, `"readAt": "14:31:05"`, and "Decided READ (read at 14:31:05,
+  seen by this check), done: nothing more to wait for. The 24 h check was not needed."
 
 ### 8.3 Screen 3 — Failure investigation (light)
 
 - Scenario: the provider timed out (no answer) on all 3 attempts; retries ran out;
   the delivery was ABANDONED; On failure notified the front desk.
-- Header: run failed "Last delivery: failed · 4 min ago".
+- Header `mode="executions"` (Edit workflow, no Save changes); run failed "Last delivery: failed · 4 min ago".
 - Connectors: 1–4 taken (`#45464D`, 2 px); Send → Retry danger with
   `Timeout ×3`; retry loop taken (`#B4570B` dashed `6 4`) with
   `Retry · 2 new attempts`; Exhausted danger; Notify → Delivery failed danger;
   everything else not taken (`#CFC9BE` dashed). Labels `Yes ×3`, `Answered`
-  (unvisited style), `Exhausted`.
+  (not-taken style, `#66676E`), `Exhausted`.
 - Node states: trigger ok `14:02:09`; transform ok `×3` (eyebrow "Transform · 3 attempts");
   consent ok `×3` ("consent: true, each attempt"); gate ok `×3`; **Send failed `Timeout`,
   selected** (eyebrow "Send · attempt 3 of 3", summary "no answer within 10 s"); reply,
@@ -619,7 +636,7 @@ must contain, so it can be checked or rebuilt.
   "not taken"); retry failed `Exhausted` ("retried 2× · then gave up"); notify ok
   `1.1 s` ("emailed desk@democlinic.example"); delivery failed failed `Abandoned`
   ("ABANDONED after 3 attempts").
-- Drawer: chip "Abandoned · 3 attempts · 2 m 02 s"; rows Attempt 1–3 · send
+- Drawer: chip "Abandoned · 3 attempts · 2 m 01 s"; rows Attempt 1–3 · send
   (danger bars, dashed backoff lines in `#B4570B`), Notify the front desk 1.1 s,
   note "dashed: backoff 30 s, then 60 s".
 - Inspector ("Runs · this delivery"):
@@ -739,7 +756,8 @@ are top-right; a live region announces each state top-left. Inspector: absolute,
 right, 360 wide.
 
 State: `selected`, `insert` (`none | preview | settled`), `running`, `done[]`,
-`tracing`, `save` (`unsaved | saving | saved | failed`), `error`, `announce`,
+`tracing`, `testShown` (the test-results layer), `save` (`unsaved | saving | saved | failed`),
+`error`, `proposal` (a fix is being reviewed), `announce`,
 `reduced` (from `matchMedia('(prefers-reduced-motion: reduce)')`).
 
 Steps: `event, consent, send, reply, delivered`; after insertion,
@@ -749,8 +767,8 @@ Steps: `event, consent, send, reply, delivered`; after insertion,
 |----------|----------|
 | 1 Select | `selected = id` → node border and halo transition (160 ms); inspector `translateX(24px)` → 0 and opacity 0 → 1 (240 ms). Clicking any node selects it; Close hides it. |
 | 2 Add | `insert = preview`: ghost appears at row 2 (`m-ghost` 180 ms), rows ≥ 2 move down one pitch (`top` 280 ms). After 1,100 ms, `insert = settled`: the ghost becomes "Check quiet hours" with `m-settle` (280 ms, `scale(.97)` → 1); save becomes unsaved. |
-| 3 Run | For each step `i` at `i × 560 ms`: trace connector `i-1` (`scaleY` 0 → 1, 320 ms) and mark the step running (pulse); at `+420 ms` mark it done. At the end the traced connectors stay accent (static outcome); announce "Test finished · delivered · every step done". The announcement says sample data, nothing is sent. |
-| 4 Fail and recover | Save → Saving… (800 ms) → Save failed: "1 step has an error"; "Read the provider reply" takes the failed style and an inline alert (`role="alert"`) appears beside it: "1 error. The script returns `status: 'ok '`: a status is letters, digits and _ only." with **Fix it**. Fix clears the error and saves: Saving… (700 ms) → Saved, "applies to new deliveries". |
+| 3 Run | `testShown = true`: a banner reads "Showing test results from sample data. Nothing was sent, and an edit clears them." with **Clear**. For each step `i` at `i × 560 ms`: trace connector `i-1` (`scaleY` 0 → 1, 320 ms) and mark the step running (pulse); at `+420 ms` mark it **Passed** (never "Done": that word is for production runs). The traced connectors stay accent as the static outcome; announce "Test finished · every step passed on the sample". Test results are history: **any edit, insertion, save or Clear removes them** (`dropTest()`), so a validation error is never shown beside stale Passed steps. |
+| 4 Fail and recover | Save first clears any test results, then Saving… (800 ms) → Save failed: "1 step has an error"; "Read the provider reply" takes the failed style and an inline alert (`role="alert"`) appears beside it: "1 error. The script returns `status: 'ok '`: a status is letters, digits and _ only." with **Review the fix**. Review shows the proposed change as a diff (`- return { status: 'ok ' };` / `+ return { status: 'OK' };`) with **Apply change** and **Cancel**, and "Applying changes the draft only. Saving is a separate step." Apply clears the error and leaves the draft unsaved ("Change applied to the draft · not saved yet"); the user then saves: Saving… (700 ms) → Saved, "applies to new deliveries". Saving again while the error stands stays Failed ("fix the error first"). |
 | Reset | All back to the initial state. |
 
 With reduced motion, all delays are 0, nothing pulses, and the announcement text
@@ -861,7 +879,7 @@ the following.
 
 ---
 
-## Revision log and pending work
+## Revision log
 
 **Applied (review round 1, artifact version 10, sources in `source/`):**
 - One consistent timeline: event 14:02:09, sent 14:02:10 (0.9 s), checks 14:02:40 / 14:07:10 / 15:02:10, read at 14:31:05; failure run 14:02:09 → 14:04:10 (attempts at 14:02:09, 14:02:49, 14:03:59; backoff 30 s then 60 s). The execution trace uses two scales: sending (ms) and scheduled checks (up to 1 h).
@@ -870,8 +888,10 @@ the following.
 - Header `mode` prop: `executions` hides the save state and shows **Edit workflow** (pencil icon) instead of Save changes. Screens 2 and 3 use it.
 - Node gains a `passed` state ("Passed", success) for test results, distinct from production `ok` ("Done").
 
-**Pending (not yet applied):**
-1. Motion prototype (`Motion.dc.html`): show test results as their own layer (status "Passed", banner "Showing test results · sample data · Clear"); any edit, insertion or save clears them, so a save error never appears next to stale "Done" states.
-2. Motion prototype: "Fix it" must propose the change (diff `status: 'ok '` → `status: 'OK'`, buttons Apply change / Cancel); applying marks the draft unsaved; saving is a separate action.
-3. System board: update the "Not taken" state card text ("quiet surface, dashed; words stay readable") and add the two-line title rule.
-4. Sections 6.1, 8.2 and 8.3 of this document: rewrite to match the revisions above (the revision log is authoritative until then).
+**Applied (review round 2, artifact version 11):**
+- Motion prototype: test results are their own labelled layer (Passed, banner, Clear) that any edit or save clears; "Fix it" became **Review the fix**, a diff the user applies to the draft before saving separately.
+- System board: the "Not taken" card describes the quiet surface; new cards for long names (two lines) and Passed (test); the anatomy labels follow the new status position; the board is 2080 px tall.
+- Sections 6.1, 6.3, 8.2, 8.3 and 9.2 of this document now describe the revised design directly.
+
+**Open:**
+- Nothing from the review remains. The canvas is a design only; none of it is built into the console yet (see section 11 for the plan and the missing backend pieces).
