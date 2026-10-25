@@ -45,6 +45,7 @@ async function ensureStageIndexes(db, safeCreateIndexes = (col, specs) => col.cr
   await safeCreateIndexes(db.collection(runs.COLLECTION), [
     { key: { orgId: 1, deliveryId: 1, at: 1 }, name: 'org_delivery_at_idx' },
     { key: { orgId: 1, 'stage.id': 1, at: -1 }, name: 'org_stage_at_idx' },
+    { key: { orgId: 1, integrationId: 1, at: -1 }, name: 'org_integration_at_idx' },
     { key: { at: 1 }, expireAfterSeconds: runs.RETENTION_DAYS * 24 * 3600, name: 'at_ttl_idx' },
   ]);
   await safeCreateIndexes(db.collection(state.COLLECTION), [

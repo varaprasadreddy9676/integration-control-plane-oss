@@ -160,6 +160,14 @@ async function run(ctx) {
   return { outcome: 'ok', value: { status, done, data }, logs: [] };
 }
 
+/** The status words a configured request can produce: its map's words and `otherwise`; anything else passes through as the raw value. */
+function outcomes(config) {
+  if (!config.status) return { statuses: [], dynamicStatus: false };
+  const done = new Set(Array.isArray(config.doneWhen) ? config.doneWhen : []);
+  const words = [...new Set([...Object.values(config.status.map || {}), ...(config.status.otherwise ? [config.status.otherwise] : [])])];
+  return { statuses: words.map((status) => ({ status, done: done.has(status) })), dynamicStatus: !config.status.otherwise };
+}
+
 module.exports = {
   type: 'http',
   label: 'HTTP request',
@@ -197,5 +205,6 @@ module.exports = {
   },
   validate,
   outputs,
+  outcomes,
   run,
 };

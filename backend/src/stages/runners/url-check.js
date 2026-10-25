@@ -69,5 +69,12 @@ module.exports = {
   },
   validate,
   outputs: () => [{ name: 'results', type: 'object' }],
+  outcomes: () => ({
+    statuses: [{ status: 'PASS', done: false }],
+    fails: [
+      { reason: 'A linked URL is not ready', retryDelivery: true, retryStage: false },
+      { reason: 'A linked URL failed its check', retryDelivery: false, retryStage: false },
+    ],
+  }),
   run,
 };

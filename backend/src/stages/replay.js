@@ -21,9 +21,11 @@ const { findStage } = require('./targets');
 const { fromLog } = require('./delivery-shape');
 
 class ReplayError extends Error {
-  constructor(status, message) {
+  constructor(status, message, { code = 'REPLAY_REFUSED', details } = {}) {
     super(message);
     this.status = status;
+    this.code = code;
+    this.details = details;
   }
 }
 

@@ -10,6 +10,7 @@
  */
 
 const { getContract } = require('../contracts');
+const { scanScript } = require('../outcomes');
 
 const MAX_CODE_CHARS = 100000;
 
@@ -62,5 +63,6 @@ module.exports = {
   },
   validate,
   outputs: null, // declared on the stage (stage.outputs)
+  outcomes: (config) => scanScript(config.code),
   run,
 };

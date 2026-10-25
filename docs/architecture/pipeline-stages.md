@@ -380,6 +380,35 @@ idempotency key are unchanged; and completion is fenced on the
 `claimedDefinitionHash` as well as the lease token, so an old execution and its
 replacement can never both commit.
 
+### Reading the pipeline: facts the console draws
+
+Read-only endpoints under `/api/v1/stages` that the workflow canvas (and any other
+view) is built on. They return recorded facts; the console names a branch from them.
+
+| Endpoint | Answers |
+|----------|---------|
+| `GET /flow-stats?integrationId&hours=24` | Per delivery target (the integration, or each action): deliveries by status, attempts and retries (an attempt after the first); per stage: runs, `ok`, `skipped` (called `skip()`), `rejected` (called `fail()`), `errored`, `timedOut`, the status words returned, and for checks after delivery the latest status per delivery. Also `removedStages` and `unattributed` deliveries. At most 30 days (the run retention). |
+| `POST /save-impact` `{ integrationId, integration: { stages / actions } }` | What saving a draft would do to scheduled checks already waiting: per stage `keepOldVersion` (waiting on an older definition), `paused`, `resumed`, `cancelled`, with the change (`edited`, `disabled`, `enabled`, `removed`, `added`). Saves nothing. |
+| `POST /outcomes` `{ stage }` | The statuses (with whether they end a check), `skip()` and `fail()` calls (and whether a failure asks for a retry) a stage can end with, read from its configuration. A runner describes itself with `outcomes(config)`; a script is read by a small scanner that ignores comments and strings and reports anything computed as `dynamicStatus` instead of guessing. |
+| `GET /logs/:id/similar-failures?minutes=60` | How many other deliveries of the same integration and action failed with the same error code (or error category) within that many minutes either side. |
+
+### Check status, then replay
+
+Sending a failed delivery again is only safe if the provider does not already have the
+message: a send that timed out may have arrived. A check after delivery can be marked
+`verification: { resendWhen: ["NOT_FOUND", ...] }`, the status words that mean the
+provider does not have the message. `POST /deliveries/:deliveryId/check-and-replay
+{ reason, acceptUnverified? }` (needs `stages:replay`, audited) then:
+
+1. runs that check once against the delivery log and records the run like any other;
+2. a status in `resendWhen` sends the delivery again (the ordinary manual replay);
+3. any other status means the provider has it: refused with 409 `PROVIDER_HAS_MESSAGE`,
+   whatever the caller says;
+4. a failed check, no status, or no marked check: refused with 409 `UNVERIFIED`,
+   unless `acceptUnverified` is true, which is recorded in the audit entry.
+
+Only `FAILED` and `ABANDONED` deliveries are replayable (409 `NOT_REPLAYABLE`).
+
 `contract` versions the script's input and helpers. A contract change ships as a new
 version; saved stages keep running on the version they declare.
 

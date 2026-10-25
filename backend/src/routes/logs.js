@@ -7,8 +7,20 @@ const { summarizeFollowUpStats } = require('../services/delivery-follow-up-confi
 const { maskIntegrationSecrets, maskLogSecrets, maskUrlSecrets } = require('../utils/integration-secrets');
 const { createExportJobStore, exportSettings, parseBooleanQuery, writeFileChunk, writeWithBackpressure } = require('../services/export-jobs');
 const { isPortalScopedSession, assertViewAllowed, assertIntegrationInScope } = require('../middleware/portal-scope');
+const mongodb = require('../mongodb');
+const { similarFailures } = require('../data/log-insights');
 
 const router = express.Router();
+
+/**
+ * Portal scope: ensure a log's integration is within scope. Use the full integration
+ * object (with tags) when there is one, so tag-scoped profiles are checked correctly.
+ */
+function assertLogInScope(req, integrationConfigId, integration = null) {
+  if (isPortalScopedSession(req) && integrationConfigId) {
+    assertIntegrationInScope(req, integration ?? { _id: integrationConfigId, id: integrationConfigId });
+  }
+}
 
 /**
  * Build an integrationId filter clause for portal-scoped log queries.
@@ -895,6 +907,25 @@ router.get(
 
 router.get('/export/jobs/:jobId/download', assertViewAllowed('logs'), exportJobs.downloadHandler());
 
+/** How many other deliveries of this integration failed the same way within `minutes` (default 60) of this one. */
+router.get(
+  '/:id/similar-failures',
+  assertViewAllowed('logs'),
+  asyncHandler(async (req, res) => {
+    const db = await mongodb.getDbSafe();
+    const logId = mongodb.toObjectId(req.params.id);
+    const logDoc = logId ? await db.collection('execution_logs').findOne({ _id: logId, orgId: req.orgId }) : null;
+    if (!logDoc) {
+      return res.status(404).json({ error: 'Log not found', code: 'NOT_FOUND' });
+    }
+    if (isPortalScopedSession(req) && logDoc.integrationConfigId) {
+      const integration = await data.getIntegrationById(String(logDoc.integrationConfigId)).catch(() => null);
+      assertLogInScope(req, String(logDoc.integrationConfigId), integration);
+    }
+    return res.json(await similarFailures(req.orgId, logDoc, { minutes: req.query.minutes }));
+  })
+);
+
 router.get(
   '/:id',
   assertViewAllowed('logs'),
@@ -918,17 +949,7 @@ router.get(
       }
     }
 
-    // Portal scope: ensure the log's integration is within scope.
-    // Use the full integration object (with tags) so tag-scoped profiles are checked correctly.
-    if (isPortalScopedSession(req) && logEntry.integrationConfigId) {
-      assertIntegrationInScope(
-        req,
-        __KEEP_integrationConfig__ ?? {
-          _id: logEntry.integrationConfigId,
-          id: logEntry.integrationConfigId,
-        }
-      );
-    }
+    assertLogInScope(req, logEntry.integrationConfigId, __KEEP_integrationConfig__);
 
     return res.json({
       ...maskLogSecrets(logEntry),

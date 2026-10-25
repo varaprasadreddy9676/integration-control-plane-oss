@@ -40,5 +40,6 @@ module.exports = {
   configSchema: { fields: [{ name: 'transformation', label: 'Mapping', widget: 'code', language: 'json', readOnly: true }] },
   validate,
   outputs: () => [{ name: 'mapped', type: 'object' }],
+  outcomes: () => ({ statuses: [{ status: 'MAPPED', done: false }] }),
   run,
 };

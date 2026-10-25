@@ -76,9 +76,30 @@ async function executionMetrics(orgId, { integrationId, stageId, from, to } = {}
   return rows.map(({ _id, averageMs, ...rest }) => ({ stageId: _id, ...rest, averageMs: averageMs === null ? null : Math.round(averageMs) }));
 }
 
+/**
+ * What the stages of an integration did in [from, to], by stage, outcome, error
+ * code and status word: the counts behind the canvas's branches. Shadow runs (a
+ * migration comparing paths) are left out.
+ */
+async function flowCounts(orgId, integrationId, { from, to }) {
+  const col = await collection();
+  const rows = await col
+    .aggregate([
+      { $match: { orgId, integrationId: String(integrationId), shadow: { $ne: true }, at: { $gte: from, $lte: to } } },
+      {
+        $group: {
+          _id: { stageId: '$stage.id', hook: '$stage.hook', outcome: '$outcome', errorCode: '$errorCode', status: '$status' },
+          runs: { $sum: 1 },
+        },
+      },
+    ])
+    .toArray();
+  return rows.map((row) => ({ ...row._id, runs: row.runs }));
+}
+
 async function getRun(orgId, runId) {
   const col = await collection();
   return col.findOne({ _id: runId, orgId });
 }
 
-module.exports = { insertRun, listRuns, getRun, executionMetrics, COLLECTION, RETENTION_DAYS };
+module.exports = { insertRun, listRuns, getRun, executionMetrics, flowCounts, COLLECTION, RETENTION_DAYS };

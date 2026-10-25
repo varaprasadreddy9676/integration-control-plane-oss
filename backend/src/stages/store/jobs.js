@@ -212,6 +212,23 @@ async function countByState(orgId, integrationId, stageId) {
   return Object.fromEntries(rows.map((row) => [row._id, row.count]));
 }
 
+/**
+ * Unfinished scheduled work of an integration grouped by stage, state and pinned
+ * definition, as [{ stageId, state, definitionHash, count }] (what a save would
+ * leave behind, edit, pause or cancel). Running jobs are not included: they hold
+ * the definition they claimed.
+ */
+async function hashCounts(orgId, integrationId) {
+  const col = await collection();
+  const rows = await col
+    .aggregate([
+      { $match: { ...pendingOf(orgId, integrationId), state: { $in: ['PENDING', 'PAUSED', 'HANDOVER'] } } },
+      { $group: { _id: { stageId: '$stageId', state: '$state', definitionHash: '$definitionHash' }, count: { $sum: 1 } } },
+    ])
+    .toArray();
+  return rows.map((row) => ({ ...row._id, count: row.count }));
+}
+
 async function ensureJobIndexes(db, safeCreateIndexes = (col, specs) => col.createIndexes(specs)) {
   await safeCreateIndexes(db.collection(COLLECTION), [
     { key: { orgId: 1, deliveryId: 1, stageId: 1, trigger: 1, failureSeq: 1 }, unique: true, name: 'logical_key_unique' },
@@ -237,6 +254,7 @@ module.exports = {
   repinJobs,
   pausedGroups,
   countByState,
+  hashCounts,
   ensureJobIndexes,
   FINAL_STATES,
   LEASE_MS,

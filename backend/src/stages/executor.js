@@ -17,10 +17,9 @@
 const { AbortController, uuidv4 } = require('../utils/runtime');
 const { createRecorder } = require('./recorder');
 const { resolveMap, BindingError } = require('./binding');
-const { INLINE_HOOKS } = require('./config');
+const { INLINE_HOOKS, STATUS_WORD } = require('./config');
 const { getContract } = require('./contracts');
 
-const STATUS_WORD = /^[A-Za-z0-9][A-Za-z0-9_]{0,39}$/;
 const RESULT_KEYS = new Set(['status', 'done', 'data']);
 const LOOKUP_TIMEOUT_MS = 2000;
 

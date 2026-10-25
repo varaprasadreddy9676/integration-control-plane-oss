@@ -833,16 +833,40 @@ the following.
 - Executions mode: `getDeliveryStages(logId)` gives stage runs and states for one
   delivery; the delivery log gives transform, send, attempts and status.
 
-### 11.2 What the backend does not provide yet
+### 11.2 What the backend provides for the design
 
-| Needed by the design | Status | Suggested source |
-|----------------------|--------|------------------|
-| 24 h counts per branch (`Yes · 1,184` etc.) | not available | aggregate `stage_runs` (outcome, decision) and `execution_logs` (status, responseStatus) per integration and hook over 24 h; extend `GET /stages/results` |
-| "41 scheduled checks keep their version" | partially (`GET /stages/integrations/:id/stages/:stageId/jobs` counts) | sum pending jobs whose `definitionHash` differs from the draft's |
-| Outcomes read from a script | not available | static scan of the script for `return {status…}`, `skip(`, `fail(` (and `retryDelivery`) in the editor; label branches from it |
-| "Check status, then replay" | not available | a replay that first runs the delivery's Later stage once and refuses to resend if the provider reports the message |
-| "7 others in the last hour" | not available | query `execution_logs` by integration, errorCode and time |
+All of it is built (see "Reading the pipeline" and "Check status, then replay" in
+`docs/architecture/pipeline-stages.md`). The canvas names branches from recorded facts.
+
+| Needed by the design | Endpoint | Notes |
+|----------------------|----------|-------|
+| 24 h counts per branch (`Yes · 1,184` etc.) | `GET /stages/flow-stats?integrationId&hours=24` | Per delivery target (integration or action). See the label table below. |
+| "41 scheduled checks keep their version" | `POST /stages/save-impact` | `totals.keepOldVersion`; per stage `change`, `paused`, `resumed`, `cancelled`. Call it with the draft when the user opens Save. |
+| Outcomes read from a script | `POST /stages/outcomes` | `statuses` (with `done`), `skips`, `fails` (`retryDelivery`), `dynamicStatus`. For a runner that does not describe itself `known` is false: draw one unlabelled branch. |
+| "Check status, then replay" | `POST /stages/deliveries/:id/check-and-replay` | The delivery's check needs `verification.resendWhen`. 409 `PROVIDER_HAS_MESSAGE` (show the status, offer nothing else), 409 `UNVERIFIED` (offer "Send anyway" which repeats the call with `acceptUnverified`), 409 `NOT_REPLAYABLE`. Needs `stages:replay`. |
+| "7 others in the last hour" | `GET /logs/:id/similar-failures?minutes=60` | `count`, `capped` (count stops at 1,000), `sample` (log ids for "See the 7 others"), `matchedOn` (`errorCode` or `errorCategory`; null means nothing to match on, hide the chip). |
 | Tidy layout / saved positions | not needed | the layout is computed from the pipeline; there are no free positions to save |
+
+**Connector labels from `flow-stats`** (per delivery target; `stage` = the stage's entry):
+
+| Label | Computed as |
+|-------|-------------|
+| `Yes` (before-send gate) | `stage.ok` |
+| `No` → Skipped | `stage.skipped` |
+| gate `fail()` | `stage.rejected` |
+| `Answered` | no count: the log does not record which attempts were answered, so draw the label without a number |
+| `Error` → Retry policy | `deliveries.retries` (attempts after the first) |
+| `Retry · new attempt` | `deliveries.retries` |
+| `Exhausted` | `deliveries.byStatus.ABANDONED` |
+| `Accepted` (after-response gate) | `stage.ok` |
+| `Rejected` | `stage.rejected` |
+| `Read or delivered` (Later) | `stage.latest[word]` for each word whose `done` is true in `/outcomes` |
+| Later, still waiting | `stage.latest[word]` for the other words |
+
+Stage counts are **runs**: a gate runs again on every retry attempt, so its counts can exceed
+`deliveries.total` (the canvas says "runs" in tooltips, and shows `×N` only in Executions). A
+stage that errors (`errored`) or runs out of time (`timedOut`) is its own count; the
+canvas shows it on the stage, never inside a branch label.
 
 ### 11.3 Layout algorithm (computed, not stored)
 

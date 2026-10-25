@@ -33,6 +33,9 @@ const RECORDING_LEVELS = ['full', 'errors-only', 'summary'];
 const OUTPUT_TYPES = ['string', 'number', 'boolean', 'object'];
 const CONTRACTS = [1, 'legacy:follow-up', 'legacy:response-transform', 'legacy:pre-delivery-checks'];
 
+// A status word a stage may return (also what verification.resendWhen lists).
+const STATUS_WORD = /^[A-Za-z0-9][A-Za-z0-9_]{0,39}$/;
+
 const LIMITS = {
   maxStages: 20,
   maxPerHook: 10,
@@ -146,6 +149,21 @@ function checkOnError(onError, hook, effect, path, add) {
     }
   }
   return undefined;
+}
+
+/**
+ * `verification` marks a check as the one that asks the provider whether it has a
+ * message: `resendWhen` lists the status words that mean it does not, so sending
+ * again is safe (see verified-replay.js).
+ */
+function checkVerification(stage, path, add) {
+  if (stage.hook !== 'after_delivery') return add(path, 'Only a check after delivery can verify a delivery');
+  const verification = stage.verification;
+  if (!isPlainObject(verification)) return add(path, 'verification is an object: { resendWhen: [status words] }');
+  const words = verification.resendWhen;
+  if (!Array.isArray(words) || words.length === 0 || words.length > 20 || words.some((word) => !STATUS_WORD.test(String(word)))) {
+    add(`${path}.resendWhen`, 'resendWhen lists up to 20 status words (letters, digits and _) that mean the provider does not have the message');
+  }
 }
 
 function checkOutputs(outputs, path, add) {
@@ -289,6 +307,8 @@ function validateStages(stages, { send, runners, parts = requestParts('http') })
       add(`${at}.allowDeliveryRetry`, 'Only a gate inside the delivery can ask for the delivery to be retried');
     }
 
+    if (stage.verification !== undefined) checkVerification(stage, `${at}.verification`, add);
+
     const level = stage.recording.level;
     if (!RECORDING_LEVELS.includes(level))
       add(`${at}.recording.level`, `recording.level is one of ${RECORDING_LEVELS.join(', ')}`);
@@ -430,6 +450,7 @@ function isOrigin(value) {
 }
 
 module.exports = {
+  STATUS_WORD,
   validateStages,
   validateIntegrationStages,
   normalizeStage,

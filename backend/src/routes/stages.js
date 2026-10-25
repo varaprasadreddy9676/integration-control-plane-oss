@@ -23,6 +23,10 @@ const { validateStages, validateIntegrationStages, normalizeStage } = require('.
 const { findStage, mapTargets } = require('../stages/targets');
 const { executeStage, executeDeps } = require('../stages/executor');
 const { replayRun, ReplayError } = require('../stages/replay');
+const { checkAndReplay } = require('../stages/verified-replay');
+const { flowStats } = require('../stages/flow-stats');
+const { saveImpact } = require('../stages/save-impact');
+const { stageOutcomes } = require('../stages/outcomes');
 const { getStageRuntime } = require('../stages/runtime');
 const { usageToday } = require('../stages/limits');
 const config = require('../config');
@@ -179,7 +183,38 @@ router.post(
       );
       res.json({ run: record });
     } catch (error) {
-      if (error instanceof ReplayError) return res.status(error.status).json({ error: error.message, code: 'REPLAY_REFUSED' });
+      if (error instanceof ReplayError) return res.status(error.status).json({ error: error.message, code: error.code });
+      throw error;
+    }
+  })
+);
+
+/**
+ * Send a failed delivery again only if the provider does not have it: runs the
+ * delivery's verifying check first (see stages/verified-replay.js). Refused with 409
+ * when the provider has the message, or when that cannot be confirmed unless
+ * `acceptUnverified` is set (audited).
+ */
+router.post(
+  '/deliveries/:deliveryId/check-and-replay',
+  requirePermission('stages:replay'),
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    try {
+      const result = await checkAndReplay(
+        req.orgId,
+        req.params.deliveryId,
+        { reason: body.reason, acceptUnverified: body.acceptUnverified === true, user: req.user },
+        {
+          loadIntegration,
+          executeDeps: executeDeps(),
+          audit: (entry) => audit(req, entry),
+          replay: (...args) => require('../processor/retry-handler').replayEvent(...args),
+        }
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof ReplayError) return res.status(error.status).json({ error: error.message, code: error.code, ...(error.details ? { check: error.details } : {}) });
       throw error;
     }
   })
@@ -225,6 +260,48 @@ router.get(
     res.json({ outcomes, executions, dated: { outcomes: 'accepted-send time', executions: 'run time' } });
   })
 );
+
+/**
+ * How an integration's deliveries and stages ended over the last `hours` (default 24):
+ * the numbers on the canvas's branches. Facts only; see stages/flow-stats.js.
+ */
+router.get(
+  '/flow-stats',
+  asyncHandler(async (req, res) => {
+    if (!req.query.integrationId) throw new ValidationError('integrationId is required');
+    const integration = await loadIntegration(req.orgId, req.query.integrationId);
+    if (!integration) throw new NotFoundError('Integration not found');
+    res.json(await flowStats(req.orgId, integration, { hours: req.query.hours }));
+  })
+);
+
+/**
+ * What saving a draft would do to scheduled checks already waiting (keep their
+ * version, pause, resume, cancel). Body: { integrationId, integration: the draft's
+ * stages / actions }. Nothing is saved.
+ */
+router.post(
+  '/save-impact',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    if (!body.integrationId) throw new ValidationError('integrationId is required');
+    const existing = await loadIntegration(req.orgId, body.integrationId);
+    if (!existing) throw new NotFoundError('Integration not found');
+    const draft = { ...existing, ...(body.integration || {}) };
+    const checked = validateIntegrationStages(draft, { runners });
+    if (!checked.ok) throw new ValidationError('The draft stages are not valid', checked.errors);
+    const rows = await jobs.hashCounts(req.orgId, body.integrationId);
+    const hashOf = (stage) => store.definitions.definitionHash(req.orgId, normalizeStage(stage));
+    res.json(saveImpact(existing, checked.integration, rows, hashOf));
+  })
+);
+
+/** The statuses, skips and failures a stage can end with, read from its configuration. Body: { stage }. */
+router.post('/outcomes', (req, res) => {
+  const stage = req.body && req.body.stage;
+  if (!stage || typeof stage !== 'object') throw new ValidationError('A stage is required');
+  res.json({ outcomes: stageOutcomes(stage, runners) });
+});
 
 router.get(
   '/usage',
