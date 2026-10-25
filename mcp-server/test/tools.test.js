@@ -57,6 +57,10 @@ function fakeClient(overrides = {}) {
     createInboundIntegration: async () => ({ _env: 'test' }),
     updateInboundIntegration: async () => ({ _env: 'test' }),
     deleteInboundIntegration: async () => ({ _env: 'test' }),
+    getStageAuthoringGuide: async () => ({ _env: 'test' }),
+    validateStages: async () => ({ _env: 'test' }),
+    testStage: async () => ({ _env: 'test' }),
+    getStageOutcomes: async () => ({ _env: 'test' }),
     testInboundIntegration: async () => ({ _env: 'test' }),
     listScheduledJobs: async () => ({ _env: 'test', data: [] }),
     getScheduledJob: async () => ({ _env: 'test' }),
@@ -97,6 +101,11 @@ const EXPECTED_TOOLS = [
   'duplicate_outbound_integration',
   'test_outbound_integration',
   'validate_outbound_transformation',
+  // Pipeline stages (write one with an AI)
+  'get_stage_authoring_guide',
+  'validate_stages',
+  'test_stage',
+  'get_stage_outcomes',
   // Inbound integrations
   'list_inbound_integrations',
   'get_inbound_integration',

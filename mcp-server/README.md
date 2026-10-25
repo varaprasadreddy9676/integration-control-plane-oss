@@ -86,6 +86,10 @@ native resources and prompts.
 | `duplicate_outbound_integration` | `integration:create` | ✓ |
 | `test_outbound_integration` | `integration:test` | ✓ (sends a real live delivery) |
 | `validate_outbound_transformation` | `integration:test` | — (dry run, no side effects) |
+| `get_stage_authoring_guide` | any | — (read only) |
+| `validate_stages` | `stages:edit` | — (checks, saves nothing) |
+| `test_stage` | any | — (never live: HTTP is answered by stand-ins) |
+| `get_stage_outcomes` | any | — (read only) |
 
 ### Inbound integrations (webhook receivers)
 

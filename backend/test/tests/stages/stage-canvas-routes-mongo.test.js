@@ -218,6 +218,30 @@ describeMongo('workflow canvas backend (MongoDB)', () => {
     });
   });
 
+  describe('writing a stage with AI', () => {
+    it('serves the guide for a hook', async () => {
+      const { body } = await appAs('VIEWER').get('/stages/authoring-guide?hook=after_delivery').expect(200);
+      expect(body.at).toMatchObject({ title: 'Later (scheduled)', timeoutMs: { default: 15000 } });
+    });
+
+    it('builds a prompt from a goal, with the shape of a delivery\'s data and none of its values', async () => {
+      const integration = await addIntegration('Prompted');
+      const logId = await addLog(integration, { originalPayload: { patient: { name: 'Ada Lovelace', phone: '+919800000000' } }, responseBody: '{"id":"m-1"}' });
+      const { body } = await editor().post('/stages/authoring-prompt').send({ hook: 'before_send', goal: 'Skip when there is no phone', deliveryId: String(logId), current: 'return null;' }).expect(200);
+      expect(body.prompt).toMatch(/Skip when there is no phone/);
+      expect(body.prompt).toMatch(/"phone": "string"/);
+      expect(body.prompt).not.toMatch(/Lovelace|919800000000/);
+      expect(body.guide.at.title).toBe('Before send');
+    });
+
+    it('needs a goal, and a delivery of the caller\'s own org', async () => {
+      await editor().post('/stages/authoring-prompt').send({ hook: 'before_send' }).expect(400);
+      const integration = await addIntegration('Prompted2');
+      const logId = await addLog(integration);
+      await appAs('INTEGRATION_EDITOR', ORG + 1).post('/stages/authoring-prompt').send({ hook: 'before_send', goal: 'x', deliveryId: String(logId) }).expect(404);
+    });
+  });
+
   describe('other deliveries that failed the same way', () => {
     it('counts failures of the same integration and error within the window, not the delivery itself', async () => {
       const integration = await addIntegration('Similar');

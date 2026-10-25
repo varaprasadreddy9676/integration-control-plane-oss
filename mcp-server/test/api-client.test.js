@@ -398,3 +398,22 @@ test('accepts a working key', async () => {
   const result = await clientReturning(200, { data: [] }).checkCredentials();
   assert.equal(result.ok, true);
 });
+
+test('a stage test from the MCP server is never live, whatever the caller asks for', async () => {
+  const calls = [];
+  const client = new IntegrationControlPlaneClient({
+    baseUrl: 'https://gateway.example.com/api/v1',
+    fetchImpl: async (url, options) => {
+      calls.push({ url: url.toString(), body: JSON.parse(options.body) });
+      return new Response(JSON.stringify({ live: false }), { status: 200 });
+    },
+  });
+  await client.testStage({ orgId: 7, stage: { id: 's' }, live: true, stubResponses: [{ status: 200, body: {} }] });
+  assert.equal(calls[0].url, 'https://gateway.example.com/api/v1/stages/test?orgId=7');
+  assert.equal(calls[0].body.live, false);
+  assert.deepEqual(calls[0].body.stubResponses, [{ status: 200, body: {} }]);
+
+  await client.validateStages({ orgId: 7, integrationId: 'i1', actionIndex: 1, stages: [] });
+  assert.equal(calls[1].url, 'https://gateway.example.com/api/v1/stages/validate?orgId=7');
+  assert.deepEqual(calls[1].body, { integrationId: 'i1', actionIndex: 1, stages: [] });
+});

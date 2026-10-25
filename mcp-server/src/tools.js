@@ -406,9 +406,71 @@ Example response shape: { _env, id, name, ... } (full updated document)`,
       lookups: z.array(z.record(z.any())).optional(),
       excludedOrgUnits: z.array(z.string()).optional(),
       actions: z.array(z.record(z.any())).optional(),
+      stages: z.array(z.record(z.any())).optional().describe('Pipeline stages of an integration that sends once (see get_stage_authoring_guide); for actions, put them on each action'),
+      send: z.record(z.any()).nullable().optional().describe('The Send step\'s bindings: { bindings: { headers, query, fields } }'),
       isActive: z.boolean().optional(),
     },
     safe('update_outbound_integration', async (args) => jsonContent(await client.updateOutboundIntegration(args)))
+  );
+
+  // ── Pipeline stages: write one with an AI
+
+  server.tool(
+    'get_stage_authoring_guide',
+    `Read what a pipeline step may do at a place in the delivery: what its script sees (ctx), the helpers it has (http, lookup, log, skip, fail), what it must return, the time limit, the rules and a working example.
+Permission: none beyond access to the gateway. Never mutates data.
+Read this BEFORE writing a stage's script. Then: validate_stages, test_stage, and save with update_outbound_integration (stages).
+
+hook: before_send | after_response | after_delivery | on_failure (omit for an overview of all four).
+Example response shape: { hook, at: { title, when, sees, may, timeoutMs, example }, helpers, rules, returns, runners, shape }`,
+    { hook: z.enum(['before_send', 'after_response', 'after_delivery', 'on_failure']).optional() },
+    safe('get_stage_authoring_guide', async (args) => jsonContent(await client.getStageAuthoringGuide(args)))
+  );
+
+  server.tool(
+    'validate_stages',
+    `Check one delivery's stages (and its Send step) as they would be saved, WITHOUT saving anything.
+Permission: stages:edit
+Send the full list of stages for ONE delivery: the integration's own (omit actionIndex) or one action's (actionIndex). Errors come back with a path (stages[0].runner.config.code) and a message to fix.
+
+Example response shape: { ok, errors: [{ path, message }], stages }`,
+    {
+      orgId,
+      integrationId: z.string().optional().describe('The integration the stages belong to (omit for a new one)'),
+      actionIndex: z.number().int().min(0).optional().describe('Which action\'s stages; omit for the integration itself'),
+      stages: z.array(z.record(z.any())),
+      send: z.record(z.any()).nullable().optional(),
+    },
+    safe('validate_stages', async (args) => jsonContent(await client.validateStages(args)))
+  );
+
+  server.tool(
+    'test_stage',
+    `Run ONE stage once and see exactly what it did (the same record a real run keeps), without saving, scheduling or changing any delivery.
+HTTP calls are answered by the stand-in answers you give, never sent to a real system.
+Permission: any signed-in caller
+
+Give a sample ({ event, delivery: { request, response } }) or a deliveryId whose data to run against. For a check that calls http, pass stubResponses: [{ status, body }] in the order the calls happen.
+Example response shape: { live: false, record: { outcome, status, done, error, calls, logs, result }, decision }`,
+    {
+      orgId,
+      integrationId: z.string().optional(),
+      stage: z.record(z.any()),
+      sample: z.record(z.any()).optional().describe('{ event, delivery: { request, response } } the step sees'),
+      deliveryId: z.string().optional().describe('Run against this delivery\'s own data instead of a sample'),
+      stubResponses: z.array(z.object({ status: z.number().int(), body: z.any() })).optional(),
+    },
+    safe('test_stage', async (args) => jsonContent(await client.testStage(args)))
+  );
+
+  server.tool(
+    'get_stage_outcomes',
+    `Read what a stage can end with from its configuration, without running it: the status words (and whether each ends a check), the places it can skip, and the places it can fail (and whether it asks for a retry). A script is read by a scanner; anything it cannot read exactly is reported as dynamicStatus.
+Permission: any signed-in caller. Never mutates data.
+
+Example response shape: { outcomes: { known, statuses: [{ status, done }], skips, fails, dynamicStatus } }`,
+    { orgId, stage: z.record(z.any()) },
+    safe('get_stage_outcomes', async (args) => jsonContent(await client.getStageOutcomes(args)))
   );
 
   server.tool(

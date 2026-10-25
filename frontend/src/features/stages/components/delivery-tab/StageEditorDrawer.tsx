@@ -8,6 +8,7 @@ import { CheckScheduleEditor } from '../../../integrations/components/detail/Del
 import { hookTitle } from '../../stageLabels';
 import { KeyValueEditor, SchemaForm, Widget } from './SchemaForm';
 import { StageTestPanel } from './StageTestPanel';
+import { WriteWithAI } from './WriteWithAI';
 import { errorsForStage, isInline, outputsOf } from './stageDraft';
 
 const { Text } = Typography;
@@ -170,6 +171,14 @@ export const StageEditor = ({
             </Space>
           </Radio.Group>
         </Field>
+      )}
+
+      {runner?.configSchema.fields.some((field) => field.widget === 'code' && field.language === 'javascript') && !legacy && (
+        <WriteWithAI
+          hook={draft.hook}
+          integrationId={integrationId}
+          current={String(draft.runner.config[runner.configSchema.fields.find((field) => field.widget === 'code')?.name || 'code'] || '')}
+        />
       )}
 
       {runner ? (

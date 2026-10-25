@@ -311,6 +311,28 @@ export class IntegrationControlPlaneClient {
     return this.call('PUT', `/outbound-integrations/${encodeURIComponent(integrationId)}`, { query, body: rest });
   }
 
+  // ── Pipeline stages: write one with an AI (the guide, then check, then test)
+
+  getStageAuthoringGuide(args = {}) {
+    return this.call('GET', '/stages/authoring-guide', { query: args.hook ? { hook: args.hook } : {} });
+  }
+
+  validateStages(args) {
+    const { orgId, ...body } = args;
+    return this.call('POST', '/stages/validate', { query: { orgId }, body });
+  }
+
+  testStage(args) {
+    const { orgId, ...body } = args;
+    // Never live from here: a test answers HTTP with the stand-ins given (or {} ), so it cannot reach a partner's system.
+    return this.call('POST', '/stages/test', { query: { orgId }, body: { ...body, live: false } });
+  }
+
+  getStageOutcomes(args) {
+    const { orgId, stage } = args;
+    return this.call('POST', '/stages/outcomes', { query: { orgId }, body: { stage } });
+  }
+
   deleteOutboundIntegration(args) {
     const { integrationId, orgId } = args;
     return this.call('DELETE', `/outbound-integrations/${encodeURIComponent(integrationId)}`, { query: { orgId } });
