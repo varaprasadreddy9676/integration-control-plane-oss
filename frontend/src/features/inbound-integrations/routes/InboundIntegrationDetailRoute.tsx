@@ -53,6 +53,7 @@ import { FcmConfigFields } from '../components/FcmConfigFields';
 import { SmsConfigFields } from '../components/SmsConfigFields';
 import { DeliveryTab } from '../../stages/components/delivery-tab/DeliveryTab';
 import { protocolOf } from '../../stages/deliveryTargets';
+import type { StepEditors } from '../../stages/canvas/stepEditors';
 import {
   getInboundIntegration,
   createInboundIntegration,
@@ -1003,6 +1004,47 @@ return {
   const basicComplete = isTabComplete('basic');
   const httpComplete = isTabComplete('http');
 
+  // The Delivery tab's diagram edits the fixed steps (the event, the transformation, the send) in place, with the
+  // sections the other tabs show: nothing sends you to another tab and back. Same as an outbound integration's.
+  type TabItems = NonNullable<React.ComponentProps<typeof Tabs>['items']>;
+  const withStepEditors = (tabs: TabItems): TabItems => {
+    const section = (key: string, title: string) => ({ key, title, node: tabs.find((tab) => tab.key === key)?.children });
+    const stepEditors: StepEditors = {
+      trigger: [section('basic', 'Event'), section('policy', 'Request policy'), section('auth', 'Authentication')],
+      transform: [section('request-transform', 'Request transformation')],
+      send: [section('http', 'Provider')],
+    };
+    return tabs.map((tab) =>
+      tab.key === 'delivery'
+        ? {
+            ...tab,
+            children: (
+              <Card style={{ marginTop: spacing[2] }} size="small">
+                <DeliveryTab
+                  form={form}
+                  integrationId={isCreate ? undefined : id}
+                  stepEditors={stepEditors}
+                  targets={[
+                    {
+                      key: 'action-0',
+                      label: null,
+                      namePath: [],
+                      protocol: protocolOf({ kind: 'COMMUNICATION', communicationConfig: { channel: communicationChannel } }),
+                      actionIndex: 0,
+                    },
+                  ]}
+                  context={() => ({
+                    direction: 'INBOUND',
+                    actions: [{ kind: 'COMMUNICATION', communicationConfig: form.getFieldValue('communicationConfig') }],
+                  })}
+                />
+              </Card>
+            ),
+          }
+        : tab
+    );
+  };
+
   return (
     <div style={{ background: cssVar.bg.base, paddingBottom: spacing[4] }}>
       {/* Page Header */}
@@ -1094,7 +1136,7 @@ return {
             border: `1px solid ${cssVar.border.default}`,
             borderRadius: 8,
           }}
-          items={[
+          items={withStepEditors([
             {
               key: 'basic',
               label: (
@@ -2012,27 +2054,7 @@ return {
                       </Space>
                     ),
                     disabled: !basicComplete || !httpComplete,
-                    children: (
-                      <Card style={{ marginTop: spacing[2] }} size="small">
-                        <DeliveryTab
-                          form={form}
-                          integrationId={isCreate ? undefined : id}
-                          targets={[
-                            {
-                              key: 'action-0',
-                              label: null,
-                              namePath: [],
-                              protocol: protocolOf({ kind: 'COMMUNICATION', communicationConfig: { channel: communicationChannel } }),
-                              actionIndex: 0,
-                            },
-                          ]}
-                          context={() => ({
-                            direction: 'INBOUND',
-                            actions: [{ kind: 'COMMUNICATION', communicationConfig: form.getFieldValue('communicationConfig') }],
-                          })}
-                        />
-                      </Card>
-                    ),
+                    children: null, // built by withStepEditors, once every tab's content exists
                   },
                 ]
               : []),
@@ -2334,7 +2356,7 @@ return {
                 </Card>
               ),
             },
-          ]}
+          ])}
         />
 
         {/* Persistent sticky footer — always visible regardless of active tab */}

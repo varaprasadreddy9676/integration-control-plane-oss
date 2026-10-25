@@ -935,6 +935,11 @@ Differences from the artifact, and why:
   into view beside it by the least needed, zoom and position otherwise stay. On a canvas narrower than 640 px the
   drawer is a sheet from the bottom (the diagram stays above it). While it is open the top bar takes two rows and the
   minimap steps aside.
+- **The same on every page that has a Delivery tab.** An outbound integration supplies its Basic Info, Authentication, Timing,
+  Reliability and Transformation (or Actions) sections; an inbound integration supplies its Basic Info, Request Policy,
+  Authentication, Provider Config and Request Transform. Each page builds `stepEditors` from its own tabs
+  (`features/stages/canvas/stepEditors.ts`), and the diagram, the drawer and the behaviour are identical. A step the page has
+  no form for (retries on an inbound delivery) shows only its description.
 
 ### 11.5 Acceptance check of the built canvas (against section 12)
 
