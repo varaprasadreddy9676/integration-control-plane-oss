@@ -222,6 +222,7 @@ describe('delivery popup', () => {
 describe('the Delivery tab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.setItem('stages-delivery-view', 'list');
     api.getStageRunners.mockResolvedValue(RUNNERS);
     api.getStageTemplates.mockResolvedValue([]);
     api.getStageRuntime.mockResolvedValue({ ready: true, mode: 'host', isolated: true, problems: [], switchedOff: false });

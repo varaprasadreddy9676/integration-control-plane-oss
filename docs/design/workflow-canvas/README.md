@@ -883,6 +883,29 @@ canvas shows it on the stage, never inside a branch label.
 
 ---
 
+### 11.4 What is built, and where it differs from the artifact
+
+The canvas is in the console: **Delivery tab → Workflow** (the list stays one click away as
+**List**; the choice is remembered). Code: `frontend/src/features/stages/canvas/`.
+
+| File | What it does |
+|------|--------------|
+| `model.ts` | Pure: nodes, connectors, labels, bands and insertion points from the stages (sections 7 and 11.3), compact variant, `insertStage`. Tested in `workflow-canvas-model.test.ts`. |
+| `facts.ts`, `execution.ts` | Connector counts from recorded facts (11.2); one real delivery drawn over the flow. |
+| `useCanvasData.ts`, `useExecution.ts` | Runner labels, outcomes (`/stages/outcomes`), 24 h counts, save impact; recent deliveries and one in full. |
+| `WorkflowCanvas.tsx`, `CanvasNode.tsx`, `Connectors.tsx`, `Minimap.tsx`, `useViewport.ts`, `canvas.css` | The canvas, nodes (6.1), connectors (6.4), minimap, zoom and pan, the spec's light and dark tokens. |
+| `Inspector.tsx`, `FailurePanel.tsx`, `ExecutionBar.tsx` | The inspector (the stage editor is the Delivery tab's own, `StageEditor`), the failure investigation with "Check status, then replay", the run picker and trace drawer. |
+
+Differences from the artifact, and why:
+
+- **No app nav or integration header drawn**: the canvas lives inside the console's own page, which already has them. The mode switch, search, zoom, Fit and **Full screen** (the canvas over the whole window) are the canvas top bar.
+- **The failure bus.** Failures from the main column (a gate's `fail()`, a rejected answer, a send that is refused) join one vertical lane at x 546 and enter On failure from its left. The artifact draws only the sample's single rejected-answer connector; with several sources, one shared lane stays readable. `Retry` from a gate (`retryDelivery`) uses its own lane at x 534. A send also has a drawn `Refused: not retried` branch (a 4xx fails at once).
+- **Adding a step** puts the step in the draft at once and opens it, instead of a ghost preview.
+- **Reordering** is Move up / Move down in the step's ⋯ menu (inside its hook), not drag and drop.
+- **Not built:** group collapse and the outline for large flows (zoom, search and the minimap are the way around), Pan tool, `N` to add.
+- **Read-only pages** (viewing an integration) show the canvas and Executions; settings are not editable there. The Delivery tab is not inside the page's disabled `<fieldset>`, which would make every canvas button unclickable.
+- The font is Instrument Sans (added to the console's font import); everything else in the console keeps Inter.
+
 ## 12. Acceptance checklist
 
 - [ ] Every screen in section 3 matches its `source/` file (spacing, colours, copy).
@@ -904,6 +927,8 @@ canvas shows it on the stage, never inside a branch label.
 ---
 
 ## Revision log
+
+- **Built into the console** (section 11.4): canvas, inspector, Executions, failure investigation, save impact, add and edit steps, undo and redo, search, minimap, light and dark.
 
 **Applied (review round 1, artifact version 10, sources in `source/`):**
 - One consistent timeline: event 14:02:09, sent 14:02:10 (0.9 s), checks 14:02:40 / 14:07:10 / 15:02:10, read at 14:31:05; failure run 14:02:09 → 14:04:10 (attempts at 14:02:09, 14:02:49, 14:03:59; backoff 30 s then 60 s). The execution trace uses two scales: sending (ms) and scheduled checks (up to 1 h).

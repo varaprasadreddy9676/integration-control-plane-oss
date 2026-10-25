@@ -1110,6 +1110,7 @@ const firstTime = addHours(now(), 1);
                 isReadOnly: !isCreate && !isEditMode,
                 isLoading: isDetailLoading,
                 integrationId: existingIntegration?.id,
+                onOpenTab: (key: string) => setActivePanels([key]),
                 hasPersistedFollowUpConfig: Boolean(
                   existingIntegration?.resourceType ||
                     existingIntegration?.subjectExtraction ||

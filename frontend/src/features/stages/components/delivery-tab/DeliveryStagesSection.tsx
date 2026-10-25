@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Alert, Button, Dropdown, Form, Popconfirm, Space, Switch, Tag, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import type { SendBindings, StageConfig, StageHook } from '../../../../services/stages-api';
-import { getStageRunners, getStageRuntime, getStageTemplates, stageFromTemplate } from '../../../../services/stages-api';
+import { stageFromTemplate } from '../../../../services/stages-api';
 import { HOOK_GROUPS } from '../../stageLabels';
 import { KeyValueEditor } from './SchemaForm';
 import { StageEditorDrawer } from './StageEditorDrawer';
 import { StageResultsCard } from './StageResultsCard';
-import { defaultStage, newStageId, outputsOf, scheduleSummary } from './stageDraft';
+import { canMoveStage, draftFromRunner, moveStage, newStageId, outputsOf, removeStageAt, scheduleSummary, setStageEnabled } from './stageDraft';
+import { stageMenu, useStageLibrary } from './stageLibrary';
 import type { DeliveryTarget, RequestPart } from '../../deliveryTargets';
 import { requestParts } from '../../deliveryTargets';
 
@@ -87,9 +87,7 @@ interface DeliveryStagesSectionProps {
 export const DeliveryStagesSection = ({ form, integrationId, target, context, value, onChange }: DeliveryStagesSectionProps) => {
   const stages = value || [];
   const [editing, setEditing] = useState<{ stage: StageConfig; index: number; tab: 'settings' | 'test' } | null>(null);
-  const runners = useQuery({ queryKey: ['stage-runners'], queryFn: getStageRunners, staleTime: 5 * 60 * 1000 });
-  const templates = useQuery({ queryKey: ['stage-templates', integrationId], queryFn: () => getStageTemplates(integrationId) });
-  const runtime = useQuery({ queryKey: ['stage-runtime'], queryFn: getStageRuntime, staleTime: 60 * 1000 });
+  const { runners, templates, runtime } = useStageLibrary(integrationId);
   const send = Form.useWatch([...target.namePath, 'send'], { form, preserve: true }) as SendBindings | null | undefined;
   const migration = form.getFieldValue('stageMigration');
 
@@ -99,24 +97,14 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
   const addFromRunner = (hook: StageHook, type: string) => {
     const runner = runners.data?.find((candidate) => candidate.type === type);
     if (!runner) return;
-    const name = `${runner.label} ${stages.filter((stage) => stage.hook === hook).length + 1}`;
-    setEditing({ stage: defaultStage(runner, hook, name, taken), index: stages.length, tab: 'settings' });
+    setEditing({ stage: draftFromRunner(runner, hook, stages), index: stages.length, tab: 'settings' });
   };
   const addFromTemplate = async (templateId: string) => {
     const stage = await stageFromTemplate(templateId);
     setEditing({ stage: { ...stage, id: newStageId(stage.name, taken) }, index: stages.length, tab: 'settings' });
   };
 
-  const move = (index: number, direction: -1 | 1) => {
-    const hook = stages[index].hook;
-    const same = stages.map((stage, i) => (stage.hook === hook ? i : -1)).filter((i) => i >= 0);
-    const position = same.indexOf(index);
-    const target = same[position + direction];
-    if (target === undefined) return;
-    const next = [...stages];
-    [next[index], next[target]] = [next[target], next[index]];
-    write(next);
-  };
+  const move = (index: number, direction: -1 | 1) => write(moveStage(stages, index, direction));
 
   const beforeSendOutputs = stages
     .filter((stage) => stage.hook === 'before_send')
@@ -126,7 +114,7 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
     stages
       .map((stage, index) => ({ stage, index }))
       .filter(({ stage }) => stage.hook === hook)
-      .map(({ stage, index }, position, list) => (
+      .map(({ stage, index }) => (
         <div key={stage.id} style={rowStyle}>
           <Space direction="vertical" size={2} style={{ minWidth: 0 }}>
             <Space wrap size={[6, 4]}>
@@ -148,10 +136,10 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
               size="small"
               checked={stage.enabled !== false}
               aria-label={`Run ${stage.name}`}
-              onChange={(enabled) => write(stages.map((s, i) => (i === index ? { ...s, enabled } : s)))}
+              onChange={(enabled) => write(setStageEnabled(stages, index, enabled))}
             />
-            <Button type="text" icon={<ArrowUpOutlined />} aria-label={`Move ${stage.name} up`} disabled={position === 0} onClick={() => move(index, -1)} />
-            <Button type="text" icon={<ArrowDownOutlined />} aria-label={`Move ${stage.name} down`} disabled={position === list.length - 1} onClick={() => move(index, 1)} />
+            <Button type="text" icon={<ArrowUpOutlined />} aria-label={`Move ${stage.name} up`} disabled={!canMoveStage(stages, index, -1)} onClick={() => move(index, -1)} />
+            <Button type="text" icon={<ArrowDownOutlined />} aria-label={`Move ${stage.name} down`} disabled={!canMoveStage(stages, index, 1)} onClick={() => move(index, 1)} />
             <Button type="text" icon={<PlayCircleOutlined />} aria-label={`Test ${stage.name}`} onClick={() => setEditing({ stage, index, tab: 'test' })} />
             <Button type="text" icon={<EditOutlined />} aria-label={`Edit ${stage.name}`} onClick={() => setEditing({ stage, index, tab: 'settings' })} />
             <Popconfirm
@@ -159,7 +147,7 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
               description="Its scheduled checks are cancelled when the integration is saved. Its history stays."
               okText="Remove"
               okButtonProps={{ danger: true }}
-              onConfirm={() => write(stages.filter((_, i) => i !== index))}
+              onConfirm={() => write(removeStageAt(stages, index))}
             >
               <Button type="text" danger icon={<DeleteOutlined />} aria-label={`Remove ${stage.name}`} />
             </Popconfirm>
@@ -167,24 +155,8 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
         </div>
       ));
 
-  const addMenu = (hook: StageHook) => {
-    const fromRunners = (runners.data || []).filter((runner) => runner.hooks.includes(hook)).map((runner) => ({ key: `runner:${runner.type}`, label: runner.label }));
-    const fromTemplates = (templates.data || []).filter((template) => template.hook === hook).map((template) => ({
-      key: `template:${template.id}`,
-      label: `${template.label}${template.recommended ? ' (suggested)' : ''}`,
-    }));
-    return {
-      items: [
-        ...fromRunners,
-        ...(fromTemplates.length ? [{ type: 'divider' as const }, { key: 'templates', type: 'group' as const, label: 'From a template', children: fromTemplates }] : []),
-      ],
-      onClick: ({ key }: { key: string }) => {
-        const [kind, id] = key.split(':');
-        if (kind === 'runner') addFromRunner(hook, id);
-        else if (kind === 'template') void addFromTemplate(id);
-      },
-    };
-  };
+  const addMenu = (hook: StageHook) =>
+    stageMenu(hook, { runners: runners.data, templates: templates.data }, { onRunner: (type) => addFromRunner(hook, type), onTemplate: (id) => void addFromTemplate(id) });
 
   return (
     <Space direction="vertical" size={20} style={{ width: '100%' }}>

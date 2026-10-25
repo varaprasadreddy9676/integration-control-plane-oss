@@ -72,6 +72,8 @@ export interface IntegrationSectionsContentProps {
   isReadOnly?: boolean;
   isLoading?: boolean;
   integrationId?: string;
+  /** Open another tab of the page by its key (the workflow canvas links its fixed steps to theirs). */
+  onOpenTab?: (key: string) => void;
   onSave?: () => void;
   onCancel?: () => void;
   isSaving?: boolean;
@@ -123,6 +125,7 @@ export const buildIntegrationSectionItems = ({
   isReadOnly = false,
   isLoading = false,
   integrationId,
+  onOpenTab,
   onSave,
   onCancel,
   isSaving = false,
@@ -522,17 +525,22 @@ export const buildIntegrationSectionItems = ({
       </Space>
     ),
     disabled: !configComplete,
-    children: wrapContent(
-      <DeliveryTab
-        form={form}
-        integrationId={integrationId}
-        readOnly={isReadOnly}
-        targets={deliveriesOf(form.getFieldsValue(true))}
-        context={() => {
-          const current = form.getFieldsValue(true);
-          return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
-        }}
-      />
+    // Not inside the page's disabled fieldset: the tab handles read-only itself, and a
+    // disabled fieldset would make the workflow canvas's buttons unclickable.
+    children: (
+      <Card style={{ marginTop: spacing[2] }} size="small">
+        <DeliveryTab
+          form={form}
+          integrationId={integrationId}
+          readOnly={isReadOnly}
+          targets={deliveriesOf(form.getFieldsValue(true))}
+          onOpenTab={onOpenTab}
+          context={() => {
+            const current = form.getFieldsValue(true);
+            return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
+          }}
+        />
+      </Card>
     ),
   });
 

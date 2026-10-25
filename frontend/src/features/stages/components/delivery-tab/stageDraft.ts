@@ -97,3 +97,50 @@ export const apiFieldErrors = (error: unknown): StageValidationError[] => {
   const body = (error as { details?: { details?: unknown } } | null)?.details;
   return Array.isArray(body?.details) ? (body?.details as StageValidationError[]) : [];
 };
+
+/** A new stage of a runner at a hook, named after the runner and numbered among the stages already there. */
+export const draftFromRunner = (runner: StageRunner, hook: StageHook, stages: StageConfig[]): StageConfig =>
+  defaultStage(
+    runner,
+    hook,
+    `${runner.label} ${stages.filter((stage) => stage.hook === hook).length + 1}`,
+    stages.map((stage) => stage.id)
+  );
+
+/** Move the stage one place up or down among the stages of its hook; the others stay where they are. */
+export const moveStage = (stages: StageConfig[], index: number, direction: -1 | 1): StageConfig[] => {
+  const hook = stages[index].hook;
+  const same = stages.map((stage, i) => (stage.hook === hook ? i : -1)).filter((i) => i >= 0);
+  const swapWith = same[same.indexOf(index) + direction];
+  if (swapWith === undefined) return stages;
+  const next = [...stages];
+  [next[index], next[swapWith]] = [next[swapWith], next[index]];
+  return next;
+};
+
+export const canMoveStage = (stages: StageConfig[], index: number, direction: -1 | 1): boolean =>
+  moveStage(stages, index, direction) !== stages;
+
+export const setStageEnabled = (stages: StageConfig[], index: number, enabled: boolean): StageConfig[] =>
+  stages.map((stage, i) => (i === index ? { ...stage, enabled } : stage));
+
+export const removeStageAt = (stages: StageConfig[], index: number): StageConfig[] =>
+  stages.filter((_, i) => i !== index);
+
+/** A copy right after the original, with its own name and ID (its history and scheduled checks stay with the original). */
+export const duplicateStage = (stages: StageConfig[], index: number): StageConfig[] => {
+  const original = stages[index];
+  const name = `${original.name} copy`.slice(0, 80);
+  const copy: StageConfig = {
+    ...JSON.parse(JSON.stringify(original)),
+    id: newStageId(
+      name,
+      stages.map((stage) => stage.id)
+    ),
+    name,
+  };
+  delete copy.template;
+  delete copy.migratedFrom;
+  delete copy.shadow;
+  return [...stages.slice(0, index + 1), copy, ...stages.slice(index + 1)];
+};

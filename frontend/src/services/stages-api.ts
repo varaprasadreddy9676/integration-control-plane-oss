@@ -28,6 +28,8 @@ export interface StageConfig {
   outputs?: StageOutput[];
   inputs?: Record<string, string>;
   allowDeliveryRetry?: boolean;
+  /** A check after delivery that asks the provider whether it has the message: the statuses that mean it does not. */
+  verification?: { resendWhen: string[] };
   template?: { id: string; version: number };
   migratedFrom?: string;
   shadow?: boolean;
@@ -208,3 +210,95 @@ export interface CredentialOption {
 /** The org's credentials, for a stage's credential (needs credentials:view). */
 export const listCredentialOptions = async (): Promise<CredentialOption[]> =>
   (await apiRequest<{ data: CredentialOption[] }>('/credentials?limit=200')).data;
+
+// ── What the workflow canvas reads (backend stages/flow-stats.js, save-impact.js, outcomes.js, verified-replay.js)
+
+export interface StageFlowStats {
+  stageId: string;
+  name: string;
+  hook: StageHook | null;
+  enabled: boolean;
+  runs: number;
+  ok: number;
+  skipped: number;
+  rejected: number;
+  errored: number;
+  timedOut: number;
+  statuses: Record<string, number>;
+  /** Checks after delivery: deliveries by the stage's latest status word. */
+  latest: Record<string, number>;
+}
+
+export interface DeliveryFlowStats {
+  total: number;
+  byStatus: Record<string, number>;
+  attempts: number;
+  retries: number;
+}
+
+export interface FlowStats {
+  integrationId: string;
+  since: string;
+  until: string;
+  hours: number;
+  targets: Array<{ actionIndex: number | null; name: string | null; protocol: string; deliveries: DeliveryFlowStats; stages: StageFlowStats[] }>;
+  removedStages: StageFlowStats[];
+  unattributed: DeliveryFlowStats;
+}
+
+export const getFlowStats = async (integrationId: string, hours = 24): Promise<FlowStats> =>
+  apiRequest(`/stages/flow-stats?integrationId=${encodeURIComponent(integrationId)}&hours=${hours}`);
+
+export interface SaveImpactStage {
+  stageId: string;
+  name: string;
+  hook: StageHook;
+  change: 'added' | 'removed' | 'edited' | 'disabled' | 'enabled' | 'unchanged';
+  keepOldVersion: number;
+  paused: number;
+  resumed: number;
+  cancelled: number;
+}
+
+export interface SaveImpact {
+  stages: SaveImpactStage[];
+  totals: { keepOldVersion: number; paused: number; resumed: number; cancelled: number };
+}
+
+export const getSaveImpact = async (integrationId: string, integration: Record<string, unknown>): Promise<SaveImpact> =>
+  apiRequest('/stages/save-impact', json({ integrationId, integration }));
+
+export interface StageOutcomes {
+  /** False when the runner cannot describe what it ends with. */
+  known: boolean;
+  statuses: Array<{ status: string; done: boolean | null }>;
+  skips: Array<{ reason: string | null }>;
+  fails: Array<{ reason: string | null; retryDelivery: boolean; retryStage: boolean }>;
+  dynamicStatus: boolean;
+}
+
+export const getStageOutcomes = async (stage: StageConfig): Promise<StageOutcomes> =>
+  (await apiRequest<{ outcomes: StageOutcomes }>('/stages/outcomes', json({ stage }))).outcomes;
+
+export interface CheckAndReplayResult {
+  verdict: 'safe_to_resend' | 'provider_has_it' | 'unverifiable';
+  status: string | null;
+  stage: { id: string; name: string } | null;
+  runId: string | null;
+  reason: string | null;
+  replayed?: boolean;
+}
+
+export const checkAndReplay = async (deliveryId: string, body: { reason: string; acceptUnverified?: boolean }): Promise<CheckAndReplayResult> =>
+  apiRequest(`/stages/deliveries/${deliveryId}/check-and-replay`, json(body));
+
+export interface SimilarFailures {
+  matchedOn: 'errorCode' | 'errorCategory' | null;
+  windowMinutes: number;
+  count: number;
+  capped: boolean;
+  sample: string[];
+}
+
+export const getSimilarFailures = async (logId: string, minutes = 60): Promise<SimilarFailures> =>
+  apiRequest(`/logs/${logId}/similar-failures?minutes=${minutes}`);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Alert, Button, Checkbox, Collapse, Drawer, Input, InputNumber, Radio, Select, Space, Tabs, Typography } from 'antd';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SchemaField, SendBindings, StageConfig, StageRunner, StageValidationError } from '../../../../services/stages-api';
@@ -64,7 +65,26 @@ interface StageEditorDrawerProps {
   onClose: () => void;
 }
 
-export const StageEditorDrawer = ({
+export interface StageEditorApi {
+  draft: StageConfig;
+  settings: ReactNode;
+  test: ReactNode;
+  tab: 'settings' | 'test';
+  setTab: (tab: 'settings' | 'test') => void;
+  /** Check the stage with the server, then hand it to onApply. */
+  apply: () => Promise<void>;
+  applying: boolean;
+  /** Does the editor hold changes that were not applied yet? */
+  changed: boolean;
+}
+
+/**
+ * The stage editor's state and content, so the same editor serves the drawer and the
+ * canvas's inspector: the Settings form, the Test panel, and Apply (which checks the
+ * stage with the server before it reaches the integration form).
+ */
+export const StageEditor = ({
+  children,
   open,
   stage,
   index,
@@ -77,8 +97,7 @@ export const StageEditorDrawer = ({
   actionIndex = null,
   initialTab = 'settings',
   onApply,
-  onClose,
-}: StageEditorDrawerProps) => {
+}: Omit<StageEditorDrawerProps, 'onClose'> & { children: (editor: StageEditorApi) => ReactNode }) => {
   const [draft, setDraft] = useState<StageConfig | null>(stage);
   const [tab, setTab] = useState(initialTab);
   const [errors, setErrors] = useState<StageValidationError[]>([]);
@@ -374,32 +393,51 @@ export const StageEditorDrawer = ({
   );
 
   return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      width={760}
-      title={draft.name || 'New stage'}
-      destroyOnClose
-      footer={
-        <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="primary" loading={validate.isPending} onClick={apply}>
-            Apply
-          </Button>
-        </Space>
-      }
-    >
-      <Tabs
-        activeKey={tab}
-        onChange={(key) => setTab(key as 'settings' | 'test')}
-        items={[
-          { key: 'settings', label: 'Settings', children: settings },
-          { key: 'test', label: 'Test', children: <StageTestPanel stage={draft} integrationId={integrationId} protocol={protocol} /> },
-        ]}
-      />
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        Applying keeps the change in this form; it takes effect when the integration is saved.
-      </Text>
-    </Drawer>
+    <>
+      {children({
+        draft,
+        settings,
+        test: <StageTestPanel stage={draft} integrationId={integrationId} protocol={protocol} />,
+        tab,
+        setTab,
+        apply,
+        applying: validate.isPending,
+        changed: JSON.stringify(draft) !== JSON.stringify(stage),
+      })}
+    </>
   );
 };
+
+export const StageEditorDrawer = ({ open, onClose, ...editorProps }: StageEditorDrawerProps) => (
+  <StageEditor open={open} {...editorProps}>
+    {({ draft, settings, test, tab, setTab, apply, applying }) => (
+      <Drawer
+        open={open}
+        onClose={onClose}
+        width={760}
+        title={draft.name || 'New stage'}
+        destroyOnClose
+        footer={
+          <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button type="primary" loading={applying} onClick={apply}>
+              Apply
+            </Button>
+          </Space>
+        }
+      >
+        <Tabs
+          activeKey={tab}
+          onChange={(key) => setTab(key as 'settings' | 'test')}
+          items={[
+            { key: 'settings', label: 'Settings', children: settings },
+            { key: 'test', label: 'Test', children: test },
+          ]}
+        />
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Applying keeps the change in this form; it takes effect when the integration is saved.
+        </Text>
+      </Drawer>
+    )}
+  </StageEditor>
+);
