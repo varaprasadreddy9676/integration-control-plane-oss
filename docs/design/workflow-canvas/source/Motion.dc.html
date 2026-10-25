@@ -57,7 +57,7 @@ button{font-family:inherit}
 </div>
 <div role="status" aria-live="polite" style="position: absolute; left: 24px; top: 26px; font-size: 13px; color: #45464D">{{announce}}</div>
 <sc-if value="{{ testShown }}" hint-placeholder-val="{{ false }}">
-<div style="position: absolute; left: 24px; top: 54px; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 6px 0 12px; border-radius: 8px; background: #EDEBE5; color: #45464D; font-size: 12.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.5L4 20a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-6-10.5V2"/><path d="M8.5 2h7"/></svg>Showing test results from sample data. Nothing was sent, and an edit clears them.<button type="button" class="mbtn" onClick="{{ clearTest }}" style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #D3CDC1; background: #FFFFFF; color: #16171B; font-size: 12px; cursor: pointer">Clear</button></div>
+<div style="position: absolute; left: 24px; top: 50px; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 6px 0 12px; border-radius: 8px; background: #EDEBE5; color: #45464D; font-size: 12.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.5L4 20a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-6-10.5V2"/><path d="M8.5 2h7"/></svg>Showing test results from sample data. Nothing was sent, and an edit clears them.<button type="button" class="mbtn" onClick="{{ clearTest }}" style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #D3CDC1; background: #FFFFFF; color: #16171B; font-size: 12px; cursor: pointer">Clear</button></div>
 </sc-if>
 
 <div style="position: absolute; left: 120px; top: 90px; width: 600px; height: 860px">
@@ -71,11 +71,13 @@ button{font-family:inherit}
 <sc-for list="{{ nodes }}" as="node" hint-placeholder-count="5">
 <button type="button" class="mnode" onClick="{{ node.pick }}" aria-pressed="{{ node.pressed }}" style="{{node.style}}">
 <span style="{{node.tile}}" aria-hidden="true">{{node.glyph}}</span>
-<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left">
-<span style="font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #66676E">{{node.eyebrow}}</span>
-<span style="font-size: 14px; line-height: 20px; font-weight: 600">{{node.title}}</span>
-</span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; text-align: left">
+<span style="display: flex; align-items: center; gap: 8px; min-width: 0">
+<span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #66676E">{{node.eyebrow}}</span>
 <span style="{{node.statusStyle}}"><span style="{{node.dot}}" aria-hidden="true"></span>{{node.status}}</span>
+</span>
+<span style="font-size: 14px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{node.title}}</span>
+</span>
 </button>
 <sc-if value="{{ node.hasError }}" hint-placeholder-val="{{ false }}">
 <div role="alert" style="{{node.errorStyle}}"><b style="font-weight: 600">1 error.</b> The script returns <code style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px">status: 'ok '</code>: a status is letters, digits and _ only.
@@ -83,8 +85,7 @@ button{font-family:inherit}
 <sc-if value="{{ node.proposal }}" hint-placeholder-val="{{ false }}">
 <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
 <span style="font-size: 12px; color: #45464D">Proposed change to the script:</span>
-<pre style="margin: 0; padding: 8px 10px; border-radius: 8px; background: #FFFFFF; border: 1px solid #F2C9C3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 18px; white-space: pre-wrap"><span style="color: #9E1F15">- return { status: 'ok ' };</span>
-<span style="color: #1E6B44">+ return { status: 'OK' };</span></pre>
+<pre style="margin: 0; padding: 8px 10px; border-radius: 8px; background: #FFFFFF; border: 1px solid #F2C9C3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 18px; white-space: pre-wrap"><span style="display: block; color: #9E1F15">- return { status: 'ok ' };</span><span style="display: block; color: #1E6B44">+ return { status: 'OK' };</span></pre>
 <div style="display: flex; gap: 8px"><button type="button" class="mbtn" onClick="{{ apply }}" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #16171B; background: #16171B; color: #FFFFFF; font-size: 12px; font-weight: 600; cursor: pointer">Apply change</button><button type="button" class="mbtn" onClick="{{ cancelFix }}" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #D9D4CA; background: #FFFFFF; color: #16171B; font-size: 12px; cursor: pointer">Cancel</button></div>
 <span style="font-size: 11.5px; color: #66676E">Applying changes the draft only. Saving is a separate step.</span>
 </div>
@@ -168,7 +169,7 @@ class Component extends DCLogic {
         status: status ? status.text : '',
         style: `position: absolute; left: 0; top: ${topOf(index)}px; width: 256px; height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 10px; border: ${border}; background: ${bg}; box-shadow: ${ring}; cursor: pointer; font: inherit; color: #16171B; transition: top 280ms ${ease}, box-shadow 160ms ${ease}, border-color 160ms ${ease}, background-color 160ms ${ease}, transform 280ms ${ease}; ${settling ? `animation: m-settle 280ms ${ease} both;` : ''}`,
         tile: `width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 15px; color: ${m.tint}; background: color-mix(in oklab, ${m.tint} 10%, transparent)`,
-        statusStyle: `position: absolute; right: 12px; top: 10px; display: ${status ? 'inline-flex' : 'none'}; align-items: center; gap: 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: ${status ? status.color : '#66676E'}`,
+        statusStyle: `flex: 0 0 auto; white-space: nowrap; display: ${status ? 'inline-flex' : 'none'}; align-items: center; gap: 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: ${status ? status.color : '#66676E'}`,
         dot: `width: 7px; height: 7px; border-radius: 50%; background: ${status ? status.color : 'transparent'}; ${running && !s.reduced ? 'animation: m-pulse 1s ease-in-out infinite;' : ''}`,
         errorStyle: `position: absolute; left: 276px; top: ${topOf(index) + 12}px; width: 300px; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; background: #FDF3F1; border: 1px solid #F2C9C3; font-size: 12.5px; line-height: 18px; color: #3A3B41`,
       };
@@ -191,6 +192,7 @@ class Component extends DCLogic {
       nodes,
       lines,
       showGhost: preview,
+      testShown: s.testShown,
       ghostTitle: 'Check quiet hours',
       ghostSub: 'Script · lands after the consent check',
       ghostStyle: `position: absolute; left: 0; top: ${2 * pitch}px; width: 256px; height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 10px; border: 1.5px dashed #2B59E6; background: rgba(43,89,230,0.05); color: #1F45B8; animation: m-ghost 180ms ${ease} both`,

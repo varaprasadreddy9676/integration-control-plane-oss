@@ -607,7 +607,7 @@ must contain, so it can be checked or rebuilt.
   (summary "3 checks · READ at the 1 h check"); delivered ok `Done` (summary "read 14:31 ·
   seen at 15:02"). Right column all `unvisited` (status "Not taken", summary "not taken" /
   "not needed").
-- Drawer open: Trace tab; outcome chip "Delivered · 1 attempt · sent in 0.9 s"; two scales:
+- Drawer open (216 px; the flow is drawn at 64 %): Trace tab; outcome chip "Delivered · 1 attempt · sent in 0.9 s"; two scales:
   Check patient consent 212 ms; Consent granted? 3 ms; Send WhatsApp message 640 ms
   (bar `#7EA2FF`); Read the provider reply 4 ms, on a 0 – 900 ms scale (sending
   14:02:09.4 → 14:02:10.3); then a second scale, 0 – 1 h, for the scheduled checks
@@ -888,10 +888,11 @@ the following.
 - Header `mode` prop: `executions` hides the save state and shows **Edit workflow** (pencil icon) instead of Save changes. Screens 2 and 3 use it.
 - Node gains a `passed` state ("Passed", success) for test results, distinct from production `ok` ("Done").
 
-**Applied (review round 2, artifact version 11):**
+**Applied (review round 2, artifact version 15; each screen was opened and checked rendered):**
 - Motion prototype: test results are their own labelled layer (Passed, banner, Clear) that any edit or save clears; "Fix it" became **Review the fix**, a diff the user applies to the draft before saving separately.
 - System board: the "Not taken" card describes the quiet surface; new cards for long names (two lines) and Passed (test); the anatomy labels follow the new status position; the board is 2080 px tall.
 - Sections 6.1, 6.3, 8.2, 8.3 and 9.2 of this document now describe the revised design directly.
+- Found by rendering: the motion prototype's node status moved into the eyebrow row (it collided with long eyebrows), the diff lines are separate blocks, the banner has its own space; the Execution drawer is 216 px with the flow at 64 % so both trace scales fit; the Add-step header agrees with the other screens ("accepted · 3 min ago").
 
 **Open:**
 - Nothing from the review remains. The canvas is a design only; none of it is built into the console yet (see section 11 for the plan and the missing backend pieces).
