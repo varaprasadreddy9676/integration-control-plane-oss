@@ -28,7 +28,9 @@ const core = vi.hoisted(() => ({ getLogs: vi.fn(), getLogById: vi.fn() }));
 vi.mock('../services/stages-api', () => api);
 vi.mock('../services/api', async (importOriginal) => ({ ...(await importOriginal<object>()), ...core }));
 vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
-  MonacoEditorInput: ({ value, onChange }: any) => <textarea aria-label="Script" value={value || ''} onChange={(e) => onChange?.(e.target.value)} />,
+  MonacoEditorInput: ({ value, onChange }: any) => (
+    <textarea aria-label="Script" value={value || ''} onChange={(e) => onChange?.(e.target.value)} />
+  ),
 }));
 
 import { DeliveryTab } from '../features/stages/components/delivery-tab/DeliveryTab';
@@ -36,7 +38,12 @@ import { deliveriesOf } from '../features/stages/deliveryTargets';
 import type { StepEditors } from '../features/stages/canvas/stepEditors';
 import { RUNNERS } from './fixtures/stage-runners';
 
-const script = (id: string, name: string, hook: StageConfig['hook'], extra: Partial<StageConfig> = {}): StageConfig => ({
+const script = (
+  id: string,
+  name: string,
+  hook: StageConfig['hook'],
+  extra: Partial<StageConfig> = {}
+): StageConfig => ({
   id,
   name,
   hook,
@@ -62,10 +69,62 @@ const STATS = {
       protocol: 'http',
       deliveries: { total: 1190, byStatus: { SUCCESS: 1180, ABANDONED: 1 }, attempts: 1200, retries: 6 },
       stages: [
-        { stageId: 'consent', name: 'Consent granted?', hook: 'before_send', enabled: true, runs: 1225, ok: 1184, skipped: 41, rejected: 0, errored: 0, timedOut: 0, statuses: {}, latest: {} },
-        { stageId: 'reply', name: 'Read the provider reply', hook: 'after_response', enabled: true, runs: 1177, ok: 1168, skipped: 0, rejected: 9, errored: 0, timedOut: 0, statuses: {}, latest: {} },
-        { stageId: 'status', name: 'Check delivery status', hook: 'after_delivery', enabled: true, runs: 2000, ok: 2000, skipped: 0, rejected: 0, errored: 0, timedOut: 0, statuses: {}, latest: { READ: 1100, DELIVERED: 42, PENDING: 26 } },
-        { stageId: 'notify', name: 'Notify the front desk', hook: 'on_failure', enabled: true, runs: 10, ok: 10, skipped: 0, rejected: 0, errored: 0, timedOut: 0, statuses: {}, latest: {} },
+        {
+          stageId: 'consent',
+          name: 'Consent granted?',
+          hook: 'before_send',
+          enabled: true,
+          runs: 1225,
+          ok: 1184,
+          skipped: 41,
+          rejected: 0,
+          errored: 0,
+          timedOut: 0,
+          statuses: {},
+          latest: {},
+        },
+        {
+          stageId: 'reply',
+          name: 'Read the provider reply',
+          hook: 'after_response',
+          enabled: true,
+          runs: 1177,
+          ok: 1168,
+          skipped: 0,
+          rejected: 9,
+          errored: 0,
+          timedOut: 0,
+          statuses: {},
+          latest: {},
+        },
+        {
+          stageId: 'status',
+          name: 'Check delivery status',
+          hook: 'after_delivery',
+          enabled: true,
+          runs: 2000,
+          ok: 2000,
+          skipped: 0,
+          rejected: 0,
+          errored: 0,
+          timedOut: 0,
+          statuses: {},
+          latest: { READ: 1100, DELIVERED: 42, PENDING: 26 },
+        },
+        {
+          stageId: 'notify',
+          name: 'Notify the front desk',
+          hook: 'on_failure',
+          enabled: true,
+          runs: 10,
+          ok: 10,
+          skipped: 0,
+          rejected: 0,
+          errored: 0,
+          timedOut: 0,
+          statuses: {},
+          latest: {},
+        },
       ],
     },
   ],
@@ -73,14 +132,28 @@ const STATS = {
 
 const known = (extra: object) => ({ known: true, statuses: [], skips: [], fails: [], dynamicStatus: false, ...extra });
 
-const Harness = ({ initial, onValues, stepEditors }: { initial: Record<string, unknown>; onValues?: (values: any) => void; stepEditors?: StepEditors }) => {
+const Harness = ({
+  initial,
+  onValues,
+  stepEditors,
+}: {
+  initial: Record<string, unknown>;
+  onValues?: (values: any) => void;
+  stepEditors?: StepEditors;
+}) => {
   const [form] = Form.useForm();
   return (
     <MemoryRouter>
       <ThemeProvider>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <Form form={form} initialValues={initial}>
-            <DeliveryTab form={form} integrationId="int-1" targets={deliveriesOf(initial as any)} stepEditors={stepEditors} context={() => form.getFieldsValue(true)} />
+            <DeliveryTab
+              form={form}
+              integrationId="int-1"
+              targets={deliveriesOf(initial as any)}
+              stepEditors={stepEditors}
+              context={() => form.getFieldsValue(true)}
+            />
             <button type="button" onClick={() => onValues?.(form.getFieldsValue(true))}>
               read values
             </button>
@@ -91,18 +164,33 @@ const Harness = ({ initial, onValues, stepEditors }: { initial: Record<string, u
   );
 };
 
-const integration = { eventType: 'APPOINTMENT_CONFIRMED', targetUrl: 'https://api.example.com/v1', httpMethod: 'POST', retryCount: 3, stages: [consent, reply, status, notify] };
+const integration = {
+  eventType: 'APPOINTMENT_CONFIRMED',
+  targetUrl: 'https://api.example.com/v1',
+  httpMethod: 'POST',
+  retryCount: 3,
+  stages: [consent, reply, status, notify],
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.setItem('stages-delivery-view', 'workflow');
   api.getStageRunners.mockResolvedValue(RUNNERS);
   api.getStageTemplates.mockResolvedValue([]);
-  api.getStageRuntime.mockResolvedValue({ ready: true, mode: 'host', isolated: true, problems: [], switchedOff: false });
+  api.getStageRuntime.mockResolvedValue({
+    ready: true,
+    mode: 'host',
+    isolated: true,
+    problems: [],
+    switchedOff: false,
+  });
   api.listCredentialOptions.mockResolvedValue([]);
   api.validateStages.mockResolvedValue({ ok: true, errors: [], stages: [] });
   api.getFlowStats.mockResolvedValue(STATS);
-  api.getSaveImpact.mockResolvedValue({ stages: [], totals: { keepOldVersion: 0, paused: 0, resumed: 0, cancelled: 0 } });
+  api.getSaveImpact.mockResolvedValue({
+    stages: [],
+    totals: { keepOldVersion: 0, paused: 0, resumed: 0, cancelled: 0 },
+  });
   api.getStageJobCounts.mockResolvedValue({});
   api.getStageOutcomes.mockImplementation(async (stage: StageConfig) =>
     stage.id === 'consent'
@@ -110,12 +198,27 @@ beforeEach(() => {
       : stage.id === 'reply'
         ? known({ fails: [{ reason: 'rejected', retryDelivery: false, retryStage: false }] })
         : stage.id === 'status'
-          ? known({ statuses: [{ status: 'READ', done: true }, { status: 'DELIVERED', done: true }, { status: 'PENDING', done: false }] })
+          ? known({
+              statuses: [
+                { status: 'READ', done: true },
+                { status: 'DELIVERED', done: true },
+                { status: 'PENDING', done: false },
+              ],
+            })
           : known({})
   );
   api.getDeliveryStages.mockResolvedValue({ states: [], runs: [] });
-  api.getSimilarFailures.mockResolvedValue({ matchedOn: 'errorCode', windowMinutes: 60, count: 7, capped: false, sample: [] });
-  core.getLogs.mockResolvedValue({ data: [], pagination: { page: 1, limit: 25, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false } });
+  api.getSimilarFailures.mockResolvedValue({
+    matchedOn: 'errorCode',
+    windowMinutes: 60,
+    count: 7,
+    capped: false,
+    sample: [],
+  });
+  core.getLogs.mockResolvedValue({
+    data: [],
+    pagination: { page: 1, limit: 25, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false },
+  });
 });
 
 describe('the workflow canvas', () => {
@@ -123,8 +226,19 @@ describe('the workflow canvas', () => {
     render(<Harness initial={integration} />);
     const nodes = await screen.findAllByRole('button', { name: /Consent granted\?/ });
     expect(nodes[0]).toHaveAttribute('data-node-id', 'g0-stage-consent');
-    for (const name of ['Build the request', 'Read the provider reply', 'Check delivery status', 'Notify the front desk', 'Delivered', 'Delivery failed', 'Skipped', 'Retry up to 3 attempts']) {
-      expect((await screen.findAllByRole('button', { name: new RegExp(name.replace('?', '\\?')) })).length).toBeGreaterThan(0);
+    for (const name of [
+      'Build the request',
+      'Read the provider reply',
+      'Check delivery status',
+      'Notify the front desk',
+      'Delivered',
+      'Delivery failed',
+      'Skipped',
+      'Retry up to 3 attempts',
+    ]) {
+      expect(
+        (await screen.findAllByRole('button', { name: new RegExp(name.replace('?', '\\?')) })).length
+      ).toBeGreaterThan(0);
     }
     expect(await screen.findByText('Yes · 1,184')).toBeInTheDocument();
     expect(screen.getByText('No · 41')).toBeInTheDocument();
@@ -200,7 +314,15 @@ describe('the workflow canvas', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add a failure step' }));
     fireEvent.click(await screen.findByText('Script'));
     fireEvent.click(screen.getByText('read values'));
-    await waitFor(() => expect(values.stages.map((stage: StageConfig) => stage.hook)).toEqual(['before_send', 'after_response', 'after_delivery', 'on_failure', 'on_failure']));
+    await waitFor(() =>
+      expect(values.stages.map((stage: StageConfig) => stage.hook)).toEqual([
+        'before_send',
+        'after_response',
+        'after_delivery',
+        'on_failure',
+        'on_failure',
+      ])
+    );
     expect(values.stages[4]).toMatchObject({ name: 'Script 2', runner: { type: 'script' } });
     expect(await screen.findByRole('complementary', { name: /Script 2 details/ })).toBeInTheDocument();
   });
@@ -212,15 +334,30 @@ describe('the workflow canvas', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'More actions for this step' }));
     fireEvent.click(await screen.findByText('Remove'));
     fireEvent.click(screen.getByText('read values'));
-    await waitFor(() => expect(values.stages.map((stage: StageConfig) => stage.id)).toEqual(['consent', 'reply', 'status']));
+    await waitFor(() =>
+      expect(values.stages.map((stage: StageConfig) => stage.id)).toEqual(['consent', 'reply', 'status'])
+    );
     fireEvent.click((await screen.findAllByRole('button', { name: 'Undo' }))[0]);
     fireEvent.click(screen.getByText('read values'));
-    await waitFor(() => expect(values.stages.map((stage: StageConfig) => stage.id)).toEqual(['consent', 'reply', 'status', 'notify']));
+    await waitFor(() =>
+      expect(values.stages.map((stage: StageConfig) => stage.id)).toEqual(['consent', 'reply', 'status', 'notify'])
+    );
   });
 
   it('shows what a save would do to waiting checks once there is a draft', async () => {
     api.getSaveImpact.mockResolvedValue({
-      stages: [{ stageId: 'status', name: 'Check delivery status', hook: 'after_delivery', change: 'edited', keepOldVersion: 41, paused: 0, resumed: 0, cancelled: 0 }],
+      stages: [
+        {
+          stageId: 'status',
+          name: 'Check delivery status',
+          hook: 'after_delivery',
+          change: 'edited',
+          keepOldVersion: 41,
+          paused: 0,
+          resumed: 0,
+          cancelled: 0,
+        },
+      ],
       totals: { keepOldVersion: 41, paused: 0, resumed: 0, cancelled: 0 },
     });
     render(<Harness initial={integration} />);
@@ -276,6 +413,23 @@ describe('moving around the diagram', () => {
     fireEvent(stage, pointer('pointerup', { pointerId: 1, clientX: 200, clientY: 200 }));
   });
 
+  it('keeps the wheel working after full screen rebuilds the canvas, and after leaving it', async () => {
+    render(<Harness initial={integration} />);
+    await screen.findAllByRole('button', { name: /Consent granted\?/ });
+    const wheelZooms = () => {
+      const before = zoomOf();
+      fireEvent.wheel(document.querySelector('.wf-stage') as HTMLElement, { deltaY: 20, ctrlKey: true });
+      return zoomOf() < before;
+    };
+    expect(wheelZooms()).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+    await screen.findByRole('button', { name: 'Exit full screen' });
+    expect(wheelZooms()).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full screen' }));
+    await screen.findByRole('button', { name: 'Full screen' });
+    expect(wheelZooms()).toBe(true);
+  });
+
   it('the zoom buttons step through whole sizes and glide', async () => {
     render(<Harness initial={integration} />);
     await screen.findAllByRole('button', { name: /Consent granted\?/ });
@@ -299,7 +453,7 @@ describe('the fixed steps are edited in the diagram', () => {
     retry: [{ key: 'reliability', title: 'Retries', node: <div>RETRY FORM</div> }],
   };
 
-  it('opens each fixed step\'s own form in the inspector, without leaving the diagram', async () => {
+  it("opens each fixed step's own form in the inspector, without leaving the diagram", async () => {
     render(<Harness initial={integration} stepEditors={stepEditors} />);
     const open = async (name: RegExp, text: string) => {
       fireEvent.click((await screen.findAllByRole('button', { name }))[0]);
@@ -333,7 +487,13 @@ describe('a runner the console has never heard of', () => {
     label: 'Wait',
     hooks: ['on_failure'],
     configSchema: { fields: [{ name: 'seconds', label: 'Seconds to wait', widget: 'text', valueType: 'number' }] },
-    presentation: { icon: 'script', summary: [{ field: 'seconds' }], mayDecide: false, outputs: {}, defaultConfig: { seconds: 60 } },
+    presentation: {
+      icon: 'script',
+      summary: [{ field: 'seconds' }],
+      mayDecide: false,
+      outputs: {},
+      defaultConfig: { seconds: 60 },
+    },
   };
 
   it('is offered where it can run, starts with its own defaults, is drawn with its own summary, and gets its own form', async () => {
@@ -344,7 +504,13 @@ describe('a runner the console has never heard of', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add a failure step' }));
     fireEvent.click(await screen.findByText('Wait'));
     fireEvent.click(screen.getByText('read values'));
-    await waitFor(() => expect(values.stages.at(-1)).toMatchObject({ name: 'Wait 2', hook: 'on_failure', runner: { type: 'wait', config: { seconds: 60 } } }));
+    await waitFor(() =>
+      expect(values.stages.at(-1)).toMatchObject({
+        name: 'Wait 2',
+        hook: 'on_failure',
+        runner: { type: 'wait', config: { seconds: 60 } },
+      })
+    );
     const node = await screen.findByRole('button', { name: /^Wait 2, Wait · on failure/ });
     expect(node).toHaveTextContent('60');
     const inspector = await screen.findByRole('complementary', { name: /Wait 2 details/ });
@@ -362,7 +528,12 @@ describe('a runner the console has never heard of', () => {
 });
 
 describe('many deliveries', () => {
-  const actions = [1, 2, 3, 4].map((n) => ({ name: `Action ${n}`, kind: 'HTTP', targetUrl: `https://p.test/${n}`, stages: [script(`g${n}`, `Gate ${n}`, 'before_send', { effect: 'gate' })] }));
+  const actions = [1, 2, 3, 4].map((n) => ({
+    name: `Action ${n}`,
+    kind: 'HTTP',
+    targetUrl: `https://p.test/${n}`,
+    stages: [script(`g${n}`, `Gate ${n}`, 'before_send', { effect: 'gate' })],
+  }));
 
   it('opens the first and folds the rest into one step each, which open when asked', async () => {
     render(<Harness initial={{ eventType: 'E', actions }} />);
@@ -388,16 +559,50 @@ describe('Executions', () => {
     errorMessage: 'timeout of 10000ms exceeded',
     actionIndex: null,
     retryAttempts: [{ attemptNumber: 1, responseStatus: null, responseTimeMs: 10000 }],
-    request: { url: 'https://api.example.com/v1', method: 'POST', headers: { Authorization: '[masked]' }, body: { to: 'x' } },
+    request: {
+      url: 'https://api.example.com/v1',
+      method: 'POST',
+      headers: { Authorization: '[masked]' },
+      body: { to: 'x' },
+    },
   };
   const prime = () => {
-    core.getLogs.mockResolvedValue({ data: [failed], pagination: { page: 1, limit: 25, total: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false } });
+    core.getLogs.mockResolvedValue({
+      data: [failed],
+      pagination: { page: 1, limit: 25, total: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+    });
     core.getLogById.mockResolvedValue(failed);
     api.getDeliveryStages.mockResolvedValue({
       states: [],
       runs: [
-        { runId: 'r1', deliveryId: 'log-1', stage: { id: 'consent', name: 'Consent granted?', hook: 'before_send', runner: 'script' }, seq: 1, executionAttempt: 1, at: '2026-10-25T08:02:09.100Z', durationMs: 4, outcome: 'ok', status: null, done: false, calls: [], logs: [] },
-        { runId: 'r2', deliveryId: 'log-1', stage: { id: 'notify', name: 'Notify the front desk', hook: 'on_failure', runner: 'script' }, seq: 1, executionAttempt: 1, at: '2026-10-25T08:04:10.000Z', durationMs: 1100, outcome: 'ok', status: null, done: false, calls: [], logs: [] },
+        {
+          runId: 'r1',
+          deliveryId: 'log-1',
+          stage: { id: 'consent', name: 'Consent granted?', hook: 'before_send', runner: 'script' },
+          seq: 1,
+          executionAttempt: 1,
+          at: '2026-10-25T08:02:09.100Z',
+          durationMs: 4,
+          outcome: 'ok',
+          status: null,
+          done: false,
+          calls: [],
+          logs: [],
+        },
+        {
+          runId: 'r2',
+          deliveryId: 'log-1',
+          stage: { id: 'notify', name: 'Notify the front desk', hook: 'on_failure', runner: 'script' },
+          seq: 1,
+          executionAttempt: 1,
+          at: '2026-10-25T08:04:10.000Z',
+          durationMs: 1100,
+          outcome: 'ok',
+          status: null,
+          done: false,
+          calls: [],
+          logs: [],
+        },
       ],
     });
   };
@@ -411,7 +616,9 @@ describe('Executions', () => {
 
   it('draws one real delivery: the path taken, what failed, and what was not reached', async () => {
     await open();
-    await waitFor(() => expect(screen.getByRole('button', { name: /Delivery failed, .*Abandoned/ })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Delivery failed, .*Abandoned/ })).toBeInTheDocument()
+    );
     expect(screen.getByRole('button', { name: /Send .*Failed|Send.*Timeout/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Read the provider reply.*Not taken/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Notify the front desk.*/ })).toBeInTheDocument();
@@ -427,9 +634,15 @@ describe('Executions', () => {
     expect(await within(inspector).findByText('The provider never answered', undefined, SLOW)).toBeInTheDocument();
     expect(await within(inspector).findByText('7 others in the last hour', undefined, SLOW)).toBeInTheDocument();
 
-    api.checkAndReplay.mockRejectedValue(Object.assign(new Error('The provider reports this message as DELIVERED, so it was not sent again'), { code: 'PROVIDER_HAS_MESSAGE' }));
+    api.checkAndReplay.mockRejectedValue(
+      Object.assign(new Error('The provider reports this message as DELIVERED, so it was not sent again'), {
+        code: 'PROVIDER_HAS_MESSAGE',
+      })
+    );
     fireEvent.click(within(inspector).getByRole('button', { name: 'Check status, then replay' }));
-    fireEvent.change(await screen.findByLabelText('Why send it again', undefined, SLOW), { target: { value: 'timed out' } });
+    fireEvent.change(await screen.findByLabelText('Why send it again', undefined, SLOW), {
+      target: { value: 'timed out' },
+    });
     fireEvent.click(await screen.findByRole('button', { name: /Check and replay/ }, SLOW));
     expect(await screen.findByText('Not sent again', undefined, SLOW)).toBeInTheDocument();
     expect(api.checkAndReplay).toHaveBeenCalledWith('log-1', { reason: 'timed out', acceptUnverified: false });
@@ -439,13 +652,26 @@ describe('Executions', () => {
     await open();
     fireEvent.click(await screen.findByRole('button', { name: /^Send/ }, SLOW));
     const inspector = await screen.findByRole('complementary', undefined, SLOW);
-    api.checkAndReplay.mockRejectedValueOnce(Object.assign(new Error('Could not confirm whether the provider has the message'), { code: 'UNVERIFIED' }));
+    api.checkAndReplay.mockRejectedValueOnce(
+      Object.assign(new Error('Could not confirm whether the provider has the message'), { code: 'UNVERIFIED' })
+    );
     fireEvent.click(await within(inspector).findByRole('button', { name: 'Check status, then replay' }, SLOW));
-    fireEvent.change(await screen.findByLabelText('Why send it again', undefined, SLOW), { target: { value: 'timed out' } });
+    fireEvent.change(await screen.findByLabelText('Why send it again', undefined, SLOW), {
+      target: { value: 'timed out' },
+    });
     fireEvent.click(await screen.findByRole('button', { name: /Check and replay/ }, SLOW));
     expect(await screen.findByText(/The choice is recorded/, undefined, SLOW)).toBeInTheDocument();
-    api.checkAndReplay.mockResolvedValueOnce({ verdict: 'unverifiable', status: null, stage: null, runId: null, reason: null, replayed: true });
+    api.checkAndReplay.mockResolvedValueOnce({
+      verdict: 'unverifiable',
+      status: null,
+      stage: null,
+      runId: null,
+      reason: null,
+      replayed: true,
+    });
     fireEvent.click(await screen.findByRole('button', { name: /Send anyway/ }, SLOW));
-    await waitFor(() => expect(api.checkAndReplay).toHaveBeenLastCalledWith('log-1', { reason: 'timed out', acceptUnverified: true }));
+    await waitFor(() =>
+      expect(api.checkAndReplay).toHaveBeenLastCalledWith('log-1', { reason: 'timed out', acceptUnverified: true })
+    );
   });
 });

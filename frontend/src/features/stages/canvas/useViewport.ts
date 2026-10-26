@@ -51,6 +51,13 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
   const fitted = useRef(false);
   const { width: contentWidth, height: contentHeight } = content;
 
+  // The stage element can be replaced (full screen renders the canvas somewhere else): follow it, so
+  // the measuring and the wheel always belong to the element on screen.
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (stageRef.current !== element) setElement(stageRef.current);
+  });
+
   /** Move with the hand: no animation. */
   const setView = useCallback((next: View | ((current: View) => View)) => {
     setSmooth(false);
@@ -71,7 +78,6 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
   }, []);
 
   useEffect(() => {
-    const element = stageRef.current;
     if (!element) return undefined;
     const measure = () => {
       const next = { width: element.clientWidth, height: element.clientHeight };
@@ -85,7 +91,7 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     observer?.observe(element);
     return () => observer?.disconnect();
-  }, [stageRef, contentWidth, contentHeight, fitTo, setView]);
+  }, [element, contentWidth, contentHeight, fitTo, setView]);
 
   /** Zoom to `nextZoom` keeping the point under `around` (stage coordinates) where it is. */
   const zoomView = useCallback(
@@ -101,7 +107,6 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
 
   // Wheel: pan; with ctrl/cmd (or a trackpad pinch) zoom around the pointer.
   useEffect(() => {
-    const element = stageRef.current;
     if (!element) return undefined;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
@@ -115,7 +120,7 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
     };
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, [stageRef, setView, zoomView]);
+  }, [element, setView, zoomView]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     // React bubbles events out of portals (the add-a-step menu): only a press on the canvas itself drags it.
