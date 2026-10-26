@@ -370,9 +370,9 @@ describe('saving the integration', () => {
     const payload = buildIntegrationSavePayload({
       values: { name: 'n', stages, send: { bindings: { query: { a: 'b' } } }, stagesPaused: false },
       lifecycleRules: [],
-      transformationMode: 'SIMPLE',
+      transformationMode: 'NONE',
     } as any);
     expect(payload).toMatchObject({ stages, send: { bindings: { query: { a: 'b' } } }, stagesPaused: false });
-    expect(buildIntegrationSavePayload({ values: { name: 'n' }, lifecycleRules: [], transformationMode: 'SIMPLE' } as any).stages).toBeUndefined();
+    expect(buildIntegrationSavePayload({ values: { name: 'n' }, lifecycleRules: [], transformationMode: 'NONE' } as any).stages).toBeUndefined();
   });
 });

@@ -20,7 +20,7 @@ const { Text } = Typography;
 import { ConfigSection } from '../../../../../components/common/ConfigSection';
 import { ConfigurationPanelContent } from './ConfigurationPanel';
 import { AuthenticationPanelContent } from './AuthenticationPanel';
-import { MultiActionHeader } from './MultiActionHeader';
+import { } from './MultiActionHeader';
 import { MultiActionList } from './MultiActionList';
 import { DeliveryReliabilitySection } from './DeliveryReliabilitySection';
 import { DeliveryReliabilitySummary } from './DeliveryReliabilitySummary';
@@ -62,12 +62,9 @@ export interface IntegrationSectionsContentProps {
   onValidateScript: () => void;
   onCopyExampleScript: (mode: 'DELAYED' | 'RECURRING') => void;
   onValidationClose: () => void;
-  transformationTab: 'SIMPLE' | 'SCRIPT';
   selectedEventType?: string;
-  mappingState: { mappings: any[]; staticFields: any[] };
   scriptValue: string;
   lastPreviewMeta?: { durationMs?: number; status?: number };
-  tagTone: (base: string) => any;
   onPreview: () => void;
   onOpenDesigner: () => void;
   isReadOnly?: boolean;
@@ -115,12 +112,9 @@ export const buildIntegrationSectionItems = ({
   onValidateScript,
   onCopyExampleScript,
   onValidationClose,
-  transformationTab,
   selectedEventType,
-  mappingState,
   scriptValue,
   lastPreviewMeta,
-  tagTone,
   onPreview,
   onOpenDesigner,
   isReadOnly = false,
@@ -267,24 +261,8 @@ export const buildIntegrationSectionItems = ({
   const renderTransformationSummary = () => (
     <ConfigSection icon={<CodeOutlined />} title="Transformation">
       <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
-            Mode:
-          </Text>
-          <Tag>{transformationTab === 'SIMPLE' ? 'Field Mapping' : 'JavaScript Transform'}</Tag>
-        </div>
-        {transformationTab === 'SIMPLE' && mappingState && (
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
-              Mappings:
-            </Text>
-            <Text strong>
-              {mappingState.mappings?.length || 0} field{mappingState.mappings?.length !== 1 ? 's' : ''} mapped,{' '}
-              {mappingState.staticFields?.length || 0} static field{mappingState.staticFields?.length !== 1 ? 's' : ''}
-            </Text>
-          </div>
-        )}
-        {transformationTab === 'SCRIPT' && scriptValue && (
+        {!scriptValue && <Text type="secondary">No transformation: the event is sent as it is.</Text>}
+        {scriptValue && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[1] }}>
             <Text type="secondary">Script ({scriptValue.split('\n').length} lines):</Text>
             <Editor
@@ -549,15 +527,12 @@ export const buildIntegrationSectionItems = ({
           <TransformationPanelContent
             isCreate={isCreate}
             isEditMode={isEditMode}
-            transformationTab={transformationTab}
             selectedEventType={selectedEventType}
-            mappingState={mappingState}
             scriptValue={scriptValue}
             lastPreviewMeta={lastPreviewMeta}
             spacing={spacing}
             token={token}
             colors={colors}
-            tagTone={tagTone}
             onPreview={onPreview}
             onOpenDesigner={onOpenDesigner}
             formatScriptForDisplay={formatScriptForDisplay}

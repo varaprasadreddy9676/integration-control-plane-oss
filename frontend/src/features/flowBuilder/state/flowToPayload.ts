@@ -395,16 +395,7 @@ function convertTransform(transformData: TransformNodeData): NonNullable<Backend
     mode: transformData.transformMode,
   };
 
-  if (transformData.transformMode === 'SIMPLE' && transformData.simpleMapping) {
-    transform.simpleMapping = {
-      fieldMappings: transformData.simpleMapping.fieldMappings?.map((m) => ({
-        source: m.sourcePath,
-        target: m.targetPath,
-        defaultValue: m.defaultValue,
-      })),
-      staticFields: transformData.simpleMapping.staticFields,
-    };
-  } else if (transformData.transformMode === 'SCRIPT') {
+  if (transformData.transformMode === 'SCRIPT') {
     transform.script = transformData.scriptCode;
   }
 

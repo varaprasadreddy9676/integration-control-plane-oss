@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing pending.
+### Removed
+- **Field mappings** (the `SIMPLE` transformation mode, with `mappings` and `staticFields`) are gone from the console,
+  the API and the MCP tools: a transformation is a script. An integration with no script sends the payload as it is.
+  A stored configuration that still has mappings fails its deliveries with "field mappings were removed", so it is
+  never sent unmapped without a word; rewrite it as a script. The `mapping` pipeline step (migrated response
+  mappings, which only observed the answer) is removed with it.
+
+### Changed
+- Pipeline stages are called **steps** throughout the console, and a step's sign-in is three plain choices.
+- The integration's configuration holds settings only: run counts, the 7-day results table and Executions moved out;
+  a delivery's flow is the **Diagram** tab of the delivery in Delivery Logs.
+- "Write with AI" is removed; AI agents use the MCP tools and the authoring guide.
 
 ---
 

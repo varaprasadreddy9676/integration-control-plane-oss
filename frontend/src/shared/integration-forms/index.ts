@@ -15,22 +15,13 @@
 // Authentication
 export { AuthenticationFields, HelpPopover } from './authentication';
 
-// Transformation
-export {
-  TransformationForm,
-  SimpleTransformationMapping,
-  defaultTransformationScript
-} from './transformation';
-
 // HTTP Configuration
 export { HttpConfigFields } from './http';
 
 // Types
 export type {
   AuthType,
-  TransformationMode,
   IntegrationMode,
   AuthenticationFieldsProps,
-  TransformationFormProps,
   HttpConfigFieldsProps
 } from './types';

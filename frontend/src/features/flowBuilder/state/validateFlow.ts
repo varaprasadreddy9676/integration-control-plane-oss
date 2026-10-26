@@ -327,22 +327,6 @@ function validateHttpNode(data: HttpNodeData, errors: string[], warnings: string
 }
 
 function validateTransformNode(data: TransformNodeData, errors: string[], warnings: string[]): void {
-  if (data.transformMode === 'SIMPLE') {
-    if (!data.simpleMapping?.fieldMappings || data.simpleMapping.fieldMappings.length === 0) {
-      warnings.push('No field mappings defined - transformation will have no effect');
-    }
-
-    // Validate field mappings
-    data.simpleMapping?.fieldMappings?.forEach((mapping, index) => {
-      if (!mapping.sourcePath || mapping.sourcePath.trim().length === 0) {
-        errors.push(`Field mapping ${index + 1}: Source path is required`);
-      }
-      if (!mapping.targetPath || mapping.targetPath.trim().length === 0) {
-        errors.push(`Field mapping ${index + 1}: Target path is required`);
-      }
-    });
-  }
-
   if (data.transformMode === 'SCRIPT') {
     if (!data.scriptCode || data.scriptCode.trim().length === 0) {
       errors.push('Script code is required for SCRIPT transform mode');

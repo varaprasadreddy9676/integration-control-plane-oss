@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
  */
 export type AuthType = 'NONE' | 'API_KEY' | 'BASIC' | 'BEARER' | 'HMAC' | 'OAUTH1' | 'OAUTH2' | 'CUSTOM' | 'CUSTOM_HEADERS';
 
-export type TransformationMode = 'SIMPLE' | 'SCRIPT';
 
 export type IntegrationMode = 'inbound' | 'outbound' | 'scheduled';
 
@@ -51,86 +50,6 @@ export interface AuthenticationFieldsProps {
    * Plain text when not given.
    */
   secretLabel?: (label: string) => ReactNode;
-}
-
-export interface TransformationFormProps {
-  /**
-   * Ant Design form instance
-   */
-  form: any;
-
-  /**
-   * Current transformation mode (SIMPLE or SCRIPT)
-   */
-  mode: TransformationMode;
-
-  /**
-   * Callback when mode changes
-   */
-  onModeChange: (mode: TransformationMode) => void;
-
-  /**
-   * Script value for SCRIPT mode
-   */
-  scriptValue: string;
-
-  /**
-   * Callback when script changes
-   */
-  onScriptChange: (value: string) => void;
-
-  /**
-   * Mapping state for SIMPLE mode
-   */
-  mappingState: {
-    mappings: any[];
-    staticFields: any[];
-  };
-
-  /**
-   * Callback when mapping state changes
-   */
-  onMappingChange: (state: { mappings: any[]; staticFields: any[] }) => void;
-
-  /**
-   * Available source fields for mapping
-   */
-  availableFields?: any[];
-
-  /**
-   * Sample input payload for preview
-   */
-  sampleInput?: string;
-
-  /**
-   * Sample output from transformation
-   */
-  sampleOutput?: string;
-
-  /**
-   * Preview metadata (duration, status)
-   */
-  previewMeta?: {
-    durationMs?: number;
-    status?: number;
-  };
-
-  /**
-   * Preview runner function reference
-   */
-  onPreview?: () => void;
-
-  /**
-   * Hide the mode selector (force SCRIPT mode only)
-   * Useful for inbound integrations where SIMPLE mappings don't make sense
-   */
-  hideModeSelector?: boolean;
-
-  /**
-   * Design system tokens
-   */
-  spacing: any;
-  colors: any;
 }
 
 export interface HttpConfigFieldsProps {

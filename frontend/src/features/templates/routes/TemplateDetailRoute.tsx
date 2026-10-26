@@ -32,7 +32,6 @@ const { Title, Text } = Typography;
 const CATEGORIES = ['EHR', 'PMS', 'BILLING', 'LAB', 'IMAGING', 'OTHER'];
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const AUTH_TYPES = ['NONE', 'API_KEY', 'BEARER_TOKEN', 'BASIC_AUTH', 'OAUTH'];
-const TRANSFORMATION_MODES = ['SIMPLE', 'SCRIPT'];
 
 const DEFAULT_EVENT_TYPES = [
   'PATIENT_CREATED',
@@ -94,7 +93,6 @@ export const TemplateDetailRoute = () => {
         authType: template.authType,
         timeoutMs: template.timeoutMs || 10000,
         retryCount: template.retryCount || 3,
-        transformationMode: template.transformationMode || 'SIMPLE',
         isActive: template.isActive !== false
       });
 
@@ -154,9 +152,9 @@ export const TemplateDetailRoute = () => {
         headers,
         timeoutMs: values.timeoutMs,
         retryCount: values.retryCount,
-        transformationMode: values.transformationMode,
+        transformationMode: transformScript && transformScript.trim() ? 'SCRIPT' : 'NONE',
         transformation: {
-          mode: values.transformationMode,
+          mode: transformScript && transformScript.trim() ? 'SCRIPT' : 'NONE',
           script: transformScript
         },
         isActive: values.isActive,
@@ -213,7 +211,6 @@ export const TemplateDetailRoute = () => {
           authType: 'API_KEY',
           timeoutMs: 10000,
           retryCount: 3,
-          transformationMode: 'SIMPLE',
           isActive: true,
           eventTypes: []
         }}
@@ -364,14 +361,6 @@ export const TemplateDetailRoute = () => {
             </Card>
 
             <Card title="Transformation" className="panel" size="small" style={{ marginTop: spacing[3] }}>
-              <Form.Item label="Transformation Mode" name="transformationMode">
-                <Select>
-                  {TRANSFORMATION_MODES.map(mode => (
-                    <Select.Option key={mode} value={mode}>{mode}</Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
               <Form.Item label="Transformation Script">
                 <Alert
                   type="success"

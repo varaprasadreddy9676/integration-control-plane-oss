@@ -40,7 +40,6 @@ const GROUPS: Group[] = [
     title: 'Transform',
     lead: 'Every system gets the shape it expects.',
     items: [
-      { name: 'Visual field mapping', desc: 'Map fields with dot notation, no code.', doc: 'data-transformation' },
       { name: 'JavaScript transforms', desc: 'Run your own logic in a sandboxed VM.', doc: 'data-transformation' },
       { name: 'Lookup tables', desc: 'Translate codes and enrich values on the way through.', doc: 'lookup-tables' },
       { name: 'Templates', desc: 'Start new integrations from proven ones.', doc: 'versioning' },

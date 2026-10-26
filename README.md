@@ -43,7 +43,7 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
 
 - Outbound integrations (`/api/v1/outbound-integrations`)
   - CRUD, duplicate, bulk update/delete, test delivery, cURL generation.
-  - Script and simple transformation modes.
+  - Script transformations.
   - HL7 MLLP action delivery for HL7 v2 messages with ACK validation and structured logging.
   - Delivery mode support: `IMMEDIATE`, `DELAYED`, `RECURRING`, `WAIT_FOR_CONDITION` (`WAIT_FOR_EVENT` alias supported).
   - Generic `subjectExtraction` in `PATHS` or `SCRIPT` mode for rule-driven matching.
@@ -355,7 +355,6 @@ See the full [comparison with Svix, Convoy, Hookdeck, and building it yourself](
 | Outbound + Inbound + Scheduled | All three | Outbound + Ingest | Both | Both (core is SaaS-only) |
 | Self-hosted | Yes (AGPL v3) | Yes (MIT, reduced) | Yes (Elastic, not OSI) | Outpost only |
 | Multi-tenant RBAC | 7 roles, org-scoped | Basic | Basic | Basic |
-| Visual field mapping | Yes | No | No | No |
 | DLQ auto-retry | Yes | Manual only | Manual only | Manual only |
 | Paid tier starts at | Free | $490/mo | $99/mo | $39/mo |
 

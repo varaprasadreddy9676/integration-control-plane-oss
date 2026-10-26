@@ -61,7 +61,7 @@ frontend/
 
 #### OUTBOUND (Event-Driven Webhooks)
 - **Event-based delivery**: Push events from internal system to external APIs
-- **Transformation**: SIMPLE field mapping or SCRIPT (JavaScript)
+- **Transformation**: a JavaScript script (none sends the payload as it is)
 - **Scheduling**: IMMEDIATE, DELAYED (one-time), or RECURRING
 - **Multi-action**: Sequential delivery to multiple endpoints
 - **Authentication**: API Key, Bearer, Basic, OAuth2, Custom Headers

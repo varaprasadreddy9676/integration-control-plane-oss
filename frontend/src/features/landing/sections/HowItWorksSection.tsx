@@ -28,7 +28,7 @@ const DIRECTIONS: Direction[] = [
     ],
     gateway: [
       { item: 'Match rules', note: 'Which integrations care about this event' },
-      { item: 'Transform', note: 'Visual field mapping or JavaScript in a sandbox' },
+      { item: 'Transform', note: 'A JavaScript script in a sandbox' },
       { item: 'Sign', note: 'HMAC-SHA256, never sent unsigned' },
       { item: 'Retry and dead-letter', note: 'Backoff, then a queue you can replay from' },
       { item: 'Delay or hold', note: 'Send later, or wait for a follow-up event' },

@@ -25,11 +25,7 @@ Lookup tables are **org-scoped** — each organization has its own isolated set 
 
 ## Using Lookups in Transformations
 
-### Visual (SIMPLE) Mode
-
-In the field mapping editor, set the transformation type to **Lookup** and select the table by name.
-
-### Script (SCRIPT) Mode
+### In a transformation script
 
 Three utility functions are available in transformation scripts:
 

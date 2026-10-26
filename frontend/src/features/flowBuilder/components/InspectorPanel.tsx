@@ -468,7 +468,6 @@ function renderTransformFields(data: TransformNodeData, form: any): React.ReactN
       <Form.Item label="Transform Mode" name="transformMode" rules={[{ required: true }]}>
         <Select>
           <Option value="NONE">None</Option>
-          <Option value="SIMPLE">Simple Mapping</Option>
           <Option value="SCRIPT">JavaScript</Option>
         </Select>
       </Form.Item>

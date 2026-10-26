@@ -44,8 +44,7 @@ For `OAUTH2` and `CUSTOM`, tokens are cached and refreshed automatically. You ca
 
 Before forwarding to your backend, the payload can be reshaped:
 
-- **SIMPLE mode** — field mapping with dot notation
-- **SCRIPT mode** — custom JS in a secure sandboxed VM (60s timeout, async/await supported)
+- A custom JS script in a secure sandboxed VM (60s timeout, async/await supported)
 
 The script context includes the original `body`, `query`, and `headers`. Returning `null` from a script will skip the delivery entirely.
 

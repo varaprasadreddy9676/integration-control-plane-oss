@@ -91,7 +91,7 @@ export const LookupGuideRoute = () => {
                           <Tag color="blue">Step 1</Tag>
                           <Text strong>Standard Transformation Runs First</Text>
                           <Paragraph style={{ marginTop: 4, marginBottom: 0 }}>
-                            Your SIMPLE or SCRIPT transformation executes and generates the output payload
+                            Your transformation script executes and generates the output payload
                           </Paragraph>
                         </div>
                         <div>

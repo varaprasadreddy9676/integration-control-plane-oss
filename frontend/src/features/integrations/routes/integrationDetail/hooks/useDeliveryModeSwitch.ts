@@ -4,14 +4,12 @@ interface UseDeliveryModeSwitchParams {
   form: FormInstance;
   deliveryModeChoice: 'single' | 'multi';
   isMultiAction: boolean;
-  transformationTab: 'SIMPLE' | 'SCRIPT';
   scriptValue: string;
-  mappingState: { mappings: any[]; staticFields: any[] };
   setDeliveryModeChoice: (value: 'single' | 'multi') => void;
   setMultiActionMode: (value: boolean) => void;
   setActivePanels: (panels: string[]) => void;
   prevSingleConfigRef: React.MutableRefObject<{ targetUrl?: string; httpMethod?: string } | null>;
-  prevSingleTransformRef: React.MutableRefObject<{ mode: 'SIMPLE' | 'SCRIPT'; script?: string; mappings?: any[]; staticFields?: any[] } | null>;
+  prevSingleTransformRef: React.MutableRefObject<{ script?: string } | null>;
   modal: { confirm: (options: any) => void };
 }
 
@@ -19,9 +17,7 @@ export const useDeliveryModeSwitch = ({
   form,
   deliveryModeChoice,
   isMultiAction,
-  transformationTab,
   scriptValue,
-  mappingState,
   setDeliveryModeChoice,
   setMultiActionMode,
   setActivePanels,
@@ -34,29 +30,20 @@ export const useDeliveryModeSwitch = ({
     if (mode === current) return;
     setDeliveryModeChoice(mode);
     if (mode === 'multi' && !isMultiAction) {
-      const hasTransformation = transformationTab === 'SCRIPT'
-        ? scriptValue && scriptValue.trim().length > 0
-        : (mappingState.mappings.length > 0 || mappingState.staticFields.length > 0);
+      const hasTransformation = Boolean(scriptValue && scriptValue.trim().length > 0);
 
       const doSwitch = () => {
         const targetUrl = form.getFieldValue('targetUrl');
         const httpMethod = form.getFieldValue('httpMethod') || 'POST';
         prevSingleConfigRef.current = { targetUrl, httpMethod };
-        prevSingleTransformRef.current = {
-          mode: transformationTab,
-          script: scriptValue,
-          mappings: mappingState.mappings,
-          staticFields: mappingState.staticFields
-        };
+        prevSingleTransformRef.current = { script: scriptValue };
 
         const action = {
           name: form.getFieldValue('name') ? `${form.getFieldValue('name')} Action` : 'Action 1',
           httpMethod,
           targetUrl: targetUrl || '',
-          transformationMode: transformationTab,
-          transformation: transformationTab === 'SCRIPT'
-            ? { script: scriptValue }
-            : { mappings: mappingState.mappings, staticFields: mappingState.staticFields }
+          transformationMode: hasTransformation ? 'SCRIPT' : 'NONE',
+          transformation: { script: scriptValue }
         };
         form.setFieldsValue({ actions: [action] });
         setMultiActionMode(true);
@@ -101,17 +88,7 @@ export const useDeliveryModeSwitch = ({
 
           // Restore transformation if available
           if (prevSingleTransformRef.current) {
-            const prev = prevSingleTransformRef.current;
-            if (prev.mode === 'SCRIPT') {
-              form.setFieldsValue({ transformation: { script: prev.script } });
-            } else {
-              form.setFieldsValue({
-                transformation: {
-                  mappings: prev.mappings || [],
-                  staticFields: prev.staticFields || []
-                }
-              });
-            }
+            form.setFieldsValue({ transformation: { script: prevSingleTransformRef.current.script } });
           }
 
           setMultiActionMode(false);

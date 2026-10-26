@@ -368,7 +368,7 @@ export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }:
                           <Text>Configure authentication (API Key, OAuth, Basic)</Text>
                         </li>
                         <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Transform the payload using field mappings or custom scripts</Text>
+                          <Text>Transform the payload with a script</Text>
                         </li>
                         <li style={{ marginBottom: spacing[2] }}>
                           <Text>Set scope (include children entities or exclude specific entities)</Text>

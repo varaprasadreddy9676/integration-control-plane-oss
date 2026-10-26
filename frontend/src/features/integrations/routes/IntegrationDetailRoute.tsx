@@ -10,9 +10,9 @@ import {
   removeIntegrationSecret,
   getIntegrationCredentials,
 } from '../../../services/api';
-import type { IntegrationConfig } from '../../../mocks/types';
+import type { } from '../../../mocks/types';
 import { IntegrationSigningSection } from '../components/IntegrationSigningSection';
-import { useDesignTokens, withAlpha, spacingToNumber, cssVar } from '../../../design-system/utils';
+import { useDesignTokens, cssVar } from '../../../design-system/utils';
 import { useTenant } from '../../../app/tenant-context';
 import { useAuth } from '../../../app/auth-context';
 import { useIntegrationForm } from '../hooks';
@@ -69,8 +69,8 @@ export const IntegrationDetailRoute = () => {
   const queryClient = useQueryClient();
   const isCreate = !id || id === 'new';
   const [form] = Form.useForm();
-  const [transformationTab, setTransformationTab] = useState<'SIMPLE' | 'SCRIPT'>('SIMPLE');
-  const [scriptValue, setScriptValue] = useState(defaultScript);
+  // The script is the transformation; empty means the event is sent as it is.
+  const [scriptValue, setScriptValue] = useState('');
   const [responseTransformEnabled, setResponseTransformEnabled] = useState(false);
   const [responseTransformScript, setResponseTransformScript] = useState(`// Inspect the remote API's response body.
 // Call skip(reason) to signal a business-level failure.
@@ -83,10 +83,6 @@ export const IntegrationDetailRoute = () => {
 // }
 `);
   const { message: messageApi, modal } = App.useApp();
-  const [mappingState, setMappingState] = useState<{ mappings: any[]; staticFields: any[] }>({
-    mappings: [],
-    staticFields: [],
-  });
 
   // Watch form fields to trigger re-render and unlock tabs dynamically
   const formName = Form.useWatch('name', form);
@@ -101,7 +97,6 @@ export const IntegrationDetailRoute = () => {
     message?: string;
   }>({ status: 'idle' });
   const [isValidatingScript, setIsValidatingScript] = useState(false);
-  const [missingRequiredMappings, setMissingRequiredMappings] = useState(0);
   const [multiActionValidationErrors, setMultiActionValidationErrors] = useState<string[]>([]);
 
   // Track saving state (prevent double-submission)
@@ -121,14 +116,11 @@ export const IntegrationDetailRoute = () => {
 
     // Reset form and state
     form.resetFields();
-    setTransformationTab('SIMPLE');
-    setScriptValue(defaultScript);
-    setMappingState({ mappings: [], staticFields: [] });
+    setScriptValue('');
     setActivePanels(currentIsCreate ? ['configuration'] : []);
     setMultiActionMode(false);
     setSchedulingScriptValidation({ status: 'idle' });
     setIsValidatingScript(false);
-    setMissingRequiredMappings(0);
     setMultiActionValidationErrors([]);
     setSampleInput('');
     setSampleOutput('Awaiting preview…');
@@ -146,14 +138,8 @@ export const IntegrationDetailRoute = () => {
     undefined
   );
   const runPreviewRef = useRef<() => void>();
-  const requiredRef = useRef<HTMLDivElement | null>(null);
   const prevSingleConfigRef = useRef<{ targetUrl?: string; httpMethod?: string } | null>(null);
-  const prevSingleTransformRef = useRef<{
-    mode: 'SIMPLE' | 'SCRIPT';
-    script?: string;
-    mappings?: any[];
-    staticFields?: any[];
-  } | null>(null);
+  const prevSingleTransformRef = useRef<{ script?: string } | null>(null);
   const [deliveryModeChoice, setDeliveryModeChoice] = useState<'single' | 'multi'>('single');
   const [multiActionMode, setMultiActionMode] = useState(false);
 
@@ -255,21 +241,7 @@ export const IntegrationDetailRoute = () => {
   const isActiveValue =
     formState.isActiveWatchValue !== undefined ? formState.isActiveWatchValue : (existingIntegration?.isActive ?? true);
   const isDetailLoading = !isCreate && integrationLoading && !existingIntegration;
-  const missingFieldList = useMemo(
-    () =>
-      (mappingState.mappings as any[])
-        .filter((m: any) => ['entity_id', 'bill_id', 'event_type', 'source'].includes(m.targetField) && !m.sourceField)
-        .map((m: any) => m.targetField),
-    [mappingState.mappings]
-  );
-  const transformationHasContent = useMemo(() => {
-    if (transformationTab === 'SCRIPT') {
-      return Boolean(scriptValue && scriptValue.trim().length > 0);
-    }
-    const mappingsCount = mappingState.mappings?.length ?? 0;
-    const staticFieldsCount = mappingState.staticFields?.length ?? 0;
-    return mappingsCount > 0 || staticFieldsCount > 0;
-  }, [mappingState.mappings, mappingState.staticFields, scriptValue, transformationTab]);
+  const transformationHasContent = scriptValue.trim().length > 0;
 
   // Determine if this is a multi-action integration
   const hasActions = Array.isArray(formState.actions) && formState.actions.length > 0;
@@ -376,15 +348,8 @@ export const IntegrationDetailRoute = () => {
         transformation: normalizedTransformation,
         actions: normalizedActions,
       });
-      setTransformationTab(existingIntegration.transformationMode);
-      if (existingIntegration.transformation) {
-        setMappingState({
-          mappings: (existingIntegration.transformation as any).mappings ?? [],
-          staticFields: (existingIntegration.transformation as any).staticFields ?? [],
-        });
-        if ((existingIntegration.transformation as any).script) {
-          setScriptValue(formatScriptForDisplay((existingIntegration.transformation as any).script));
-        }
+      if ((existingIntegration.transformation as any)?.script) {
+        setScriptValue(formatScriptForDisplay((existingIntegration.transformation as any).script));
       }
 
       // Load response transformation
@@ -566,29 +531,6 @@ const firstTime = addHours(now(), 1);
               messageApi.error(`Action ${i + 1} (${action.name}): Transformation script is required`);
               return;
             }
-          } else if (actionMode === 'SIMPLE') {
-            // Validate SIMPLE mode has at least one mapping or static field
-            const hasMappings = action.transformation?.mappings && action.transformation.mappings.length > 0;
-            const hasStaticFields =
-              action.transformation?.staticFields && action.transformation.staticFields.length > 0;
-
-            if (!hasMappings && !hasStaticFields) {
-              messageApi.error(`Action ${i + 1} (${action.name}): Add at least one field mapping or static field`);
-              return;
-            }
-
-            // Validate that mappings have both target and source fields
-            if (hasMappings) {
-              for (let j = 0; j < action.transformation.mappings.length; j++) {
-                const mapping = action.transformation.mappings[j];
-                if (!mapping.targetField || !mapping.sourceField) {
-                  messageApi.error(
-                    `Action ${i + 1} (${action.name}): Field mapping ${j + 1} must have both target and source fields`
-                  );
-                  return;
-                }
-              }
-            }
           }
         }
       }
@@ -599,13 +541,6 @@ const firstTime = addHours(now(), 1);
       }
       if (values.retryCount < 0 || values.retryCount > 10) {
         messageApi.error('Retry count must be between 0 and 10.');
-        return;
-      }
-      // Only validate required mappings for SIMPLE mode (not SCRIPT or multi-action)
-      if (!isMultiActionSubmit && transformationTab === 'SIMPLE' && missingRequiredMappings > 0) {
-        const details = missingFieldList.length ? ` Missing: ${missingFieldList.join(', ')}` : '';
-        messageApi.warning(`Please map all required fields (${missingRequiredMappings} remaining).${details}`);
-        requiredRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
       try {
@@ -644,7 +579,7 @@ const firstTime = addHours(now(), 1);
           subjectExtraction,
           lifecycleRules,
           conditionConfig,
-          transformationMode: transformationTab,
+          transformationMode: transformationHasContent ? 'SCRIPT' : 'NONE',
         });
 
         const normalizedActions = (resolvedActions ?? []).map((action: any) => {
@@ -725,9 +660,7 @@ const firstTime = addHours(now(), 1);
           // Single-action integration: include targetUrl and transformation
           payload.targetUrl = values.targetUrl;
           payload.transformation = {
-            mode: transformationTab,
-            mappings: mappingState.mappings as any[],
-            staticFields: mappingState.staticFields as any[],
+            mode: transformationHasContent ? 'SCRIPT' : 'NONE',
             script: scriptValue,
           };
           (payload as any).responseTransformation = {
@@ -764,10 +697,7 @@ const firstTime = addHours(now(), 1);
 
   const { handleTest } = useIntegrationTest({
     existingIntegration,
-    missingRequiredMappings,
-    missingFieldList,
     messageApi,
-    requiredRef,
   });
 
   // View/Edit mode handlers
@@ -901,9 +831,7 @@ const firstTime = addHours(now(), 1);
     form,
     deliveryModeChoice,
     isMultiAction,
-    transformationTab,
     scriptValue,
-    mappingState,
     setDeliveryModeChoice,
     setMultiActionMode,
     setActivePanels,
@@ -966,7 +894,6 @@ const firstTime = addHours(now(), 1);
               existingIntegration={existingIntegration}
               isMultiAction={isMultiAction}
               deliveryModeValue={formState.deliveryModeValue}
-              transformationTab={transformationTab}
               isActiveValue={isActiveValue}
               isSaving={isSaving}
               spacing={spacing}
@@ -1012,7 +939,7 @@ const firstTime = addHours(now(), 1);
               isActiveValue={isActiveValue}
               canTest={!isCreate}
               canSave={
-                isMultiAction ? multiActionValidationErrors.length === 0 && hasActions : missingRequiredMappings === 0
+                isMultiAction ? multiActionValidationErrors.length === 0 && hasActions : true
               }
               spacing={spacing}
               token={token}
@@ -1064,7 +991,6 @@ const firstTime = addHours(now(), 1);
                   spacing={spacing}
                 />
               }
-              missingRequiredCount={isMultiAction ? 0 : missingRequiredMappings}
               validationErrors={multiActionValidationErrors}
               onActivate={() => {
                 form.setFieldsValue({ isActive: true });
@@ -1099,12 +1025,9 @@ const firstTime = addHours(now(), 1);
                 onValidateScript: handleValidateSchedulingScript,
                 onCopyExampleScript: handleCopyExampleScript,
                 onValidationClose: () => setSchedulingScriptValidation({ status: 'idle' }),
-                transformationTab,
                 selectedEventType: formState.selectedEventType || existingIntegration?.eventType,
-                mappingState,
                 scriptValue,
                 lastPreviewMeta,
-                tagTone,
                 onPreview: handlePreviewTransformation,
                 onOpenDesigner: handleOpenTransformDesigner,
                 isReadOnly: !isCreate && !isEditMode,
@@ -1132,22 +1055,13 @@ const firstTime = addHours(now(), 1);
         </IntegrationFormContainer>
         <TransformationDrawer open={isTransformOpen} onClose={() => setIsTransformOpen(false)}>
           <TransformationDesigner
-            transformationTab={transformationTab}
-            onChangeTab={setTransformationTab}
             scriptValue={scriptValue}
             onScriptChange={setScriptValue}
-            mappings={mappingState.mappings as any[]}
-            onMappingsChange={(mappings) => setMappingState((s) => ({ ...s, mappings }))}
-            staticFields={mappingState.staticFields as any[]}
-            onStaticFieldsChange={(staticFields) => setMappingState((s) => ({ ...s, staticFields }))}
             sampleInput={sampleInput}
             onSampleInputChange={setSampleInput}
             sampleOutput={sampleOutput}
             onSampleOutputChange={setSampleOutput}
-            requiredAnchorRef={requiredRef}
-            onMissingRequiredChange={setMissingRequiredMappings}
             availableFields={availableFields as any[]}
-            availableFieldTree={availableFieldTree as any[]}
             eventPayload={selectedEventTypeData?.samplePayload}
             onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
             getPreviewContext={() => buildPreviewContext(form)}
@@ -1173,7 +1087,7 @@ const firstTime = addHours(now(), 1);
           deliveryMode={formState.deliveryModeValue || 'IMMEDIATE'}
           retryPolicy={`${formState.retryValue ?? 3} retries, ${formState.timeoutValue ?? 30000}ms timeout`}
           authMethod={formState.authTypeValue || 'NONE'}
-          transformationType={transformationTab === 'SCRIPT' ? 'JavaScript Transform' : 'Simple Mapping'}
+          transformationType={transformationHasContent ? 'JavaScript Transform' : 'None'}
           readinessChecks={[
             {
               label: 'Rule name and event type configured',
@@ -1202,13 +1116,9 @@ const firstTime = addHours(now(), 1);
             },
             {
               label: 'No validation errors',
-              isComplete: multiActionValidationErrors.length === 0 && (isMultiAction || missingRequiredMappings === 0),
+              isComplete: multiActionValidationErrors.length === 0,
               warning:
-                multiActionValidationErrors.length > 0
-                  ? `${multiActionValidationErrors.length} errors to fix`
-                  : missingRequiredMappings > 0
-                    ? `${missingRequiredMappings} required mappings missing`
-                    : undefined,
+                multiActionValidationErrors.length > 0 ? `${multiActionValidationErrors.length} errors to fix` : undefined,
             },
           ]}
           isSaving={isSaving}

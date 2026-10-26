@@ -1,5 +1,5 @@
 export type IntegrationScope = 'ENTITY_ONLY' | 'INCLUDE_CHILDREN';
-export type TransformationMode = 'SIMPLE' | 'SCRIPT';
+export type TransformationMode = 'NONE' | 'SCRIPT';
 export type OutgoingAuthType = 'NONE' | 'API_KEY' | 'BASIC' | 'BEARER' | 'OAUTH2' | 'CUSTOM' | 'CUSTOM_HEADERS';
 export type DeliveryMode = 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION' | 'WAIT_FOR_EVENT';
 export type ScheduledIntegrationStatus = 'PENDING' | 'SENT' | 'FAILED' | 'CANCELLED' | 'OVERDUE';
@@ -132,8 +132,6 @@ export interface IntegrationAction {
   transformationMode?: TransformationMode;
   transformation?: {
     mode?: TransformationMode;
-    mappings?: Array<Record<string, unknown>>;
-    staticFields?: Array<Record<string, unknown>>;
     script?: string;
   };
 }
@@ -192,8 +190,6 @@ export interface IntegrationConfig {
   transformationMode: TransformationMode;
   transformation?: {
     mode: TransformationMode;
-    mappings?: Array<Record<string, unknown>>;
-    staticFields?: Array<Record<string, unknown>>;
     script?: string;
   };
   responseTransformation?: {
@@ -477,8 +473,6 @@ export interface IntegrationTemplate {
   transformationMode?: TransformationMode | null;
   transformation?: {
     mode?: TransformationMode;
-    mappings?: Array<Record<string, unknown>>;
-    staticFields?: Array<Record<string, unknown>>;
     script?: string;
   };
   actions?: Array<{
@@ -489,7 +483,6 @@ export interface IntegrationTemplate {
     transformationMode?: TransformationMode;
     transformation?: {
       script?: string;
-      mappings?: Array<Record<string, unknown>>;
     };
   }>;
   isActive?: boolean;

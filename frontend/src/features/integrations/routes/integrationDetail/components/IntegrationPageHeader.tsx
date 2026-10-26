@@ -14,7 +14,6 @@ interface IntegrationPageHeaderProps {
   existingIntegration?: IntegrationConfig;
   isMultiAction: boolean;
   deliveryModeValue?: string;
-  transformationTab: 'SIMPLE' | 'SCRIPT';
   isActiveValue?: boolean;
   isSaving: boolean;
   spacing: Record<string, string>;
@@ -37,7 +36,6 @@ export const IntegrationPageHeader = ({
   existingIntegration,
   isMultiAction,
   deliveryModeValue,
-  transformationTab,
   isActiveValue,
   isSaving,
   spacing,
@@ -68,7 +66,6 @@ export const IntegrationPageHeader = ({
         },
         { label: isMultiAction ? 'Multi-action' : 'Single' },
         deliveryModeValue && { label: getDeliveryModeChipLabel(deliveryModeValue) },
-        { label: transformationTab === 'SCRIPT' ? 'JavaScript Transform' : 'Simple Mapping' },
         existingIntegration?.updatedAt && { label: `Last updated ${formatDateTime(existingIntegration.updatedAt)}` },
       ].filter(Boolean);
 
