@@ -35,7 +35,7 @@ const ABOUT: Record<string, string> = {
   trigger: 'The event that starts a delivery. Every action of this integration starts from it.',
   transform:
     'Builds the message from the event. It runs again on every retry, so a retry is never a copy of the last attempt.',
-  send: 'The delivery itself: the target, its authentication and the answer. It is not a stage; stages run around it.',
+  send: 'The delivery itself: the target, its authentication and the answer. The steps you add run around it.',
   retry:
     'When a send fails in a way that can pass (a 5xx, a 429, a timeout, a network error) the delivery goes back to the top and tries again, up to the limit. A 4xx fails at once.',
   done: 'The delivery was accepted. Checks that run later only observe: they never change this outcome.',
@@ -104,7 +104,7 @@ const Facts = ({
   return (
     <div>
       <div className="wf-section-title">
-        Last 24 hours <span className="wf-help">runs, not deliveries: a retry runs the stage again</span>
+        Last 24 hours <span className="wf-help">runs, not deliveries: a retry runs the step again</span>
       </div>
       {row('Runs', stats.runs)}
       {row('Continued', stats.ok)}

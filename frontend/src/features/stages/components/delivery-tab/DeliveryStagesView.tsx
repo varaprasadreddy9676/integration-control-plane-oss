@@ -1,15 +1,14 @@
 import { Space, Tag, Typography } from 'antd';
 import type { StageConfig } from '../../../../services/stages-api';
 import { HOOK_GROUPS } from '../../stageLabels';
-import { StageResultsCard } from './StageResultsCard';
 import { scheduleSummary } from './stageDraft';
 
 const { Text } = Typography;
 
 /** The Delivery tab when the integration is only being viewed. */
-export const DeliveryStagesView = ({ stages = [], integrationId }: { stages?: StageConfig[]; integrationId?: string }) => (
+export const DeliveryStagesView = ({ stages = [] }: { stages?: StageConfig[] }) => (
   <Space direction="vertical" size={16} style={{ width: '100%' }}>
-    {stages.length === 0 && <Text type="secondary">This integration has no stages.</Text>}
+    {stages.length === 0 && <Text type="secondary">This integration has no steps.</Text>}
     {HOOK_GROUPS.filter((group) => stages.some((stage) => stage.hook === group.hook)).map((group) => (
       <div key={group.hook}>
         <Text strong>{group.title}</Text>
@@ -30,6 +29,5 @@ export const DeliveryStagesView = ({ stages = [], integrationId }: { stages?: St
         </Space>
       </div>
     ))}
-    {integrationId && <StageResultsCard integrationId={integrationId} stages={stages} />}
   </Space>
 );

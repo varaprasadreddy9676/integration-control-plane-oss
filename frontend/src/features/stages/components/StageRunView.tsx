@@ -37,17 +37,17 @@ const CUT_NOTE: Record<string, string> = {
 };
 const OMITTED_NOTE: Record<string, string> = {
   'errors-only': 'Headers and bodies are recorded for failed calls only.',
-  summary: 'Headers and bodies are not recorded for this stage.',
+  summary: 'Headers and bodies are not recorded for this step.',
 };
 
 // The runtime's reasons, in words; the code stays visible for searching.
 const ERROR_TEXT: Record<string, string> = {
-  STAGE_FAILED: 'The stage decided this failed',
+  STAGE_FAILED: 'The step decided this failed',
   TIMEOUT: 'It took longer than its time limit',
   BINDING_ERROR: 'A {{ }} value it needs was missing',
   BAD_RESULT: 'It returned something that is not { status, done, data }',
   CREDENTIAL_UNAVAILABLE: 'Its credential is missing or not filled in',
-  NOT_ISOLATED: 'Stages cannot run on this server yet',
+  NOT_ISOLATED: 'Steps cannot run on this server yet',
   UNSUPPORTED_CREDENTIAL_USE: 'It used the credentials in a way that is not supported',
   OUT_OF_MEMORY: 'It ran out of memory',
 };
@@ -122,7 +122,7 @@ export const StageRunView = ({ run }: { run: StageRun }) => {
           {run.status && run.outcome !== 'ok' && <Tag color={outcome.color} style={{ margin: 0 }}>{outcome.label}</Tag>}
           {run.done && run.stage.hook === 'after_delivery' && <Tag style={{ margin: 0 }}>Finished</Tag>}
           {run.shadow && (
-            <Tag color="purple" style={{ margin: 0 }} title="A migration is comparing this stage with the old configuration. It had no effect.">
+            <Tag color="purple" style={{ margin: 0 }} title="A migration is comparing this step with the old configuration. It had no effect.">
               Shadow
             </Tag>
           )}

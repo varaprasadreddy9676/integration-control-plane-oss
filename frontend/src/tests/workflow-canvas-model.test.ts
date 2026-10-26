@@ -180,7 +180,7 @@ describe('folded deliveries', () => {
   it('a folded delivery is one step with its stage count, joined to the trigger, with no steps of its own to add to', () => {
     const flow = build([1, 2]);
     const folded = flow.nodes.find((node) => node.id === 'g1-group')!;
-    expect(folded).toMatchObject({ kind: 'group', title: 'Action 1', summary: '2 stages · 1 off', x: 1200 });
+    expect(folded).toMatchObject({ kind: 'group', title: 'Action 1', summary: '2 steps · 1 off', x: 1200 });
     expect(flow.nodes.filter((node) => node.group === 1)).toHaveLength(1);
     expect(flow.edges.filter((edge) => edge.group === 1).map((edge) => edge.kind)).toEqual(['fan-out']);
     expect(flow.insertions.filter((point) => point.group === 1)).toHaveLength(0);

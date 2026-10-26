@@ -13,8 +13,6 @@ const api = vi.hoisted(() => ({
   validateStages: vi.fn(),
   testStage: vi.fn(),
   listCredentialOptions: vi.fn(),
-  getStageResults: vi.fn(),
-  getStageUsage: vi.fn(),
 }));
 vi.mock('../services/stages-api', () => api);
 vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
@@ -255,12 +253,12 @@ describe('the Delivery tab', () => {
 
   it('adds a stage through the editor, checked by the server before it is kept', async () => {
     render(<Harness initial={{ stages: [] }} />);
-    const add = await screen.findByRole('button', { name: 'Add a stage: Later (scheduled)' });
+    const add = await screen.findByRole('button', { name: 'Add a step: Later (scheduled)' });
     await waitFor(() => expect(add).not.toBeDisabled()); // once the runners are loaded
     fireEvent.click(add);
     fireEvent.click(await screen.findByText('HTTP request'));
     const drawer = await screen.findByRole('dialog');
-    fireEvent.change(within(drawer).getByLabelText('Stage name'), { target: { value: 'Ask Qikchat' } });
+    fireEvent.change(within(drawer).getByLabelText('Step name'), { target: { value: 'Ask Qikchat' } });
 
     api.validateStages.mockResolvedValueOnce({ ok: false, errors: [{ path: 'stages[0].runner.config.url', message: 'A URL is required' }], stages: [] });
     fireEvent.click(within(drawer).getByRole('button', { name: 'Apply' }));
@@ -327,7 +325,7 @@ describe('the Delivery tab', () => {
     expect(values().actions[1].send).toEqual({ bindings: { fields: { to: '{{ event.email }}' } } });
     expect(values().actions[0].stages.map((s: StageConfig) => s.id)).toEqual(['first']);
 
-    const add = screen.getByRole('button', { name: 'Add a stage: On failure' });
+    const add = screen.getByRole('button', { name: 'Add a step: On failure' });
     await waitFor(() => expect(add).not.toBeDisabled());
     fireEvent.click(add);
     fireEvent.click(await screen.findByText('Script'));
@@ -339,7 +337,7 @@ describe('the Delivery tab', () => {
   it('warns when stages cannot run on this server', async () => {
     api.getStageRuntime.mockResolvedValue({ ready: false, mode: 'host', isolated: false, problems: ['unshare is not installed'], switchedOff: false });
     render(<Harness initial={{ stages: existing }} />);
-    expect(await screen.findByText('Stages do not run on this server yet')).toBeInTheDocument();
+    expect(await screen.findByText('Steps do not run on this server yet')).toBeInTheDocument();
     expect(screen.getByText('unshare is not installed')).toBeInTheDocument();
   });
 });

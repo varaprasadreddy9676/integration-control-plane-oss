@@ -131,7 +131,7 @@ export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: Stag
         <Alert
           type="warning"
           showIcon
-          message="The stage will call the real APIs"
+          message="The step will call the real APIs"
           description="Anything those calls change is changed for real. The test is recorded in the audit log; it schedules nothing and changes no delivery."
         />
       ) : (

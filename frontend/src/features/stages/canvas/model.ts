@@ -291,7 +291,7 @@ function buildCollapsed(delivery: DeliveryInput, group: number, compact: boolean
     kind: 'group',
     eyebrow: `Delivery · ${protocolLabel(delivery.target.protocol)}`,
     title: delivery.target.label || 'Delivery',
-    summary: `${plural(steps, 'stage')}${off ? ` · ${off} off` : ''}`,
+    summary: `${plural(steps, 'step')}${off ? ` · ${off} off` : ''}`,
     group,
     col: 'main',
     row: 1,

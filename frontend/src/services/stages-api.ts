@@ -200,19 +200,6 @@ export const getStageJobCounts = async (integrationId: string, stageId: string):
 export const repinStageJobs = async (integrationId: string, stageId: string, reason: string): Promise<{ moved: number }> =>
   apiRequest(`/stages/integrations/${integrationId}/stages/${stageId}/repin`, json({ reason }));
 
-export interface StageResults {
-  outcomes: Array<{ stageId: string; status: string | null; outcome: StageOutcome; deliveries: number }>;
-  executions: Array<{ stageId: string; runs: number; errors: number; timeouts: number; retries: number; averageMs: number | null }>;
-}
-
-export const getStageResults = async (filters: { integrationId?: string; stageId?: string; from?: string; to?: string }): Promise<StageResults> => {
-  const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as Array<[string, string]>);
-  const query = params.toString();
-  return apiRequest(`/stages/results${query ? `?${query}` : ''}`);
-};
-
-export const getStageUsage = async (): Promise<{ used: number; quota: number }> => apiRequest('/stages/usage');
-
 export const getStageRuntime = async (): Promise<StageRuntimeStatus> => apiRequest('/stages/runtime');
 
 export interface CredentialOption {

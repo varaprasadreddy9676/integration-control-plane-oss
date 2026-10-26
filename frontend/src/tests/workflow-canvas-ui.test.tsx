@@ -14,8 +14,6 @@ const api = vi.hoisted(() => ({
   validateStages: vi.fn(),
   testStage: vi.fn(),
   listCredentialOptions: vi.fn(),
-  getStageResults: vi.fn(),
-  getStageUsage: vi.fn(),
   getFlowStats: vi.fn(),
   getSaveImpact: vi.fn(),
   getStageOutcomes: vi.fn(),
@@ -263,7 +261,7 @@ describe('the workflow canvas', () => {
     fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
     const inspector = await screen.findByRole('complementary', { name: /Consent granted\? details/ });
     expect(within(inspector).getByRole('tab', { name: 'Configure' })).toHaveAttribute('aria-selected', 'true');
-    expect(within(inspector).getByLabelText('Stage name')).toHaveValue('Consent granted?');
+    expect(within(inspector).getByLabelText('Step name')).toHaveValue('Consent granted?');
     fireEvent.click(within(inspector).getByRole('tab', { name: 'Test' }));
     expect(await within(inspector).findByText(/Run the test|Run test|Test/i)).toBeTruthy();
     fireEvent.click(within(inspector).getByRole('button', { name: 'Close the inspector' }));
@@ -317,7 +315,7 @@ describe('the workflow canvas', () => {
     render(<Harness initial={integration} onValues={(v) => (values = v)} />);
     fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
     const inspector = await screen.findByRole('complementary', { name: /details/ });
-    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Consent on file?' } });
+    fireEvent.change(within(inspector).getByLabelText('Step name'), { target: { value: 'Consent on file?' } });
     fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
     await waitFor(() => expect(api.validateStages).toHaveBeenCalled());
     fireEvent.click(screen.getByText('read values'));
@@ -380,7 +378,7 @@ describe('the workflow canvas', () => {
     render(<Harness initial={integration} />);
     fireEvent.click((await screen.findAllByRole('button', { name: /Check delivery status/ }))[0]);
     const inspector = await screen.findByRole('complementary', { name: /details/ });
-    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Check status' } });
+    fireEvent.change(within(inspector).getByLabelText('Step name'), { target: { value: 'Check status' } });
     fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
     expect(await screen.findByText(/41 waiting checks keep their version/)).toBeInTheDocument();
   });
@@ -389,7 +387,7 @@ describe('the workflow canvas', () => {
     render(<Harness initial={integration} />);
     fireEvent.click((await screen.findAllByRole('button', { name: /Check delivery status/ }))[0]);
     const inspector = await screen.findByRole('complementary', { name: /details/ });
-    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Check status' } });
+    fireEvent.change(within(inspector).getByLabelText('Step name'), { target: { value: 'Check status' } });
     fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
     expect(await screen.findByText(/No step's settings changed/)).toBeInTheDocument();
     expect(screen.queryByText(/0 steps changed/)).not.toBeInTheDocument();
@@ -402,7 +400,7 @@ describe('the workflow canvas', () => {
     expect(onTouched).toHaveBeenLastCalledWith(false);
     fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
     const inspector = await screen.findByRole('complementary', { name: /details/ });
-    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Consent?' } });
+    fireEvent.change(within(inspector).getByLabelText('Step name'), { target: { value: 'Consent?' } });
     fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
     await screen.findAllByRole('button', { name: /Consent\?/ });
     fireEvent.click(screen.getByRole('button', { name: 'read touched' }));
@@ -430,7 +428,7 @@ describe('the workflow canvas', () => {
     render(<Harness initial={integration} />);
     fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
     const inspector = await screen.findByRole('complementary', { name: /details/ });
-    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Consent granted for this person' } });
+    fireEvent.change(within(inspector).getByLabelText('Step name'), { target: { value: 'Consent granted for this person' } });
     fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
     const node = (await screen.findAllByRole('button', { name: /Consent granted for this person/ }))[0];
     const eyebrow = node.querySelector('.wf-node__eyebrow > span:first-child') as HTMLElement;

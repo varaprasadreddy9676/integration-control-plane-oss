@@ -149,7 +149,7 @@ export const FailurePanel = ({
       {attemptsList.length > 0 && (
         <div>
           <div className="wf-section-title">
-            Attempts <span className="wf-help">each one re-ran the stages before send</span>
+            Attempts <span className="wf-help">each one re-ran the steps before send</span>
           </div>
           {attemptsList.map((attempt) => (
             <div

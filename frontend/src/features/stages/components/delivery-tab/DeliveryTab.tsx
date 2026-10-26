@@ -81,9 +81,9 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
       {!readOnly && (
         <Space align="center">
           <Form.Item name="stagesPaused" noStyle getValueProps={(paused) => ({ checked: !paused })} normalize={(checked) => !checked}>
-            <Switch aria-label="Run this integration's stages" />
+            <Switch aria-label="Run this integration's steps" />
           </Form.Item>
-          <Text>Run this integration&apos;s stages</Text>
+          <Text>Run this integration&apos;s steps</Text>
         </Space>
       )}
       {view === 'workflow' ? (
@@ -121,7 +121,7 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
         </div>
       )}
       {readOnly ? (
-        <DeliveryStagesView key={target.key} stages={stages} integrationId={integrationId} />
+        <DeliveryStagesView key={target.key} stages={stages} />
       ) : (
         <Form.Item key={target.key} name={[...target.namePath, 'stages']} noStyle>
           <DeliveryStagesSection form={form} integrationId={integrationId} target={target} context={context} />

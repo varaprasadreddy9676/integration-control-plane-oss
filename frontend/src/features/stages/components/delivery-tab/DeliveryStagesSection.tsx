@@ -6,7 +6,6 @@ import { stageFromTemplate } from '../../../../services/stages-api';
 import { HOOK_GROUPS } from '../../stageLabels';
 import { KeyValueEditor } from './SchemaForm';
 import { StageEditorDrawer } from './StageEditorDrawer';
-import { StageResultsCard } from './StageResultsCard';
 import { canMoveStage, draftFromRunner, moveStage, newStageId, outputsOf, removeStageAt, scheduleSummary, setStageEnabled } from './stageDraft';
 import { stageMenu, useStageLibrary } from './stageLibrary';
 import type { DeliveryTarget, RequestPart } from '../../deliveryTargets';
@@ -61,7 +60,7 @@ const SendBindingsEditor = ({
         {available.length ? (
           <>Available: {available.map((item) => <code key={item} style={{ marginRight: 8 }}>{item}</code>)}</>
         ) : (
-          'Add a stage before send with outputs to pass its values on (a token, for example).'
+          'Add a step before send with outputs to pass its values on (a token, for example).'
         )}
       </Text>
     </Space>
@@ -164,7 +163,7 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
         <Alert
           type="warning"
           showIcon
-          message="Stages do not run on this server yet"
+          message="Steps do not run on this server yet"
           description={runtime.data.problems.join('. ')}
         />
       )}
@@ -178,8 +177,8 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
           message={migration.state === 'SWITCHED' ? 'Moved from the old configuration' : 'Comparing with the old configuration'}
           description={
             migration.state === 'SWITCHED'
-              ? 'These stages now do what the old settings did, under the same rules.'
-              : 'The stages marked "Being compared" run beside the old settings without effect, until the comparison is conclusive.'
+              ? 'These steps now do what the old settings did, under the same rules.'
+              : 'The steps marked "Being compared" run beside the old settings without effect, until the comparison is conclusive.'
           }
         />
       )}
@@ -194,14 +193,14 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
               </Text>
             </div>
             <Dropdown menu={addMenu(group.hook)} trigger={['click']} disabled={!runners.data}>
-              <Button icon={<PlusOutlined />} aria-label={`Add a stage: ${group.title}`}>
-                Add a stage
+              <Button icon={<PlusOutlined />} aria-label={`Add a step: ${group.title}`}>
+                Add a step
               </Button>
             </Dropdown>
           </div>
           <Space direction="vertical" size={8} style={{ width: '100%' }}>
             {groupRows(group.hook)}
-            {!stages.some((stage) => stage.hook === group.hook) && <Text type="secondary">No stages here.</Text>}
+            {!stages.some((stage) => stage.hook === group.hook) && <Text type="secondary">No steps here.</Text>}
           </Space>
 
           {group.hook === 'before_send' && (
@@ -219,7 +218,6 @@ export const DeliveryStagesSection = ({ form, integrationId, target, context, va
         </div>
       ))}
 
-      {integrationId && <StageResultsCard integrationId={integrationId} stages={stages} />}
 
       {runners.data && (
         <StageEditorDrawer

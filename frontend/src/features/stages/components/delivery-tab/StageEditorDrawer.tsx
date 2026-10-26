@@ -152,10 +152,10 @@ export const StageEditor = ({
         />
       )}
       {draft.shadow && (
-        <Alert type="warning" showIcon message="Being compared" description="A migration runs this stage beside the old configuration to compare them. It has no effect yet." />
+        <Alert type="warning" showIcon message="Being compared" description="A migration runs this step beside the old configuration to compare them. It has no effect yet." />
       )}
       <Field label="Name *" error={errorAt('name')} hint="Shown on the delivery's tab and in results. Renaming keeps the history.">
-        <Input aria-label="Stage name" value={draft.name} maxLength={80} onChange={(e) => update({ name: e.target.value })} />
+        <Input aria-label="Step name" value={draft.name} maxLength={80} onChange={(e) => update({ name: e.target.value })} />
       </Field>
       <Text type="secondary">
         {runner?.label || draft.runner.type} · {hookTitle(draft.hook)} · ID <code>{draft.id}</code>
@@ -180,11 +180,11 @@ export const StageEditor = ({
           onChange={(config) => update({ runner: { ...draft.runner, config } })}
         />
       ) : (
-        <Alert type="warning" showIcon message={`The ${draft.runner.type} runner is not offered for new stages; its settings are kept as they are.`} />
+        <Alert type="warning" showIcon message={`The ${draft.runner.type} runner is not offered for new steps; its settings are kept as they are.`} />
       )}
 
       {runner?.presentation?.outputs?.declaredOnStage && (
-        <Field label="Outputs" error={errorAt('outputs')} hint="What later stages and the Send step may use: return { data: { name: value } }.">
+        <Field label="Outputs" error={errorAt('outputs')} hint="What later steps and the Send step may use: return { data: { name: value } }.">
           <Widget field={{ name: 'outputs', label: 'Output', widget: 'rows', columns: OUTPUT_COLUMNS }} label="Output" value={draft.outputs} onChange={(outputs) => update({ outputs })} />
         </Field>
       )}
@@ -284,7 +284,7 @@ export const StageEditor = ({
                       : 'Let it ask for the message to be sent again (only with fail(..., { retryDelivery: true }))'}
                   </Checkbox>
                 )}
-                <Field label="Time limit (ms)" error={errorAt('timeoutMs')} hint={inline ? 'Stages inside the delivery share one time budget.' : undefined}>
+                <Field label="Time limit (ms)" error={errorAt('timeoutMs')} hint={inline ? 'Steps inside the delivery share one time budget.' : undefined}>
                   <InputNumber aria-label="Time limit in milliseconds" min={100} step={500} value={draft.timeoutMs} placeholder={inline ? '3000' : '15000'} onChange={(v) => update({ timeoutMs: v === null ? undefined : Number(v) })} />
                 </Field>
               </Space>
@@ -389,7 +389,7 @@ export const StageEditor = ({
             key: 'inputs',
             label: 'Inputs',
             children: (
-              <Field label="Values the stage receives" error={errorAt('inputs')} hint={'Use {{ event.field }}, {{ delivery.response.body.id }} or an earlier stage\'s output; add ?? "default" for a fallback.'}>
+              <Field label="Values the step receives" error={errorAt('inputs')} hint={'Use {{ event.field }}, {{ delivery.response.body.id }} or an earlier step\'s output; add ?? "default" for a fallback.'}>
                 <KeyValueEditor label="Input" value={draft.inputs} onChange={(inputs) => update({ inputs })} />
                 {earlier.some((candidate) => outputsOf(candidate, runnerOf(candidate)).length) && (
                   <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 6 }}>
@@ -437,7 +437,7 @@ export const StageEditorDrawer = ({ open, onClose, ...editorProps }: StageEditor
         open={open}
         onClose={onClose}
         width={760}
-        title={draft.name || 'New stage'}
+        title={draft.name || 'New step'}
         destroyOnClose
         footer={
           <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
