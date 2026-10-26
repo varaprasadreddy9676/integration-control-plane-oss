@@ -57,6 +57,7 @@ async function run(ctx) {
 module.exports = {
   type: 'script',
   label: 'Script',
+  description: 'A few lines of code: decide, reshape or look something up',
   hooks: ['before_send', 'after_response', 'after_delivery', 'on_failure'],
   configSchema: {
     fields: [{ name: 'code', label: 'Script', widget: 'code', language: 'javascript', required: true }],

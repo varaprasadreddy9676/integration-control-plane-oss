@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { StageHook, StageRunner, StageTemplate } from '../../../../services/stages-api';
 import { getStageRunners, getStageRuntime, getStageTemplates } from '../../../../services/stages-api';
+import { Icon } from '../../canvas/CanvasNode';
 
 /** What a stage can be made from: the runners, the templates for this integration, and whether stages run on this server. */
 export const useStageLibrary = (integrationId?: string) => {
@@ -18,6 +19,24 @@ interface LibraryHandlers {
   onTemplate: (templateId: string) => void;
 }
 
+type IconName = Parameters<typeof Icon>[0]['name'];
+const KNOWN_ICONS: IconName[] = ['script', 'http', 'transform', 'send'];
+
+/** A menu choice: its name, and under it why you would pick it. */
+const Choice = ({ title, hint, icon }: { title: string; hint?: string; icon?: string }) => (
+  <span style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '2px 0', maxWidth: 280 }}>
+    {icon && KNOWN_ICONS.includes(icon as IconName) && (
+      <span style={{ marginTop: 2, display: 'inline-flex', opacity: 0.75 }}>
+        <Icon name={icon as IconName} size={16} />
+      </span>
+    )}
+    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <span style={{ fontWeight: 500 }}>{title}</span>
+      {hint && <span style={{ fontSize: 12, lineHeight: '16px', whiteSpace: 'normal', opacity: 0.65 }}>{hint}</span>}
+    </span>
+  </span>
+);
+
 /** The "add a stage" menu for a hook: runners that can run there, then templates for it. */
 export const stageMenu = (
   hook: StageHook,
@@ -26,12 +45,15 @@ export const stageMenu = (
 ) => {
   const fromRunners = (library.runners || [])
     .filter((runner) => runner.hooks.includes(hook))
-    .map((runner) => ({ key: `runner:${runner.type}`, label: runner.label }));
+    .map((runner) => ({
+      key: `runner:${runner.type}`,
+      label: <Choice title={runner.label} hint={runner.description} icon={runner.presentation?.icon} />,
+    }));
   const fromTemplates = (library.templates || [])
     .filter((template) => template.hook === hook)
     .map((template) => ({
       key: `template:${template.id}`,
-      label: `${template.label}${template.recommended ? ' (suggested)' : ''}`,
+      label: <Choice title={`${template.label}${template.recommended ? ' (suggested)' : ''}`} hint={template.description} />,
     }));
   return {
     items: [

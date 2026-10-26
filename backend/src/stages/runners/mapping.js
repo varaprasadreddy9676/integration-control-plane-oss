@@ -35,6 +35,7 @@ async function run(ctx) {
 module.exports = {
   type: 'mapping',
   label: 'Field mapping (migrated)',
+  description: 'A field mapping carried over from an earlier version',
   internal: true,
   hooks: ['after_response'],
   configSchema: { fields: [{ name: 'transformation', label: 'Mapping', widget: 'code', language: 'json', readOnly: true }] },

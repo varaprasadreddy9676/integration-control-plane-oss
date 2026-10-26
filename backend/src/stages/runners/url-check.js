@@ -48,6 +48,7 @@ async function run(ctx) {
 module.exports = {
   type: 'url-check',
   label: 'Check linked URLs',
+  description: 'Make sure the links in the message open before it is sent',
   hooks: ['before_send'],
   configSchema: {
     fields: [

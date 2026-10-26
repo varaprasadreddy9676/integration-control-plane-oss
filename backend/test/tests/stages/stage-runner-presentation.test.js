@@ -21,6 +21,12 @@ describe.each(all.map((runner) => [runner.type, runner]))('the %s runner', (_typ
     expect(presentation.outputs).toEqual(expect.any(Object));
   });
 
+  it('says in one line what it is for, so the console can offer it with a reason', () => {
+    expect(runner.description).toEqual(expect.any(String));
+    expect(runner.description.length).toBeGreaterThan(10);
+    expect(runner.description.length).toBeLessThanOrEqual(90);
+  });
+
   it('summarises, and starts, from fields it really has', () => {
     const { summary, defaultConfig, defaultConfigByHook, outputs } = runner.presentation;
     const names = fieldNames(runner);

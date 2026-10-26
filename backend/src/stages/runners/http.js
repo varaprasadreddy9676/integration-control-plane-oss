@@ -171,6 +171,7 @@ function outcomes(config) {
 module.exports = {
   type: 'http',
   label: 'HTTP request',
+  description: 'Call another service and use what it answers',
   hooks: ['before_send', 'after_response', 'after_delivery', 'on_failure'],
   configSchema: {
     fields: [

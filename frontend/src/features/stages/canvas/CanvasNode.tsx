@@ -261,7 +261,8 @@ export const CanvasNode = ({
       ) : (
         <span className="wf-node__text">
           <span className="wf-node__eyebrow">
-            <span>{shownEyebrow}</span>
+            {/* The badge shares this row: keep the kind and drop the hook, which the lane beside the step already names. */}
+            <span>{twoLines && status ? shownEyebrow.split(' · ')[0] : shownEyebrow}</span>
             {twoLines && status}
           </span>
           <span className={`wf-node__title${twoLines ? ' wf-node__title--two' : ''}`}>{title}</span>

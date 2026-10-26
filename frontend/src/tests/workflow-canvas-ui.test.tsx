@@ -426,6 +426,18 @@ describe('the workflow canvas', () => {
     }
   });
 
+  it('keeps a step\'s eyebrow readable when a badge shares its row', async () => {
+    render(<Harness initial={integration} />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
+    const inspector = await screen.findByRole('complementary', { name: /details/ });
+    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Consent granted for this person' } });
+    fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
+    const node = (await screen.findAllByRole('button', { name: /Consent granted for this person/ }))[0];
+    const eyebrow = node.querySelector('.wf-node__eyebrow > span:first-child') as HTMLElement;
+    expect(eyebrow.textContent).toBe('Gate');
+    expect(node).toHaveTextContent(/Edited/i);
+  });
+
   it('has a list and a diagram of the same steps, the list being the default', async () => {
     render(<Harness initial={integration} />);
     await screen.findAllByRole('button', { name: /Consent granted\?/ });

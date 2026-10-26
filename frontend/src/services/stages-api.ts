@@ -72,6 +72,8 @@ export interface RunnerPresentation {
 export interface StageRunner {
   type: string;
   label: string;
+  /** One line on why you would add it. */
+  description?: string;
   hooks: StageHook[];
   configSchema: { fields: SchemaField[] };
   presentation?: RunnerPresentation;

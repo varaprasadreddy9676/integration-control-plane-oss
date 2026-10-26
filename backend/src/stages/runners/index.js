@@ -3,7 +3,7 @@
 /**
  * The runner registry: one module per runner, the same pattern as
  * services/notifications/plugins. A runner is
- *   { type, label, hooks, configSchema, validate(config, stage) -> [{ path, message }],
+ *   { type, label, description (one line: why you would add it), hooks, configSchema, validate(config, stage) -> [{ path, message }],
  *     outputs(config) -> [{ name, type, sensitive }] | null, run(ctx), internal? }
  * `internal` runners serve migrated configurations only and are not offered for
  * new stages. The console builds each runner's form from configSchema with the
