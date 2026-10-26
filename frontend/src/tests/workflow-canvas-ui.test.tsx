@@ -14,7 +14,6 @@ const api = vi.hoisted(() => ({
   validateStages: vi.fn(),
   testStage: vi.fn(),
   listCredentialOptions: vi.fn(),
-  getFlowStats: vi.fn(),
   getSaveImpact: vi.fn(),
   getStageOutcomes: vi.fn(),
   getDeliveryStages: vi.fn(),
@@ -53,81 +52,6 @@ const consent = script('consent', 'Consent granted?', 'before_send', { effect: '
 const reply = script('reply', 'Read the provider reply', 'after_response', { effect: 'gate' });
 const status = script('status', 'Check delivery status', 'after_delivery', { schedule: { checkAfterSeconds: [30] } });
 const notify = script('notify', 'Notify the front desk', 'on_failure');
-
-const STATS = {
-  integrationId: 'int-1',
-  since: '',
-  until: '',
-  hours: 24,
-  removedStages: [],
-  unattributed: { total: 0, byStatus: {}, attempts: 0, retries: 0 },
-  targets: [
-    {
-      actionIndex: null,
-      name: null,
-      protocol: 'http',
-      deliveries: { total: 1190, byStatus: { SUCCESS: 1180, ABANDONED: 1 }, attempts: 1200, retries: 6 },
-      stages: [
-        {
-          stageId: 'consent',
-          name: 'Consent granted?',
-          hook: 'before_send',
-          enabled: true,
-          runs: 1225,
-          ok: 1184,
-          skipped: 41,
-          rejected: 0,
-          errored: 0,
-          timedOut: 0,
-          statuses: {},
-          latest: {},
-        },
-        {
-          stageId: 'reply',
-          name: 'Read the provider reply',
-          hook: 'after_response',
-          enabled: true,
-          runs: 1177,
-          ok: 1168,
-          skipped: 0,
-          rejected: 9,
-          errored: 0,
-          timedOut: 0,
-          statuses: {},
-          latest: {},
-        },
-        {
-          stageId: 'status',
-          name: 'Check delivery status',
-          hook: 'after_delivery',
-          enabled: true,
-          runs: 2000,
-          ok: 2000,
-          skipped: 0,
-          rejected: 0,
-          errored: 0,
-          timedOut: 0,
-          statuses: {},
-          latest: { READ: 1100, DELIVERED: 42, PENDING: 26 },
-        },
-        {
-          stageId: 'notify',
-          name: 'Notify the front desk',
-          hook: 'on_failure',
-          enabled: true,
-          runs: 10,
-          ok: 10,
-          skipped: 0,
-          rejected: 0,
-          errored: 0,
-          timedOut: 0,
-          statuses: {},
-          latest: {},
-        },
-      ],
-    },
-  ],
-};
 
 const known = (extra: object) => ({ known: true, statuses: [], skips: [], fails: [], dynamicStatus: false, ...extra });
 
@@ -193,7 +117,6 @@ beforeEach(() => {
   });
   api.listCredentialOptions.mockResolvedValue([]);
   api.validateStages.mockResolvedValue({ ok: true, errors: [], stages: [] });
-  api.getFlowStats.mockResolvedValue(STATS);
   api.getSaveImpact.mockResolvedValue({
     stages: [],
     totals: { keepOldVersion: 0, paused: 0, resumed: 0, cancelled: 0 },
@@ -247,13 +170,16 @@ describe('the workflow canvas', () => {
         (await screen.findAllByRole('button', { name: new RegExp(name.replace('?', '\\?')) })).length
       ).toBeGreaterThan(0);
     }
-    expect(await screen.findByText('Yes · 1,184')).toBeInTheDocument();
-    expect(screen.getByText('No · 41')).toBeInTheDocument();
-    expect(screen.getByText('Accepted · 1,168')).toBeInTheDocument();
-    expect(screen.getByText('Rejected · 9')).toBeInTheDocument();
-    expect(screen.getByText('Read or delivered · 1,142')).toBeInTheDocument();
-    expect(screen.getByText('Error · 6')).toBeInTheDocument();
-    expect(screen.getByText('Exhausted · 1')).toBeInTheDocument();
+    // The connectors say what happens, with no run counts: those are monitoring, not configuration.
+    expect(await screen.findByText('Yes')).toBeInTheDocument();
+    expect(screen.getByText('No')).toBeInTheDocument();
+    expect(screen.getByText('Accepted')).toBeInTheDocument();
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.getByText('Read or delivered')).toBeInTheDocument();
+    expect(screen.getByText('Error')).toBeInTheDocument();
+    expect(screen.getByText('Exhausted')).toBeInTheDocument();
+    expect(screen.queryByText(/·\s*[\d,]+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Connector counts/)).not.toBeInTheDocument();
     expect(screen.getByText('Answered')).toBeInTheDocument();
   });
 
@@ -709,7 +635,6 @@ describe('a delivery\'s flow, shown with the delivery', () => {
     expect(screen.getByRole('button', { name: /Send .*Failed|Send.*Timeout/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Read the provider reply.*Not taken/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Notify the front desk.*/ })).toBeInTheDocument();
-    expect(screen.queryByText('Yes · 1,184')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Edit workflow/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Executions' })).not.toBeInTheDocument();
   });

@@ -218,43 +218,7 @@ export const listCredentialOptions = async (): Promise<CredentialOption[]> => {
   return data.map((credential) => ({ ...credential, placeholderId: credential.placeholderId || credential.id || '' }));
 };
 
-// ── What the workflow canvas reads (backend stages/flow-stats.js, save-impact.js, outcomes.js, verified-replay.js)
-
-export interface StageFlowStats {
-  stageId: string;
-  name: string;
-  hook: StageHook | null;
-  enabled: boolean;
-  runs: number;
-  ok: number;
-  skipped: number;
-  rejected: number;
-  errored: number;
-  timedOut: number;
-  statuses: Record<string, number>;
-  /** Checks after delivery: deliveries by the stage's latest status word. */
-  latest: Record<string, number>;
-}
-
-export interface DeliveryFlowStats {
-  total: number;
-  byStatus: Record<string, number>;
-  attempts: number;
-  retries: number;
-}
-
-export interface FlowStats {
-  integrationId: string;
-  since: string;
-  until: string;
-  hours: number;
-  targets: Array<{ actionIndex: number | null; name: string | null; protocol: string; deliveries: DeliveryFlowStats; stages: StageFlowStats[] }>;
-  removedStages: StageFlowStats[];
-  unattributed: DeliveryFlowStats;
-}
-
-export const getFlowStats = async (integrationId: string, hours = 24): Promise<FlowStats> =>
-  apiRequest(`/stages/flow-stats?integrationId=${encodeURIComponent(integrationId)}&hours=${hours}`);
+// ── What the workflow canvas reads (backend stages/save-impact.js, outcomes.js, verified-replay.js)
 
 export interface SaveImpactStage {
   stageId: string;

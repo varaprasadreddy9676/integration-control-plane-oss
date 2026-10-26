@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { StageConfig, StageOutcomes } from '../../../services/stages-api';
-import { getFlowStats, getSaveImpact, getStageOutcomes, validateStages } from '../../../services/stages-api';
+import { getSaveImpact, getStageOutcomes, validateStages } from '../../../services/stages-api';
 import type { DeliveryTarget } from '../deliveryTargets';
 import { issueText } from '../components/delivery-tab/stageDraft';
 import { useStageLibrary } from '../components/delivery-tab/stageLibrary';
@@ -89,14 +89,6 @@ export function useCanvasData({
     staleTime: 60 * 1000,
   });
 
-  const stats = useQuery({
-    queryKey: ['flow-stats', integrationId],
-    queryFn: () => getFlowStats(integrationId as string, 24),
-    enabled: Boolean(integrationId),
-    refetchInterval: 60 * 1000,
-    retry: false,
-  });
-
   const draftSignature = useDeferredValue(current);
   const impact = useQuery({
     queryKey: ['save-impact', integrationId, draftSignature],
@@ -150,8 +142,6 @@ export function useCanvasData({
     library,
     runnerMap,
     outcomes: outcomes.data || {},
-    stats: stats.data,
-    statsError: stats.isError,
     impact: impact.data,
     issues: validation.data || {},
     dirty,

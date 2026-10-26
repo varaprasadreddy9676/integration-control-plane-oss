@@ -21,7 +21,6 @@ import { ExecutionDrawer } from './ExecutionBar';
 import { Inspector } from './Inspector';
 import type { StageAction } from './Inspector';
 import { Minimap } from './Minimap';
-import { labelCount, labelText } from './facts';
 import type { NodeView } from './execution';
 import { traceExecution } from './execution';
 import type { Flow, FlowLabel, FlowNode } from './model';
@@ -52,7 +51,6 @@ type Snapshot = Record<string, StageConfig[]>;
 const COMPACT_AT = 0.6;
 /** How far (px) a press must move before it is a drag and not a click. */
 const DRAG_THRESHOLD = 6;
-const COUNTS_HIDDEN_BELOW = 0.5;
 /** The drawer's width for a stage, and for a fixed step that edits one of the page's own forms. */
 const DRAWER_WIDTH = { stage: 440, fixed: 560 };
 /** Below this canvas width the drawer is a sheet from the bottom (58% of the height). */
@@ -84,8 +82,8 @@ function neighbour(flow: Flow, id: string, key: string): string | null {
 
 /**
  * The workflow canvas (docs/design/workflow-canvas): a projection of each delivery's
- * pipeline with its 24-hour counts, an inspector for the selected step, and an
- * Executions mode that draws one real delivery over the same flow. Edits go to the
+ * pipeline, an inspector for the selected step, and (given a delivery) that delivery's
+ * path drawn over the same flow. Edits go to the
  * integration form as a draft; saving the integration applies them.
  */
 export const WorkflowCanvas = ({
@@ -281,8 +279,6 @@ export const WorkflowCanvas = ({
     return data.isEdited(stage) ? { state: 'edited' } : undefined;
   };
 
-  const factsOf = (groupIndex: number) =>
-    data.stats?.targets.find((entry) => entry.actionIndex === targets[groupIndex].actionIndex);
   const labelView = (label: FlowLabel) => {
     const edgeState = trace?.edges[label.edgeId];
     const variant = trace
@@ -292,12 +288,7 @@ export const WorkflowCanvas = ({
           ? 'taken'
           : label.variant
       : label.variant;
-    const edge = flow.edges.find((candidate) => candidate.id === label.edgeId);
-    const text =
-      trace || viewport.view.z < COUNTS_HIDDEN_BELOW
-        ? label.text
-        : labelText(label, labelCount(label.fact, factsOf(edge?.group ?? 0), data.outcomes));
-    return { variant, text };
+    return { variant, text: label.text };
   };
 
   // Reordering: drag a step up or down within its group; the others stay where they are and a line shows where it lands.
@@ -729,13 +720,6 @@ export const WorkflowCanvas = ({
               ) : (
                 <span className="wf-help">Saved</span>
               )}
-              <span className="wf-help" style={{ marginLeft: 'auto' }}>
-                {data.statsError
-                  ? 'Counts unavailable'
-                  : integrationId
-                    ? 'Connector counts: last 24 h, production'
-                    : 'Counts appear once the integration is saved'}
-              </span>
             </div>
           )}
         </div>

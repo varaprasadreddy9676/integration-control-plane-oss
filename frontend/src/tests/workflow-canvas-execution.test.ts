@@ -5,8 +5,6 @@ import { deliveriesOf } from '../features/stages/deliveryTargets';
 import { RUNNER_MAP } from './fixtures/stage-runners';
 import { buildFlow } from '../features/stages/canvas/model';
 import { traceExecution } from '../features/stages/canvas/execution';
-import type { TargetFacts } from '../features/stages/canvas/facts';
-import { labelCount, labelText } from '../features/stages/canvas/facts';
 
 const script = (id: string, hook: StageConfig['hook'], extra: Partial<StageConfig> = {}): StageConfig => ({ id, name: id, hook, runner: { type: 'script', config: { code: 'return null;' } }, ...extra });
 const stages = [
@@ -72,33 +70,5 @@ describe('one delivery drawn over the flow', () => {
   it('a delivery of another action leaves this action\'s group not taken', () => {
     const trace = traceExecution(flow, 1, log({}), { states: [], runs: [] });
     expect(state(trace, 'send').state).toBe('unvisited');
-  });
-});
-
-describe('what a connector label counts', () => {
-  const facts: TargetFacts = {
-    deliveries: { total: 100, byStatus: { ABANDONED: 2, SUCCESS: 98 }, attempts: 110, retries: 10 },
-    stages: [
-      { stageId: 'consent', name: 'c', hook: 'before_send' as const, enabled: true, runs: 110, ok: 98, skipped: 10, rejected: 2, errored: 0, timedOut: 0, statuses: {}, latest: {} },
-      { stageId: 'status', name: 's', hook: 'after_delivery' as const, enabled: true, runs: 90, ok: 90, skipped: 0, rejected: 0, errored: 0, timedOut: 0, statuses: {}, latest: { READ: 70, DELIVERED: 12, PENDING: 8 } },
-    ],
-  };
-  const outcomes: Record<string, StageOutcomes> = { status: { known: true, statuses: [{ status: 'READ', done: true }, { status: 'DELIVERED', done: true }, { status: 'PENDING', done: false }], skips: [], fails: [], dynamicStatus: false } };
-  const label = (fact: Parameters<typeof labelCount>[0]) => ({ id: 'x', edgeId: 'e', text: 'Label', variant: 'plain' as const, x: 0, y: 0, fact });
-
-  it('takes each number from the fact it names', () => {
-    expect(labelCount({ type: 'stage', stageId: 'consent', field: 'skipped' }, facts, outcomes)).toBe(10);
-    expect(labelCount({ type: 'retries' }, facts, outcomes)).toBe(10);
-    expect(labelCount({ type: 'abandoned' }, facts, outcomes)).toBe(2);
-    expect(labelCount({ type: 'later', stageId: 'status' }, facts, outcomes)).toBe(82);
-  });
-
-  it('shows no number rather than a guess', () => {
-    expect(labelCount(undefined, facts, outcomes)).toBeUndefined();
-    expect(labelCount({ type: 'retries' }, undefined, outcomes)).toBeUndefined();
-    expect(labelCount({ type: 'later', stageId: 'status' }, facts, {})).toBeUndefined();
-    expect(labelCount({ type: 'stage', stageId: 'gone', field: 'ok' }, facts, outcomes)).toBeUndefined();
-    expect(labelText(label(undefined), undefined)).toBe('Label');
-    expect(labelText(label(undefined), 1184)).toBe('Label · 1,184');
   });
 });
