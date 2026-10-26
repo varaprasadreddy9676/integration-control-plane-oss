@@ -41,22 +41,6 @@ const defaultUIConfig = {
     { value: 'ABANDONED', label: 'Abandoned' }
   ],
 
-  // Transformation modes
-  transformationModes: [
-    { value: 'SIMPLE', label: 'Simple Mapping' },
-    { value: 'SCRIPT', label: 'JavaScript Script' }
-  ],
-
-  // Transformation functions (for SIMPLE mode)
-  transformationFunctions: [
-    { value: 'none', label: 'None' },
-    { value: 'trim', label: 'Trim whitespace' },
-    { value: 'upper', label: 'Uppercase' },
-    { value: 'lower', label: 'Lowercase' },
-    { value: 'date', label: 'Format as date' },
-    { value: 'default', label: 'Default value if empty' }
-  ],
-
   // Validation rules
   validationRules: {
     timeout: {

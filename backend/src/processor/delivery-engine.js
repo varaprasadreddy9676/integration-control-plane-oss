@@ -262,7 +262,7 @@ async function deliverSingleAction(
     const hasActionScript =
       typeof action.transformation?.script === 'string' && action.transformation.script.trim().length > 0;
     const actionTransformationMode =
-      action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : 'SIMPLE') : null);
+      action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : usesFieldMappings(action.transformation) ? 'SIMPLE' : 'NONE') : null);
 
     if (hasActionTransformation || actionTransformationMode) {
       // Action has its own transformation

@@ -8,8 +8,8 @@
  *   preDeliveryChecks        url-check gate before sending; delivery retries as
  *                            before (allowDeliveryRetry); both send paths ran it
  *   responseTransformation   SCRIPT: a classifier after the response (skip() fails
- *                            the send, shouldRetry resends); SIMPLE: an observer
- *                            mapping (it never affected the delivery)
+ *                            the send, shouldRetry resends). The removed field-mapping
+ *                            mode only ever observed the answer and is not carried over
  *   deliveryFollowUp         a scheduled check with the old schedule and reading;
  *                            errors use up their check, as before
  *
@@ -38,8 +38,7 @@ const originOf = (url) => {
 
 function hasResponseScript(transformation) {
   if (!transformation || typeof transformation !== 'object') return false;
-  if ((transformation.mode || 'SIMPLE') === 'SCRIPT') return typeof transformation.script === 'string' && transformation.script.trim() !== '';
-  return Array.isArray(transformation.mappings) && transformation.mappings.length > 0;
+  return transformation.mode === 'SCRIPT' && typeof transformation.script === 'string' && transformation.script.trim() !== '';
 }
 
 function preDeliveryStage(checks) {
@@ -59,30 +58,17 @@ function preDeliveryStage(checks) {
 }
 
 function responseStage(transformation) {
-  if ((transformation.mode || 'SIMPLE') === 'SCRIPT') {
-    return {
-      id: 'responseCheck',
-      name: 'Response check',
-      hook: 'after_response',
-      effect: 'gate',
-      contract: 'legacy:response-transform',
-      runner: { type: 'script', config: { code: transformation.script } },
-      allowDeliveryRetry: true,
-      // A failing transform script never affected the delivery.
-      onError: { action: 'ignore' },
-      timeoutMs: 30000,
-      migratedFrom: 'responseTransformation',
-    };
-  }
   return {
-    id: 'responseMapping',
-    name: 'Response mapping',
+    id: 'responseCheck',
+    name: 'Response check',
     hook: 'after_response',
-    effect: 'observe',
+    effect: 'gate',
     contract: 'legacy:response-transform',
-    runner: { type: 'mapping', config: { transformation } },
+    runner: { type: 'script', config: { code: transformation.script } },
+    allowDeliveryRetry: true,
+    // A failing transform script never affected the delivery.
     onError: { action: 'ignore' },
-    timeoutMs: 10000,
+    timeoutMs: 30000,
     migratedFrom: 'responseTransformation',
   };
 }

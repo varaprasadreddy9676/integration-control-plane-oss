@@ -405,8 +405,8 @@ describe('MongoDB Data Layer', () => {
           apiKey: 'secret123'
         }, // Direct object!
         transformation: {
-          mode: 'SIMPLE',
-          mappings: { oldField: 'newField' }
+          mode: 'SCRIPT',
+          script: 'return payload;'
         }, // Direct object!
         isActive: true,
         timeoutMs: 3000,

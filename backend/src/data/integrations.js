@@ -421,9 +421,9 @@ async function addIntegration(orgId, payload) {
     isActive: payload.isActive !== false,
     timeoutMs: payload.timeoutMs,
     retryCount: payload.retryCount,
-    transformationMode: payload.transformationMode || 'SIMPLE',
+    transformationMode: payload.transformationMode || 'NONE',
     transformation: payload.transformation || null,
-    transformMode: payload.transformationMode || 'SIMPLE',
+    transformMode: payload.transformationMode || 'NONE',
     transformConfig: payload.transformation || null,
     // Stage fields may have normalized each action's stages.
     actions: stageFields.actions || payload.actions || null,

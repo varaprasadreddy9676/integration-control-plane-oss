@@ -4,7 +4,7 @@
  * Tests real webhook delivery scenarios using webhook-simulator.js as target.
  * Covers:
  * - All authentication methods (NONE, API_KEY, BEARER, BASIC, OAUTH2, CUSTOM)
- * - All transformation modes (SIMPLE, SCRIPT)
+ * - Script transformations
  * - URL validation (HTTPS enforcement, private network blocking)
  * - Response handling (2xx success, 4xx client errors, 5xx server errors, 429 rate limit)
  * - Timeout handling and request abortion
@@ -267,59 +267,6 @@ liveDescribe('Real Webhook Delivery - Authentication Methods', () => {
 });
 
 liveDescribe('Real Webhook Delivery - Transformations', () => {
-  test('SIMPLE - Field mappings with transforms', async () => {
-    const webhook = {
-      transformationMode: 'SIMPLE',
-      transformation: {
-        mappings: [
-          { sourceField: 'name', targetField: 'patientName', transform: 'upper' },
-          { sourceField: 'email', targetField: 'contact', transform: 'trim' },
-          { sourceField: 'date', targetField: 'appointmentDate', transform: 'date' },
-          { sourceField: 'missing', targetField: 'status', transform: 'default', defaultValue: 'active' }
-        ],
-        staticFields: [
-          { key: 'source', value: 'event-gateway' },
-          { key: 'version', value: '2.1' }
-        ]
-      }
-    };
-
-    const payload = {
-      name: 'john doe',
-      email: '  test@example.com  ',
-      date: '2024-12-07T10:00:00Z',
-      extra: 'preserved'
-    };
-
-    const result = await applyTransform(webhook, payload);
-
-    expect(result.patientName).toBe('JOHN DOE');
-    expect(result.contact).toBe('test@example.com');
-    expect(result.appointmentDate).toBeDefined();
-    expect(result.status).toBe('active'); // Default value
-    expect(result.source).toBe('event-gateway');
-    expect(result.version).toBe('2.1');
-    expect(result.extra).toBe('preserved'); // Original fields preserved
-  });
-
-  test('SIMPLE - Missing source fields are ignored without error', async () => {
-    const webhook = {
-      transformationMode: 'SIMPLE',
-      transformation: {
-        mappings: [
-          { sourceField: 'nonexistent', targetField: 'output', transform: 'upper' }
-        ]
-      }
-    };
-
-    const payload = { actual: 'data' };
-
-    const result = await applyTransform(webhook, payload);
-
-    expect(result.actual).toBe('data');
-    expect(result.output).toBeUndefined(); // Missing field not added
-  });
-
   test('SCRIPT - Valid JavaScript transformation', async () => {
     const webhook = {
       transformationMode: 'SCRIPT',

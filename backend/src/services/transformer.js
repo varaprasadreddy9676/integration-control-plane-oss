@@ -72,82 +72,24 @@ function validateScript(script) {
   }
 }
 
+const FIELD_MAPPINGS_REMOVED =
+  'This transformation uses field mappings, which were removed. Rewrite it as a script (Transformation > JavaScript).';
+
 /**
- * Get nested value from object using dot notation
- * e.g., getNestedValue(obj, 'patient.phoneNumber') => obj.patient.phoneNumber
+ * Whether a stored transformation still carries field mappings (or static fields), the mode that
+ * was removed. One with none of them sends the payload as it is, as it always did.
  */
-function getNestedValue(obj, path) {
-  if (!path || !obj) return undefined;
-  const keys = path.split('.');
-  let value = obj;
-  for (const key of keys) {
-    value = value?.[key];
-    if (value === undefined) return undefined;
-  }
-  return value;
-}
-
-async function applySimpleTransform(payload, transformation = {}, event = {}) {
-  const source = payload && typeof payload === 'object' ? payload : {};
-  const result = { ...source }; // Start with original payload, then apply mappings
-  const mappings = transformation && Array.isArray(transformation.mappings) ? transformation.mappings : [];
-
-  for (const row of mappings) {
-    if (!row.targetField || !row.sourceField) continue;
-
-    // Support nested field access with dot notation
-    const sourceVal = getNestedValue(source, row.sourceField);
-    let val = sourceVal;
-
-    switch (row.transform) {
-      case 'trim':
-        val = typeof sourceVal === 'string' ? sourceVal.trim() : sourceVal;
-        break;
-      case 'upper':
-        val = typeof sourceVal === 'string' ? sourceVal.toUpperCase() : sourceVal;
-        break;
-      case 'lower':
-        val = typeof sourceVal === 'string' ? sourceVal.toLowerCase() : sourceVal;
-        break;
-      case 'date':
-        val = sourceVal ? new Date(sourceVal).toISOString() : sourceVal;
-        break;
-      case 'default':
-        val = sourceVal ?? row.defaultValue;
-        break;
-      case 'lookup':
-        if (row.lookupType && sourceVal) {
-          // Apply inline lookup transformation
-          const { resolveLookup } = require('./lookup-service');
-          val = await resolveLookup(sourceVal, row.lookupType, event.orgId, event.orgUnitRid);
-          // If no mapping found, keep original value (PASSTHROUGH behavior)
-          if (val === null || val === undefined) {
-            val = sourceVal;
-          }
-        }
-        break;
-      default:
-        break;
-    }
-
-    if (val !== undefined) {
-      result[row.targetField] = val;
-    }
-  }
-
-  const staticFields = transformation && Array.isArray(transformation.staticFields) ? transformation.staticFields : [];
-  staticFields.forEach((field) => {
-    if (field?.key) {
-      result[field.key] = field.value;
-    }
-  });
-
-  return result;
+function usesFieldMappings(transformation) {
+  if (!transformation || typeof transformation !== 'object') return false;
+  return (
+    (Array.isArray(transformation.mappings) && transformation.mappings.length > 0) ||
+    (Array.isArray(transformation.staticFields) && transformation.staticFields.length > 0)
+  );
 }
 
 /**
  * Apply transformation to payload
- * Step 1: Apply standard transformation (SIMPLE or SCRIPT)
+ * Step 1: Apply the script transformation, if any
  * Step 2: Apply lookups (code mappings)
  */
 async function applyTransform(integration, payload, context = {}, _spansOut = null) {
@@ -163,7 +105,10 @@ async function applyTransform(integration, payload, context = {}, _spansOut = nu
   // Scheduled jobs store the mode inside the transformation object.
   switch (integration.transformationMode || integration.transformation?.mode) {
     case 'SIMPLE':
-      transformed = await applySimpleTransform(payload, integration.transformation, event);
+      // The removed mode: a configuration that never had mappings is a pass-through; one that has them must not
+      // be sent unmapped without a word.
+      if (usesFieldMappings(integration.transformation)) throw new Error(FIELD_MAPPINGS_REMOVED);
+      transformed = payload;
       break;
     case 'SCRIPT':
       if (!validateScript(integration.transformation?.script)) {
@@ -525,8 +470,9 @@ async function applyScriptTransform(
  */
 function hasResponseTransform(responseTransformation) {
   if (!responseTransformation) return false;
-  const mode = responseTransformation.mode || 'SIMPLE';
-  return mode !== 'SCRIPT' || Boolean(String(responseTransformation.script || '').trim());
+  if (responseTransformation.mode === 'SCRIPT') return Boolean(String(responseTransformation.script || '').trim());
+  // Not a script: a leftover field mapping counts as configured (applying it says it was removed), and so do lookups.
+  return usesFieldMappings(responseTransformation) || (Array.isArray(responseTransformation.lookups) && responseTransformation.lookups.length > 0);
 }
 
 /**
@@ -556,7 +502,8 @@ async function applyResponseTransform(integration, response, context = {}, _span
 
   switch (mode) {
     case 'SIMPLE':
-      transformed = await applySimpleTransform(response, integration.responseTransformation, event);
+      if (usesFieldMappings(integration.responseTransformation)) throw new Error(FIELD_MAPPINGS_REMOVED);
+      transformed = response;
       break;
     case 'SCRIPT':
       if (!validateScript(integration.responseTransformation?.script)) {
@@ -591,7 +538,7 @@ module.exports = {
   validateScript,
   applyScriptTransform,
   applyTransform,
-  applySimpleTransform,
+  usesFieldMappings,
   applyResponseTransform,
   hasResponseTransform,
   truncateForTrace,

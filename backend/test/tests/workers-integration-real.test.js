@@ -181,15 +181,14 @@ describeReal('REAL Workers Integration Tests', () => {
           apiKey: 'test_api_key' // Matches simulator's expected key
         },
         deliveryMode: 'IMMEDIATE',
-        transformationMode: 'SIMPLE',
+        transformationMode: 'SCRIPT',
         transformation: {
-          mappings: [
-            { sourceField: 'patientId', targetField: 'patient_id', transform: 'trim' },
-            { sourceField: 'patientName', targetField: 'name', transform: 'trim' }
-          ],
-          staticFields: [
-            { key: 'event_source', value: 'acme_webhook_manager' }
-          ]
+          script: `return {
+  ...payload,
+  patient_id: payload.patientId,
+  name: payload.patientName,
+  event_source: 'acme_webhook_manager',
+};`
         },
         isActive: true,
         timeoutMs: 5000,
@@ -696,16 +695,15 @@ describeReal('REAL Workers Integration Tests', () => {
           apiKey: 'test_api_key'
         },
         deliveryMode: 'IMMEDIATE',
-        transformationMode: 'SIMPLE',
+        transformationMode: 'SCRIPT',
         transformation: {
-          mappings: [
-            { sourceField: 'testId', targetField: 'id', transform: 'trim' },
-            { sourceField: 'testValue', targetField: 'value', transform: 'trim' }
-          ],
-          staticFields: [
-            { key: 'test_type', value: 'e2e' },
-            { key: 'processed_by', value: 'worker' }
-          ]
+          script: `return {
+  ...payload,
+  id: payload.testId,
+  value: payload.testValue,
+  test_type: 'e2e',
+  processed_by: 'worker',
+};`
         },
         isActive: true,
         enableSigning: false,

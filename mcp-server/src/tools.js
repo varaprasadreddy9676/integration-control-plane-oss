@@ -347,7 +347,7 @@ Permission (intended): integration:create
 ⚠️  WRITE OPERATION. Validate with validate_outbound_transformation first if using a custom transformation script.
 
 Required: name, eventType, targetUrl, httpMethod, scope ('ENTITY_ONLY' | 'INCLUDE_CHILDREN'), outgoingAuthType, timeoutMs, retryCount.
-Optional: transformationMode ('SCRIPT' | 'MAPPING' | 'NONE'), transformation ({ script } or { mappings, staticFields }),
+Optional: transformationMode ('SCRIPT' | 'NONE'), transformation ({ script }),
 lookups (array), excludedOrgUnits (array, only valid when scope='INCLUDE_CHILDREN'), actions (array, for multi-action
 integrations — each needs its own targetUrl or falls back to the top-level one).
 Do NOT send entityRid — use orgUnitRid instead (entityRid is rejected).
@@ -365,11 +365,11 @@ Example response shape: { _env, id, name, eventType, targetUrl, ... } (full crea
       outgoingAuthConfig: z.record(z.any()).optional(),
       timeoutMs: z.number().int().positive(),
       retryCount: z.number().int().min(0),
-      transformationMode: z.enum(['SCRIPT', 'MAPPING', 'NONE']).optional(),
+      transformationMode: z.enum(['SCRIPT', 'NONE']).optional(),
       transformation: z
         .record(z.any())
         .optional()
-        .describe('{ script } for SCRIPT mode, or { mappings, staticFields } for MAPPING mode'),
+        .describe('{ script } for SCRIPT mode'),
       lookups: z.array(z.record(z.any())).optional(),
       excludedOrgUnits: z.array(z.string()).optional().describe('Only valid when scope=INCLUDE_CHILDREN'),
       actions: z
@@ -401,7 +401,7 @@ Example response shape: { _env, id, name, ... } (full updated document)`,
       outgoingAuthConfig: z.record(z.any()).optional(),
       timeoutMs: z.number().int().positive().optional(),
       retryCount: z.number().int().min(0).optional(),
-      transformationMode: z.enum(['SCRIPT', 'MAPPING', 'NONE']).optional(),
+      transformationMode: z.enum(['SCRIPT', 'NONE']).optional(),
       transformation: z.record(z.any()).optional(),
       lookups: z.array(z.record(z.any())).optional(),
       excludedOrgUnits: z.array(z.string()).optional(),

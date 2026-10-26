@@ -107,11 +107,11 @@ function mapIntegrationFromMongo(doc) {
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,
     retryCount: doc.retryCount,
-    transformationMode: doc.transformationMode || 'SIMPLE',
+    transformationMode: doc.transformationMode || 'NONE',
     transformation: doc.transformation, // Already an object in MongoDB
     authType: doc.outgoingAuthType,
     authConfig: doc.outgoingAuthConfig,
-    transformMode: doc.transformationMode || 'SIMPLE',
+    transformMode: doc.transformationMode || 'NONE',
     transformConfig: doc.transformation || null,
     actions: doc.actions, // Multi-action integrations support
     resourceType: doc.resourceType || null,

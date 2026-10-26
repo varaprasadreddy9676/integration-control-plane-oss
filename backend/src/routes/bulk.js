@@ -1,4 +1,5 @@
 const express = require('express');
+const { usesFieldMappings } = require('../services/transformer');
 const { log } = require('../logger');
 const data = require('../data');
 const templates = require('../data/templates');
@@ -778,8 +779,11 @@ function validateIntegration(integration) {
     errors.push('Auth type must be one of: NONE, API_KEY, BEARER, OAUTH2, BASIC, CUSTOM, CUSTOM_HEADERS');
   }
 
-  if (integration.transformationMode && !['NONE', 'SIMPLE', 'SCRIPT'].includes(integration.transformationMode)) {
-    errors.push('Transformation mode must be one of: NONE, SIMPLE, SCRIPT');
+  if (integration.transformationMode && !['NONE', 'SCRIPT', 'SIMPLE'].includes(integration.transformationMode)) {
+    errors.push('Transformation mode must be one of: NONE, SCRIPT');
+  } else if (integration.transformationMode === 'SIMPLE' && usesFieldMappings(integration.transformation)) {
+    // SIMPLE alone is only the old name of "no transformation"; mappings are what was removed.
+    errors.push('Field mappings were removed: rewrite the transformation as a script');
   }
 
   return {
@@ -851,8 +855,11 @@ function validateIntegrationUpdate(update) {
     errors.push('Auth type must be one of: NONE, API_KEY, BEARER, OAUTH2, BASIC, CUSTOM, CUSTOM_HEADERS');
   }
 
-  if (update.transformationMode && !['NONE', 'SIMPLE', 'SCRIPT'].includes(update.transformationMode)) {
-    errors.push('Transformation mode must be one of: NONE, SIMPLE, SCRIPT');
+  if (update.transformationMode && !['NONE', 'SCRIPT', 'SIMPLE'].includes(update.transformationMode)) {
+    errors.push('Transformation mode must be one of: NONE, SCRIPT');
+  } else if (update.transformationMode === 'SIMPLE' && usesFieldMappings(update.transformation)) {
+    // SIMPLE alone is only the old name of "no transformation"; mappings are what was removed.
+    errors.push('Field mappings were removed: rewrite the transformation as a script');
   }
 
   return {

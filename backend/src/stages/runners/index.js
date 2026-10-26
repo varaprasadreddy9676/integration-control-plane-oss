@@ -21,7 +21,7 @@
  * `exportOmits` (on the runner) lists configuration fields that stay out of an export without sensitive data.
  */
 
-const RUNNERS = [require('./script'), require('./http'), require('./url-check'), require('./mapping')];
+const RUNNERS = [require('./script'), require('./http'), require('./url-check')];
 
 const byType = new Map(RUNNERS.map((runner) => [runner.type, runner]));
 

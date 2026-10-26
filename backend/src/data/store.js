@@ -91,7 +91,7 @@ async function addIntegration(orgId, payload) {
     isActive: payload.isActive !== false,
     timeoutMs: payload.timeoutMs,
     retryCount: payload.retryCount,
-    transformationMode: payload.transformationMode || 'SIMPLE',
+    transformationMode: payload.transformationMode || 'NONE',
     transformation: payload.transformation,
     isInherited: payload.isInherited || false,
     sourceEntityName: payload.sourceEntityName,
