@@ -7,7 +7,7 @@
 
 jest.mock('../../../src/config', () => ({ security: {}, worker: {}, stages: {} }));
 
-const { buildGuide, buildPrompt, shapeOf, HOOKS } = require('../../../src/stages/authoring-guide');
+const { buildGuide, HOOKS } = require('../../../src/stages/authoring-guide');
 const { LIMITS } = require('../../../src/stages/config');
 const runners = require('../../../src/stages/runners');
 const { executeStage } = require('../../../src/stages/executor');
@@ -65,33 +65,5 @@ describe('the examples run', () => {
 
   it('the later-check example reads the provider\'s status', async () => {
     expect(await run('after_delivery', buildGuide({ hook: 'after_delivery' }).at.example)).toMatchObject({ status: 'READ', done: true });
-  });
-});
-
-describe('a prompt', () => {
-  it('turns data into its shape: keys and types, no values', () => {
-    expect(shapeOf({ patient: { name: 'Ada Lovelace', phone: '+9198', age: 36 }, tags: ['a', 'b'], note: null, ok: true })).toEqual({
-      patient: { name: 'string', phone: 'string', age: 'number' },
-      tags: ['string'],
-      note: 'null',
-      ok: 'boolean',
-    });
-    expect(shapeOf({ a: { b: { c: { d: { e: 1 } } } } })).toEqual({ a: { b: { c: { d: '{...}' } } } });
-  });
-
-  it('says what is wanted, where it runs, the rules, the shapes and the current script, and shares no values', () => {
-    const event = { patient: { name: 'Ada Lovelace', phone: '+919800000000' } };
-    const prompt = buildPrompt({ hook: 'before_send', goal: 'Skip patients without a phone number', current: 'return null;', samples: { event: shapeOf(event) } });
-    expect(prompt).toMatch(/Skip patients without a phone number/);
-    expect(prompt).toMatch(/Where it runs: Before send/);
-    expect(prompt).toMatch(/skip\(/);
-    expect(prompt).toMatch(/Time limit: 3000 ms/);
-    expect(prompt).toMatch(/"phone": "string"/);
-    expect(prompt).toMatch(/The script now/);
-    expect(prompt).not.toMatch(/Lovelace|919800000000/);
-  });
-
-  it('works with only a goal', () => {
-    expect(buildPrompt({ goal: 'Do something' })).toMatch(/Do something/);
   });
 });

@@ -15,7 +15,6 @@ const api = vi.hoisted(() => ({
   listCredentialOptions: vi.fn(),
   getStageResults: vi.fn(),
   getStageUsage: vi.fn(),
-  getAuthoringPrompt: vi.fn(),
 }));
 vi.mock('../services/stages-api', () => api);
 vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
@@ -293,27 +292,6 @@ describe('the Delivery tab', () => {
     fireEvent.click(within(drawer).getByRole('button', { name: 'Apply' }));
     await waitFor(() => expect(values().stages[0].verification).toEqual({ resendWhen: ['NOT_FOUND'] }));
     expect(api.validateStages.mock.lastCall?.[0].stages[0].verification).toEqual({ resendWhen: ['NOT_FOUND'] });
-  });
-
-  it('writes a script with AI: a prompt from the goal and the script now, for a step that takes a script only', async () => {
-    api.getAuthoringPrompt.mockResolvedValue({ prompt: 'You write one step...\n## What I want\nSkip those without consent', guide: { at: null } });
-    const gate: StageConfig = { id: 'g', name: 'Consent', hook: 'before_send', effect: 'gate', runner: { type: 'script', config: { code: 'return null;' } } };
-    const fetcher: StageConfig = { id: 'f', name: 'Fetch', hook: 'before_send', effect: 'gate', runner: { type: 'http', config: { method: 'GET', url: 'https://x.test' } } };
-    render(<Harness initial={{ stages: [gate, fetcher] }} />);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Fetch' }));
-    const http = await screen.findByRole('dialog');
-    expect(within(http).queryByRole('button', { name: /Write with AI/ })).not.toBeInTheDocument();
-    fireEvent.click(within(http).getByRole('button', { name: 'Cancel' }));
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Consent' }));
-    const drawer = await screen.findByRole('dialog');
-    fireEvent.click(within(drawer).getByRole('button', { name: /Write with AI/ }));
-    const ask = await screen.findByLabelText('What should this step do?');
-    fireEvent.change(ask, { target: { value: 'Skip those without consent' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Make the prompt' }));
-    expect(((await screen.findByLabelText('Prompt for your AI')) as HTMLTextAreaElement).value).toContain('Skip those without consent');
-    expect(api.getAuthoringPrompt).toHaveBeenCalledWith({ hook: 'before_send', goal: 'Skip those without consent', current: 'return null;', deliveryId: undefined });
   });
 
   it('passes before-send outputs to the request through the Send bindings', async () => {

@@ -27,7 +27,7 @@ const { checkAndReplay } = require('../stages/verified-replay');
 const { flowStats } = require('../stages/flow-stats');
 const { saveImpact } = require('../stages/save-impact');
 const { stageOutcomes } = require('../stages/outcomes');
-const { buildGuide, buildPrompt, shapeOf } = require('../stages/authoring-guide');
+const { buildGuide } = require('../stages/authoring-guide');
 const { getStageRuntime } = require('../stages/runtime');
 const { usageToday } = require('../stages/limits');
 const config = require('../config');
@@ -308,31 +308,6 @@ router.post('/outcomes', (req, res) => {
 router.get('/authoring-guide', (req, res) => {
   res.json(buildGuide({ hook: req.query.hook }));
 });
-
-/**
- * The prompt to give an AI to write a step: what is wanted, where it runs, the rules, the
- * shape of the data and the script as it is now. Body: { hook, goal, current?, deliveryId? }.
- * With a deliveryId the shape of that delivery's event, request and answer is included:
- * keys and types only, never the values.
- */
-router.post(
-  '/authoring-prompt',
-  asyncHandler(async (req, res) => {
-    const body = req.body || {};
-    if (!body.goal || !String(body.goal).trim()) throw new ValidationError('Say what the step should do');
-    let samples;
-    if (body.deliveryId) {
-      const db = await mongodb.getDbSafe();
-      const logId = mongodb.toObjectId(body.deliveryId);
-      const logDoc = logId ? await db.collection('execution_logs').findOne({ _id: logId, orgId: req.orgId }) : null;
-      if (!logDoc) throw new NotFoundError('Delivery not found');
-      const { scopeFromLog } = require('../stages/replay');
-      const scope = scopeFromLog(logDoc, null, { stage: { hook: body.hook }, seq: 1, runId: null });
-      samples = { 'ctx.event': shapeOf(scope.event), 'ctx.delivery.request': shapeOf(scope.delivery.request), 'ctx.delivery.response': shapeOf(scope.delivery.response) };
-    }
-    res.json({ prompt: buildPrompt({ hook: body.hook, goal: body.goal, current: body.current, samples }), guide: buildGuide({ hook: body.hook }) });
-  })
-);
 
 router.get(
   '/usage',

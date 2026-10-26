@@ -2,13 +2,9 @@
 
 /**
  * Writing a stage with AI. Most people ask an AI to write the script, so the platform
- * says exactly what a step may do and builds the prompt for it: one source for the
- * console's "Write with AI" button and for the MCP tools an AI agent uses itself.
+ * says exactly what a step may do: the MCP tools an AI agent uses read it from here.
  *
- *   buildGuide({ hook })                          what a step at this hook sees, may do and must return
- *   shapeOf(value)                                a value's structure with no values (privacy: a sample
- *                                                 delivery's keys and types go into a prompt, never its data)
- *   buildPrompt({ hook, goal, current, samples }) the text to give an AI
+ *   buildGuide({ hook })   what a step at this hook sees, may do and must return
  *
  * The script contract is contract 1 (contracts.js, runtime/child.js); a test holds this
  * guide to the limits in config.js so it cannot drift from what is enforced.
@@ -111,47 +107,4 @@ function buildGuide({ hook } = {}) {
   };
 }
 
-const MAX_DEPTH = 4;
-const MAX_KEYS = 40;
-
-/** A value's structure and no data: keys with their types; an array by its first item. */
-function shapeOf(value, depth = 0) {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return depth >= MAX_DEPTH ? ['...'] : value.length ? [shapeOf(value[0], depth + 1)] : [];
-  if (typeof value === 'object') {
-    if (depth >= MAX_DEPTH) return '{...}';
-    return Object.fromEntries(Object.keys(value).slice(0, MAX_KEYS).map((key) => [key, shapeOf(value[key], depth + 1)]));
-  }
-  return typeof value;
-}
-
-const block = (title, body) => `## ${title}\n${body}\n`;
-const list = (items) => items.map((item) => `- ${item}`).join('\n');
-const json = (value) => `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
-
-/**
- * The prompt to give an AI. `samples` are shapes (shapeOf), never values. `current` is
- * the script as it is now, to change rather than rewrite.
- */
-function buildPrompt({ hook, goal, current, samples } = {}) {
-  const guide = buildGuide({ hook });
-  const at = guide.at;
-  const parts = [
-    'You write one step of a message-delivery pipeline as a JavaScript script. Answer with the script only, in one code block, then one sentence saying what it does.',
-    block('What I want', String(goal || '').trim() || '(describe it)'),
-  ];
-  if (at) {
-    parts.push(
-      block(`Where it runs: ${at.title}`, `${at.when}\n\nIt sees:\n${list(at.sees)}\n\nIt may:\n${list(at.may)}\n\nTime limit: ${at.timeoutMs.default} ms by default (at most ${at.timeoutMs.max} ms).`)
-    );
-  }
-  parts.push(block('Helpers', list(guide.helpers)), block('Rules', list(guide.rules)), block('The script must return', guide.returns));
-  if (samples && Object.keys(samples).length) {
-    parts.push(block('The shape of the data (keys and types only; the real values are not shared)', json(samples)));
-  }
-  if (current && String(current).trim()) parts.push(block('The script now (change it, do not start over)', `\`\`\`js\n${current}\n\`\`\``));
-  if (at) parts.push(block('An example at this place', `\`\`\`js\n${at.example}\n\`\`\``));
-  return parts.join('\n');
-}
-
-module.exports = { buildGuide, buildPrompt, shapeOf, HOOKS };
+module.exports = { buildGuide, HOOKS };

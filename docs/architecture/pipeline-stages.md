@@ -675,10 +675,6 @@ comes back, instead of adding step types for things a script already does.
   places a step runs: what it sees (`ctx`), what it may do (`skip`, `fail`, status and data), the helpers
   (`http`, `lookup`, `log`), the time limit, the rules and a working example. A test runs every example in the real
   runtime and holds the limits to the ones enforced.
-- **In the console**: *Write with AI* in the editor of any step that takes a script. The goal and the script as it is
-  go into a prompt (`POST /stages/authoring-prompt`) with the *shape* of the latest delivery's event, request and
-  answer: field names and types, never values. Copy it into any AI, paste the script back, use **Test**. No AI service
-  is called by the platform.
 - **For an AI agent** (the MCP server): `get_stage_authoring_guide`, `validate_stages`, `test_stage` (never live),
   `get_stage_outcomes`, then `update_outbound_integration` with `stages`. The agent reads the rules, writes, is told
   what is wrong, tries it on a sample, and saves; a person sees the draft in the console.

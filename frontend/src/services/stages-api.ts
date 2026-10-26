@@ -320,11 +320,3 @@ export interface SimilarFailures {
 export const getSimilarFailures = async (logId: string, minutes = 60): Promise<SimilarFailures> =>
   apiRequest(`/logs/${logId}/similar-failures?minutes=${minutes}`);
 
-export interface AuthoringPrompt {
-  prompt: string;
-  guide: { at: { title: string; when: string; timeoutMs: { default: number; max: number } } | null };
-}
-
-/** The prompt to give an AI to write a step (what it may do here, the shape of a delivery's data, the script now). */
-export const getAuthoringPrompt = async (body: { hook: StageHook; goal: string; current?: string; deliveryId?: string }): Promise<AuthoringPrompt> =>
-  apiRequest('/stages/authoring-prompt', json(body));
