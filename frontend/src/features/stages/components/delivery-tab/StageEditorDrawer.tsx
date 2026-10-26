@@ -8,7 +8,8 @@ import { CheckScheduleEditor } from '../../../integrations/components/detail/Del
 import { hookTitle } from '../../stageLabels';
 import { KeyValueEditor, SchemaForm, Widget } from './SchemaForm';
 import { StageTestPanel } from './StageTestPanel';
-import { errorsForStage, isInline, outputsOf } from './stageDraft';
+import { StepSignIn } from './StepSignIn';
+import { errorsForStage, isInline, issueText, outputsOf } from './stageDraft';
 
 const { Text } = Typography;
 
@@ -123,8 +124,17 @@ export const StageEditor = ({
   const effect = draft.effect || (inline ? 'gate' : 'observe');
   const errorOptions = inline ? (effect === 'gate' ? ERROR_ACTIONS.gate : ERROR_ACTIONS.observeInline) : ERROR_ACTIONS.deferred;
   const onError = draft.onError || { action: errorOptions[0].value as 'ignore' };
-  const authMode = draft.auth ? (draft.auth.source === 'integration' ? 'integration' : 'credential') : 'none';
   const legacy = typeof draft.contract === 'string' && draft.contract.startsWith('legacy:');
+  const callUrl = runner?.type === 'http' && typeof draft.runner.config.url === 'string' ? draft.runner.config.url : undefined;
+  const signIn = (
+    <StepSignIn
+      auth={draft.auth}
+      onChange={(auth) => update({ auth })}
+      credentials={credentials.data}
+      url={callUrl}
+      errors={{ credentialRef: errorAt('auth.credentialRef'), headers: errorAt('auth.headers'), allowedOrigins: errorAt('auth.allowedOrigins') }}
+    />
+  );
 
   const apply = async () => {
     const next = [...stages];
@@ -237,6 +247,18 @@ export const StageEditor = ({
         </Field>
       )}
 
+      {runner?.type === 'http' && (
+        <div>
+          <Text strong style={{ display: 'block' }}>
+            Sign-in
+          </Text>
+          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
+            How this step proves who you are to the service it calls.
+          </Text>
+          {signIn}
+        </div>
+      )}
+
       <Collapse
         bordered={false}
         items={[
@@ -290,64 +312,9 @@ export const StageEditor = ({
               </Space>
             ),
           },
-          {
-            key: 'credential',
-            label: 'Credential',
-            children: (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                <Radio.Group
-                  value={authMode}
-                  onChange={(e) =>
-                    update({
-                      auth:
-                        e.target.value === 'none'
-                          ? undefined
-                          : e.target.value === 'integration'
-                            ? { source: 'integration', allowedOrigins: draft.auth?.allowedOrigins || [] }
-                            : { credentialRef: '', headers: { Authorization: 'Bearer {{ credential.token }}' }, allowedOrigins: draft.auth?.allowedOrigins || [] },
-                    })
-                  }
-                >
-                  <Space direction="vertical">
-                    <Radio value="none">None: calls go out without credentials</Radio>
-                    <Radio value="credential">One of this organization&apos;s credentials</Radio>
-                    <Radio value="integration">This integration&apos;s own authentication</Radio>
-                  </Space>
-                </Radio.Group>
-                {authMode === 'credential' && (
-                  <>
-                    <Field label="Credential" error={errorAt('auth.credentialRef')}>
-                      {credentials.data ? (
-                        <Select
-                          aria-label="Credential"
-                          style={{ width: '100%' }}
-                          value={draft.auth?.credentialRef || undefined}
-                          options={credentials.data.map((c) => ({ value: c.placeholderId, label: `${c.name} (${c.provider}, ${c.environment})` }))}
-                          onChange={(credentialRef) => update({ auth: { ...draft.auth!, credentialRef } })}
-                        />
-                      ) : (
-                        <Input aria-label="Credential ID" value={draft.auth?.credentialRef} placeholder="cred_..." onChange={(e) => update({ auth: { ...draft.auth!, credentialRef: e.target.value } })} />
-                      )}
-                    </Field>
-                    <Field label="Headers" error={errorAt('auth.headers')} hint="Where the credential goes, e.g. Authorization: Bearer {{ credential.token }}.">
-                      <KeyValueEditor label="Credential header" value={draft.auth?.headers} onChange={(headers) => update({ auth: { ...draft.auth!, headers } })} />
-                    </Field>
-                  </>
-                )}
-                {authMode !== 'none' && (
-                  <Field label="Only for these origins" error={errorAt('auth.allowedOrigins')} hint="The credential is added only to calls to these, e.g. https://api.example.com. It is never shown to the script.">
-                    <Select
-                      aria-label="Allowed origins"
-                      mode="tags"
-                      style={{ width: '100%' }}
-                      value={draft.auth?.allowedOrigins || []}
-                      onChange={(allowedOrigins: string[]) => update({ auth: { ...draft.auth!, allowedOrigins } })}
-                    />
-                  </Field>
-                )}
-              </Space>
-            ),
-          },
+          ...(runner?.type === 'http'
+            ? []
+            : [{ key: 'credential', label: 'Sign-in for calls it makes', children: signIn }]),
           {
             key: 'recording',
             label: 'What is recorded',
@@ -408,7 +375,7 @@ export const StageEditor = ({
           showIcon
           role="alert"
           message="Fix these before applying"
-          description={other.map((error) => `${error.path}: ${error.message}`).join('; ')}
+          description={other.map((error) => issueText(error.path, error.message)).join('; ')}
         />
       )}
     </Space>

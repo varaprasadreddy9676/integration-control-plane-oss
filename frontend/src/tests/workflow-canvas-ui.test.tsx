@@ -306,7 +306,7 @@ describe('the workflow canvas', () => {
     fireEvent.click(marked);
     const inspector = await screen.findByRole('complementary', { name: /Consent granted\? details/ });
     expect(within(inspector).getByText('Fix this before saving')).toBeInTheDocument();
-    expect(within(inspector).getByText('runner.config.code: The script is empty')).toBeInTheDocument();
+    expect(within(inspector).getByText('Code: The script is empty')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Read the provider reply.*issue/ })).not.toBeInTheDocument();
   });
 

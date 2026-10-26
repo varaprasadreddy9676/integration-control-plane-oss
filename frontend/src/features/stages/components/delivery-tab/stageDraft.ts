@@ -66,6 +66,33 @@ export const errorsForStage = (errors: StageValidationError[], index: number) =>
   return { runnerFields, other };
 };
 
+const PLACES: Record<string, string> = {
+  name: 'Name',
+  'runner.config.url': 'URL',
+  'auth.credentialRef': 'Credential',
+  'auth.allowedOrigins': 'Sent only to',
+  'auth.headers': 'How to send it',
+  timeoutMs: 'Time limit',
+  onError: 'When it fails',
+  schedule: 'Schedule',
+  outputs: 'Outputs',
+  inputs: 'Inputs',
+  effect: 'What it may do',
+  verification: 'Ask this before sending again',
+};
+
+/** What is wrong with a step, for a person: the place it is in words, then what the server said. */
+export const issueText = (path: string, message: string): string => {
+  const local = path.replace(/^stages\[\d+\]\./, '');
+  const known = Object.keys(PLACES)
+    .filter((key) => local === key || local.startsWith(`${key}.`) || local.startsWith(`${key}[`))
+    .sort((a, b) => b.length - a.length)[0];
+  if (known) return `${PLACES[known]}: ${message}`;
+  const field = local.match(/^runner\.config\.([A-Za-z]+)/)?.[1];
+  if (field) return `${field.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, (c) => c.toUpperCase())}: ${message}`;
+  return message;
+};
+
 /**
  * The outputs a stage offers to later stages and the Send step: the ones the user lists on
  * the stage, or, for a runner that names them in its configuration, those (the runner says

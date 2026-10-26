@@ -212,8 +212,11 @@ export interface CredentialOption {
 }
 
 /** The org's credentials, for a stage's credential (needs credentials:view). */
-export const listCredentialOptions = async (): Promise<CredentialOption[]> =>
-  (await apiRequest<{ data: CredentialOption[] }>('/credentials?limit=200')).data;
+export const listCredentialOptions = async (): Promise<CredentialOption[]> => {
+  // The credentials API names a credential by `id`; a step stores that as its credentialRef.
+  const { data } = await apiRequest<{ data: Array<Omit<CredentialOption, 'placeholderId'> & { id?: string; placeholderId?: string }> }>('/credentials?limit=200');
+  return data.map((credential) => ({ ...credential, placeholderId: credential.placeholderId || credential.id || '' }));
+};
 
 // ── What the workflow canvas reads (backend stages/flow-stats.js, save-impact.js, outcomes.js, verified-replay.js)
 

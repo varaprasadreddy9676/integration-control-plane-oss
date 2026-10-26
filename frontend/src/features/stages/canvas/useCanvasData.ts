@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { StageConfig, StageOutcomes } from '../../../services/stages-api';
 import { getFlowStats, getSaveImpact, getStageOutcomes, validateStages } from '../../../services/stages-api';
 import type { DeliveryTarget } from '../deliveryTargets';
+import { issueText } from '../components/delivery-tab/stageDraft';
 import { useStageLibrary } from '../components/delivery-tab/stageLibrary';
 
 type FormValues = Record<string, any>;
@@ -127,7 +128,7 @@ export function useCanvasData({
           for (const error of result.errors) {
             const index = Number(error.path.match(/^stages\[(\d+)\]/)?.[1]);
             const stage = Number.isInteger(index) ? stages[index] : undefined;
-            if (stage) issues[stage.id] = [...(issues[stage.id] || []), `${error.path.replace(/^stages\[\d+\]\./, '')}: ${error.message}`];
+            if (stage) issues[stage.id] = [...(issues[stage.id] || []), issueText(error.path, error.message)];
           }
         })
       );
