@@ -17,7 +17,7 @@ import { stageMenu } from '../components/delivery-tab/stageLibrary';
 import type { DeliveryTarget } from '../deliveryTargets';
 import { CanvasNode, Icon } from './CanvasNode';
 import { Connectors } from './Connectors';
-import { ExecutionDrawer, RunPicker } from './ExecutionBar';
+import { ExecutionDrawer } from './ExecutionBar';
 import { Inspector } from './Inspector';
 import type { StageAction } from './Inspector';
 import { Minimap } from './Minimap';
@@ -38,6 +38,8 @@ interface WorkflowCanvasProps {
   /** The integration as the server should validate stages against. */
   context: () => Record<string, unknown>;
   readOnly?: boolean;
+  /** Draw this one delivery over the flow (opened from Delivery Logs): read only, no editing. */
+  deliveryLogId?: string;
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
   /** Open one of the integration page's tabs (Transformation, Reliability...). */
@@ -91,18 +93,21 @@ export const WorkflowCanvas = ({
   integrationId,
   targets,
   context,
-  readOnly = false,
+  readOnly: readOnlyProp = false,
+  deliveryLogId,
   fullscreen = false,
   onToggleFullscreen,
   onOpenTab,
   stepEditors,
 }: WorkflowCanvasProps) => {
+  const readOnly = readOnlyProp || Boolean(deliveryLogId);
+  // Configuration shows the flow to edit; what happened to a delivery is shown with that delivery in Delivery Logs.
+  const mode: 'configure' | 'executions' = deliveryLogId ? 'executions' : 'configure';
   const { mode: themeMode } = useThemeMode();
   const watched = Form.useWatch([], { form, preserve: true }) as Record<string, any> | undefined;
   const values = watched && Object.keys(watched).length ? watched : (form.getFieldsValue(true) as Record<string, any>);
   const [toast, holder] = message.useMessage();
 
-  const [mode, setMode] = useState<'configure' | 'executions'>('configure');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   // A flow with many deliveries starts with all but the first folded into one step each.
@@ -114,7 +119,7 @@ export const WorkflowCanvas = ({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const data = useCanvasData({ integrationId, values, targets, readOnly, context });
-  const execution = useExecution(integrationId, mode === 'executions');
+  const execution = useExecution(deliveryLogId);
   const deliveries = targets.map((target) => ({
     target,
     owner: ownerOf(values, target),
@@ -247,6 +252,24 @@ export const WorkflowCanvas = ({
   const group = loggedGroup;
   const trace =
     mode === 'executions' && execution.log ? traceExecution(flow, group, execution.log, execution.stageData) : null;
+
+  // A delivery opens on the path it took, not on the top-left of the flow.
+  const shownLog = useRef<string | null>(null);
+  useEffect(() => {
+    if (!deliveryLogId || !trace || shownLog.current === deliveryLogId || viewport.size.width <= 0) return;
+    const taken = flow.nodes.filter((node) => trace.nodes[node.id] && trace.nodes[node.id].state !== 'unvisited').map((node) => boxOf(node, flow.compact));
+    if (taken.length === 0) return;
+    const left = Math.min(...taken.map((box) => box.x));
+    const top = Math.min(...taken.map((box) => box.y));
+    shownLog.current = deliveryLogId;
+    viewport.showBox({
+      x: left,
+      y: top,
+      width: Math.max(...taken.map((box) => box.x + box.width)) - left,
+      height: Math.max(...taken.map((box) => box.y + box.height)) - top,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trace, deliveryLogId, viewport.size.width]);
 
   const viewOf = (node: FlowNode): NodeView | undefined => {
     if (trace) return trace.nodes[node.id];
@@ -474,65 +497,39 @@ export const WorkflowCanvas = ({
         <div className="wf-main">
           <div className="wf-topbar">
             <div className="wf-group">
-              <div className="wf-seg" role="group" aria-label="Mode">
-                <button type="button" aria-pressed={mode === 'configure'} onClick={() => setMode('configure')}>
-                  Configure
-                </button>
-                <button type="button" aria-pressed={mode === 'executions'} onClick={() => setMode('executions')}>
-                  Executions
-                </button>
-              </div>
-              {mode === 'configure' ? (
-                <label className="wf-search">
-                  <Icon name="search" size={16} />
-                  <input
-                    ref={searchRef}
-                    aria-label="Search steps"
-                    placeholder="Search steps"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        const first = flow.nodes.find((node) => matches.has(node.id));
-                        if (first) select(first);
-                      } else if (event.key === 'Escape') setQuery('');
-                    }}
-                  />
-                  <kbd>⌘K</kbd>
-                </label>
-              ) : (
-                <RunPicker
-                  logs={execution.logs}
-                  selectedId={execution.selectedId}
-                  position={execution.position}
-                  onSelect={execution.select}
-                  onPrevious={execution.previous}
-                  onNext={execution.next}
+              <label className="wf-search">
+                <Icon name="search" size={16} />
+                <input
+                  ref={searchRef}
+                  aria-label="Search steps"
+                  placeholder="Search steps"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      const first = flow.nodes.find((node) => matches.has(node.id));
+                      if (first) select(first);
+                    } else if (event.key === 'Escape') setQuery('');
+                  }}
                 />
-              )}
+                <kbd>⌘K</kbd>
+              </label>
             </div>
             <div className="wf-group">
-              {mode === 'configure' && (
-                <div className="wf-seg" role="group" aria-label="Zoom">
-                  <button type="button" aria-label="Zoom out" onClick={viewport.zoomOut}>
-                    −
-                  </button>
-                  <button type="button" aria-label="Zoom level" disabled style={{ cursor: 'default', minWidth: 52 }}>
-                    {zoomLabel}
-                  </button>
-                  <button type="button" aria-label="Zoom in" onClick={viewport.zoomIn}>
-                    +
-                  </button>
-                </div>
-              )}
+              <div className="wf-seg" role="group" aria-label="Zoom">
+                <button type="button" aria-label="Zoom out" onClick={viewport.zoomOut}>
+                  −
+                </button>
+                <button type="button" aria-label="Zoom level" disabled style={{ cursor: 'default', minWidth: 52 }}>
+                  {zoomLabel}
+                </button>
+                <button type="button" aria-label="Zoom in" onClick={viewport.zoomIn}>
+                  +
+                </button>
+              </div>
               <button type="button" className="wf-btn" onClick={viewport.fit}>
                 Fit
               </button>
-              {mode === 'executions' && !readOnly && (
-                <button type="button" className="wf-btn wf-btn--primary" aria-label="Edit workflow" onClick={() => setMode('configure')}>
-                  <Icon name="pencil" size={15} /> <span className="wf-hide-narrow">Edit workflow</span>
-                </button>
-              )}
               {onToggleFullscreen && (
                 <button
                   type="button"
@@ -759,7 +756,6 @@ export const WorkflowCanvas = ({
             actionIndex={selectedDelivery.target.actionIndex}
             impact={data.impact}
             issues={selected.stageId ? data.issues[selected.stageId] : undefined}
-            stats={factsOf(selected.group)?.stages.find((entry) => entry.stageId === selected.stageId)}
             runs={(execution.stageData?.runs || []).filter((run) => run.stage.id === selected.stageId)}
             state={execution.stageData?.states.find((entry) => entry.stageId === selected.stageId)}
             log={mode === 'executions' ? execution.log : undefined}

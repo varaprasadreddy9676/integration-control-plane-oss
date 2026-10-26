@@ -27,6 +27,14 @@ export const visibleRect = (view: View, size: Size) => ({
   height: size.height / view.z,
 });
 
+/** The view that shows `box` (flow coordinates) centred, as large as is readable (never below 50%, never past 100%). */
+export const boxView = (box: { x: number; y: number; width: number; height: number }, size: Size): View => {
+  const topReserve = 64; // the top bar
+  const fits = Math.min((size.width - 96) / box.width, (size.height - topReserve - 32) / box.height, 1);
+  const z = clamp(Math.max(fits, 0.5), MIN_ZOOM, 1);
+  return { z, x: size.width / 2 - (box.x + box.width / 2) * z, y: topReserve - box.y * z };
+};
+
 const nextStep = (z: number, direction: 1 | -1) => {
   const rounded = Math.round(z * 100) / 100;
   if (direction === 1) return ZOOM_STEPS.find((step) => step > rounded + 0.001) ?? MAX_ZOOM;
@@ -187,6 +195,8 @@ export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) 
     zoomIn: () => glideTo((current) => zoomView(current, nextStep(current.z, 1))),
     zoomOut: () => glideTo((current) => zoomView(current, nextStep(current.z, -1))),
     fit: () => glideTo(fitTo(content, size, MIN_ZOOM)),
+    /** Bring a part of the flow into view (the path a delivery took). */
+    showBox: (box: { x: number; y: number; width: number; height: number }) => glideTo(boxView(box, size)),
     ensureVisible,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp },
   };

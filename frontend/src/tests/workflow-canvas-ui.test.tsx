@@ -22,7 +22,7 @@ const api = vi.hoisted(() => ({
   getSimilarFailures: vi.fn(),
   checkAndReplay: vi.fn(),
 }));
-const core = vi.hoisted(() => ({ getLogs: vi.fn(), getLogById: vi.fn() }));
+const core = vi.hoisted(() => ({ getLogs: vi.fn(), getLogById: vi.fn(), getIntegrationById: vi.fn() }));
 vi.mock('../services/stages-api', () => api);
 vi.mock('../services/api', async (importOriginal) => ({ ...(await importOriginal<object>()), ...core }));
 vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
@@ -32,6 +32,7 @@ vi.mock('../features/integrations/components/MonacoEditorInput', () => ({
 }));
 
 import { DeliveryTab } from '../features/stages/components/delivery-tab/DeliveryTab';
+import { DeliveryFlow } from '../features/stages/components/DeliveryFlow';
 import { deliveriesOf } from '../features/stages/deliveryTargets';
 import type { StepEditors } from '../features/stages/canvas/stepEditors';
 import { RUNNERS } from './fixtures/stage-runners';
@@ -436,6 +437,16 @@ describe('the workflow canvas', () => {
     expect(node).toHaveTextContent(/Edited/i);
   });
 
+  it('is configuration only: no Executions mode, and no Runs tab on a step', async () => {
+    render(<Harness initial={integration} />);
+    expect(screen.queryByRole('button', { name: 'Executions' })).not.toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
+    const inspector = await screen.findByRole('complementary', { name: /details/ });
+    expect(within(inspector).getByRole('tab', { name: 'Configure' })).toBeInTheDocument();
+    expect(within(inspector).getByRole('tab', { name: 'Test' })).toBeInTheDocument();
+    expect(within(inspector).queryByRole('tab', { name: /^Runs/ })).not.toBeInTheDocument();
+  });
+
   it('has a list and a diagram of the same steps, the list being the default', async () => {
     render(<Harness initial={integration} />);
     await screen.findAllByRole('button', { name: /Consent granted\?/ });
@@ -614,7 +625,7 @@ describe('many deliveries', () => {
   });
 });
 
-describe('Executions', () => {
+describe('a delivery\'s flow, shown with the delivery', () => {
   const failed = {
     id: 'log-1',
     integrationConfigId: 'int-1',
@@ -677,9 +688,17 @@ describe('Executions', () => {
 
   const open = async () => {
     prime();
-    render(<Harness initial={integration} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Executions' }, SLOW));
-    await screen.findByLabelText('Delivery to show', undefined, SLOW);
+    core.getIntegrationById.mockResolvedValue({ id: 'int-1', ...integration });
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <DeliveryFlow integrationId="int-1" logId="log-1" />
+          </QueryClientProvider>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+    await screen.findByRole('button', { name: /Delivery failed, .*Abandoned/ }, SLOW);
   };
 
   it('draws one real delivery: the path taken, what failed, and what was not reached', async () => {
@@ -690,9 +709,9 @@ describe('Executions', () => {
     expect(screen.getByRole('button', { name: /Send .*Failed|Send.*Timeout/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Read the provider reply.*Not taken/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Notify the front desk.*/ })).toBeInTheDocument();
-    expect(screen.getByText('Production data')).toBeInTheDocument();
     expect(screen.queryByText('Yes · 1,184')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Edit workflow/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Edit workflow/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Executions' })).not.toBeInTheDocument();
   });
 
   it('puts the cause first on a failed send, and refuses to resend what the provider already has', async () => {

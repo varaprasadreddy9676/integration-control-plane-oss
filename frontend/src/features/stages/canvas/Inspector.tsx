@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { Collapse, Dropdown } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import type { DeliveryLog } from '../../../mocks/types';
 import type {
   SaveImpact,
   SendBindings,
   StageConfig,
-  StageFlowStats,
   StageRun,
   StageRunner,
   StageState,
 } from '../../../services/stages-api';
-import { getStageJobCounts } from '../../../services/stages-api';
 import { StageRunsList } from '../components/StageRunView';
 import { StageEditor } from '../components/delivery-tab/StageEditorDrawer';
 import { canMoveStage, scheduleSummary } from '../components/delivery-tab/stageDraft';
@@ -58,7 +55,6 @@ interface InspectorProps {
   impact?: SaveImpact;
   /** What the server's check of the draft says is wrong with this step. */
   issues?: string[];
-  stats?: StageFlowStats;
   runs: StageRun[];
   state?: StageState;
   log?: DeliveryLog;
@@ -69,54 +65,6 @@ interface InspectorProps {
   stepEditors?: StepEditors;
   onChanged: () => void;
 }
-
-const Facts = ({
-  stats,
-  integrationId,
-  stage,
-}: {
-  stats?: StageFlowStats;
-  integrationId?: string;
-  stage: StageConfig;
-}) => {
-  const jobs = useQuery({
-    queryKey: ['stage-jobs', integrationId, stage.id],
-    queryFn: () => getStageJobCounts(integrationId as string, stage.id),
-    enabled: Boolean(integrationId) && stage.hook === 'after_delivery',
-    retry: false,
-  });
-  if (!stats) return <div className="wf-help">No runs recorded yet.</div>;
-  const row = (label: string, value: number) => (
-    <div
-      className="wf-mono"
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontSize: 12,
-        padding: '5px 0',
-        borderBottom: '1px solid var(--wf-border)',
-      }}
-    >
-      <span>{label}</span>
-      <span>{value.toLocaleString('en-US')}</span>
-    </div>
-  );
-  return (
-    <div>
-      <div className="wf-section-title">
-        Last 24 hours <span className="wf-help">runs, not deliveries: a retry runs the step again</span>
-      </div>
-      {row('Runs', stats.runs)}
-      {row('Continued', stats.ok)}
-      {stats.skipped > 0 && row('Skipped the delivery', stats.skipped)}
-      {stats.rejected > 0 && row('Called fail()', stats.rejected)}
-      {stats.errored > 0 && row('Broke', stats.errored)}
-      {stats.timedOut > 0 && row('Ran out of time', stats.timedOut)}
-      {Object.entries(stats.statuses).map(([word, runs]) => row(`Returned ${word}`, runs))}
-      {jobs.data && Object.entries(jobs.data).map(([state, total]) => row(`Checks ${state.toLowerCase()}`, total))}
-    </div>
-  );
-};
 
 /** A step as it is when the integration is only being viewed: what it is and what it does, nothing to edit. */
 const ReadOnlyStage = ({ stage, runner }: { stage: StageConfig; runner?: StageRunner }) => {
@@ -162,7 +110,6 @@ export const Inspector = (props: InspectorProps) => {
     runners,
     impact,
     issues,
-    stats,
     runs,
     log,
     integrationId,
@@ -280,7 +227,7 @@ export const Inspector = (props: InspectorProps) => {
             <div className="wf-inspector__head">
               {head}
               <div className="wf-tabs" role="tablist">
-                {(['configure', 'test', 'runs'] as const).map((key) => (
+                {(mode === 'executions' ? (['configure', 'runs'] as const) : (['configure', 'test'] as const)).map((key) => (
                   <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
                     {key === 'configure' ? 'Configure' : key === 'test' ? 'Test' : 'Runs'}
                     {key === 'runs' && runs.length > 0 && (
@@ -304,19 +251,12 @@ export const Inspector = (props: InspectorProps) => {
               {tab === 'configure' &&
                 (readOnly ? <ReadOnlyStage stage={stage} runner={runner} /> : editor.settings)}
               {tab === 'test' && editor.test}
-              {tab === 'runs' && (
-                <>
-                  {mode === 'executions' && runs.length > 0 ? (
-                    <StageRunsList runs={runs} />
-                  ) : mode === 'executions' ? (
-                    <div className="wf-help">This step did not run for this delivery.</div>
-                  ) : null}
-                  {mode === 'configure' && <Facts stats={stats} integrationId={integrationId} stage={stage} />}
-                  {runner === undefined && (
-                    <div className="wf-help">The {stage.runner.type} runner is not offered for new stages.</div>
-                  )}
-                </>
-              )}
+              {tab === 'runs' &&
+                (runs.length > 0 ? (
+                  <StageRunsList runs={runs} />
+                ) : (
+                  <div className="wf-help">This step did not run for this delivery.</div>
+                ))}
             </div>
             {!readOnly && mode === 'configure' && (
               <div className="wf-inspector__foot">

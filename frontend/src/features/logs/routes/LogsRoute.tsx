@@ -46,6 +46,7 @@ import { MetaTag } from '../../../components/common/MetaTag';
 import { StatPillRow } from '../../../components/common/StatPillRow';
 import { DeliveryFollowUpPanel, FollowUpTag } from '../components/DeliveryFollowUpPanel';
 import { buildStageTabItems, StageSummaryTags } from '../../stages/components/DeliveryStageTabs';
+import { DeliveryFlow } from '../../stages/components/DeliveryFlow';
 import { getDeliveryStages, type StageRun, type StageState } from '../../../services/stages-api';
 import { DeliveryFollowUpSummary } from '../components/DeliveryFollowUpSummary';
 import { FollowUpChecks } from '../components/FollowUpChecks';
@@ -2032,6 +2033,15 @@ export const LogsRoute = () => {
                   // have the Trace tab already see these same stages there, with
                   // bodies and retries, so the Timeline would only repeat it.
                   // One tab per pipeline stage that ran, titled with the stage's own name.
+                  ...(stageTabs.length > 0 && fullLog.integrationConfigId && !isInboundLog && !isScriptJobLog
+                    ? [
+                        {
+                          key: 'diagram',
+                          label: 'Diagram',
+                          children: <DeliveryFlow integrationId={String(fullLog.integrationConfigId)} logId={String(fullLog.id)} />,
+                        },
+                      ]
+                    : []),
                   ...stageTabs,
                   // What the integration's follow-up script asked the provider after the send, and what came back.
                   ...(fullLog.followUp

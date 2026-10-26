@@ -36,7 +36,7 @@ Contents:
 **It is** a projection of an integration's delivery pipeline: the event, the
 request transform, the stages at their hooks, the send, the reliability policy and
 the outcomes, drawn top to bottom. Selecting a step opens its configuration in an
-inspector; switching to Executions shows the path one real delivery took.
+inspector. The path one real delivery took is drawn in Delivery Logs (the delivery's **Diagram** tab), not in the configuration.
 
 **It is not** a free-form graph editor like n8n. Users never draw links. Branches
 come from where a step runs (its hook) and what it may do (its effect), so every
@@ -804,6 +804,10 @@ the following.
 - **Semantic zoom:** at 60 % and below, nodes switch to compact (name and status);
   connector labels hide their counts below 50 %.
 - **Minimap:** shown when the flow exceeds the viewport; dragging its frame pans.
+- **Moved (configuration holds settings only):** Executions is no longer a mode of the configuration canvas, and a
+  step's inspector has no Runs tab. The same drawing, read only, is the **Diagram** tab of a delivery in Delivery
+  Logs (`DeliveryFlow`), which opens on the path that delivery took; each step's runs are that popup's step tabs.
+  The notes below describe the drawing itself.
 - **Executions mode:** pick a delivery (prev / next, or from the logs); taken path
   emphasised, unvisited dimmed but visible; counts replaced by run facts (attempt,
   timings, ×N). Selecting a failed step opens its Runs tab with the cause first,

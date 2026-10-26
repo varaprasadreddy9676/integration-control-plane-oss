@@ -10,47 +10,6 @@ const stamp = (value?: string) =>
     ? new Date(value).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '';
 
-interface PickerProps {
-  logs: DeliveryLog[];
-  selectedId: string | null;
-  position: string;
-  onSelect: (id: string) => void;
-  onPrevious?: () => void;
-  onNext?: () => void;
-}
-
-/** ‹ select › plus the data-source badge (spec 6.6 and 10: Executions always says whose data it is). */
-export const RunPicker = ({ logs, selectedId, position, onSelect, onPrevious, onNext }: PickerProps) => (
-  <div className="wf-group">
-    <button type="button" className="wf-btn" aria-label="Older delivery" disabled={!onNext} onClick={onNext}>
-      ‹
-    </button>
-    <select
-      aria-label="Delivery to show"
-      className="wf-btn wf-picker"
-      style={{ maxWidth: 240 }}
-      value={selectedId || ''}
-      onChange={(event) => onSelect(event.target.value)}
-      disabled={logs.length === 0}
-    >
-      {logs.length === 0 && <option value="">No deliveries yet</option>}
-      {logs.map((log) => (
-        <option
-          key={log.id}
-          value={log.id}
-        >{`${stamp(log.createdAt)} · ${log.status}${log.actionName ? ` · ${log.actionName}` : ''}`}</option>
-      ))}
-    </select>
-    <button type="button" className="wf-btn" aria-label="Newer delivery" disabled={!onPrevious} onClick={onPrevious}>
-      ›
-    </button>
-    {position && <span className="wf-help wf-mono">{position}</span>}
-    <span className="wf-badge" title="This is a real delivery, not a sample">
-      <Icon name="shield" size={14} /> Production data
-    </span>
-  </div>
-);
-
 interface TraceRow {
   id: string;
   name: string;
@@ -148,13 +107,10 @@ export const ExecutionDrawer = ({
           </span>{' '}
           {stamp(log.createdAt)}
         </span>
-        <span className="wf-help" style={{ marginLeft: 'auto' }}>
-          Connector counts: last 24 h, production
-        </span>
         <button
           type="button"
           className="wf-btn"
-          style={{ height: 28 }}
+          style={{ height: 28, marginLeft: 'auto' }}
           aria-expanded={open}
           onClick={() => setOpen(!open)}
         >
