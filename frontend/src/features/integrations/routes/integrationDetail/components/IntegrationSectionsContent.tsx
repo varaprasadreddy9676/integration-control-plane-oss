@@ -64,9 +64,8 @@ export interface IntegrationSectionsContentProps {
   onValidationClose: () => void;
   selectedEventType?: string;
   scriptValue: string;
-  lastPreviewMeta?: { durationMs?: number; status?: number };
-  onPreview: () => void;
-  onOpenDesigner: () => void;
+  /** The transformation editor, shown in the Transformation tab while editing. */
+  transformationEditor: React.ReactNode;
   isReadOnly?: boolean;
   isLoading?: boolean;
   integrationId?: string;
@@ -114,9 +113,7 @@ export const buildIntegrationSectionItems = ({
   onValidationClose,
   selectedEventType,
   scriptValue,
-  lastPreviewMeta,
-  onPreview,
-  onOpenDesigner,
+  transformationEditor,
   isReadOnly = false,
   isLoading = false,
   integrationId,
@@ -529,12 +526,10 @@ export const buildIntegrationSectionItems = ({
             isEditMode={isEditMode}
             selectedEventType={selectedEventType}
             scriptValue={scriptValue}
-            lastPreviewMeta={lastPreviewMeta}
             spacing={spacing}
             token={token}
             colors={colors}
-            onPreview={onPreview}
-            onOpenDesigner={onOpenDesigner}
+            editor={transformationEditor}
             formatScriptForDisplay={formatScriptForDisplay}
             isLoading={isLoading}
           />

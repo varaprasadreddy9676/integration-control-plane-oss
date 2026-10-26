@@ -23,7 +23,6 @@ import { useAvailableFields } from './integrationDetail/hooks/useAvailableFields
 import { useIntegrationDraft } from './integrationDetail/hooks/useIntegrationDraft';
 import { useIntegrationKeyboardShortcuts } from './integrationDetail/hooks/useIntegrationKeyboardShortcuts';
 import { useIntegrationQueries } from './integrationDetail/hooks/useIntegrationQueries';
-import { useTransformationActions } from './integrationDetail/hooks/useTransformationActions';
 import { useMultiActionValidation } from './integrationDetail/hooks/useMultiActionValidation';
 import { useAutoExpandSections } from './integrationDetail/hooks/useAutoExpandSections';
 import { useDeliveryModeSync } from './integrationDetail/hooks/useDeliveryModeSync';
@@ -34,7 +33,6 @@ import { useIntegrationImportExport } from './integrationDetail/hooks/useIntegra
 import { IntegrationPageHeader } from './integrationDetail/components/IntegrationPageHeader';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
 import { IntegrationHistoryButton } from '../../integration-history';
-import { TransformationDrawer } from './integrationDetail/components/TransformationDrawer';
 import { ReviewConfirmDrawer } from './integrationDetail/components/ReviewConfirmDrawer';
 import { buildIntegrationSectionItems } from './integrationDetail/components/IntegrationSectionsContent';
 import { IntegrationFormContainer } from './integrationDetail/components/IntegrationFormContainer';
@@ -42,7 +40,6 @@ import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarnin
 import { IntegrationFormBody } from './integrationDetail/components/IntegrationFormBody';
 import { TransformationDesigner } from './integrationDetail/components/TransformationDesigner';
 import { buildPreviewContext } from './integrationDetail/utils/previewContext';
-import { registerPreviewRunner } from './integrationDetail/utils/previewRunner';
 import { createTagTone } from './integrationDetail/utils/styles';
 import { useSchedulingScripts } from './integrationDetail/hooks/useSchedulingScripts';
 import { validateScheduling } from './integrationDetail/utils/validateScheduling';
@@ -124,20 +121,14 @@ export const IntegrationDetailRoute = () => {
     setMultiActionValidationErrors([]);
     setSampleInput('');
     setSampleOutput('Awaiting preview…');
-    setLastPreviewMeta(undefined);
     setDeliveryModeChoice('single');
     setResponseTransformEnabled(false);
   }, [id]);
 
   const [sampleInput, setSampleInput] = useState<string>('');
   const [sampleOutput, setSampleOutput] = useState<string>('Awaiting preview…');
-  const [isTransformOpen, setIsTransformOpen] = useState(false);
   const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
   const [isReviewDrawerOpen, setIsReviewDrawerOpen] = useState(false);
-  const [lastPreviewMeta, setLastPreviewMeta] = useState<{ durationMs?: number; status?: number } | undefined>(
-    undefined
-  );
-  const runPreviewRef = useRef<() => void>();
   const prevSingleConfigRef = useRef<{ targetUrl?: string; httpMethod?: string } | null>(null);
   const prevSingleTransformRef = useRef<{ script?: string } | null>(null);
   const [deliveryModeChoice, setDeliveryModeChoice] = useState<'single' | 'multi'>('single');
@@ -429,13 +420,6 @@ const firstTime = addHours(now(), 1);
       messageApi,
     });
   };
-
-  const { handlePreviewTransformation, handleOpenTransformDesigner } = useTransformationActions({
-    selectedEventType: formState.selectedEventType,
-    setIsTransformOpen,
-    runPreview: () => runPreviewRef.current?.(),
-    messageApi,
-  });
 
   const handleSubmit = async (submittedValues: any) => {
     setIsSaving(true);
@@ -840,6 +824,24 @@ const firstTime = addHours(now(), 1);
     modal,
   });
 
+  const transformationEditor = (
+      <TransformationDesigner
+        scriptValue={scriptValue}
+        onScriptChange={setScriptValue}
+        sampleInput={sampleInput}
+        onSampleInputChange={setSampleInput}
+        sampleOutput={sampleOutput}
+        onSampleOutputChange={setSampleOutput}
+        availableFields={availableFields as any[]}
+        eventPayload={selectedEventTypeData?.samplePayload}
+        onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
+        getPreviewContext={() => buildPreviewContext(form)}
+        onValidateScript={() => messageApi.success('Script validated')}
+        eventTypes={eventTypes.map((et) => et.eventType)}
+        currentEventType={form.getFieldValue('eventType')}
+      />
+  );
+
   useAutoExpandSections({
     isCreate,
     activePanels,
@@ -1027,9 +1029,7 @@ const firstTime = addHours(now(), 1);
                 onValidationClose: () => setSchedulingScriptValidation({ status: 'idle' }),
                 selectedEventType: formState.selectedEventType || existingIntegration?.eventType,
                 scriptValue,
-                lastPreviewMeta,
-                onPreview: handlePreviewTransformation,
-                onOpenDesigner: handleOpenTransformDesigner,
+                transformationEditor,
                 isReadOnly: !isCreate && !isEditMode,
                 isLoading: isDetailLoading,
                 integrationId: existingIntegration?.id,
@@ -1053,25 +1053,6 @@ const firstTime = addHours(now(), 1);
             />
           )}
         </IntegrationFormContainer>
-        <TransformationDrawer open={isTransformOpen} onClose={() => setIsTransformOpen(false)}>
-          <TransformationDesigner
-            scriptValue={scriptValue}
-            onScriptChange={setScriptValue}
-            sampleInput={sampleInput}
-            onSampleInputChange={setSampleInput}
-            sampleOutput={sampleOutput}
-            onSampleOutputChange={setSampleOutput}
-            availableFields={availableFields as any[]}
-            eventPayload={selectedEventTypeData?.samplePayload}
-            onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
-            getPreviewContext={() => buildPreviewContext(form)}
-            onValidateScript={() => messageApi.success('Script validated')}
-            onPreviewMeta={setLastPreviewMeta}
-            onRegisterRunPreview={registerPreviewRunner(runPreviewRef)}
-            eventTypes={eventTypes.map((et) => et.eventType)}
-            currentEventType={form.getFieldValue('eventType')}
-          />
-        </TransformationDrawer>
 
         {/* Review & Confirm Drawer */}
         <ReviewConfirmDrawer

@@ -74,8 +74,6 @@ interface Props {
     required?: boolean;
   }>;
   examplePayloads?: Array<{ label: string; payload: unknown }>;
-  onPreviewMeta?: (meta: { durationMs?: number; status?: number }) => void;
-  onRegisterRunPreview?: (runner: () => void) => void;
   eventTypes?: string[];
   currentEventType?: string;
 }
@@ -490,8 +488,6 @@ export const TransformationSection = ({
   onUseEventPayload,
   availableFields = defaultSourceFields,
   examplePayloads = [],
-  onPreviewMeta,
-  onRegisterRunPreview,
 }: Props) => {
   const { message, modal } = App.useApp();
   const { spacing, token } = useDesignTokens();
@@ -511,7 +507,6 @@ export const TransformationSection = ({
       onSampleOutputChange(JSON.stringify(result, null, 2));
       const meta = { durationMs: Math.max(1, Math.round(performance.now() - started)), status: 200 };
       setLastRunMeta(meta);
-      onPreviewMeta?.(meta);
       message.success('Preview generated');
     } catch (err: any) {
       message.error('Unable to generate preview. Check JSON or script syntax.');
@@ -527,20 +522,14 @@ export const TransformationSection = ({
       );
       const meta = { durationMs: Math.max(1, Math.round(performance.now() - started)), status: 500 };
       setLastRunMeta(meta);
-      onPreviewMeta?.(meta);
     }
   }, [
     sampleInput,
     getPreviewContext,
     scriptValue,
     onSampleOutputChange,
-    onPreviewMeta,
     message,
   ]);
-
-  useEffect(() => {
-    onRegisterRunPreview?.(handleRunPreview);
-  }, [handleRunPreview, onRegisterRunPreview]);
 
   const handleValidateScript = () => {
     try {
@@ -596,18 +585,7 @@ return result;`);
   };
 
   return (
-    <div className="panel" style={{ padding: spacing[3], borderRadius: token.borderRadiusLG }}>
-      <Flex align="center" justify="space-between" style={{ marginBottom: spacing[3] }}>
-        <div>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            Transformation
-          </Typography.Title>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            A script turns the event into your API's format
-          </Typography.Text>
-        </div>
-      </Flex>
-
+    <div>
       <div style={{ marginBottom: spacing[3] }}>
         <JavascriptTab
           scriptValue={scriptValue}

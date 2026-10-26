@@ -1,6 +1,7 @@
-import { Button, Skeleton, Space, Tag, Typography, Row, Col, Alert } from 'antd';
+import type { ReactNode } from 'react';
+import { Skeleton, Typography, Row, Col, Alert } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { cssVar, spacingToNumber, } from '../../../../../design-system/utils';
+import { spacingToNumber } from '../../../../../design-system/utils';
 import { MonacoEditorInput } from '../../../components/MonacoEditorInput';
 import { SectionCard } from './SectionCard';
 
@@ -9,12 +10,11 @@ interface TransformationPanelProps {
   isEditMode: boolean;
   selectedEventType?: string;
   scriptValue: string;
-  lastPreviewMeta?: { durationMs?: number; status?: number };
+  /** The editor, shown in place while the integration is being edited. */
+  editor?: ReactNode;
   spacing: Record<string, string>;
   token: any;
   colors: any;
-  onPreview: () => void;
-  onOpenDesigner: () => void;
   formatScriptForDisplay: (script?: string) => string;
   isLoading?: boolean;
 }
@@ -36,11 +36,9 @@ export const TransformationPanelContent = ({
   isEditMode,
   selectedEventType,
   scriptValue,
-  lastPreviewMeta,
+  editor,
   spacing,
   token,
-  onPreview,
-  onOpenDesigner,
   formatScriptForDisplay,
   isLoading = false
 }: TransformationPanelProps) => {
@@ -75,60 +73,19 @@ export const TransformationPanelContent = ({
       description="Transform event payloads before delivery"
       spacing={spacing}
       token={token}
-      headerExtras={
-        (isCreate || isEditMode) ? (
-          <Space>
-            <Button
-              icon={<ThunderboltOutlined />}
-              onClick={onPreview}
-            >
-              Preview
-            </Button>
-            <Button
-              onClick={onOpenDesigner}
-              type="primary"
-            >
-              Configure Transformation
-            </Button>
-          </Space>
-        ) : undefined
-      }
     >
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: spacingToNumber(spacing[3]),
-              padding: `${spacing[4]} ${spacing[4]}`,
-              background: cssVar.bg.subtle,
-              borderRadius: token.borderRadius,
-              border: `1px solid ${cssVar.border.default}`
-            }}
-          >
-            {lastPreviewMeta && (
-              <div style={{ display: 'flex', gap: spacingToNumber(spacing[1]), alignItems: 'center' }}>
-                <Typography.Text type="secondary" style={{ color: cssVar.text.secondary }}>Last Preview:</Typography.Text>
-                <Tag>{lastPreviewMeta.durationMs ?? 0} ms</Tag>
-              </div>
-            )}
-
-            {!isCreate && !isEditMode && scriptValue && (
-              <div>
-                <Typography.Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
-                  Transformation Script:
-                </Typography.Text>
-                <MonacoEditorInput
-                  height="300px"
-                  value={formatScriptForDisplay(scriptValue)}
-                  readOnly
-                />
-              </div>
-            )}
-
-            {!scriptValue && (
-              <Typography.Text type="secondary">No transformation: the event is sent as it is.</Typography.Text>
-            )}
-          </div>
+      {isCreate || isEditMode ? (
+        editor
+      ) : scriptValue ? (
+        <div>
+          <Typography.Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+            Transformation Script:
+          </Typography.Text>
+          <MonacoEditorInput height="300px" value={formatScriptForDisplay(scriptValue)} readOnly />
+        </div>
+      ) : (
+        <Typography.Text type="secondary">No transformation: the event is sent as it is.</Typography.Text>
+      )}
     </SectionCard>
   );
 };

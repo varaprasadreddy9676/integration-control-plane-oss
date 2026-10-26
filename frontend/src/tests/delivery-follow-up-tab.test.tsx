@@ -38,8 +38,7 @@ const baseProps = {
   onValidationClose: () => {},
   selectedEventType: 'order.created',
   scriptValue: '',
-  onPreview: () => {},
-  onOpenDesigner: () => {},
+  transformationEditor: null,
   integrationId: 'i1',
 };
 

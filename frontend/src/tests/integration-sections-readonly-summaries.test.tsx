@@ -49,8 +49,7 @@ const baseProps = {
   onValidationClose: () => {},
   selectedEventType: 'order.created',
   scriptValue: '',
-  onPreview: () => {},
-  onOpenDesigner: () => {},
+  transformationEditor: null,
 };
 
 const renderTab = (tabKey: string, isReadOnly: boolean, formValues: Record<string, unknown>) => {
