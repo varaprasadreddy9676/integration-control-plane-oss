@@ -15,7 +15,7 @@ import type {
 import { getStageJobCounts } from '../../../services/stages-api';
 import { StageRunsList } from '../components/StageRunView';
 import { StageEditor } from '../components/delivery-tab/StageEditorDrawer';
-import { canMoveStage } from '../components/delivery-tab/stageDraft';
+import { canMoveStage, scheduleSummary } from '../components/delivery-tab/stageDraft';
 import { FailurePanel } from './FailurePanel';
 import type { StepEditors } from './stepEditors';
 import { Icon } from './CanvasNode';
@@ -114,6 +114,22 @@ const Facts = ({
       {stats.timedOut > 0 && row('Ran out of time', stats.timedOut)}
       {Object.entries(stats.statuses).map(([word, runs]) => row(`Returned ${word}`, runs))}
       {jobs.data && Object.entries(jobs.data).map(([state, total]) => row(`Checks ${state.toLowerCase()}`, total))}
+    </div>
+  );
+};
+
+/** A step as it is when the integration is only being viewed: what it is and what it does, nothing to edit. */
+const ReadOnlyStage = ({ stage, runner }: { stage: StageConfig; runner?: StageRunner }) => {
+  const code = (stage.runner.config as { code?: unknown } | undefined)?.code;
+  const schedule = scheduleSummary(stage);
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div className="wf-help">
+        {runner?.label || stage.runner.type} · {stage.enabled === false ? 'Off' : 'On'}
+        {schedule ? ` · ${schedule}` : ''}
+      </div>
+      {typeof code === 'string' && code.trim() && <pre className="wf-code wf-mono">{code}</pre>}
+      <div className="wf-help">Choose Edit Integration to change this step.</div>
     </div>
   );
 };
@@ -286,7 +302,7 @@ export const Inspector = (props: InspectorProps) => {
                 </div>
               )}
               {tab === 'configure' &&
-                (readOnly ? <div className="wf-help">Settings are read-only here.</div> : editor.settings)}
+                (readOnly ? <ReadOnlyStage stage={stage} runner={runner} /> : editor.settings)}
               {tab === 'test' && editor.test}
               {tab === 'runs' && (
                 <>

@@ -10,6 +10,9 @@ import type { StepEditors } from '../../canvas/stepEditors';
 
 const { Text } = Typography;
 
+/** Registers a delivery's stages with the form while the diagram edits them, so the form can tell they changed. */
+const Registered = () => null;
+
 interface DeliveryTabProps {
   form: any;
   integrationId?: string;
@@ -85,6 +88,11 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
       )}
       {view === 'workflow' ? (
         <div style={{ width: '100%', height: fullscreen ? undefined : 'max(640px, calc(100vh - 260px))' }}>
+          {targets.map((candidate) => (
+            <Form.Item key={candidate.key} name={[...candidate.namePath, 'stages']} noStyle>
+              <Registered />
+            </Form.Item>
+          ))}
           <WorkflowCanvas
             form={form}
             integrationId={integrationId}

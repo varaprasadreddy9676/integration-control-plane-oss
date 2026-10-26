@@ -136,10 +136,14 @@ const Harness = ({
   initial,
   onValues,
   stepEditors,
+  readOnly,
+  onTouched,
 }: {
   initial: Record<string, unknown>;
   onValues?: (values: any) => void;
+  onTouched?: (touched: boolean) => void;
   stepEditors?: StepEditors;
+  readOnly?: boolean;
 }) => {
   const [form] = Form.useForm();
   return (
@@ -152,8 +156,12 @@ const Harness = ({
               integrationId="int-1"
               targets={deliveriesOf(initial as any)}
               stepEditors={stepEditors}
+              readOnly={readOnly}
               context={() => form.getFieldsValue(true)}
             />
+            <button type="button" onClick={() => onTouched?.(form.isFieldsTouched())}>
+              read touched
+            </button>
             <button type="button" onClick={() => onValues?.(form.getFieldsValue(true))}>
               read values
             </button>
@@ -262,6 +270,15 @@ describe('the workflow canvas', () => {
     await waitFor(() => expect(screen.queryByRole('complementary', { name: /details/ })).not.toBeInTheDocument());
   });
 
+  it('shows a step\'s settings when the integration is only being viewed, and says how to change them', async () => {
+    render(<Harness initial={integration} readOnly />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
+    const inspector = await screen.findByLabelText('Consent granted? details');
+    expect(within(inspector).getByText('return null;')).toBeInTheDocument();
+    expect(within(inspector).getByText(/Edit Integration/)).toBeInTheDocument();
+    expect(within(inspector).queryByRole('button', { name: 'Apply to draft' })).not.toBeInTheDocument();
+  });
+
   it('is usable from the keyboard: arrows move along connected steps, Enter opens, Enter again enters the inspector, Escape comes back', async () => {
     render(<Harness initial={integration} />);
     const first = (await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0];
@@ -366,6 +383,47 @@ describe('the workflow canvas', () => {
     fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Check status' } });
     fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
     expect(await screen.findByText(/41 waiting checks keep their version/)).toBeInTheDocument();
+  });
+
+  it('does not say "0 steps changed" when only a name changed', async () => {
+    render(<Harness initial={integration} />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Check delivery status/ }))[0]);
+    const inspector = await screen.findByRole('complementary', { name: /details/ });
+    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Check status' } });
+    fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
+    expect(await screen.findByText(/No step's settings changed/)).toBeInTheDocument();
+    expect(screen.queryByText(/0 steps changed/)).not.toBeInTheDocument();
+  });
+
+  it('counts an edit made in the diagram as a change, so the page warns before throwing it away', async () => {
+    const onTouched = vi.fn();
+    render(<Harness initial={integration} onTouched={onTouched} />);
+    fireEvent.click(screen.getByRole('button', { name: 'read touched' }));
+    expect(onTouched).toHaveBeenLastCalledWith(false);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0]);
+    const inspector = await screen.findByRole('complementary', { name: /details/ });
+    fireEvent.change(within(inspector).getByLabelText('Stage name'), { target: { value: 'Consent?' } });
+    fireEvent.click(within(inspector).getByRole('button', { name: 'Apply to draft' }));
+    await screen.findAllByRole('button', { name: /Consent\?/ });
+    fireEvent.click(screen.getByRole('button', { name: 'read touched' }));
+    expect(onTouched).toHaveBeenLastCalledWith(true);
+  });
+
+  it('keeps Escape to itself when it closes the inspector, so the page does not cancel the edit', async () => {
+    render(<Harness initial={integration} />);
+    const page = vi.fn();
+    window.addEventListener('keydown', page);
+    try {
+      const step = (await screen.findAllByRole('button', { name: /Consent granted\?/ }))[0];
+      fireEvent.click(step);
+      await screen.findByRole('complementary', { name: /details/ });
+      step.focus();
+      fireEvent.keyDown(step, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('complementary', { name: /details/ })).not.toBeInTheDocument());
+      expect(page).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', page);
+    }
   });
 
   it('has a list and a diagram of the same steps, the list being the default', async () => {

@@ -180,13 +180,16 @@ export const WorkflowCanvas = ({
 
   const snapshot = (): Snapshot =>
     Object.fromEntries(targets.map((target) => [target.key, stagesOf(form.getFieldsValue(true), target)]));
+  // A change made here counts as a change to the form, so the page warns before it is thrown away.
+  const writeToForm = (changes: { target: DeliveryTarget; stages: StageConfig[] }[]) =>
+    form.setFields(changes.map(({ target, stages }) => ({ name: [...target.namePath, 'stages'], value: stages, touched: true })));
   const apply = (state: Snapshot) => {
-    targets.forEach((target) => form.setFieldValue([...target.namePath, 'stages'], state[target.key] || []));
+    writeToForm(targets.map((target) => ({ target, stages: state[target.key] || [] })));
     bump((n) => n + 1);
   };
   const writeStages = (target: DeliveryTarget, next: StageConfig[]) => {
     history.current = { past: [...history.current.past, snapshot()].slice(-50), future: [] };
-    form.setFieldValue([...target.namePath, 'stages'], next);
+    writeToForm([{ target, stages: next }]);
     bump((n) => n + 1);
   };
   const undo = () => {
@@ -410,10 +413,15 @@ export const WorkflowCanvas = ({
         act(selected, 'remove');
       } else if (event.key === 'Escape' && selectedId && !typing) {
         // From inside the inspector go back to the step; from the step, close the inspector.
+        // The page cancels editing on Escape: this one is the canvas's.
+        event.stopPropagation();
         const inInspector = Boolean(document.activeElement?.closest('.wf-inspector'));
         document.getElementById(selectedId)?.focus();
         if (!inInspector) setSelectedId(null);
-      } else if (event.key === 'Escape' && fullscreen && !typing) onToggleFullscreen?.();
+      } else if (event.key === 'Escape' && fullscreen && !typing) {
+        event.stopPropagation();
+        onToggleFullscreen?.();
+      }
     };
     // Capture, so a shortcut the canvas takes is not also taken by the page.
     window.addEventListener('keydown', onKey, true);
@@ -718,7 +726,7 @@ export const WorkflowCanvas = ({
                 <span>
                   <span className="wf-chip wf-chip--warning">Draft</span>{' '}
                   {data.impact
-                    ? `${changedCount} step${changedCount === 1 ? '' : 's'} changed · ${data.impact.totals.keepOldVersion.toLocaleString('en-US')} waiting check${data.impact.totals.keepOldVersion === 1 ? '' : 's'} keep their version${data.impact.totals.cancelled ? ` · ${data.impact.totals.cancelled} cancelled` : ''}${data.impact.totals.paused ? ` · ${data.impact.totals.paused} paused` : ''}`
+                    ? `${changedCount === 0 ? "No step's settings changed" : `${changedCount} step${changedCount === 1 ? '' : 's'} changed`} · ${data.impact.totals.keepOldVersion.toLocaleString('en-US')} waiting check${data.impact.totals.keepOldVersion === 1 ? '' : 's'} keep their version${data.impact.totals.cancelled ? ` · ${data.impact.totals.cancelled} cancelled` : ''}${data.impact.totals.paused ? ` · ${data.impact.totals.paused} paused` : ''}`
                     : 'Save the integration to apply it to new deliveries.'}
                 </span>
               ) : (

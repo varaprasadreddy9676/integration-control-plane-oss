@@ -361,6 +361,19 @@
 .wf-mono {
   font-family: var(--wf-mono);
 }
+.wf-code {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 340px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre;
+  color: var(--wf-ink);
+  background: var(--wf-sunken, var(--wf-bg));
+  border: 1px solid var(--wf-border);
+  border-radius: 10px;
+}
 .wf-chip {
   display: inline-flex;
   align-items: center;
