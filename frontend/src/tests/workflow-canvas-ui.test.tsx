@@ -245,6 +245,49 @@ describe('the workflow canvas', () => {
 // Under the full suite's parallel load a modal and two queries can take longer than the default second.
 const SLOW = { timeout: 6000 };
 
+describe('moving around the diagram', () => {
+  // jsdom has no pointer events with positions: a small stand-in so a drag and a pinch can be played.
+  const pointer = (type: string, init: { pointerId: number; clientX: number; clientY: number }) => {
+    const event = new MouseEvent(type, { bubbles: true, clientX: init.clientX, clientY: init.clientY });
+    Object.defineProperty(event, 'pointerId', { value: init.pointerId });
+    return event;
+  };
+  const transform = () => (document.querySelector('.wf-host') as HTMLElement).style.transform;
+  const zoomOf = () => Number(transform().match(/scale\(([\d.]+)\)/)?.[1]);
+
+  it('a drag on the background pans, and a two-finger pinch zooms, with no animation while the hand moves', async () => {
+    render(<Harness initial={integration} />);
+    await screen.findAllByRole('button', { name: /Consent granted\?/ });
+    const stage = document.querySelector('.wf-stage') as HTMLElement;
+    const before = transform();
+
+    fireEvent(stage, pointer('pointerdown', { pointerId: 1, clientX: 100, clientY: 100 }));
+    fireEvent(stage, pointer('pointermove', { pointerId: 1, clientX: 160, clientY: 130 }));
+    fireEvent(stage, pointer('pointerup', { pointerId: 1, clientX: 160, clientY: 130 }));
+    expect(transform()).not.toBe(before);
+    expect((document.querySelector('.wf-host') as HTMLElement).style.transition).toBe('none');
+
+    const start = zoomOf();
+    fireEvent(stage, pointer('pointerdown', { pointerId: 1, clientX: 200, clientY: 200 }));
+    fireEvent(stage, pointer('pointerdown', { pointerId: 2, clientX: 300, clientY: 200 }));
+    fireEvent(stage, pointer('pointermove', { pointerId: 2, clientX: 400, clientY: 200 }));
+    expect(zoomOf()).toBeGreaterThan(start);
+    fireEvent(stage, pointer('pointerup', { pointerId: 2, clientX: 400, clientY: 200 }));
+    fireEvent(stage, pointer('pointerup', { pointerId: 1, clientX: 200, clientY: 200 }));
+  });
+
+  it('the zoom buttons step through whole sizes and glide', async () => {
+    render(<Harness initial={integration} />);
+    await screen.findAllByRole('button', { name: /Consent granted\?/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(screen.getByRole('button', { name: 'Zoom level' })).toHaveTextContent('85%');
+    expect((document.querySelector('.wf-host') as HTMLElement).style.transition).toMatch(/transform 240ms/);
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(screen.getByRole('button', { name: 'Zoom level' })).toHaveTextContent('60%');
+  });
+});
+
 describe('the fixed steps are edited in the diagram', () => {
   const stepEditors: StepEditors = {
     trigger: [{ key: 'configuration', title: 'Event', node: <div>EVENT FORM</div> }],
