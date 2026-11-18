@@ -71,7 +71,8 @@ async function startStageRuntime(options = {}) {
   }
 
   const pool = createRuntimePool({ size: poolSize, memoryMb, isolation: { ...isolation, required: true } });
-  const report = await probeIsolation(pool, { protectedFile: protectedFile || defaultProtectedFile(mode), memoryMb });
+  // In host mode the runners share this machine's file system: they must not be able to swap the code.
+  const report = await probeIsolation(pool, { protectedFile: protectedFile || defaultProtectedFile(mode), memoryMb, checkCode: mode === 'host' });
   if (!report.ok) pool.close();
   runtime = {
     ready: report.ok,

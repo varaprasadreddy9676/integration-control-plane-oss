@@ -1,6 +1,7 @@
 'use strict';
 
 const { dataLimitMb } = require('./isolation');
+const { replaceableDirs, codeDir } = require('./code-dirs');
 
 /**
  * Prove the isolation from inside a stage, the way a hostile script would see it:
@@ -48,10 +49,12 @@ function classifyMemory(result) {
 }
 
 /**
- * Resolves to { ok, checks: { network, user, protectedFile, memory }, problems }.
+ * Resolves to { ok, checks: { network, user, protectedFile, memory, codeDirs }, problems }.
+ * `codeDirs` (only where the runners share this host's file system, `checkCode`) is 'closed' when no directory
+ * above the backend's code can be swapped by another user, else 'replaceable'.
  * `protectedFile` is a file only the backend's user can read (its .env, for example).
  */
-async function probeIsolation(pool, { protectedFile, memoryMb = 128, parentUid = process.getuid ? process.getuid() : null } = {}) {
+async function probeIsolation(pool, { protectedFile, memoryMb = 128, parentUid = process.getuid ? process.getuid() : null, checkCode = false } = {}) {
   const problems = [];
   const escape = await pool.run({ code: ESCAPE_CHECKS, globals: { probe: { protectedFile } }, helpers: {}, timeoutMs: 10000 });
   const checks = { network: 'unknown', user: 'unknown', protectedFile: 'unknown', memory: 'unknown' };
@@ -76,6 +79,16 @@ async function probeIsolation(pool, { protectedFile, memoryMb = 128, parentUid =
   if (checks.protectedFile === 'missing') problems.push(`The protected file to test (${protectedFile}) does not exist`);
   else if (checks.protectedFile !== 'unreadable') problems.push('A stage can read protected files');
   if (checks.memory !== 'capped') problems.push('Stage memory outside the JavaScript heap is not limited');
+
+  if (checkCode) {
+    const open = replaceableDirs(codeDir());
+    checks.codeDirs = open.length === 0 ? 'closed' : 'replaceable';
+    if (open.length) {
+      problems.push(
+        `Any user could replace the backend's code through ${open.join(', ')}: they are writable by everyone. Run: chmod o-w ${open.join(' ')} (or chmod +t on them)`
+      );
+    }
+  }
 
   return { ok: problems.length === 0, checks, problems };
 }

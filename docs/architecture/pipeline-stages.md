@@ -236,7 +236,11 @@ assumed able to escape a JavaScript sandbox. The boundary is therefore the OS.
   protected file and the user, and allocates past the memory limit outside the
   JavaScript heap. Only a genuine allocation failure counts as capped. Stages do
   not run unless every check holds (`stage-isolation-check.js` runs the same
-  probe on a server).
+  probe on a server). In host mode the probe also checks the directories above
+  the backend's code: if any is writable by every user and not sticky, an
+  unprivileged runner could rename the code away and leave its own for the root
+  service to run at the next restart, so stages are refused until
+  `chmod o-w` (or `chmod +t`) closes them.
 - Release tests prove the boundary from inside an escaped context: no network, no
   file access, memory cap holds, runners cannot reach each other, leftover
   processes are killed, kill on deadline.
