@@ -1,5 +1,6 @@
 const net = require('net');
 const { checkRateLimit } = require('../middleware/rate-limiter');
+const { isIpInCidr } = require('../utils/ip-address');
 
 const DEFAULT_RATE_LIMIT = Object.freeze({
   enabled: false,
@@ -39,35 +40,9 @@ function normalizeCidrEntry(value) {
   return `${address}/${prefix}`;
 }
 
-function ipToBuffer(ip) {
-  return net.isIP(ip) === 4
-    ? Buffer.from(ip.split('.').map((part) => parseInt(part, 10)))
-    : Buffer.from(
-        ip
-          .split(':')
-          .filter(Boolean)
-          .map((h) => parseInt(h, 16))
-          .flatMap((num) => [(num >> 8) & 0xff, num & 0xff])
-      );
-}
-
-function cidrToBuffer(cidr) {
-  const [address, prefixLength] = cidr.split('/');
-  return { buffer: ipToBuffer(address), prefixLength: parseInt(prefixLength, 10) };
-}
-
 function isIpInRange(ip, cidr) {
   const normalizedIp = normalizeIp(ip);
-  if (!normalizedIp) return false;
-  if (!net.isIP(normalizedIp)) return false;
-  const ipBuf = ipToBuffer(normalizedIp);
-  const { buffer: rangeBuf, prefixLength } = cidrToBuffer(cidr);
-  const byteLength = Math.ceil(prefixLength / 8);
-  for (let i = 0; i < byteLength; i += 1) {
-    const mask = i === byteLength - 1 ? 0xff << (8 - (prefixLength % 8 || 8)) : 0xff;
-    if ((ipBuf[i] & mask) !== (rangeBuf[i] & mask)) return false;
-  }
-  return true;
+  return Boolean(normalizedIp) && isIpInCidr(normalizedIp, cidr);
 }
 
 function normalizeOrigin(value) {

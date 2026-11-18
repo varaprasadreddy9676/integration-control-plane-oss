@@ -1,8 +1,4 @@
 const express = require('express');
-const fs = require('fs');
-const fsp = require('fs/promises');
-const os = require('os');
-const path = require('path');
 const bcrypt = require('bcryptjs');
 const data = require('../data');
 const { log } = require('../logger');
@@ -15,22 +11,19 @@ const { getRateLimitStatus, resetRateLimit } = require('../middleware/rate-limit
 const { MemoryMonitor } = require('../services/memory-monitor');
 const { auditUser, auditOrg, auditConfig, auditAdmin } = require('../middleware/audit');
 const { normalizeRequestPolicy } = require('../services/request-policy');
-const { uuidv4 } = require('../utils/runtime');
+const { createExportJobStore, exportSettings, parseBooleanQuery, writeFileChunk } = require('../services/export-jobs');
 const { applyCursorHint } = require('../utils/index-hints');
 
 const router = express.Router();
-const ADMIN_AUDIT_EXPORT_JOBS_COLLECTION = 'admin_audit_export_jobs';
-const ADMIN_AUDIT_EXPORT_TMP_DIR = path.join(os.tmpdir(), 'integration-control-plane-admin-audit-exports');
-const ADMIN_AUDIT_EXPORT_ASYNC_THRESHOLD = Math.max(
-  1,
-  Number.parseInt(process.env.ADMIN_AUDIT_EXPORT_ASYNC_THRESHOLD || '5000', 10)
-);
-const ADMIN_AUDIT_EXPORT_JOB_TTL_MS = Math.max(
-  5 * 60 * 1000,
-  Number.parseInt(process.env.ADMIN_AUDIT_EXPORT_JOB_TTL_MS || String(6 * 60 * 60 * 1000), 10)
-);
-const ADMIN_AUDIT_EXPORT_PROGRESS_UPDATE_INTERVAL = 100;
-let adminAuditExportIndexesEnsured = false;
+const { asyncThreshold: ADMIN_AUDIT_EXPORT_ASYNC_THRESHOLD, ttlMs: ADMIN_AUDIT_EXPORT_JOB_TTL_MS } = exportSettings('ADMIN_AUDIT');
+const adminAuditExports = createExportJobStore({
+  collection: 'admin_audit_export_jobs',
+  idPrefix: 'aaexp',
+  basePath: '/api/v1/admin/audit-logs',
+  tmpDirName: 'integration-control-plane-admin-audit-exports',
+  ttlMs: ADMIN_AUDIT_EXPORT_JOB_TTL_MS,
+  label: 'admin audit',
+});
 
 const sanitizeUser = (user) => ({
   id: user._id ? user._id.toString() : user.id,
@@ -147,25 +140,6 @@ const parsePositiveInt = (value) => {
   return num;
 };
 
-const parseBooleanQuery = (value) => {
-  if (typeof value === 'boolean') return value;
-  if (typeof value !== 'string') return false;
-  return ['1', 'true', 'yes', 'y'].includes(value.trim().toLowerCase());
-};
-
-const ensureAdminAuditExportJobIndexes = async (dbConn) => {
-  if (adminAuditExportIndexesEnsured) return;
-  const collection = dbConn.collection(ADMIN_AUDIT_EXPORT_JOBS_COLLECTION);
-  try {
-    await collection.createIndex({ jobId: 1 }, { unique: true });
-    await collection.createIndex({ createdAt: -1 });
-    await collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-  } catch (error) {
-    log('warn', 'Failed to ensure admin audit export indexes', { error: error.message });
-  }
-  adminAuditExportIndexesEnsured = true;
-};
-
 const buildAdminAuditQuery = ({ action, role, adminId, search, startDate, endDate }) => {
   const conditions = [];
   if (action) conditions.push({ action });
@@ -212,94 +186,6 @@ const buildAdminAuditTrendQuery = ({ action, role, adminId, search, startDate, e
     endDate,
   });
 };
-
-const toAdminAuditExportJobResponse = (job) => ({
-  jobId: job.jobId,
-  status: job.status,
-  format: job.format,
-  totalRecords: job.totalRecords || 0,
-  processedRecords: job.processedRecords || 0,
-  fileSizeBytes: job.fileSizeBytes || 0,
-  fileName: job.fileName || null,
-  errorMessage: job.errorMessage || null,
-  createdAt: job.createdAt,
-  startedAt: job.startedAt || null,
-  finishedAt: job.finishedAt || null,
-  expiresAt: job.expiresAt || null,
-  statusPath: `/api/v1/admin/audit-logs/export/jobs/${encodeURIComponent(job.jobId)}`,
-  downloadPath: `/api/v1/admin/audit-logs/export/jobs/${encodeURIComponent(job.jobId)}/download`,
-});
-
-const createAdminAuditExportJob = async ({
-  format,
-  exportType = 'audit-logs',
-  query = {},
-  totalRecords = 0,
-  fileNamePrefix = 'admin-audit-logs',
-  trendDays = null,
-}) => {
-  const dbConn = await mongodb.getDbSafe();
-  await ensureAdminAuditExportJobIndexes(dbConn);
-  const now = new Date();
-  const jobId = `aaexp_${Date.now()}_${uuidv4().replace(/-/g, '').slice(0, 8)}`;
-  const fileName = `${fileNamePrefix}-${now.toISOString().split('T')[0]}-${jobId}.${format}`;
-  const doc = {
-    jobId,
-    format,
-    exportType,
-    query,
-    trendDays,
-    status: 'QUEUED',
-    totalRecords: Number(totalRecords) || 0,
-    processedRecords: 0,
-    filePath: null,
-    fileName,
-    fileSizeBytes: 0,
-    errorMessage: null,
-    createdAt: now,
-    updatedAt: now,
-    startedAt: null,
-    finishedAt: null,
-    expiresAt: new Date(now.getTime() + ADMIN_AUDIT_EXPORT_JOB_TTL_MS),
-  };
-  await dbConn.collection(ADMIN_AUDIT_EXPORT_JOBS_COLLECTION).insertOne(doc);
-  return doc;
-};
-
-const getAdminAuditExportJob = async (jobId) => {
-  const dbConn = await mongodb.getDbSafe();
-  await ensureAdminAuditExportJobIndexes(dbConn);
-  return dbConn.collection(ADMIN_AUDIT_EXPORT_JOBS_COLLECTION).findOne({ jobId });
-};
-
-const writeFileChunk = (stream, chunk) =>
-  new Promise((resolve, reject) => {
-    const onError = (err) => {
-      cleanup();
-      reject(err);
-    };
-    const onDrain = () => {
-      cleanup();
-      resolve();
-    };
-    const cleanup = () => {
-      stream.off('error', onError);
-      stream.off('drain', onDrain);
-    };
-    stream.once('error', onError);
-    if (stream.write(chunk)) {
-      cleanup();
-      resolve();
-    } else {
-      stream.once('drain', onDrain);
-    }
-  });
-
-const closeFileStream = (stream) =>
-  new Promise((resolve, reject) => {
-    stream.once('error', reject);
-    stream.end(() => resolve());
-  });
 
 const ADMIN_AUDIT_EXPORT_HEADERS = [
   'createdAt',
@@ -356,117 +242,51 @@ const ADMIN_AUDIT_TREND_HEADERS = ['date', 'count'];
 
 const buildAdminAuditTrendCsvRow = (row) => `${escapeCsv(row.date)},${row.count}`;
 
-const processAdminAuditExportJob = async (jobId) => {
+/** What a background admin-audit export writes: the audit rows, or the daily trend, as CSV. */
+const writeAdminAuditExport = async ({ job, openStream, progress }) => {
+  const stream = openStream();
   const dbConn = await mongodb.getDbSafe();
-  await ensureAdminAuditExportJobIndexes(dbConn);
-  const jobs = dbConn.collection(ADMIN_AUDIT_EXPORT_JOBS_COLLECTION);
-  const claimed = await jobs.findOneAndUpdate(
-    { jobId, status: 'QUEUED' },
-    { $set: { status: 'PROCESSING', startedAt: new Date(), updatedAt: new Date() } },
-    { returnDocument: 'after' }
-  );
-  const job = claimed.value;
-  if (!job) return;
+  let count = 0;
 
-  await fsp.mkdir(ADMIN_AUDIT_EXPORT_TMP_DIR, { recursive: true });
-  const filePath = path.join(ADMIN_AUDIT_EXPORT_TMP_DIR, `${job.jobId}.${job.format}`);
-  const stream = fs.createWriteStream(filePath, { encoding: 'utf8' });
-  let processedRecords = 0;
-
-  try {
-    if (job.exportType === 'trend') {
-      await writeFileChunk(stream, `${ADMIN_AUDIT_TREND_HEADERS.join(',')}\n`);
-      const rows = await dbConn
-        .collection('admin_audit')
-        .aggregate(
-          [
-            { $match: job.query || {} },
-            {
-              $group: {
-                _id: {
-                  $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-                },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { _id: 1 } },
-          ],
-          { allowDiskUse: true }
-        )
-        .toArray();
-      const dailyCounts = buildAdminAuditTrendRows(rows, job.trendDays || 7);
-      for (const row of dailyCounts) {
-        await writeFileChunk(stream, `${buildAdminAuditTrendCsvRow(row)}\n`);
-        processedRecords += 1;
-        if (processedRecords % ADMIN_AUDIT_EXPORT_PROGRESS_UPDATE_INTERVAL === 0) {
-          await jobs.updateOne({ jobId }, { $set: { processedRecords, updatedAt: new Date() } });
-        }
-      }
-    } else {
-      await writeFileChunk(stream, `${ADMIN_AUDIT_EXPORT_HEADERS.join(',')}\n`);
-      const cursor = dbConn
-        .collection('admin_audit')
-        .find(job.query || {}, { noCursorTimeout: true, allowDiskUse: true })
-        .sort({ createdAt: -1 })
-        .batchSize(100);
-
-      for await (const doc of cursor) {
-        await writeFileChunk(stream, `${buildAdminAuditCsvRow(doc)}\n`);
-        processedRecords += 1;
-        if (processedRecords % ADMIN_AUDIT_EXPORT_PROGRESS_UPDATE_INTERVAL === 0) {
-          await jobs.updateOne({ jobId }, { $set: { processedRecords, updatedAt: new Date() } });
-        }
-      }
+  if (job.exportType === 'trend') {
+    await writeFileChunk(stream, `${ADMIN_AUDIT_TREND_HEADERS.join(',')}\n`);
+    const rows = await dbConn
+      .collection('admin_audit')
+      .aggregate(
+        [
+          { $match: job.query || {} },
+          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+        ],
+        { allowDiskUse: true }
+      )
+      .toArray();
+    for (const row of buildAdminAuditTrendRows(rows, job.trendDays || 7)) {
+      await writeFileChunk(stream, `${buildAdminAuditTrendCsvRow(row)}\n`);
+      count += 1;
+      await progress(count);
     }
-
-    await closeFileStream(stream);
-    const stat = await fsp.stat(filePath);
-    await jobs.updateOne(
-      { jobId },
-      {
-        $set: {
-          status: 'COMPLETED',
-          processedRecords,
-          filePath,
-          fileSizeBytes: stat.size,
-          finishedAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + ADMIN_AUDIT_EXPORT_JOB_TTL_MS),
-        },
-      }
-    );
-  } catch (error) {
-    try {
-      stream.destroy();
-    } catch (_err) {}
-    try {
-      await fsp.rm(filePath, { force: true });
-    } catch (_err) {}
-    await jobs.updateOne(
-      { jobId },
-      {
-        $set: {
-          status: 'FAILED',
-          processedRecords,
-          errorMessage: error.message,
-          finishedAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + ADMIN_AUDIT_EXPORT_JOB_TTL_MS),
-        },
-      }
-    );
+  } else {
+    await writeFileChunk(stream, `${ADMIN_AUDIT_EXPORT_HEADERS.join(',')}\n`);
+    const cursor = dbConn
+      .collection('admin_audit')
+      .find(job.query || {}, { noCursorTimeout: true, allowDiskUse: true })
+      .sort({ createdAt: -1 })
+      .batchSize(100);
+    for await (const doc of cursor) {
+      await writeFileChunk(stream, `${buildAdminAuditCsvRow(doc)}\n`);
+      count += 1;
+      await progress(count);
+    }
   }
+  return { processedRecords: count };
 };
 
-const startAdminAuditExportJob = async (jobInput) => {
-  const job = await createAdminAuditExportJob(jobInput);
-  setImmediate(() => {
-    processAdminAuditExportJob(job.jobId).catch((error) => {
-      log('error', 'Unhandled admin audit export job failure', { jobId: job.jobId, error: error.message });
-    });
-  });
-  return job;
-};
+const startAdminAuditExportJob = async ({ format, exportType = 'audit-logs', query = {}, totalRecords = 0, fileNamePrefix = 'admin-audit-logs', trendDays = null }) =>
+  adminAuditExports.start(
+    await adminAuditExports.create({ format, fileStem: fileNamePrefix, totalRecords, fields: { exportType, query, trendDays } }),
+    writeAdminAuditExport
+  );
 
 const normalizeTags = (value) => {
   if (!Array.isArray(value)) return [];
@@ -1724,7 +1544,7 @@ router.get(
         fileNamePrefix: 'admin-audit-logs',
       });
       return res.status(202).json({
-        ...toAdminAuditExportJobResponse(job),
+        ...adminAuditExports.toResponse(job),
         message: `Admin audit export queued (${totalRecords.toLocaleString()} rows).`,
       });
     }
@@ -1745,64 +1565,15 @@ router.get(
 router.get(
   '/audit-logs/export/jobs/:jobId',
   asyncHandler(async (req, res) => {
-    const job = await getAdminAuditExportJob(req.params.jobId);
+    const job = await adminAuditExports.get(req.params.jobId);
     if (!job) {
       return res.status(404).json({ error: 'Export job not found', code: 'NOT_FOUND' });
     }
-    return res.json(toAdminAuditExportJobResponse(job));
+    return res.json(adminAuditExports.toResponse(job));
   })
 );
 
-router.get(
-  '/audit-logs/export/jobs/:jobId/download',
-  asyncHandler(async (req, res) => {
-    const job = await getAdminAuditExportJob(req.params.jobId);
-    if (!job) {
-      return res.status(404).json({ error: 'Export job not found', code: 'NOT_FOUND' });
-    }
-    if (job.status !== 'COMPLETED') {
-      return res.status(409).json({ error: 'Export job is not ready', code: 'EXPORT_NOT_READY' });
-    }
-    if (!job.filePath) {
-      return res.status(500).json({ error: 'Export file path missing', code: 'EXPORT_FILE_MISSING' });
-    }
-    try {
-      await fsp.access(job.filePath, fs.constants.R_OK);
-    } catch (_err) {
-      return res.status(410).json({ error: 'Export file expired', code: 'EXPORT_FILE_EXPIRED' });
-    }
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${job.fileName || path.basename(job.filePath)}"`);
-    return new Promise((resolve, reject) => {
-      const stream = fs.createReadStream(job.filePath);
-      const onClose = () => {
-        cleanup();
-        resolve();
-      };
-      const onEnd = () => {
-        cleanup();
-        resolve();
-      };
-      const onError = (err) => {
-        cleanup();
-        if (res.headersSent) {
-          resolve();
-          return;
-        }
-        reject(err);
-      };
-      const cleanup = () => {
-        stream.off('error', onError);
-        stream.off('end', onEnd);
-        res.off('close', onClose);
-      };
-      stream.on('error', onError);
-      stream.on('end', onEnd);
-      res.on('close', onClose);
-      stream.pipe(res);
-    });
-  })
-);
+router.get('/audit-logs/export/jobs/:jobId/download', adminAuditExports.downloadHandler({ contentType: 'text/csv; charset=utf-8' }));
 
 // GET /api/v1/admin/audit-logs/export-trend
 router.get(
@@ -1831,7 +1602,7 @@ router.get(
         trendDays: days,
       });
       return res.status(202).json({
-        ...toAdminAuditExportJobResponse(job),
+        ...adminAuditExports.toResponse(job),
         message: `Admin audit trend export queued (${matchingRecords.toLocaleString()} matching records).`,
       });
     }

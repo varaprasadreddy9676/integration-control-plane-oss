@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Timeline, Typography, Skeleton, Button } from 'antd';
+import { Timeline, Typography, Skeleton, Button, Tag } from 'antd';
 import { getExecutionLogTimeline } from '../../../services/api';
 import { cssVar, useDesignTokens } from '../../../design-system/utils';
 import { StatePanel } from '../../../components/common/StatePanel';
+import type { StageRun } from '../../../services/stages-api';
+import { OUTCOME_TAG, runTitle, stageStatusColor, stageStatusLabel } from '../../stages/stageLabels';
 
 /**
  * The gateway already records an execution trace per delivery — the steps a
@@ -13,7 +15,7 @@ import { StatePanel } from '../../../components/common/StatePanel';
  * Delivery logs carry the traceId (backend src/data/logs.js), so this is a
  * join, not new instrumentation.
  */
-export const DeliveryTraceTimeline = ({ traceId }: { traceId: string }) => {
+export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: string; stageRuns?: StageRun[] }) => {
   const { spacing } = useDesignTokens();
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -80,7 +82,42 @@ export const DeliveryTraceTimeline = ({ traceId }: { traceId: string }) => {
       </div>
 
       <Timeline
-        items={steps.map((step) => {
+        items={[
+          ...steps.map((step) => ({ at: step.timestamp, step, run: null as StageRun | null })),
+          // The delivery's pipeline stages, in time order with the steps (later checks come after).
+          ...stageRuns.map((run) => ({ at: run.at, step: null as (typeof steps)[number] | null, run })),
+        ]
+          .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+          .map(({ step: maybeStep, run }) => {
+          if (run) {
+            const outcome = OUTCOME_TAG[run.outcome] ?? OUTCOME_TAG.error;
+            return {
+              color: run.outcome === 'ok' ? 'blue' : run.outcome === 'skipped' ? 'gray' : 'red',
+              children: (
+                <div>
+                  <div style={{ display: 'flex', gap: spacing[2], alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <Typography.Text strong style={{ fontSize: 13 }}>
+                      {run.stage.name}
+                    </Typography.Text>
+                    <span style={{ fontSize: 12, color: cssVar.text.secondary }}>
+                      {runTitle(run)} · {run.durationMs} ms
+                    </span>
+                    {run.status ? (
+                      <Tag color={stageStatusColor(run.status, run.done)} style={{ margin: 0 }}>
+                        {stageStatusLabel(run.status)}
+                      </Tag>
+                    ) : (
+                      <Tag color={outcome.color} style={{ margin: 0 }}>
+                        {outcome.label}
+                      </Tag>
+                    )}
+                  </div>
+                  {run.error && <div style={{ fontSize: 12, color: cssVar.error.text, marginTop: 2, overflowWrap: 'anywhere' }}>{run.error}</div>}
+                </div>
+              ),
+            };
+          }
+          const step = maybeStep!;
           const isFailure =
             step.status?.toUpperCase() === 'FAILED' ||
             Boolean(step.error) ||

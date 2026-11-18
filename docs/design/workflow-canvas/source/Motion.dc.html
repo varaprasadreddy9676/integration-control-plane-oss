@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Motion prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+.mbtn:focus-visible,.mnode:focus-visible{outline:2px solid #2B59E6;outline-offset:3px}
+.mbtn{transition:background-color 140ms cubic-bezier(.2,0,0,1),border-color 140ms cubic-bezier(.2,0,0,1)}
+.mbtn:hover{background:#F3F1EC}
+@keyframes m-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes m-spin{to{transform:rotate(360deg)}}
+@keyframes m-ghost{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes m-settle{from{transform:scale(.97);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:0ms !important;transition-duration:0ms !important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 1024px; display: flex; background: #F5F3EE; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #16171B; overflow: hidden">
+
+<section aria-label="Scenarios" style="flex: 0 0 340px; box-sizing: border-box; padding: 40px 32px; display: flex; flex-direction: column; gap: 24px; background: #FFFFFF; border-right: 1px solid #E2DED5">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.015em">Motion that explains</h1>
+<p style="margin: 0; font-size: 13.5px; line-height: 20px; color: #45464D">Every movement says what changed and where. Press Play, then try each one. Click a step on the canvas to select it.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" class="mbtn" onClick="{{ selectSend }}" style="{{btnStyle}}"><span style="font-weight: 600">1 · Select a step</span><span style="font-size: 12px; color: #45464D">Border and surface, then the inspector slides in from the right</span></button>
+<button type="button" class="mbtn" onClick="{{ insert }}" style="{{btnStyle}}"><span style="font-weight: 600">2 · Add a step</span><span style="font-size: 12px; color: #45464D">Preview where it lands, steps below make room, then it settles</span></button>
+<button type="button" class="mbtn" onClick="{{ run }}" style="{{btnStyle}}"><span style="font-weight: 600">3 · Run a test</span><span style="font-size: 12px; color: #45464D">The active connection is traced, the running step pulses, then steps rest as Passed, labelled as test results</span></button>
+<button type="button" class="mbtn" onClick="{{ fail }}" style="{{btnStyle}}"><span style="font-weight: 600">4 · Save fails, then recover</span><span style="font-size: 12px; color: #45464D">The error appears beside its step; you review the proposed fix, apply it, then save</span></button>
+<button type="button" class="mbtn" onClick="{{ reset }}" style="height: 36px; border-radius: 8px; border: 1px solid #E2DED5; background: #FFFFFF; color: #45464D; font-size: 13px; cursor: pointer">Reset</button>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EFECE6">
+<span style="font-size: 12.5px; font-weight: 600">Timing used here</span>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; font-size: 12px; color: #45464D">
+<span>Selection, hover, press</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace">160 ms</span>
+<span>Inspector slide and fade</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace">240 ms</span>
+<span>Steps make room, settle</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace">280 ms</span>
+<span>Connection trace</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace">320 ms</span>
+<span>Easing</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace">(.2, 0, 0, 1)</span>
+</div>
+<span style="font-size: 12px; color: #45464D">{{reducedNote}}</span>
+</div>
+</section>
+
+<main aria-label="Canvas" style="position: relative; flex: 1 1 auto; min-width: 0; background-color: #F5F3EE; background-image: radial-gradient(#D6D0C4 1px, transparent 1px); background-size: 16px 16px; overflow: hidden">
+<div style="position: absolute; right: 24px; top: 20px; display: flex; align-items: center; gap: 10px">
+<span role="status" aria-live="polite" style="{{saveStyle}}"><sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}"><span style="width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #D9D4CA; border-top-color: #45464D; box-sizing: border-box; animation: m-spin 0.8s linear infinite" aria-hidden="true"></span></sc-if><sc-if value="{{ notSaving }}" hint-placeholder-val="{{ true }}"><span style="{{saveDot}}" aria-hidden="true"></span></sc-if>{{saveText}}</span>
+<button type="button" class="mbtn" onClick="{{ save }}" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #2B59E6; background: #2B59E6; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">Save changes</button>
+</div>
+<div role="status" aria-live="polite" style="position: absolute; left: 24px; top: 26px; font-size: 13px; color: #45464D">{{announce}}</div>
+<sc-if value="{{ testShown }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 24px; top: 50px; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 6px 0 12px; border-radius: 8px; background: #EDEBE5; color: #45464D; font-size: 12.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.5L4 20a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-6-10.5V2"/><path d="M8.5 2h7"/></svg>Showing test results from sample data. Nothing was sent, and an edit clears them.<button type="button" class="mbtn" onClick="{{ clearTest }}" style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #D3CDC1; background: #FFFFFF; color: #16171B; font-size: 12px; cursor: pointer">Clear</button></div>
+</sc-if>
+
+<div style="position: absolute; left: 120px; top: 90px; width: 600px; height: 860px">
+<sc-for list="{{ lines }}" as="line" hint-placeholder-count="4">
+<div style="{{line.base}}" aria-hidden="true"></div>
+<div style="{{line.trace}}" aria-hidden="true"></div>
+</sc-for>
+<sc-if value="{{ showGhost }}" hint-placeholder-val="{{ false }}">
+<div style="{{ghostStyle}}"><span style="width: 30px; height: 30px; border-radius: 8px; border: 1.5px dashed currentColor; display: flex; align-items: center; justify-content: center; font-size: 17px" aria-hidden="true">+</span><span><b style="display: block; font-size: 14px; line-height: 20px">{{ghostTitle}}</b><span style="font-size: 12px">{{ghostSub}}</span></span></div>
+</sc-if>
+<sc-for list="{{ nodes }}" as="node" hint-placeholder-count="5">
+<button type="button" class="mnode" onClick="{{ node.pick }}" aria-pressed="{{ node.pressed }}" style="{{node.style}}">
+<span style="{{node.tile}}" aria-hidden="true">{{node.glyph}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; text-align: left">
+<span style="display: flex; align-items: center; gap: 8px; min-width: 0">
+<span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #66676E">{{node.eyebrow}}</span>
+<span style="{{node.statusStyle}}"><span style="{{node.dot}}" aria-hidden="true"></span>{{node.status}}</span>
+</span>
+<span style="font-size: 14px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{node.title}}</span>
+</span>
+</button>
+<sc-if value="{{ node.hasError }}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="{{node.errorStyle}}"><b style="font-weight: 600">1 error.</b> The script returns <code style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px">status: 'ok '</code>: a status is letters, digits and _ only.
+<sc-if value="{{ node.noProposal }}" hint-placeholder-val="{{ true }}"><button type="button" class="mbtn" onClick="{{ review }}" style="margin-left: 8px; height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #F2C9C3; background: #FFFFFF; color: #9E1F15; font-size: 12px; font-weight: 600; cursor: pointer">Review the fix</button></sc-if>
+<sc-if value="{{ node.proposal }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #45464D">Proposed change to the script:</span>
+<pre style="margin: 0; padding: 8px 10px; border-radius: 8px; background: #FFFFFF; border: 1px solid #F2C9C3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 18px; white-space: pre-wrap"><span style="display: block; color: #9E1F15">- return { status: 'ok ' };</span><span style="display: block; color: #1E6B44">+ return { status: 'OK' };</span></pre>
+<div style="display: flex; gap: 8px"><button type="button" class="mbtn" onClick="{{ apply }}" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #16171B; background: #16171B; color: #FFFFFF; font-size: 12px; font-weight: 600; cursor: pointer">Apply change</button><button type="button" class="mbtn" onClick="{{ cancelFix }}" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #D9D4CA; background: #FFFFFF; color: #16171B; font-size: 12px; cursor: pointer">Cancel</button></div>
+<span style="font-size: 11.5px; color: #66676E">Applying changes the draft only. Saving is a separate step.</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</main>
+
+<aside aria-label="Step inspector" style="{{inspStyle}}">
+<span style="font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #66676E">{{inspEyebrow}}</span>
+<h2 style="margin: 0; font-size: 18px; line-height: 24px; font-weight: 600">{{inspTitle}}</h2>
+<p style="margin: 0; font-size: 13px; line-height: 19px; color: #45464D">The canvas keeps its zoom and position; the selected step stays in view while the panel is open.</p>
+<div style="display: flex; gap: 18px; border-bottom: 1px solid #E7E3DB; font-size: 13px"><span style="height: 32px; font-weight: 600; border-bottom: 2px solid #16171B">Configure</span><span style="height: 32px; color: #66676E">Test</span><span style="height: 32px; color: #66676E">Runs</span></div>
+<button type="button" class="mbtn" onClick="{{ close }}" style="align-self: flex-start; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #D9D4CA; background: #FFFFFF; font-size: 13px; cursor: pointer">Close</button>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1024}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { selected: null, insert: 'none', running: null, done: [], tracing: -1, save: 'unsaved', error: false, proposal: false, testShown: false, announce: 'Draft · 1 unsaved change', reduced: false };
+    this.timers = [];
+  }
+  componentDidMount() {
+    try {
+      const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+      this.setState({ reduced: query.matches });
+    } catch (_e) {}
+  }
+  componentWillUnmount() { this.clear(); }
+  clear() { this.timers.forEach((t) => clearTimeout(t)); this.timers = []; }
+  // A test run is a record of the past: any change to the draft, or a save, clears it,
+  // so a validation error is never shown beside stale "Passed" steps.
+  dropTest() { return { done: [], running: null, tracing: -1, testShown: false }; }
+  later(ms, fn) { this.timers.push(setTimeout(fn, this.state.reduced ? 0 : ms)); }
+  order() {
+    const base = ['event', 'consent', 'send', 'reply', 'delivered'];
+    return this.state.insert === 'settled' ? ['event', 'consent', 'new', 'send', 'reply', 'delivered'] : base;
+  }
+  renderVals() {
+    const s = this.state;
+    const META = {
+      event: { eyebrow: 'Event', title: 'Appointment confirmed', glyph: '⌁', tint: '#6A4BD6' },
+      consent: { eyebrow: 'HTTP · Before send', title: 'Check patient consent', glyph: '◎', tint: '#2B59E6' },
+      new: { eyebrow: 'Script · Before send', title: 'Check quiet hours', glyph: '‹›', tint: '#3D4451' },
+      send: { eyebrow: 'Send', title: 'Send WhatsApp message', glyph: '➚', tint: '#1F4FD1' },
+      reply: { eyebrow: 'Gate · After the response', title: 'Read the provider reply', glyph: '◇', tint: '#9A5A00' },
+      delivered: { eyebrow: 'Outcome', title: 'Delivered', glyph: '✓', tint: '#1E7A4C' },
+    };
+    const order = this.order();
+    const ease = 'cubic-bezier(.2,0,0,1)';
+    const pitch = 112;
+    const preview = s.insert === 'preview';
+    const topOf = (index) => index * pitch + (preview && index >= 2 ? pitch : 0);
+    const nodes = order.map((id, index) => {
+      const m = META[id];
+      const selected = s.selected === id;
+      const running = s.running === id;
+      const done = s.done.includes(id);
+      const error = s.error && id === 'reply';
+      let border = '1px solid #E2DED5';
+      let ring = '0 1px 2px rgba(22,23,27,0.06)';
+      let bg = '#FFFFFF';
+      if (running) { border = '1px solid #2B59E6'; ring = '0 0 0 4px rgba(43,89,230,0.12)'; }
+      if (error) { border = '1px solid #B42318'; ring = '0 0 0 4px rgba(180,35,24,0.12)'; }
+      if (selected) { border = '1px solid #2B59E6'; ring = '0 0 0 1px #2B59E6, 0 0 0 5px rgba(43,89,230,0.14)'; bg = '#FBFCFF'; }
+      const settling = id === 'new' && s.insert === 'settled';
+      const status = error ? { text: '1 error', color: '#B42318' } : running ? { text: 'Running', color: '#2B59E6' } : done ? { text: 'Passed', color: '#1E7A4C' } : null;
+      return {
+        title: m.title,
+        eyebrow: m.eyebrow,
+        glyph: m.glyph,
+        pressed: selected ? 'true' : 'false',
+        hasError: error,
+        proposal: error && s.proposal,
+        noProposal: error && !s.proposal,
+        pick: () => this.select(id),
+        status: status ? status.text : '',
+        style: `position: absolute; left: 0; top: ${topOf(index)}px; width: 256px; height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 10px; border: ${border}; background: ${bg}; box-shadow: ${ring}; cursor: pointer; font: inherit; color: #16171B; transition: top 280ms ${ease}, box-shadow 160ms ${ease}, border-color 160ms ${ease}, background-color 160ms ${ease}, transform 280ms ${ease}; ${settling ? `animation: m-settle 280ms ${ease} both;` : ''}`,
+        tile: `width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 15px; color: ${m.tint}; background: color-mix(in oklab, ${m.tint} 10%, transparent)`,
+        statusStyle: `flex: 0 0 auto; white-space: nowrap; display: ${status ? 'inline-flex' : 'none'}; align-items: center; gap: 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: ${status ? status.color : '#66676E'}`,
+        dot: `width: 7px; height: 7px; border-radius: 50%; background: ${status ? status.color : 'transparent'}; ${running && !s.reduced ? 'animation: m-pulse 1s ease-in-out infinite;' : ''}`,
+        errorStyle: `position: absolute; left: 276px; top: ${topOf(index) + 12}px; width: 300px; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; background: #FDF3F1; border: 1px solid #F2C9C3; font-size: 12.5px; line-height: 18px; color: #3A3B41`,
+      };
+    });
+    const lines = order.slice(1).map((_id, index) => {
+      const from = topOf(index) + 72;
+      const to = topOf(index + 1);
+      const traced = s.tracing === index || (s.done.includes(order[index + 1]));
+      return {
+        base: `position: absolute; left: 127px; top: ${from}px; width: 2px; height: ${to - from}px; background: #C9C3B7; transition: top 280ms ${ease}, height 280ms ${ease}`,
+        trace: `position: absolute; left: 127px; top: ${from}px; width: 2px; height: ${to - from}px; background: #2B59E6; transform-origin: top; transform: scaleY(${traced ? 1 : 0}); transition: transform 320ms ${ease}, top 280ms ${ease}, height 280ms ${ease}`,
+      };
+    });
+    const save = s.save;
+    const saveColor = { unsaved: '#8F5400', saving: '#66676E', saved: '#1E7A4C', failed: '#B42318' }[save];
+    const saveText = { unsaved: '1 unsaved change', saving: 'Saving…', saved: 'Saved', failed: 'Save failed: 1 step has an error' }[save];
+    const open = Boolean(s.selected);
+    const sel = s.selected ? META[s.selected] : META.send;
+    return {
+      nodes,
+      lines,
+      showGhost: preview,
+      testShown: s.testShown,
+      ghostTitle: 'Check quiet hours',
+      ghostSub: 'Script · lands after the consent check',
+      ghostStyle: `position: absolute; left: 0; top: ${2 * pitch}px; width: 256px; height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 10px; border: 1.5px dashed #2B59E6; background: rgba(43,89,230,0.05); color: #1F45B8; animation: m-ghost 180ms ${ease} both`,
+      btnStyle: 'display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px 14px; border-radius: 10px; border: 1px solid #E2DED5; background: #FFFFFF; color: #16171B; font-size: 13.5px; text-align: left; cursor: pointer',
+      selectSend: () => this.select('send'),
+      insert: () => this.insert(),
+      run: () => this.run(),
+      fail: () => this.saveWithError(),
+      review: () => this.setState({ proposal: true, announce: 'Proposed change shown beside the step · nothing changed yet' }),
+      apply: () => this.apply(),
+      cancelFix: () => this.setState({ proposal: false, announce: 'No change made · the error is still there' }),
+      clearTest: () => this.setState({ ...this.dropTest(), announce: 'Test results cleared' }),
+      save: () => this.save(),
+      reset: () => this.reset(),
+      close: () => this.select(null),
+      saving: save === 'saving',
+      notSaving: save !== 'saving',
+      saveText,
+      saveStyle: `display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: ${save === 'unsaved' ? '#45464D' : saveColor}; transition: color 160ms ${ease}`,
+      saveDot: `width: 7px; height: 7px; border-radius: 50%; background: ${saveColor}; transition: background-color 160ms ${ease}`,
+      announce: s.announce,
+      reducedNote: s.reduced ? 'Reduced motion is on: changes happen at once, and every state is also written out.' : 'With reduced motion, changes happen at once; every state is also written out.',
+      inspEyebrow: sel.eyebrow,
+      inspTitle: sel.title,
+      inspStyle: `position: absolute; right: 0; top: 0; bottom: 0; width: 360px; box-sizing: border-box; padding: 72px 24px 24px 24px; display: flex; flex-direction: column; gap: 14px; background: #FFFFFF; border-left: 1px solid #E2DED5; box-shadow: -8px 0 24px rgba(22,23,27,0.06); transform: translateX(${open ? 0 : 24}px); opacity: ${open ? 1 : 0}; pointer-events: ${open ? 'auto' : 'none'}; visibility: ${open ? 'visible' : 'hidden'}; transition: transform 240ms ${ease}, opacity 240ms ${ease}, visibility 240ms`,
+    };
+  }
+  select(id) {
+    this.setState({ selected: id, announce: id ? 'Selected · the inspector opened beside the canvas' : 'Inspector closed' });
+  }
+  insert() {
+    this.clear();
+    this.setState({ ...this.dropTest(), insert: 'preview', selected: null, announce: 'Preview · the new step will land after the consent check' });
+    this.later(1100, () => this.setState({ insert: 'settled', save: 'unsaved', announce: 'Added · 1 unsaved change' }));
+  }
+  run() {
+    this.clear();
+    const order = this.order();
+    this.setState({ running: null, done: [], tracing: -1, testShown: true, announce: 'Test run · sample data · nothing is sent' });
+    order.forEach((id, index) => {
+      this.later(index * 560, () => this.setState({ tracing: index - 1, running: id, announce: `Running · ${id === 'new' ? 'Check quiet hours' : id}` }));
+      this.later(index * 560 + 420, () => this.setState((st) => ({ running: null, done: [...st.done, id] })));
+    });
+    this.later(order.length * 560, () => this.setState({ tracing: -1, announce: 'Test finished · every step passed on the sample' }));
+  }
+  saveWithError() {
+    this.clear();
+    this.setState({ ...this.dropTest(), save: 'saving', error: false, proposal: false, announce: 'Saving…' });
+    this.later(800, () => this.setState({ save: 'failed', error: true, announce: 'Save failed · the error is shown beside Read the provider reply' }));
+  }
+  apply() {
+    this.clear();
+    this.setState({ ...this.dropTest(), error: false, proposal: false, save: 'unsaved', announce: 'Change applied to the draft · not saved yet' });
+  }
+  save() {
+    this.clear();
+    if (this.state.error) { this.setState({ save: 'failed', announce: 'Save failed · fix the error first' }); return; }
+    this.setState({ ...this.dropTest(), save: 'saving', announce: 'Saving…' });
+    this.later(700, () => this.setState({ save: 'saved', announce: 'Saved · applies to new deliveries' }));
+  }
+  reset() {
+    this.clear();
+    this.setState({ selected: null, insert: 'none', running: null, done: [], tracing: -1, testShown: false, save: 'unsaved', error: false, proposal: false, announce: 'Draft · 1 unsaved change' });
+  }
+}
+</script>
+</body>
+</html>

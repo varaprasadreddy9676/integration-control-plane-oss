@@ -81,7 +81,7 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
           <div>
             <p style={{ marginBottom: 8 }}>Lookups translate codes from your system to external system codes. They execute in the following order:</p>
             <ol style={{ marginBottom: 8, paddingLeft: 20 }}>
-              <li>Standard transformation (SIMPLE or SCRIPT) runs first</li>
+              <li>Your transformation script runs first</li>
               <li>Lookup mappings apply to the transformed payload</li>
               <li>Final payload delivered to target endpoint</li>
             </ol>

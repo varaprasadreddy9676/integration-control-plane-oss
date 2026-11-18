@@ -32,10 +32,22 @@ registerIndexHealer(async () => {
 // with the spec, either by name or by keys.
 const INDEX_CONFLICT_CODES = new Set([85, 86]);
 
+const NAMESPACE_NOT_FOUND = 26;
+
+/** A collection's indexes; none when the collection does not exist yet (a fresh database). */
+async function indexesOf(collection) {
+  try {
+    return await collection.indexes();
+  } catch (error) {
+    if (error && error.code === NAMESPACE_NOT_FOUND) return [];
+    throw error;
+  }
+}
+
 /** The index with this name, null if none, undefined if the list is unreadable. */
 async function findIndexNamed(collection, name) {
   try {
-    const indexes = await collection.indexes();
+    const indexes = await indexesOf(collection);
     return indexes.find((index) => index.name === name) || null;
   } catch {
     return undefined;
@@ -93,7 +105,7 @@ async function safeCreateIndexes(collection, indexSpecs) {
 
 async function dropIndexIfPresent(collection, indexName) {
   try {
-    const indexes = await collection.indexes();
+    const indexes = await indexesOf(collection);
     if (!indexes.some((index) => index.name === indexName)) {
       return;
     }
@@ -239,7 +251,7 @@ async function ensureIndexes() {
     // Processed events - deduplication
     // Migration: Drop old TTL index if it exists with different TTL value
     try {
-      const existingIndexes = await db.collection('processed_events').indexes();
+      const existingIndexes = await indexesOf(db.collection('processed_events'));
       const oldTtlIndex = existingIndexes.find((idx) => idx.name === 'ttl_idx');
 
       if (oldTtlIndex && oldTtlIndex.expireAfterSeconds !== 21600) {
@@ -503,7 +515,7 @@ async function ensureIndexes() {
     ]);
 
     const executionLogsCollection = db.collection('execution_logs');
-    const executionLogIndexes = await executionLogsCollection.indexes();
+    const executionLogIndexes = await indexesOf(executionLogsCollection);
 
     // Migration: Drop TTL index — execution_logs are kept forever; base64 data is
     // redacted before storage (utils/payload-sanitizer).
@@ -721,6 +733,14 @@ async function ensureIndexes() {
   } catch (error) {
     log('warn', 'MongoDB index creation warning', { error: error.message });
     // Don't fail on index creation errors, indexes might already exist
+  }
+
+  // Pipeline stages, in a step of their own: their unique keys are what makes job
+  // creation and projection idempotent, so a problem above must not skip them.
+  try {
+    await require('./stages/indexes').ensureAllStageIndexes(db, safeCreateIndexes);
+  } catch (error) {
+    log('error', 'Pipeline stage index creation failed', { error: error.message });
   }
 }
 

@@ -145,3 +145,59 @@ describe('importing a masked export', () => {
     expect(data.updateIntegration).not.toHaveBeenCalled();
   });
 });
+
+describe('an integration with actions (email, SMS, HL7, HTTP) survives export and import', () => {
+  const mail = {
+    name: 'Send EMAIL',
+    kind: 'COMMUNICATION',
+    communicationConfig: { channel: 'EMAIL', provider: 'SMTP', smtp: { host: 'mail.example.com', username: 'clinic', password: 'real-smtp-password' } },
+    stages: [{ id: 'tell', name: 'Tell the desk', hook: 'on_failure', runner: { type: 'script', config: { code: 'return null;' } } }],
+  };
+  const withActions = { ...stored, id: 'int-2', _id: 'int-2', targetUrl: undefined, actions: [mail] };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    data.getIntegrationById.mockResolvedValue(withActions);
+    data.updateIntegration.mockImplementation(async (_org, _id, patch) => ({ ...withActions, ...patch, id: 'int-2' }));
+    data.createIntegration.mockImplementation(async (_org, payload) => ({ ...payload, id: 'int-new' }));
+  });
+
+  it('exports the actions with credentials masked and each action\'s stage scripts left out', async () => {
+    data.listIntegrations.mockResolvedValue([withActions]);
+    const res = await request(buildApp()).get('/api/v1/import-export/outbound-integrations.json');
+    const [action] = res.body.integrations[0].actions;
+    expect(action.communicationConfig.smtp.password).toBe(SECRET_MASK);
+    expect(action.communicationConfig.smtp.host).toBe('mail.example.com');
+    expect(action.stages[0].runner.config).toEqual({ codeOmitted: true, codeLength: 'return null;'.length });
+  });
+
+  it('with sensitive data, exports the real password and script', async () => {
+    data.listIntegrations.mockResolvedValue([withActions]);
+    const res = await request(buildApp()).get('/api/v1/import-export/outbound-integrations.json?includeSensitive=true');
+    const [action] = res.body.integrations[0].actions;
+    expect(action.communicationConfig.smtp.password).toBe('real-smtp-password');
+    expect(action.stages[0].runner.config.code).toBe('return null;');
+  });
+
+  it('imports it without a target URL, restoring the stored secret and script into the update', async () => {
+    const exported = {
+      id: 'int-2',
+      name: 'Lab Orders',
+      eventType: 'LAB_ORDER',
+      actions: [
+        {
+          ...mail,
+          communicationConfig: { ...mail.communicationConfig, smtp: { ...mail.communicationConfig.smtp, password: SECRET_MASK } },
+          stages: [{ ...mail.stages[0], runner: { type: 'script', config: { codeOmitted: true, codeLength: 12 } } }],
+        },
+      ],
+    };
+    const res = await request(buildApp())
+      .post('/api/v1/import-export/outbound-integrations.json')
+      .send({ importData: { integrations: [exported] }, options: { updateExisting: true, continueOnError: true } });
+    expect(res.status).toBe(200);
+    const patch = data.updateIntegration.mock.calls[0][2];
+    expect(patch.actions[0].communicationConfig.smtp.password).toBe('real-smtp-password');
+    expect(patch.actions[0].stages[0].runner.config.code).toBe('return null;');
+  });
+});

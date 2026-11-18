@@ -6,6 +6,13 @@
  */
 
 const express = require('express');
+const {
+  assertMayEditStages,
+  stageFieldsForCreate,
+  stageFieldsForUpdate,
+  applyStageLifecycle,
+} = require('../stages/integration-config');
+
 const router = express.Router();
 const axios = require('axios');
 const multer = require('multer');
@@ -480,7 +487,7 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
 });
 
 // POST /api/v1/inbound-integrations - Create inbound integration
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
     const {
       name,
@@ -528,6 +535,10 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Pipeline stages: an inbound integration's deliveries are its actions (email, SMS...).
+    assertMayEditStages(req);
+    const stageFields = await stageFieldsForCreate(req.orgId, { ...req.body, direction: 'INBOUND', actions: actions || null });
+
     const integrationConfig = {
       orgId: req.orgId,
       name,
@@ -551,7 +562,8 @@ router.post('/', async (req, res) => {
       maxInboundFileSizeMb: normalizeInboundFileSizeMb(maxInboundFileSizeMb),
       isActive,
       lookups: Array.isArray(lookups) ? lookups : null,
-      actions: actions || null, // NEW: Support actions array
+      ...stageFields,
+      actions: stageFields.actions || actions || null, // NEW: Support actions array
       createdAt: new Date(),
       updatedAt: new Date(),
       createdBy: req.user?.username || 'system',
@@ -574,6 +586,8 @@ router.post('/', async (req, res) => {
       message: 'Inbound integration created successfully',
     });
   } catch (error) {
+    // Validation and permission errors (stages) answer as everywhere else.
+    if (error.statusCode) return next(error);
     log('error', 'Failed to create inbound integration', { error: error.message });
     res.status(500).json({
       success: false,
@@ -603,7 +617,7 @@ router.get('/:id([0-9a-fA-F]{24})/credentials', requireSuperAdmin, async (req, r
   }
 });
 
-router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
+router.put('/:id([0-9a-fA-F]{24})', async (req, res, next) => {
   try {
     const { id } = req.params;
     let beforeIntegration = null;
@@ -659,6 +673,10 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     }
     updateData.updatedAt = new Date();
 
+    assertMayEditStages(req, beforeIntegration);
+    const stageFields = await stageFieldsForUpdate(req.orgId, { ...(beforeIntegration || {}), direction: 'INBOUND' }, updateData);
+    if (stageFields) Object.assign(updateData, stageFields);
+
     const db = await mongodb.getDbSafe();
     const duplicate = await db.collection('integration_configs').findOne({
       ...buildOrgScopeQuery(req.orgId),
@@ -685,6 +703,8 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
       });
     }
     await captureRevision({ integrationId: id, source: 'UPDATED', previous: rawBeforeUpdate });
+    // Pause, resume or cancel scheduled stage work to match the change.
+    await applyStageLifecycle({ orgId: req.orgId, integrationId: id, before: rawBeforeUpdate, after: { ...rawBeforeUpdate, ...updateData } });
 
     log('info', 'Inbound integration updated', {
       id,
@@ -697,6 +717,8 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
       message: 'Inbound integration updated successfully',
     });
   } catch (error) {
+    // Validation and permission errors (stages) answer as everywhere else.
+    if (error.statusCode) return next(error);
     log('error', 'Failed to update inbound integration', { error: error.message, id: req.params.id });
     res.status(500).json({
       success: false,
@@ -726,6 +748,7 @@ router.delete('/:id([0-9a-fA-F]{24})', async (req, res) => {
       });
     }
 
+    await applyStageLifecycle({ orgId: req.orgId, integrationId: id, before: beforeIntegration, after: null });
     log('info', 'Inbound integration deleted', {
       id,
       orgId: req.orgId,

@@ -81,6 +81,14 @@ const ACTION_TYPES = {
   // Scheduled integration management
   SCHEDULED_INTEGRATION_CANCELLED: 'scheduled_integration_cancelled',
 
+  // Pipeline stages
+  STAGE_REPLAYED: 'stage_replayed',
+  STAGE_JOBS_REPINNED: 'stage_jobs_repinned',
+  STAGE_TESTED_LIVE: 'stage_tested_live',
+  STAGE_MIGRATION_SHADOW: 'stage_migration_shadow',
+  STAGE_MIGRATION_SWITCH: 'stage_migration_switch',
+  STAGE_MIGRATION_ROLLBACK: 'stage_migration_rollback',
+
   // Event source configuration
   EVENT_SOURCE_CONFIGURED: 'event_source_configured',
   EVENT_SOURCE_DELETED: 'event_source_deleted',
@@ -135,6 +143,7 @@ const RESOURCE_TYPES = {
   LOOKUP_TABLE: 'lookup_table',
   SCHEDULED_JOB: 'scheduled_job',
   SCHEDULED_INTEGRATION: 'scheduled_integration',
+  STAGE: 'stage',
   ALERT: 'alert',
   EVENT_SOURCE: 'event_source',
 };

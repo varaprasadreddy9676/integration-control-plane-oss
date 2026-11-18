@@ -21,7 +21,7 @@ import {
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DatabaseOutlined, BookOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Editor from '@monaco-editor/react';
+import { MonacoEditorInput } from '../../integrations/components/MonacoEditorInput';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { getTemplateById, createTemplate, updateTemplate } from '../../../services/api';
 import { useDesignTokens, spacingToNumber, withAlpha, cssVar } from '../../../design-system/utils';
@@ -32,7 +32,6 @@ const { Title, Text } = Typography;
 const CATEGORIES = ['EHR', 'PMS', 'BILLING', 'LAB', 'IMAGING', 'OTHER'];
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const AUTH_TYPES = ['NONE', 'API_KEY', 'BEARER_TOKEN', 'BASIC_AUTH', 'OAUTH'];
-const TRANSFORMATION_MODES = ['SIMPLE', 'SCRIPT'];
 
 const DEFAULT_EVENT_TYPES = [
   'PATIENT_CREATED',
@@ -94,7 +93,6 @@ export const TemplateDetailRoute = () => {
         authType: template.authType,
         timeoutMs: template.timeoutMs || 10000,
         retryCount: template.retryCount || 3,
-        transformationMode: template.transformationMode || 'SIMPLE',
         isActive: template.isActive !== false
       });
 
@@ -154,9 +152,9 @@ export const TemplateDetailRoute = () => {
         headers,
         timeoutMs: values.timeoutMs,
         retryCount: values.retryCount,
-        transformationMode: values.transformationMode,
+        transformationMode: transformScript && transformScript.trim() ? 'SCRIPT' : 'NONE',
         transformation: {
-          mode: values.transformationMode,
+          mode: transformScript && transformScript.trim() ? 'SCRIPT' : 'NONE',
           script: transformScript
         },
         isActive: values.isActive,
@@ -213,7 +211,6 @@ export const TemplateDetailRoute = () => {
           authType: 'API_KEY',
           timeoutMs: 10000,
           retryCount: 3,
-          transformationMode: 'SIMPLE',
           isActive: true,
           eventTypes: []
         }}
@@ -364,14 +361,6 @@ export const TemplateDetailRoute = () => {
             </Card>
 
             <Card title="Transformation" className="panel" size="small" style={{ marginTop: spacing[3] }}>
-              <Form.Item label="Transformation Mode" name="transformationMode">
-                <Select>
-                  {TRANSFORMATION_MODES.map(mode => (
-                    <Select.Option key={mode} value={mode}>{mode}</Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
               <Form.Item label="Transformation Script">
                 <Alert
                   type="success"
@@ -441,97 +430,8 @@ items: payload.items?.map(item => ({
                     )
                   }]}
                 />
-                <div
-                  style={{
-                    borderRadius: token.borderRadiusLG,
-                    overflow: 'hidden',
-                    border: `1px solid ${token.colorBorder}`,
-                    boxShadow: token.boxShadowSecondary,
-                    marginBottom: spacing[2]
-                  }}
-                >
-                  <Editor
-                    height="400px"
-                    language="javascript"
-                    value={transformScript}
-                    onChange={(value) => setTransformScript(value ?? '')}
-                    options={{
-                      // Display
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Monaco, "Courier New", monospace',
-                      lineNumbers: 'on',
-                      wordWrap: 'on',
-                      glyphMargin: true,
-                      folding: true,
-                      lineDecorationsWidth: 10,
-                      lineNumbersMinChars: 3,
-                      renderLineHighlight: 'all',
-
-                      // Editing behavior
-                      tabSize: 2,
-                      insertSpaces: true,
-                      autoIndent: 'full',
-                      formatOnPaste: true,
-                      formatOnType: true,
-
-                      // IntelliSense & suggestions
-                      quickSuggestions: {
-                        other: true,
-                        comments: false,
-                        strings: true
-                      },
-                      suggestOnTriggerCharacters: true,
-                      acceptSuggestionOnCommitCharacter: true,
-                      acceptSuggestionOnEnter: 'on',
-                      tabCompletion: 'on',
-                      wordBasedSuggestions: 'currentDocument',
-                      suggest: {
-                        showKeywords: true,
-                        showSnippets: true,
-                        showFunctions: true,
-                        showVariables: true
-                      },
-
-                      // Bracket matching & pairing
-                      matchBrackets: 'always',
-                      autoClosingBrackets: 'always',
-                      autoClosingQuotes: 'always',
-                      autoSurround: 'languageDefined',
-                      bracketPairColorization: {
-                        enabled: true
-                      },
-
-                      // Find/Replace
-                      find: {
-                        addExtraSpaceOnTop: false,
-                        autoFindInSelection: 'never',
-                        seedSearchStringFromSelection: 'always'
-                      },
-
-                      // Scrolling
-                      scrollBeyondLastLine: false,
-                      smoothScrolling: true,
-                      mouseWheelZoom: true,
-
-                      // Context menu
-                      contextmenu: true,
-
-                      // Additional features
-                      parameterHints: {
-                        enabled: true
-                      },
-                      hover: {
-                        enabled: true
-                      },
-                      links: true,
-                      colorDecorators: true,
-                      comments: {
-                        insertSpace: true
-                      }
-                    }}
-                    theme="vs-dark"
-                  />
+                <div style={{ marginBottom: spacing[2] }}>
+                  <MonacoEditorInput value={transformScript} onChange={setTransformScript} height="400px" />
                 </div>
                 <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                   JavaScript function to transform integration payloads

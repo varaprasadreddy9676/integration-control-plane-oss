@@ -27,7 +27,7 @@
  *   }
  */
 
-const https = require('https');
+const { httpPost } = require('../../../utils/http-post');
 const { log } = require('../../../logger');
 
 const MSG91_API_HOST = 'api.msg91.com';
@@ -144,42 +144,21 @@ class Msg91Adapter {
   /**
    * POST JSON to MSG91 API
    */
-  _post(host, path, body, authKey) {
-    return new Promise((resolve, reject) => {
-      const bodyStr = JSON.stringify(body);
-
-      const options = {
-        hostname: host,
-        path,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          authkey: authKey,
-          'Content-Length': Buffer.byteLength(bodyStr),
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (res.statusCode >= 400) {
-              reject(new Error(`MSG91 HTTP ${res.statusCode}: ${parsed?.message || data}`));
-            } else {
-              resolve(parsed);
-            }
-          } catch {
-            reject(new Error(`MSG91 invalid response (HTTP ${res.statusCode}): ${data}`));
-          }
-        });
-      });
-
-      req.on('error', (err) => reject(new Error(`MSG91 network error: ${err.message}`)));
-      req.write(bodyStr);
-      req.end();
-    });
+  async _post(host, path, body, authKey) {
+    let res;
+    try {
+      res = await httpPost({ hostname: host, path, headers: { 'Content-Type': 'application/json', authkey: authKey }, body: JSON.stringify(body) });
+    } catch (err) {
+      throw new Error(`MSG91 network error: ${err.message}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(res.body);
+    } catch {
+      throw new Error(`MSG91 invalid response (HTTP ${res.status}): ${res.body}`);
+    }
+    if (res.status >= 400) throw new Error(`MSG91 HTTP ${res.status}: ${parsed?.message || res.body}`);
+    return parsed;
   }
 }
 

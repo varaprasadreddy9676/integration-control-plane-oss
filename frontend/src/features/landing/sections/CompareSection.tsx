@@ -10,7 +10,6 @@ const ROWS: Array<[string, string, string, string, string]> = [
   ],
   ['Self-hosted', 'Yes, AGPL v3', 'Yes, MIT with reduced features', 'Yes, Elastic License', 'Outpost only'],
   ['Multi-tenant access control', '7 roles, scoped per organization', 'Basic', 'Basic', 'Basic'],
-  ['Visual field mapping', 'Yes', 'No', 'No', 'No'],
   ['Dead-letter auto-retry', 'Yes', 'Manual', 'Manual', 'Manual'],
 ];
 

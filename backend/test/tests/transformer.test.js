@@ -10,214 +10,34 @@ const {
 } = require('../../src/services/transformer');
 
 describe('Transformer', () => {
-  describe('SIMPLE Mode Transformations', () => {
-    it('should apply field mappings', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'oldField', targetField: 'newField' },
-            { sourceField: 'nested', targetField: 'flat' }
-          ]
-        }
-      };
-
-      const payload = {
-        oldField: 'value1',
-        nested: 'value2',
-        unchanged: 'value3'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.newField).toBe('value1');
-      expect(result.flat).toBe('value2');
-      expect(result.unchanged).toBe('value3');
+  describe('field mappings (removed)', () => {
+    it('sends a configuration that never had any mapping as it is, whatever its old mode says', async () => {
+      const payload = { field1: 'value1' };
+      expect(await applyTransform({ transformationMode: 'SIMPLE', transformation: {} }, payload, {})).toEqual(payload);
+      expect(await applyTransform({ transformationMode: 'SIMPLE', transformation: { mappings: [], staticFields: [] } }, payload, {})).toEqual(payload);
+      expect(await applyTransform({ transformationMode: 'NONE' }, payload, {})).toEqual(payload);
+      expect(await applyTransform({}, payload, {})).toEqual(payload);
     });
 
-    it('should add static fields', async () => {
+    it('fails a delivery whose stored configuration still has mappings, and says what to do', async () => {
       const webhook = {
         transformationMode: 'SIMPLE',
-        transformation: {
-          staticFields: [
-            { key: 'source', value: 'acme' },
-            { key: 'version', value: '1.0' }
-          ]
-        }
+        transformation: { mappings: [{ sourceField: 'name', targetField: 'fullName' }] },
       };
-
-      const payload = {
-        patientId: '123'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.source).toBe('acme');
-      expect(result.version).toBe('1.0');
-      expect(result.patientId).toBe('123');
+      await expect(applyTransform(webhook, { name: 'Alice' }, {})).rejects.toThrow(/field mappings.*removed.*script/i);
     });
 
-    it('should apply trim transform', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'name', targetField: 'trimmedName', transform: 'trim' }
-          ]
-        }
-      };
-
-      const payload = {
-        name: '  John Doe  '
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.trimmedName).toBe('John Doe');
+    it('does the same for static fields, which belonged to the same mode', async () => {
+      const webhook = { transformationMode: 'SIMPLE', transformation: { staticFields: [{ key: 'source', value: 'acme' }] } };
+      await expect(applyTransform(webhook, {}, {})).rejects.toThrow(/removed/i);
     });
 
-    it('should apply upper transform', async () => {
+    it('ignores mappings left over on a script transformation', async () => {
       const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'code', targetField: 'upperCode', transform: 'upper' }
-          ]
-        }
+        transformationMode: 'SCRIPT',
+        transformation: { script: 'return { id: payload.id };', mappings: [{ sourceField: 'a', targetField: 'b' }] },
       };
-
-      const payload = {
-        code: 'abc123'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.upperCode).toBe('ABC123');
-    });
-
-    it('should apply lower transform', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'email', targetField: 'lowerEmail', transform: 'lower' }
-          ]
-        }
-      };
-
-      const payload = {
-        email: 'USER@EXAMPLE.COM'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.lowerEmail).toBe('user@example.com');
-    });
-
-    it('should apply date transform', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'createdAt', targetField: 'isoDate', transform: 'date' }
-          ]
-        }
-      };
-
-      const payload = {
-        createdAt: '2024-01-15'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.isoDate).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-    });
-
-    it('should apply default transform with fallback value', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'optional', targetField: 'withDefault', transform: 'default', defaultValue: 'N/A' }
-          ]
-        }
-      };
-
-      const payload = {
-        required: 'value'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.withDefault).toBe('N/A');
-    });
-
-    it('should apply multiple transforms together', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'firstName', targetField: 'name', transform: 'trim' },
-            { sourceField: 'email', targetField: 'emailLower', transform: 'lower' },
-            { sourceField: 'status', targetField: 'statusUpper', transform: 'upper' }
-          ],
-          staticFields: [
-            { key: 'source', value: 'acme' },
-            { key: 'timestamp', value: '2024-01-15T10:00:00Z' }
-          ]
-        }
-      };
-
-      const payload = {
-        firstName: '  Alice  ',
-        email: 'ALICE@EXAMPLE.COM',
-        status: 'active'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result.name).toBe('Alice');
-      expect(result.emailLower).toBe('alice@example.com');
-      expect(result.statusUpper).toBe('ACTIVE');
-      expect(result.source).toBe('acme');
-      expect(result.timestamp).toBe('2024-01-15T10:00:00Z');
-    });
-
-    it('should handle empty transformation', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {}
-      };
-
-      const payload = {
-        field1: 'value1'
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      expect(result).toEqual(payload);
-    });
-
-    it('should handle non-string values in string transforms', async () => {
-      const webhook = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'number', targetField: 'trimmed', transform: 'trim' },
-            { sourceField: 'number', targetField: 'upper', transform: 'upper' }
-          ]
-        }
-      };
-
-      const payload = {
-        number: 12345
-      };
-
-      const result = await applyTransform(webhook, payload, {});
-
-      // Non-string values should pass through unchanged
-      expect(result.trimmed).toBe(12345);
-      expect(result.upper).toBe(12345);
+      expect(await applyTransform(webhook, { id: 7, a: 1 }, {})).toEqual({ id: 7 });
     });
   });
 

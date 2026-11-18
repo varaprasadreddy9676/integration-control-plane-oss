@@ -36,7 +36,7 @@ export const mockIntegrations: IntegrationConfig[] = [
     isActive: true,
     timeoutMs: 3000,
     retryCount: 3,
-    transformationMode: 'SIMPLE',
+    transformationMode: 'NONE',
     isInherited: false,
     updatedAt: '2024-02-20T10:12:00Z'
   },
@@ -70,7 +70,7 @@ export const mockIntegrations: IntegrationConfig[] = [
     isActive: false,
     timeoutMs: 2000,
     retryCount: 0,
-    transformationMode: 'SIMPLE',
+    transformationMode: 'NONE',
     isInherited: false,
     updatedAt: '2024-02-10T13:45:00Z'
   },
@@ -87,7 +87,7 @@ export const mockIntegrations: IntegrationConfig[] = [
     isActive: true,
     timeoutMs: 3000,
     retryCount: 3,
-    transformationMode: 'SIMPLE',
+    transformationMode: 'NONE',
     isInherited: false,
     updatedAt: '2024-02-15T08:30:00Z'
   }

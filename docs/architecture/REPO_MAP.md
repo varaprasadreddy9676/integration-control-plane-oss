@@ -153,7 +153,7 @@ The transformation engine is centralized in [backend/src/services/transformer.js
 
 - `applyTransform()` runs standard transformation first, then lookup enrichment.
 - `applyResponseTransform()` does the same for inbound HTTP responses.
-- `SIMPLE` mode performs field mapping plus lightweight transforms such as trim, case normalization, defaults, date conversion, and inline lookup.
+- Field mappings (the old `SIMPLE` mode) were removed: a stored configuration that still has them fails its deliveries with a message saying so.
 - `SCRIPT` mode executes JavaScript in the secure VM under [backend/src/utils/secure-vm](/Users/sai/Documents/GitHub/integration-control-plane/backend/src/utils/secure-vm).
 
 ### Where It Is Used

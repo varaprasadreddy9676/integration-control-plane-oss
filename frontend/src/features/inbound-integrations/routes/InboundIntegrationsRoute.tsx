@@ -23,16 +23,14 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SearchOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ThunderboltOutlined,
   CopyOutlined,
-  ReloadOutlined,
-  FilterOutlined,
   MailOutlined,
 } from '@ant-design/icons';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { ListActions, SearchInput } from '../../../components/common/ListControls';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
 import {
@@ -733,24 +731,7 @@ export const InboundIntegrationsRoute = ({
 
           <Divider type="vertical" style={{ height: 24, margin: 0 }} />
 
-          {/* Search */}
-          <Input
-            placeholder="Search..."
-            prefix={<SearchOutlined />}
-            suffix={
-              searchQuery ? (
-                <CloseCircleOutlined
-                  onClick={() => setSearchQuery('')}
-                  style={{ cursor: 'pointer', color: token.colorTextSecondary }}
-                />
-              ) : null
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: isNarrow ? '100%' : 200 }}
-            size="small"
-            allowClear
-          />
+          <SearchInput value={searchQuery} onChange={setSearchQuery} isNarrow={isNarrow} />
 
           {/* Status Filter */}
           <Select
@@ -766,26 +747,14 @@ export const InboundIntegrationsRoute = ({
             ]}
           />
 
-          {/* Actions */}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: spacing[1] }}>
-            <Button
-              icon={<FilterOutlined />}
-              size="small"
-              type="text"
-              onClick={() => {
-                setSearchQuery('');
-                setStatusFilter(undefined);
-              }}
-            >
-              Reset
-            </Button>
-            <Button
-              icon={<ReloadOutlined />}
-              size="small"
-              aria-label="Refresh inbound integrations"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] })}
-            />
-          </div>
+          <ListActions
+            onReset={() => {
+              setSearchQuery('');
+              setStatusFilter(undefined);
+            }}
+            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['inbound-integrations'] })}
+            refreshLabel="Refresh inbound integrations"
+          />
         </div>
 
         <ModernTable

@@ -45,6 +45,9 @@ import { StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { StatPillRow } from '../../../components/common/StatPillRow';
 import { DeliveryFollowUpPanel, FollowUpTag } from '../components/DeliveryFollowUpPanel';
+import { buildStageTabItems, StageSummaryTags } from '../../stages/components/DeliveryStageTabs';
+import { DeliveryFlow } from '../../stages/components/DeliveryFlow';
+import { getDeliveryStages, type StageRun, type StageState } from '../../../services/stages-api';
 import { DeliveryFollowUpSummary } from '../components/DeliveryFollowUpSummary';
 import { FollowUpChecks } from '../components/FollowUpChecks';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
@@ -491,6 +494,8 @@ export const LogsRoute = () => {
   });
   const [search, setSearch] = useState('');
   const [expandedLogDetails, setExpandedLogDetails] = useState<Record<string, DeliveryLog>>({});
+  // What each delivery's pipeline stages did (runs with their requests), fetched with the details.
+  const [stageDetails, setStageDetails] = useState<Record<string, { states: StageState[]; runs: StageRun[] }>>({});
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
   const [retryingLogs, setRetryingLogs] = useState<Record<string, boolean>>({});
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -1095,9 +1100,16 @@ export const LogsRoute = () => {
     if (expanded && !expandedLogDetails[record.id]) {
       setLoadingDetails((prev) => ({ ...prev, [record.id]: true }));
       try {
-        const fullLog = await getLogById(record.id);
+        const [fullLog, stages] = await Promise.all([
+          getLogById(record.id),
+          // Stage runs are extra detail: a failure here must not hide the log.
+          getDeliveryStages(record.id).catch(() => null),
+        ]);
         if (fullLog) {
           setExpandedLogDetails((prev) => ({ ...prev, [record.id]: fullLog }));
+        }
+        if (stages) {
+          setStageDetails((prev) => ({ ...prev, [record.id]: stages }));
         }
       } catch (error) {
         msgApi.error('Failed to load log details');
@@ -1396,6 +1408,7 @@ export const LogsRoute = () => {
     // cURL — what the operator needs is the event that was skipped.
     const isSkippedLog = fullLog.status === 'SKIPPED';
     const showSourceEvent = hasSourceEvent(fullLog);
+    const stageTabs = buildStageTabItems(stageDetails[record.id]);
     const stateColor = isSkippedLog ? colors.warning : colors.error;
     // Script jobs have no real HTTP request to reconstruct — there's no
     // targetUrl/payload, so generateCurlCommand would just produce a
@@ -1603,7 +1616,7 @@ export const LogsRoute = () => {
 
             <DeliveryFollowUpPanel followUp={fullLog.followUp} />
 
-            {(curlCommand || isCommunicationLog || isHl7Log || hasScriptLogs || showSourceEvent || fullLog.followUp) && (
+            {(curlCommand || isCommunicationLog || isHl7Log || hasScriptLogs || showSourceEvent || fullLog.followUp || stageTabs.length > 0) && (
               <Tabs
                 size="small"
                 defaultActiveKey={
@@ -1619,7 +1632,9 @@ export const LogsRoute = () => {
                             ? 'curl'
                             : fullLog.followUp
                               ? 'follow-up'
-                              : 'source-event'
+                              : stageTabs.length > 0
+                                ? stageTabs[0].key
+                                : 'source-event'
                 }
                 items={[
                   // The event that triggered this delivery, so the
@@ -2017,6 +2032,17 @@ export const LogsRoute = () => {
                   // the record actually carries a traceId. Inbound calls that
                   // have the Trace tab already see these same stages there, with
                   // bodies and retries, so the Timeline would only repeat it.
+                  // One tab per pipeline stage that ran, titled with the stage's own name.
+                  ...(stageTabs.length > 0 && fullLog.integrationConfigId && !isInboundLog && !isScriptJobLog
+                    ? [
+                        {
+                          key: 'diagram',
+                          label: 'Diagram',
+                          children: <DeliveryFlow integrationId={String(fullLog.integrationConfigId)} logId={String(fullLog.id)} />,
+                        },
+                      ]
+                    : []),
+                  ...stageTabs,
                   // What the integration's follow-up script asked the provider after the send, and what came back.
                   ...(fullLog.followUp
                     ? [
@@ -2032,7 +2058,7 @@ export const LogsRoute = () => {
                         {
                           key: 'timeline',
                           label: 'Timeline',
-                          children: <DeliveryTraceTimeline traceId={(fullLog as any).traceId} />,
+                          children: <DeliveryTraceTimeline traceId={(fullLog as any).traceId} stageRuns={stageDetails[record.id]?.runs} />,
                         },
                       ]
                     : []),
@@ -2893,6 +2919,7 @@ export const LogsRoute = () => {
                       <div onClick={() => handleQuickStatusFilter(status)} style={{ cursor: 'pointer' }}>
                         <StatusBadge status={status as any} size="default" />
                         <FollowUpTag followUp={record?.followUp} />
+                        <StageSummaryTags summary={record?.stageSummary} />
                       </div>
                     </Tooltip>
                   ),

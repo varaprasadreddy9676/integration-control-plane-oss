@@ -12,6 +12,7 @@ import {
   RadarChartOutlined,
   SwapOutlined,
   CarryOutOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 
@@ -19,7 +20,7 @@ const { Text } = Typography;
 import { ConfigSection } from '../../../../../components/common/ConfigSection';
 import { ConfigurationPanelContent } from './ConfigurationPanel';
 import { AuthenticationPanelContent } from './AuthenticationPanel';
-import { MultiActionHeader } from './MultiActionHeader';
+import { } from './MultiActionHeader';
 import { MultiActionList } from './MultiActionList';
 import { DeliveryReliabilitySection } from './DeliveryReliabilitySection';
 import { DeliveryReliabilitySummary } from './DeliveryReliabilitySummary';
@@ -28,6 +29,12 @@ import { DeliveryTimingSection } from './DeliveryTimingSection';
 import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
+import { visibleDeliveryTabs } from '../utils/deliveryLayout';
+import { classicFromSteps } from '../utils/classicSteps';
+import type { DeliveryLayout } from '../utils/deliveryLayout';
+import { DeliveryTab } from '../../../../stages/components/delivery-tab/DeliveryTab';
+import type { StepEditors } from '../../../../stages/canvas/stepEditors';
+import { deliveriesOf, stageCountOf } from '../../../../stages/deliveryTargets';
 
 export interface IntegrationSectionsContentProps {
   form: any;
@@ -58,17 +65,16 @@ export interface IntegrationSectionsContentProps {
   onValidateScript: () => void;
   onCopyExampleScript: (mode: 'DELAYED' | 'RECURRING') => void;
   onValidationClose: () => void;
-  transformationTab: 'SIMPLE' | 'SCRIPT';
   selectedEventType?: string;
-  mappingState: { mappings: any[]; staticFields: any[] };
   scriptValue: string;
-  lastPreviewMeta?: { durationMs?: number; status?: number };
-  tagTone: (base: string) => any;
-  onPreview: () => void;
-  onOpenDesigner: () => void;
+  /** The transformation editor, shown in the Transformation tab while editing. */
+  transformationEditor: React.ReactNode;
+  deliveryLayout: DeliveryLayout;
   isReadOnly?: boolean;
   isLoading?: boolean;
   integrationId?: string;
+  /** Open another tab of the page by its key (the workflow canvas links its fixed steps to theirs). */
+  onOpenTab?: (key: string) => void;
   onSave?: () => void;
   onCancel?: () => void;
   isSaving?: boolean;
@@ -109,17 +115,14 @@ export const buildIntegrationSectionItems = ({
   onValidateScript,
   onCopyExampleScript,
   onValidationClose,
-  transformationTab,
   selectedEventType,
-  mappingState,
   scriptValue,
-  lastPreviewMeta,
-  tagTone,
-  onPreview,
-  onOpenDesigner,
+  transformationEditor,
+  deliveryLayout,
   isReadOnly = false,
   isLoading = false,
   integrationId,
+  onOpenTab,
   onSave,
   onCancel,
   isSaving = false,
@@ -260,24 +263,8 @@ export const buildIntegrationSectionItems = ({
   const renderTransformationSummary = () => (
     <ConfigSection icon={<CodeOutlined />} title="Transformation">
       <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
-            Mode:
-          </Text>
-          <Tag>{transformationTab === 'SIMPLE' ? 'Field Mapping' : 'JavaScript Transform'}</Tag>
-        </div>
-        {transformationTab === 'SIMPLE' && mappingState && (
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
-              Mappings:
-            </Text>
-            <Text strong>
-              {mappingState.mappings?.length || 0} field{mappingState.mappings?.length !== 1 ? 's' : ''} mapped,{' '}
-              {mappingState.staticFields?.length || 0} static field{mappingState.staticFields?.length !== 1 ? 's' : ''}
-            </Text>
-          </div>
-        )}
-        {transformationTab === 'SCRIPT' && scriptValue && (
+        {!scriptValue && <Text type="secondary">No transformation: the event is sent as it is.</Text>}
+        {scriptValue && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[1] }}>
             <Text type="secondary">Script ({scriptValue.split('\n').length} lines):</Text>
             <Editor
@@ -335,6 +322,8 @@ export const buildIntegrationSectionItems = ({
 
   // Check if configuration tab is complete (required for all other tabs)
   const configComplete = isTabComplete('configuration');
+  const runsOnSteps = form.getFieldValue('stageMigration')?.state === 'SWITCHED';
+  const classicSteps = classicFromSteps(form.getFieldValue('stages'));
 
   const items: TabsProps['items'] = [
     {
@@ -505,6 +494,23 @@ export const buildIntegrationSectionItems = ({
     }
   );
 
+  // The stages around each delivery (checks before sending, response checks,
+  // scheduled follow-ups, failure handling), each named by the user: the
+  // integration's own, or each action's.
+  const stageCount = stageCountOf(form.getFieldsValue(true));
+  items.push({
+    key: 'delivery',
+    label: (
+      <Space size={6}>
+        <NodeIndexOutlined />
+        Delivery
+        {stageCount > 0 && <Tag style={{ margin: 0 }}>{stageCount}</Tag>}
+      </Space>
+    ),
+    disabled: !configComplete,
+    children: null, // filled in once every tab's content exists (below): the diagram edits their sections in place
+  });
+
   if (!isMultiAction) {
     items.push({
       key: 'transformation',
@@ -525,17 +531,12 @@ export const buildIntegrationSectionItems = ({
           <TransformationPanelContent
             isCreate={isCreate}
             isEditMode={isEditMode}
-            transformationTab={transformationTab}
             selectedEventType={selectedEventType}
-            mappingState={mappingState}
             scriptValue={scriptValue}
-            lastPreviewMeta={lastPreviewMeta}
             spacing={spacing}
             token={token}
             colors={colors}
-            tagTone={tagTone}
-            onPreview={onPreview}
-            onOpenDesigner={onOpenDesigner}
+            editor={transformationEditor}
             formatScriptForDisplay={formatScriptForDisplay}
             isLoading={isLoading}
           />
@@ -633,7 +634,18 @@ export const buildIntegrationSectionItems = ({
         isReadOnly ? (
           <DeliveryFollowUpView form={form} />
         ) : (
-          <DeliveryFollowUpSection form={form} integrationId={integrationId} />
+          <>
+            {runsOnSteps && !classicSteps.followUp.exists && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: spacing[3] }}
+                message="Saving creates the follow-up step"
+                description="This integration runs on steps. Switch the follow-up on and save: its step is created for you, from the provider's script if you don't write one."
+              />
+            )}
+            <DeliveryFollowUpSection form={form} integrationId={integrationId} />
+          </>
         )
       ),
     });
@@ -692,5 +704,63 @@ export const buildIntegrationSectionItems = ({
     });
   }
 
-  return items;
+  // The Delivery tab's diagram edits the fixed steps (the event, the transformation, the send, the retries)
+  // in place, with the very sections the other tabs show: no leaving the diagram and finding the way back.
+  const sectionOf = (key: string) => items.find((item) => item.key === key)?.children;
+  const section = (key: string, title: string) => ({ key, title, node: sectionOf(key) });
+  const stepEditors: StepEditors = {
+    trigger: [section('configuration', 'Event and target')],
+    transform: isMultiAction ? [section('multiAction', 'Actions')] : [section('transformation', 'Transformation')],
+    send: [section('configuration', 'Target'), section('authentication', 'Authentication'), section('timingFollowUp', 'Timing and follow-up')],
+    retry: [section('reliability', 'Retries and limits')],
+  };
+  const current = form.getFieldsValue(true);
+  const visible = visibleDeliveryTabs({
+    layout: deliveryLayout,
+    isMultiAction,
+    stageCount,
+    migrationState: current.stageMigration?.state,
+    responseCheckOn: responseTransformEnabled,
+    followUpOn: current.deliveryFollowUp?.enabled === true,
+  });
+  const shown = items.filter(
+    (item) =>
+      (item.key !== 'delivery' || visible.steps) &&
+      (item.key !== 'responseTransform' || visible.responseTransform) &&
+      (item.key !== 'deliveryFollowUp' || visible.followUp)
+  );
+  return shown.map((item) =>
+    item.key === 'delivery'
+      ? {
+          ...item,
+          // Not inside the page's disabled fieldset: the tab handles read-only itself, and a
+          // disabled fieldset would make the diagram's buttons unclickable.
+          children: (
+            <Card style={{ marginTop: spacing[2] }} size="small">
+              {visible.stepsShownAnyway && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: spacing[3] }}
+                  message="This integration runs on steps"
+                  description="Its response check and follow-up are steps. You can edit them here or in the classic tabs; they are the same thing."
+                />
+              )}
+              <DeliveryTab
+                form={form}
+                integrationId={integrationId}
+                readOnly={isReadOnly}
+                targets={deliveriesOf(form.getFieldsValue(true))}
+                onOpenTab={onOpenTab}
+                stepEditors={stepEditors}
+                context={() => {
+                  const current = form.getFieldsValue(true);
+                  return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
+                }}
+              />
+            </Card>
+          ),
+        }
+      : item
+  );
 };

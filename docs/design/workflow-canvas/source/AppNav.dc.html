@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Navigation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.nav-item{transition:background-color 140ms cubic-bezier(.2,0,0,1),color 140ms cubic-bezier(.2,0,0,1)}
+.nav-item:hover{background:rgba(255,255,255,0.06)}
+.nav-item:focus-visible{outline:2px solid #8FB0FF;outline-offset:-2px}
+</style>
+</helmet>
+<nav aria-label="Main" style="{{rootStyle}}">
+<div style="display: flex; align-items: center; gap: 10px; padding: 18px 16px 14px 16px">
+<div style="width: 28px; height: 28px; border-radius: 7px; background: #F1EEE7; display: flex; align-items: center; justify-content: center; flex: 0 0 auto" aria-hidden="true">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B1C20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6h3a3 3 0 0 1 3 3v.5"/><path d="M8.5 18h3a3 3 0 0 0 3-3v-.5"/></svg>
+</div>
+<span style="font-size: 14px; line-height: 18px; font-weight: 600; color: #F1EEE7; letter-spacing: -0.01em">Integration Gateway</span>
+</div>
+<button type="button" style="margin: 0 12px 14px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid {{line}}; background: transparent; color: #F1EEE7; font: inherit; cursor: pointer; text-align: left" aria-label="Organization: Demo Clinic, org 500. Switch organization">
+<span style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
+<span style="font-size: 13px; line-height: 16px; font-weight: 500">Demo Clinic</span>
+<span style="font-size: 11px; line-height: 14px; color: {{muted}}; font-family: 'JetBrains Mono', ui-monospace, monospace">org 500 · production</span>
+</span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{muted}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/></svg>
+</button>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 0 8px">
+<a href="#" class="nav-item" style="{{items.integrations}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6h3a3 3 0 0 1 3 3v.5"/><path d="M8.5 18h3a3 3 0 0 0 3-3v-.5"/></svg>Integrations</a>
+<a href="#" class="nav-item" style="{{items.events}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>Event catalog</a>
+<a href="#" class="nav-item" style="{{items.templates}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Templates</a>
+<a href="#" class="nav-item" style="{{items.scheduled}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Scheduled jobs</a>
+<a href="#" class="nav-item" style="{{items.logs}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>Delivery logs</a>
+</div>
+<div style="flex: 1 1 auto"></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 0 8px 14px 8px; border-top: 1px solid {{line}}; padding-top: 10px">
+<a href="#" class="nav-item" style="{{items.settings}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+<button type="button" class="nav-item" style="{{collapseStyle}}" aria-label="Collapse the sidebar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="m15 10-2 2 2 2"/></svg>Collapse</button>
+</div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"active":{"editor":"enum","options":["integrations","events","templates","scheduled","logs","settings"],"default":"integrations"},"$preview":{"width":216,"height":1024}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.theme === 'dark';
+    const active = this.props.active || 'integrations';
+    const bg = dark ? '#0F1012' : '#1C1D21';
+    const muted = '#A8A6A0';
+    const line = dark ? '#24262A' : '#2E3035';
+    const item = (key) => {
+      const on = key === active;
+      return `display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 7px; font-size: 13.5px; line-height: 18px; font-weight: ${on ? 600 : 500}; text-decoration: none; color: ${on ? '#FFFFFF' : '#C9C6BF'}; background: ${on ? (dark ? 'rgba(67,211,180,0.14)' : 'rgba(255,255,255,0.10)') : 'transparent'}`;
+    };
+    return {
+      rootStyle: `width: 216px; height: 1024px; box-sizing: border-box; display: flex; flex-direction: column; background: ${bg}; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; border-right: 1px solid ${line}`,
+      muted,
+      line,
+      items: { integrations: item('integrations'), events: item('events'), templates: item('templates'), scheduled: item('scheduled'), logs: item('logs'), settings: item('settings') },
+      collapseStyle: `${item('')} border: 0; background: transparent; font: inherit; font-size: 13.5px; cursor: pointer; width: 100%; text-align: left`,
+    };
+  }
+}
+</script>
+</body>
+</html>

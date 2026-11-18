@@ -1,19 +1,26 @@
 const express = require('express');
-const fs = require('fs');
-const fsp = require('fs/promises');
-const os = require('os');
-const path = require('path');
 const data = require('../data');
 const { log } = require('../logger');
-const mongodb = require('../mongodb');
 const asyncHandler = require('../utils/async-handler');
 const followUps = require('../data/delivery-follow-ups');
 const { summarizeFollowUpStats } = require('../services/delivery-follow-up-config');
 const { maskIntegrationSecrets, maskLogSecrets, maskUrlSecrets } = require('../utils/integration-secrets');
-const { uuidv4 } = require('../utils/runtime');
+const { createExportJobStore, exportSettings, parseBooleanQuery, writeFileChunk, writeWithBackpressure } = require('../services/export-jobs');
 const { isPortalScopedSession, assertViewAllowed, assertIntegrationInScope } = require('../middleware/portal-scope');
+const mongodb = require('../mongodb');
+const { similarFailures } = require('../data/log-insights');
 
 const router = express.Router();
+
+/**
+ * Portal scope: ensure a log's integration is within scope. Use the full integration
+ * object (with tags) when there is one, so tag-scoped profiles are checked correctly.
+ */
+function assertLogInScope(req, integrationConfigId, integration = null) {
+  if (isPortalScopedSession(req) && integrationConfigId) {
+    assertIntegrationInScope(req, integration ?? { _id: integrationConfigId, id: integrationConfigId });
+  }
+}
 
 /**
  * Build an integrationId filter clause for portal-scoped log queries.
@@ -40,15 +47,16 @@ function applyPortalLogFilters(req, filters) {
   // Pass as comma-separated list which data.listLogs already supports via `integrationIds`.
   return { ...filters, portalAllowedIntegrationIds: allowedIntegrationIds };
 }
-const LOG_EXPORT_JOBS_COLLECTION = 'log_export_jobs';
-const LOG_EXPORT_TMP_DIR = path.join(os.tmpdir(), 'integration-control-plane-log-exports');
-const LOG_EXPORT_ASYNC_THRESHOLD = Math.max(1, Number.parseInt(process.env.LOG_EXPORT_ASYNC_THRESHOLD || '5000', 10));
-const LOG_EXPORT_JOB_TTL_MS = Math.max(
-  5 * 60 * 1000,
-  Number.parseInt(process.env.LOG_EXPORT_JOB_TTL_MS || String(6 * 60 * 60 * 1000), 10)
-);
-const LOG_EXPORT_PROGRESS_UPDATE_INTERVAL = 100;
-let exportIndexesEnsured = false;
+const { asyncThreshold: LOG_EXPORT_ASYNC_THRESHOLD, ttlMs: LOG_EXPORT_JOB_TTL_MS } = exportSettings('LOG');
+const exportJobs = createExportJobStore({
+  collection: 'log_export_jobs',
+  idPrefix: 'exp',
+  basePath: '/api/v1/logs',
+  tmpDirName: 'integration-control-plane-log-exports',
+  ttlMs: LOG_EXPORT_JOB_TTL_MS,
+  orgScoped: true,
+  label: 'log',
+});
 
 const EXPORT_CSV_HEADERS = [
   'Log ID',
@@ -67,12 +75,6 @@ const EXPORT_CSV_HEADERS = [
   'Response Body',
   'Error Message',
 ];
-
-const parseBooleanQuery = (value) => {
-  if (typeof value === 'boolean') return value;
-  if (typeof value !== 'string') return false;
-  return ['1', 'true', 'yes', 'y'].includes(value.trim().toLowerCase());
-};
 
 const isSupportedExportFormat = (value) => value === 'csv' || value === 'json';
 
@@ -146,271 +148,83 @@ const generateExportCurlCommand = (integration, payload) => {
   return curl;
 };
 
-const writeFileChunk = (stream, chunk) =>
-  new Promise((resolve, reject) => {
-    const onError = (err) => {
-      cleanup();
-      reject(err);
-    };
-    const onDrain = () => {
-      cleanup();
-      resolve();
-    };
-    const cleanup = () => {
-      stream.off('error', onError);
-      stream.off('drain', onDrain);
-    };
-
-    stream.once('error', onError);
-    if (stream.write(chunk)) {
-      cleanup();
-      resolve();
-    } else {
-      stream.once('drain', onDrain);
-    }
-  });
-
-const closeFileStream = (stream) =>
-  new Promise((resolve, reject) => {
-    stream.once('error', reject);
-    stream.end(() => resolve());
-  });
-
-const ensureExportJobIndexes = async (db) => {
-  if (exportIndexesEnsured) return;
-  const collection = db.collection(LOG_EXPORT_JOBS_COLLECTION);
-  try {
-    await collection.createIndex({ jobId: 1 }, { unique: true });
-    await collection.createIndex({ orgId: 1, createdAt: -1 });
-    await collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-  } catch (error) {
-    log('warn', 'Failed to ensure export job indexes', { error: error.message });
-  }
-  exportIndexesEnsured = true;
-};
-
-const toExportJobResponse = (job) => ({
-  jobId: job.jobId,
-  status: job.status,
-  format: job.format,
-  totalRecords: job.totalRecords || 0,
-  processedRecords: job.processedRecords || 0,
-  fileSizeBytes: job.fileSizeBytes || 0,
-  fileName: job.fileName || null,
-  errorMessage: job.errorMessage || null,
-  createdAt: job.createdAt,
-  startedAt: job.startedAt || null,
-  finishedAt: job.finishedAt || null,
-  expiresAt: job.expiresAt || null,
-  statusPath: `/api/v1/logs/export/jobs/${encodeURIComponent(job.jobId)}`,
-  downloadPath: `/api/v1/logs/export/jobs/${encodeURIComponent(job.jobId)}/download`,
-});
-
-const createLogExportJob = async (orgId, format, filters, totalRecords = 0, selectedIds = null) => {
-  const db = await mongodb.getDbSafe();
-  await ensureExportJobIndexes(db);
-  const now = new Date();
-  const jobId = `exp_${Date.now()}_${uuidv4().replace(/-/g, '').slice(0, 8)}`;
-  const fileName = `integration-delivery-logs-${now.toISOString().split('T')[0]}-${jobId}.${format}`;
-  const doc = {
-    jobId,
-    orgId,
-    format,
-    filters,
-    status: 'QUEUED',
-    totalRecords: Number(totalRecords) || 0,
-    processedRecords: 0,
-    filePath: null,
-    fileName,
-    fileSizeBytes: 0,
-    errorMessage: null,
-    selectedIds: Array.isArray(selectedIds) && selectedIds.length ? selectedIds : null,
-    createdAt: now,
-    updatedAt: now,
-    startedAt: null,
-    finishedAt: null,
-    expiresAt: new Date(now.getTime() + LOG_EXPORT_JOB_TTL_MS),
-  };
-  await db.collection(LOG_EXPORT_JOBS_COLLECTION).insertOne(doc);
-  return doc;
-};
-
-const getLogExportJob = async (orgId, jobId) => {
-  const db = await mongodb.getDbSafe();
-  await ensureExportJobIndexes(db);
-  return db.collection(LOG_EXPORT_JOBS_COLLECTION).findOne({ orgId, jobId });
-};
-
-const processLogExportJob = async (jobId) => {
-  const db = await mongodb.getDbSafe();
-  await ensureExportJobIndexes(db);
-  const jobs = db.collection(LOG_EXPORT_JOBS_COLLECTION);
-
-  const claimed = await jobs.findOneAndUpdate(
-    { jobId, status: 'QUEUED' },
-    { $set: { status: 'PROCESSING', startedAt: new Date(), updatedAt: new Date() } },
-    { returnDocument: 'after' }
-  );
-
-  const job = claimed.value;
-  if (!job) return;
-
-  await fsp.mkdir(LOG_EXPORT_TMP_DIR, { recursive: true });
-  const filePath = path.join(LOG_EXPORT_TMP_DIR, `${job.jobId}.${job.format}`);
-  const stream = fs.createWriteStream(filePath, { encoding: 'utf8' });
-  let processedRecords = 0;
+/** What a background log export writes: one row (CSV) or object (JSON) per delivery log. */
+const writeExport = async ({ job, openStream, progress }) => {
+  const stream = openStream();
   const integrationCache = new Map();
   const selectedIds = Array.isArray(job.selectedIds) ? job.selectedIds : null;
+  let count = 0;
 
-  try {
+  await writeFileChunk(stream, job.format === 'csv' ? `${EXPORT_CSV_HEADERS.map(escapeCsvCell).join(',')}\r\n` : '[');
+
+  const exportLogEntry = async (logEntry) => {
     if (job.format === 'csv') {
-      await writeFileChunk(stream, `${EXPORT_CSV_HEADERS.map(escapeCsvCell).join(',')}\r\n`);
-    } else {
-      await writeFileChunk(stream, '[');
-    }
-
-    let isFirst = true;
-    const exportLogEntry = async (logEntry) => {
-      if (job.format === 'csv') {
-        let integration = null;
-        if (logEntry.integrationConfigId) {
-          if (integrationCache.has(logEntry.integrationConfigId)) {
-            integration = integrationCache.get(logEntry.integrationConfigId);
-          } else {
-            try {
-              integration = await data.getIntegrationById(logEntry.integrationConfigId);
-              if (integration) {
-                integrationCache.set(logEntry.integrationConfigId, integration);
-              }
-            } catch (_err) {
-              integration = null;
-            }
+      let integration = null;
+      if (logEntry.integrationConfigId) {
+        if (integrationCache.has(logEntry.integrationConfigId)) {
+          integration = integrationCache.get(logEntry.integrationConfigId);
+        } else {
+          try {
+            integration = await data.getIntegrationById(logEntry.integrationConfigId);
+            if (integration) integrationCache.set(logEntry.integrationConfigId, integration);
+          } catch (_err) {
+            integration = null;
           }
         }
-
-        const row = [
-          logEntry.id,
-          logEntry.createdAt,
-          logEntry.integrationName,
-          logEntry.eventType,
-          getFlowLabel(logEntry),
-          logEntry.status,
-          logEntry.responseStatus ?? 'N/A',
-          logEntry.responseTimeMs ?? 'N/A',
-          logEntry.attemptCount ?? 0,
-          maskUrlSecrets(integration?.targetUrl) ?? 'N/A',
-          integration?.httpMethod ?? 'N/A',
-          generateExportCurlCommand(integration, logEntry.requestPayload),
-          logEntry.requestPayload,
-          resolveResponseBodyForExport(logEntry),
-          logEntry.errorMessage ?? '',
-        ];
-        await writeFileChunk(stream, `${row.map(escapeCsvCell).join(',')}\r\n`);
-      } else {
-        const { tenantId, ...rest } = logEntry;
-        const exportLog = {
-          ...rest,
-          flow: getFlowLabel(rest),
-          responseBody: resolveResponseBodyForExport(logEntry),
-        };
-        const chunk = `${isFirst ? '' : ','}${JSON.stringify(maskLogSecrets(exportLog))}`;
-        isFirst = false;
-        await writeFileChunk(stream, chunk);
       }
 
-      processedRecords++;
-      if (processedRecords % LOG_EXPORT_PROGRESS_UPDATE_INTERVAL === 0) {
-        await jobs.updateOne({ jobId }, { $set: { processedRecords, updatedAt: new Date() } });
-        await new Promise((resolve) => setImmediate(resolve));
-      }
-    };
-
-    if (selectedIds && selectedIds.length > 0) {
-      const logPromises = selectedIds.map((id) => data.getLogById(job.orgId, id));
-      const logs = (await Promise.all(logPromises)).filter(Boolean);
-      if (logs.length === 0) {
-        throw new Error('No logs found for selected IDs');
-      }
-      for (const logEntry of logs) {
-        await exportLogEntry(logEntry);
-      }
+      const row = [
+        logEntry.id,
+        logEntry.createdAt,
+        logEntry.integrationName,
+        logEntry.eventType,
+        getFlowLabel(logEntry),
+        logEntry.status,
+        logEntry.responseStatus ?? 'N/A',
+        logEntry.responseTimeMs ?? 'N/A',
+        logEntry.attemptCount ?? 0,
+        maskUrlSecrets(integration?.targetUrl) ?? 'N/A',
+        integration?.httpMethod ?? 'N/A',
+        generateExportCurlCommand(integration, logEntry.requestPayload),
+        logEntry.requestPayload,
+        resolveResponseBodyForExport(logEntry),
+        logEntry.errorMessage ?? '',
+      ];
+      await writeFileChunk(stream, `${row.map(escapeCsvCell).join(',')}\r\n`);
     } else {
-      await data.streamLogsForExport(job.orgId, job.filters || {}, exportLogEntry, { includeFullResponseBody: true });
+      const { tenantId, ...rest } = logEntry;
+      const exportLog = { ...rest, flow: getFlowLabel(rest), responseBody: resolveResponseBodyForExport(logEntry) };
+      await writeFileChunk(stream, `${count === 0 ? '' : ','}${JSON.stringify(maskLogSecrets(exportLog))}`);
     }
+    count += 1;
+    await progress(count);
+  };
 
-    if (job.format === 'json') {
-      await writeFileChunk(stream, ']');
+  if (selectedIds && selectedIds.length > 0) {
+    const logs = (await Promise.all(selectedIds.map((id) => data.getLogById(job.orgId, id)))).filter(Boolean);
+    if (logs.length === 0) throw new Error('No logs found for selected IDs');
+    for (const logEntry of logs) {
+      await exportLogEntry(logEntry);
     }
-    await closeFileStream(stream);
-    const fileStat = await fsp.stat(filePath);
-
-    await jobs.updateOne(
-      { jobId },
-      {
-        $set: {
-          status: 'COMPLETED',
-          totalRecords: processedRecords,
-          processedRecords,
-          filePath,
-          fileSizeBytes: fileStat.size,
-          finishedAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + LOG_EXPORT_JOB_TTL_MS),
-        },
-      }
-    );
-
-    log('info', 'Log export job completed', {
-      jobId,
-      orgId: job.orgId,
-      format: job.format,
-      processedRecords,
-      fileSizeBytes: fileStat.size,
-    });
-  } catch (error) {
-    try {
-      stream.destroy();
-    } catch (_err) {
-      // Ignore stream cleanup failures.
-    }
-    try {
-      await fsp.rm(filePath, { force: true });
-    } catch (_err) {
-      // Ignore temporary file cleanup failures.
-    }
-
-    await jobs.updateOne(
-      { jobId },
-      {
-        $set: {
-          status: 'FAILED',
-          processedRecords,
-          errorMessage: error.message,
-          finishedAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + LOG_EXPORT_JOB_TTL_MS),
-        },
-      }
-    );
-
-    log('error', 'Log export job failed', {
-      jobId,
-      orgId: job.orgId,
-      format: job.format,
-      error: error.message,
-    });
+  } else {
+    await data.streamLogsForExport(job.orgId, job.filters || {}, exportLogEntry, { includeFullResponseBody: true });
   }
+
+  if (job.format === 'json') await writeFileChunk(stream, ']');
+  return { processedRecords: count, totalRecords: count };
 };
 
-const startLogExportJob = async ({ orgId, format, filters, totalRecords, selectedIds }) => {
-  const job = await createLogExportJob(orgId, format, filters, totalRecords, selectedIds);
-  setImmediate(() => {
-    processLogExportJob(job.jobId).catch((error) => {
-      log('error', 'Unhandled async export job failure', { jobId: job.jobId, error: error.message });
-    });
-  });
-  return job;
-};
+const startLogExportJob = async ({ orgId, format, filters, totalRecords, selectedIds }) =>
+  exportJobs.start(
+    await exportJobs.create({
+      orgId,
+      format,
+      fileStem: 'integration-delivery-logs',
+      totalRecords,
+      fields: { filters, selectedIds: Array.isArray(selectedIds) && selectedIds.length ? selectedIds : null },
+    }),
+    writeExport
+  );
 
 const buildQueuedExportMessage = (totalRecords, forcedAsync = false) => {
   if (forcedAsync) {
@@ -420,32 +234,6 @@ const buildQueuedExportMessage = (totalRecords, forcedAsync = false) => {
     return `Large export queued (${totalRecords.toLocaleString()} logs).`;
   }
   return `Large export queued (more than ${LOG_EXPORT_ASYNC_THRESHOLD.toLocaleString()} logs).`;
-};
-
-const writeWithBackpressure = (req, res, chunk, isAborted) => {
-  if (isAborted()) {
-    return Promise.resolve(false);
-  }
-
-  const ok = res.write(chunk);
-  if (ok) {
-    return Promise.resolve(true);
-  }
-
-  return new Promise((resolve) => {
-    const onDrain = () => cleanup(true);
-    const onClose = () => cleanup(false);
-    const cleanup = (canContinue) => {
-      res.off('drain', onDrain);
-      req.off('close', onClose);
-      req.off('aborted', onClose);
-      resolve(canContinue);
-    };
-
-    res.once('drain', onDrain);
-    req.once('close', onClose);
-    req.once('aborted', onClose);
-  });
 };
 
 // Bulk operations - Must be defined BEFORE /:id routes to avoid parameter matching
@@ -729,7 +517,7 @@ router.get(
           totalRecords: exportProbe.exactCount || 0,
         });
         return res.status(202).json({
-          ...toExportJobResponse(job),
+          ...exportJobs.toResponse(job),
           message: buildQueuedExportMessage(exportProbe.exactCount, forceAsyncExport),
         });
       }
@@ -908,7 +696,7 @@ router.post(
           selectedIds: logs.map((logEntry) => logEntry.id),
         });
         return res.status(202).json({
-          ...toExportJobResponse(job),
+          ...exportJobs.toResponse(job),
           message: `Selected export queued (${logs.length.toLocaleString()} logs).`,
         });
       }
@@ -1034,7 +822,7 @@ router.get(
           totalRecords: exportProbe.exactCount || 0,
         });
         return res.status(202).json({
-          ...toExportJobResponse(job),
+          ...exportJobs.toResponse(job),
           message: buildQueuedExportMessage(exportProbe.exactCount, forceAsyncExport),
         });
       }
@@ -1109,78 +897,32 @@ router.get(
   '/export/jobs/:jobId',
   assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
-    const job = await getLogExportJob(req.orgId, req.params.jobId);
+    const job = await exportJobs.get(req.params.jobId, req.orgId);
     if (!job) {
       return res.status(404).json({ error: 'Export job not found', code: 'NOT_FOUND' });
     }
-    return res.json(toExportJobResponse(job));
+    return res.json(exportJobs.toResponse(job));
   })
 );
 
+router.get('/export/jobs/:jobId/download', assertViewAllowed('logs'), exportJobs.downloadHandler());
+
+/** How many other deliveries of this integration failed the same way within `minutes` (default 60) of this one. */
 router.get(
-  '/export/jobs/:jobId/download',
+  '/:id/similar-failures',
   assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
-    const job = await getLogExportJob(req.orgId, req.params.jobId);
-    if (!job) {
-      return res.status(404).json({ error: 'Export job not found', code: 'NOT_FOUND' });
+    const db = await mongodb.getDbSafe();
+    const logId = mongodb.toObjectId(req.params.id);
+    const logDoc = logId ? await db.collection('execution_logs').findOne({ _id: logId, orgId: req.orgId }) : null;
+    if (!logDoc) {
+      return res.status(404).json({ error: 'Log not found', code: 'NOT_FOUND' });
     }
-    if (job.status !== 'COMPLETED') {
-      return res.status(409).json({
-        error: 'Export job is not ready for download',
-        code: 'EXPORT_NOT_READY',
-        status: job.status,
-      });
+    if (isPortalScopedSession(req) && logDoc.integrationConfigId) {
+      const integration = await data.getIntegrationById(String(logDoc.integrationConfigId)).catch(() => null);
+      assertLogInScope(req, String(logDoc.integrationConfigId), integration);
     }
-    if (!job.filePath) {
-      return res.status(500).json({
-        error: 'Export file path missing',
-        code: 'EXPORT_FILE_MISSING',
-      });
-    }
-
-    try {
-      await fsp.access(job.filePath, fs.constants.R_OK);
-    } catch (_err) {
-      return res.status(410).json({
-        error: 'Export file no longer available',
-        code: 'EXPORT_FILE_EXPIRED',
-      });
-    }
-
-    const contentType = job.format === 'csv' ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8';
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${job.fileName || path.basename(job.filePath)}"`);
-
-    return new Promise((resolve, reject) => {
-      const stream = fs.createReadStream(job.filePath);
-      const onClose = () => {
-        cleanup();
-        resolve();
-      };
-      const onEnd = () => {
-        cleanup();
-        resolve();
-      };
-      const onError = (err) => {
-        cleanup();
-        if (res.headersSent) {
-          resolve();
-          return;
-        }
-        reject(err);
-      };
-      const cleanup = () => {
-        stream.off('error', onError);
-        stream.off('end', onEnd);
-        res.off('close', onClose);
-      };
-
-      stream.on('error', onError);
-      stream.on('end', onEnd);
-      res.on('close', onClose);
-      stream.pipe(res);
-    });
+    return res.json(await similarFailures(req.orgId, logDoc, { minutes: req.query.minutes }));
   })
 );
 
@@ -1207,17 +949,7 @@ router.get(
       }
     }
 
-    // Portal scope: ensure the log's integration is within scope.
-    // Use the full integration object (with tags) so tag-scoped profiles are checked correctly.
-    if (isPortalScopedSession(req) && logEntry.integrationConfigId) {
-      assertIntegrationInScope(
-        req,
-        __KEEP_integrationConfig__ ?? {
-          _id: logEntry.integrationConfigId,
-          id: logEntry.integrationConfigId,
-        }
-      );
-    }
+    assertLogInScope(req, logEntry.integrationConfigId, __KEEP_integrationConfig__);
 
     return res.json({
       ...maskLogSecrets(logEntry),

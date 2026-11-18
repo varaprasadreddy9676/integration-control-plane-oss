@@ -3,16 +3,10 @@
  * Uses existing notification service (same as alerting system)
  */
 
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
-const config = require('../config');
 const { log, logError } = require('../logger');
 const { isIntegrationMailConfigured, deliverEmail } = require('./notifications/integration-mailer');
+const { COMMUNICATION_SERVICE_URL, sendToCommunicationService } = require('./notifications/communication-service');
 
-// Communication service URL from config
-const COMMUNICATION_SERVICE_URL =
-  config.communicationServiceUrl || 'https://notification.example.com/notification-service/api/sendNotification';
 
 class EmailService {
   constructor() {
@@ -35,42 +29,8 @@ class EmailService {
   /**
    * Send JSON payload to communication service
    */
-  async _sendToCommunicationService(payload, timeoutMs = 10000) {
-    return new Promise((resolve, reject) => {
-      const parsed = new URL(COMMUNICATION_SERVICE_URL);
-      const body = JSON.stringify(payload);
-      const isHttps = parsed.protocol === 'https:';
-
-      const req = (isHttps ? https : http).request(
-        {
-          hostname: parsed.hostname,
-          port: parsed.port || (isHttps ? 443 : 80),
-          path: `${parsed.pathname}${parsed.search}`,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(body),
-          },
-          timeout: timeoutMs,
-        },
-        (res) => {
-          let data = '';
-          res.on('data', (chunk) => {
-            data += chunk;
-          });
-          res.on('end', () => {
-            resolve({ status: res.statusCode || 0, body: data });
-          });
-        }
-      );
-
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy(new Error('Request timed out'));
-      });
-      req.write(body);
-      req.end();
-    });
+  _sendToCommunicationService(payload, timeoutMs = 10000) {
+    return sendToCommunicationService(payload, timeoutMs);
   }
 
   /**

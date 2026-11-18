@@ -170,7 +170,6 @@ export const ScheduledJobDetailRoute = () => {
 
   const [dataSourceType, setDataSourceType] = useState<'SQL' | 'MONGODB' | 'API'>('SQL');
   const [scheduleType, setScheduleType] = useState<'CRON' | 'INTERVAL'>('CRON');
-  const [transformationMode, setTransformationMode] = useState<'SIMPLE' | 'SCRIPT'>('SCRIPT');
   const [sqlConnectionMode, setSqlConnectionMode] = useState<'STRING' | 'FIELDS'>('FIELDS');
   const [destinationType, setDestinationType] = useState<DestinationType>('HTTP_API');
   const [jobMode, setJobMode] = useState<JobMode>('SCHEDULED');
@@ -328,14 +327,8 @@ export const ScheduledJobDetailRoute = () => {
                       }),
               },
               transformation: {
-                mode: transformationMode,
-                ...(transformationMode === 'SCRIPT'
-                  ? {
-                      script: values.transformScript,
-                    }
-                  : {
-                      mappings: values.fieldMappings || [],
-                    }),
+                mode: 'SCRIPT',
+                script: values.transformScript,
               },
               outgoingAuthType: values.outgoingAuthType || 'NONE',
               outgoingAuthConfig: values.outgoingAuthConfig || undefined,
@@ -527,7 +520,6 @@ export const ScheduledJobDetailRoute = () => {
       setJobMode(loadedJobMode);
       setDataSourceType(job.dataSource?.type || 'SQL');
       setScheduleType(job.schedule?.type || 'CRON');
-      setTransformationMode(job.transformation?.mode || 'SCRIPT');
       setDestinationType((job as any).destinationType || 'HTTP_API');
 
       // Set editor states

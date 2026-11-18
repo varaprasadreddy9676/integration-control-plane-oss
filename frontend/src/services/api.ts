@@ -569,6 +569,13 @@ const serializeIntegrationInput = (input: IntegrationConfig) => ({
   conditionConfig: input.conditionConfig,
   actions: input.actions, // Support multi-action integrations
   lookups: input.lookups, // Support lookup configurations
+  // What happens around a delivery: left out, edits to them would be dropped here. Untouched stays undefined
+  // (not sent), and steps sent back unchanged are not counted as a change by the server.
+  preDeliveryChecks: input.preDeliveryChecks,
+  deliveryFollowUp: input.deliveryFollowUp,
+  stages: input.stages,
+  send: input.send,
+  stagesPaused: input.stagesPaused,
 });
 
 export const getTenantInfo = async (): Promise<TenantInfo> => request('/tenant');
@@ -4659,3 +4666,6 @@ export interface SystemStatusResponse {
 
 export const getSystemStatus = async (orgId?: number | null): Promise<SystemStatusResponse> =>
   request(orgId && orgId > 0 ? `/system-status?orgId=${orgId}` : '/system-status');
+
+/** The authenticated request helper, for feature-specific API modules (services/stages-api.ts). */
+export { request as apiRequest };

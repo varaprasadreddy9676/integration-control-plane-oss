@@ -53,7 +53,7 @@ async function createTestWebhook(config = {}) {
     httpMethod: 'POST',
     authType: 'NONE',
     isActive: true,
-    transformMode: 'SIMPLE',
+    transformMode: 'NONE',
     retryCount: 3,
     timeoutMs: 5000
   };
@@ -182,62 +182,6 @@ describeLive('Comprehensive Live System Tests', () => {
 
         await cleanupWebhook(result.id);
       }
-    });
-  });
-
-  describe('3. SIMPLE Transformations', () => {
-    test('Field mapping with trim/upper/lower/default', async () => {
-      const webhook = await createTestWebhook({
-        targetUrl: 'https://httpbin.org/post',
-        transformMode: 'SIMPLE',
-        transformConfig: {
-          fieldMappings: [
-            { source: 'name', target: 'patientName', operation: 'trim' },
-            { source: 'status', target: 'appointmentStatus', operation: 'upper' },
-            { source: 'notes', target: 'comments', operation: 'lower' },
-            { source: 'missing', target: 'withDefault', operation: 'default', value: 'N/A' }
-          ],
-          staticFields: [
-            { key: 'source', value: 'event-gateway' },
-            { key: 'version', value: '1.0' }
-          ]
-        }
-      });
-
-      const { data: testResult } = await apiRequest(`/webhooks/${webhook.id}/test`, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: '  John Doe  ',
-          status: 'confirmed',
-          notes: 'URGENT APPOINTMENT'
-        })
-      });
-
-      expect(testResult.success).toBe(true);
-
-      await cleanupWebhook(webhook.id);
-    });
-
-    test('Handles missing fields without throwing', async () => {
-      const webhook = await createTestWebhook({
-        targetUrl: 'https://httpbin.org/post',
-        transformMode: 'SIMPLE',
-        transformConfig: {
-          fieldMappings: [
-            { source: 'nonexistent', target: 'output', operation: 'trim' }
-          ]
-        }
-      });
-
-      const { data: testResult } = await apiRequest(`/webhooks/${webhook.id}/test`, {
-        method: 'POST',
-        body: JSON.stringify({ otherField: 'value' })
-      });
-
-      // Should succeed even with missing field
-      expect(testResult.success).toBe(true);
-
-      await cleanupWebhook(webhook.id);
     });
   });
 

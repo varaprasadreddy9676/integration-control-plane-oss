@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Failure investigation — retries exhausted</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input,select{font-family:inherit}
+.btn{transition:background-color 140ms cubic-bezier(.2,0,0,1),border-color 140ms cubic-bezier(.2,0,0,1)}
+.btn:hover{background:#F3F1EC}
+.btn:focus-visible,.tab:focus-visible{outline:2px solid #2B59E6;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1024px; display: flex; background: #F5F3EE; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #16171B; overflow: hidden">
+<dc-import name="AppNav" theme="light" active="integrations" hint-size="216px,1024px"></dc-import>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="AppHeader" theme="light" mode="executions" save-state="clean" save-text="" run-state="failed" run-text="Last delivery: failed · 4 min ago" hint-size="1224px,108px"></dc-import>
+<div style="flex: 1 1 auto; min-height: 0; display: flex">
+
+<main aria-label="Workflow canvas, execution view" style="position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid #E2DED5">
+<div style="position: relative; flex: 1 1 auto; overflow: hidden; background-color: #F5F3EE; background-image: radial-gradient(#D6D0C4 1px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px">
+
+<div style="position: absolute; left: 60px; top: 50px; width: 920px; height: 996px; transform: scale(0.68); transform-origin: 0 0">
+<div style="position: absolute; left: 64px; top: 44px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">EVENT</div>
+<div style="position: absolute; left: 64px; top: 164px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">PREPARE</div>
+<div style="position: absolute; left: 64px; top: 284px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">BEFORE SEND</div>
+<div style="position: absolute; left: 56px; top: 308px; width: 1px; height: 168px; background: #D3CDC1"></div>
+<div style="position: absolute; left: 64px; top: 524px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">SEND</div>
+<div style="position: absolute; left: 64px; top: 644px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E; width: 120px">AFTER THE RESPONSE</div>
+<div style="position: absolute; left: 64px; top: 764px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">LATER</div>
+<div style="position: absolute; left: 64px; top: 884px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">OUTCOME</div>
+
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 116px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #45464D; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-1" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#45464D" stroke="none" style="stroke: none; fill: #45464D; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-f-1)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 236px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #45464D; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-2" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#45464D" stroke="none" style="stroke: none; fill: #45464D; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-f-2)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 356px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #45464D; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-3" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#45464D" stroke="none" style="stroke: none; fill: #45464D; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-f-3)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 476px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #45464D; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-4" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#45464D" stroke="none" style="stroke: none; fill: #45464D; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-f-4)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 596px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #CFC9BE; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 0 L 4 43"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 716px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #CFC9BE; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 0 L 4 43"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 836px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #CFC9BE; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 0 L 4 43"></path></svg>
+<svg width="103" height="8" viewBox="0 0 103 8" preserveAspectRatio="none" style="position: absolute; left: 456px; top: 434px; width: 103px; height: 8px; overflow: visible; fill: none; stroke: #CFC9BE; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 0 4 L 103 4"></path></svg>
+<svg width="103" height="8" viewBox="0 0 103 8" preserveAspectRatio="none" style="position: absolute; left: 456px; top: 554px; width: 103px; height: 8px; overflow: visible; fill: none; stroke: #B42318; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-9" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#B42318" stroke="none" style="stroke: none; fill: #B42318; fill: context-stroke"/></marker></defs><path d="M 0 4 L 99 4" marker-end="url(#m-f-9)"></path></svg>
+<svg width="427" height="368" viewBox="0 0 427 368" preserveAspectRatio="none" style="position: absolute; left: 453px; top: 194px; width: 427px; height: 368px; overflow: visible; fill: none; stroke: #B4570B; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 6 4" aria-hidden="true"><defs><marker id="m-f-10" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#B4570B" stroke="none" style="stroke: none; fill: #B4570B; fill: context-stroke"/></marker></defs><path d="M 363 364 L 423 364 L 423 4 L 8 4" marker-end="url(#m-f-10)"></path></svg>
+<svg width="8" height="163" viewBox="0 0 8 163" preserveAspectRatio="none" style="position: absolute; left: 727px; top: 596px; width: 8px; height: 163px; overflow: visible; fill: none; stroke: #B42318; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-11" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#B42318" stroke="none" style="stroke: none; fill: #B42318; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 159" marker-end="url(#m-f-11)"></path></svg>
+<svg width="197" height="89" viewBox="0 0 197 89" preserveAspectRatio="none" style="position: absolute; left: 452px; top: 674px; width: 197px; height: 89px; overflow: visible; fill: none; stroke: #CFC9BE; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 4 L 193 4 L 193 86"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 684px; top: 836px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #B42318; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-f-13" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#B42318" stroke="none" style="stroke: none; fill: #B42318; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-f-13)"></path></svg>
+
+<div style="position: absolute; left: 200px; top: 40px"><dc-import name="Node" kind="trigger" eyebrow="Event" title="Appointment confirmed" summary="APPOINTMENT_CONFIRMED" state="ok" meta="14:02:09" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 160px"><dc-import name="Node" kind="transform" eyebrow="Transform · 3 attempts" title="Build the reminder" summary="script · 14 lines" state="ok" meta="×3" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 280px"><dc-import name="Node" kind="http" eyebrow="HTTP request · Before send" title="Check patient consent" summary="consent: true, each attempt" state="ok" meta="×3" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 400px"><dc-import name="Node" kind="gate" eyebrow="Gate · Before send" title="Consent granted?" summary="continue, each attempt" state="ok" meta="×3" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 520px"><dc-import name="Node" kind="send" eyebrow="Send · attempt 3 of 3" title="Send WhatsApp message" summary="no answer within 10 s" state="failed" meta="Timeout" selected="true" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 640px"><dc-import name="Node" kind="script" eyebrow="Gate · After the response" title="Read the provider reply" summary="not reached: no answer" state="unvisited" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 760px"><dc-import name="Node" kind="schedule" eyebrow="HTTP request · Later" title="Check delivery status" summary="not reached" state="unvisited" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 880px"><dc-import name="Node" kind="done" eyebrow="Outcome" title="Delivered" summary="not reached" state="unvisited" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 400px"><dc-import name="Node" kind="skipped" eyebrow="Outcome" title="Skipped" summary="not taken" state="unvisited" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 520px"><dc-import name="Node" kind="retry" eyebrow="Reliability" title="Retry up to 3 attempts" summary="retried 2× · then gave up" state="failed" meta="Exhausted" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 760px"><dc-import name="Node" kind="notify" eyebrow="Script · On failure" title="Notify the front desk" summary="emailed desk@democlinic.example" state="ok" meta="1.1 s" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 880px"><dc-import name="Node" kind="failedEnd" eyebrow="Outcome" title="Delivery failed" summary="ABANDONED after 3 attempts" state="failed" meta="Abandoned" theme="light" hint-size="256px,80px"></dc-import></div>
+
+<div style="position: absolute; left: 342px; top: 488px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: #FFFFFF; border: 1px solid #E2DED5; color: #45464D; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Yes ×3</div>
+<div style="position: absolute; left: 342px; top: 608px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; border: 1px solid #E2DED5; color: #66676E; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Answered</div>
+<div style="position: absolute; left: 464px; top: 530px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: #FBE9E7; color: #9E1F15; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Timeout ×3</div>
+<div style="position: absolute; left: 568px; top: 170px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: #FDF0DC; color: #7A4700; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Retry · 2 new attempts</div>
+<div style="position: absolute; left: 743px; top: 668px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: #FBE9E7; color: #9E1F15; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Exhausted</div>
+</div>
+
+<div style="position: absolute; left: 16px; top: 12px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<div role="group" aria-label="Canvas mode" style="display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: #FFFFFF; border: 1px solid #E2DED5">
+<button type="button" class="btn" aria-pressed="false" style="height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #45464D; font-size: 12.5px; font-weight: 500; cursor: pointer">Configure</button>
+<button type="button" class="btn" aria-pressed="true" style="height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: #16171B; color: #FFFFFF; font-size: 12.5px; font-weight: 600; cursor: pointer">Executions</button>
+</div>
+<div style="display: flex; align-items: center; height: 36px; border-radius: 9px; background: #FFFFFF; border: 1px solid #E2DED5">
+<button type="button" class="btn" aria-label="Previous delivery" style="width: 32px; height: 34px; border: 0; background: transparent; color: #45464D; border-radius: 8px; cursor: pointer">‹</button>
+<label for="run-pick-f" style="position: absolute; width: 1px; height: 1px; overflow: hidden">Delivery</label>
+<select id="run-pick-f" style="height: 34px; border: 0; background: transparent; color: #16171B; font-size: 12.5px; font-family: 'JetBrains Mono', ui-monospace, monospace; padding: 0 4px"><option>Delivery 6adc…3a1 · today 14:02:09</option></select>
+<button type="button" class="btn" aria-label="Next delivery" style="width: 32px; height: 34px; border: 0; background: transparent; color: #45464D; border-radius: 8px; cursor: pointer">›</button>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 6px; border: 1px solid #CFC9BE; color: #16171B; font-size: 12px; font-weight: 500"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 7v6c0 4 3.5 7 8 8 4.5-1 8-4 8-8V7z"/></svg>Production data</span>
+</div>
+<button type="button" class="btn" style="height: 36px; padding: 0 12px; border-radius: 9px; background: #FFFFFF; border: 1px solid #E2DED5; color: #16171B; font-size: 12.5px; cursor: pointer">Fit</button>
+</div>
+</div>
+
+<div style="flex: 0 0 auto; height: 180px; box-sizing: border-box; display: flex; flex-direction: column; background: #FFFFFF; border-top: 1px solid #E2DED5">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px 0 16px; height: 40px; border-bottom: 1px solid #EFECE6">
+<div role="tablist" aria-label="Execution drawer" style="display: flex; gap: 18px">
+<button type="button" role="tab" aria-selected="true" class="tab" style="height: 40px; border: 0; background: transparent; padding: 0; color: #16171B; font-size: 12.5px; font-weight: 600; border-bottom: 2px solid #16171B; cursor: pointer">Trace</button>
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 40px; border: 0; background: transparent; padding: 0; color: #66676E; font-size: 12.5px; font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer">Logs</button>
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 40px; border: 0; background: transparent; padding: 0; color: #66676E; font-size: 12.5px; font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer">Payloads</button>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 999px; background: #FBE9E7; color: #9E1F15; font-size: 12px; font-weight: 500"><span style="width: 7px; height: 7px; border-radius: 50%; background: #B42318" aria-hidden="true"></span>Abandoned · 3 attempts · 2 m 01 s</span>
+</div>
+<div style="flex: 1 1 auto; padding: 10px 16px; display: grid; grid-template-columns: 210px minmax(0, 1fr) 96px; row-gap: 7px; column-gap: 12px; align-content: start; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: #45464D">
+<span>Attempt 1 · send</span><div style="position: relative; height: 14px; background: #F3F1EC; border-radius: 3px"><div style="position: absolute; left: 0%; width: 8.3%; top: 0; bottom: 0; border-radius: 3px; background: #B42318"></div><div style="position: absolute; left: 8.3%; width: 24.8%; top: 6px; height: 2px; background: repeating-linear-gradient(90deg, #B4570B 0 4px, transparent 4px 8px)"></div></div><span style="text-align: right">timeout 10 s</span>
+<span>Attempt 2 · send</span><div style="position: relative; height: 14px; background: #F3F1EC; border-radius: 3px"><div style="position: absolute; left: 33.1%; width: 8.3%; top: 0; bottom: 0; border-radius: 3px; background: #B42318"></div><div style="position: absolute; left: 41.4%; width: 49.6%; top: 6px; height: 2px; background: repeating-linear-gradient(90deg, #B4570B 0 4px, transparent 4px 8px)"></div></div><span style="text-align: right">timeout 10 s</span>
+<span>Attempt 3 · send</span><div style="position: relative; height: 14px; background: #F3F1EC; border-radius: 3px"><div style="position: absolute; left: 90.9%; width: 8.3%; top: 0; bottom: 0; border-radius: 3px; background: #B42318"></div></div><span style="text-align: right">timeout 10 s</span>
+<span>Notify the front desk</span><div style="position: relative; height: 14px; background: #F3F1EC; border-radius: 3px"><div style="position: absolute; left: 99.2%; width: 0.8%; min-width: 3px; top: 0; bottom: 0; border-radius: 3px; background: #1E7A4C"></div></div><span style="text-align: right">1.1 s</span>
+<span style="color: #66676E">Waits between attempts</span><div style="font-size: 11.5px; color: #66676E">14:02:09 → 14:04:10 · dashed: backoff 30 s, then 60 s</div><span></span>
+</div>
+</div>
+</main>
+
+<aside aria-label="Step inspector" style="flex: 0 0 400px; width: 400px; display: flex; flex-direction: column; background: #FFFFFF; min-height: 0">
+<div style="padding: 18px 20px 0 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 36px; height: 36px; border-radius: 9px; background: #EAEFFC; color: #1F4FD1; display: flex; align-items: center; justify-content: center" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #66676E">Send · the delivery itself</span>
+<h2 style="margin: 0; font-size: 17px; line-height: 22px; font-weight: 600">Send WhatsApp message</h2>
+</div>
+</div>
+<div role="tablist" aria-label="Step" style="display: flex; gap: 20px; border-bottom: 1px solid #E7E3DB">
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 36px; border: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: 500; color: #66676E; border-bottom: 2px solid transparent; cursor: pointer">Configure</button>
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 36px; border: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: 500; color: #66676E; border-bottom: 2px solid transparent; cursor: pointer">Test</button>
+<button type="button" role="tab" aria-selected="true" class="tab" style="height: 36px; border: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: 600; color: #16171B; border-bottom: 2px solid #16171B; cursor: pointer">Runs · this delivery</button>
+</div>
+</div>
+<div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px 20px 20px 20px; display: flex; flex-direction: column; gap: 16px">
+<section aria-label="Why it failed" style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 10px; background: #FDF3F1; border: 1px solid #F2C9C3">
+<div style="display: flex; align-items: center; gap: 8px; color: #9E1F15"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg><span style="font-size: 13.5px; font-weight: 600">The provider never answered</span></div>
+<p style="margin: 0; font-size: 12.5px; line-height: 18px; color: #3A3B41">All 3 attempts timed out after 10 s, so the delivery was abandoned and the front desk was notified. A timed-out send may still have reached Qikchat: check before sending again.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: #9E1F15"><span style="padding: 2px 6px; border-radius: 4px; background: #FFFFFF; border: 1px solid #F2C9C3">ETIMEDOUT</span><span style="padding: 2px 6px; border-radius: 4px; background: #FFFFFF; border: 1px solid #F2C9C3">ABANDONED</span><span style="padding: 2px 6px; border-radius: 4px; background: #FFFFFF; border: 1px solid #F2C9C3">7 others in the last hour</span></div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12.5px; font-weight: 600">What you can do</span>
+<button type="button" class="btn" style="height: 40px; border-radius: 8px; border: 1px solid #16171B; background: #16171B; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0 12px"><span style="display: inline-flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Check status, then replay</span><span style="font-size: 11.5px; font-weight: 500; opacity: 0.8">asks Qikchat first</span></button>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button type="button" class="btn" style="height: 38px; border-radius: 8px; border: 1px solid #D9D4CA; background: #FFFFFF; color: #16171B; font-size: 12.5px; font-weight: 500; cursor: pointer">See the 7 others</button>
+<button type="button" class="btn" style="height: 38px; border-radius: 8px; border: 1px solid #D9D4CA; background: #FFFFFF; color: #16171B; font-size: 12.5px; font-weight: 500; cursor: pointer">Adjust time limit</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 12.5px; font-weight: 600">Attempts</span><span style="font-size: 11.5px; color: #66676E">each one re-ran the stages before send</span></div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; border: 1px solid #E7E3DB; font-size: 12.5px"><span>Attempt 1 · 14:02:09</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #9E1F15">timeout · 10.0 s</span></div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; border: 1px solid #E7E3DB; font-size: 12.5px"><span>Attempt 2 · 14:02:49</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #9E1F15">timeout · 10.0 s</span></div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; border: 1px solid #2B59E6; background: #F4F7FF; font-size: 12.5px"><span style="font-weight: 600">Attempt 3 · 14:03:59</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #9E1F15">timeout · 10.0 s</span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 11.5px; color: #66676E">Request · attempt 3</span><button type="button" class="btn" style="height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid #E2DED5; background: #FFFFFF; color: #45464D; font-size: 11.5px; cursor: pointer">Copy as cURL</button></div>
+<pre style="margin: 0; padding: 10px 12px; border-radius: 8px; background: #F7F6F2; border: 1px solid #E7E3DB; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 18px; color: #2A2B31; white-space: pre-wrap; word-break: break-all">curl -X POST "https://api.qikchat.in/v1/messages" \
+  -H "QIKCHAT-API-KEY: ••••••••" \
+  -d '{"to":"•••••3210","template":"appt_reminder"}'</pre>
+<span style="font-size: 11.5px; color: #66676E">Response</span>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px dashed #CFC9BE; font-size: 12px; color: #45464D">No response: the connection was closed after 10,000 ms.</div>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1024}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

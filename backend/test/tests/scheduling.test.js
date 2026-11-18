@@ -122,15 +122,14 @@ describeRealDb('E2E: Scheduling Workflow', () => {
           timezone: 'UTC',
           description: 'Send reminder 24 hours before appointment'
         },
-        transformationMode: 'SIMPLE',
+        transformationMode: 'SCRIPT',
         transformation: {
-          mappings: [
-            { sourceField: 'patientName', targetField: 'patient', transform: 'trim' },
-            { sourceField: 'appointmentDateTime', targetField: 'scheduled_time', transform: 'date' }
-          ],
-          staticFields: [
-            { key: 'reminderType', value: 'appointment' }
-          ]
+          script: `return {
+  ...payload,
+  patient: payload.patientName,
+  scheduled_time: payload.appointmentDateTime,
+  reminderType: 'appointment',
+};`
         },
         isActive: true,
         timeoutMs: 5000,

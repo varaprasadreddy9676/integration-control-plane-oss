@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import type { TabsProps } from 'antd';
 import { spacingToNumber } from '../../../../../design-system/utils';
 import { DeliveryModeSelector } from './DeliveryModeSelector';
+import { DeliveryLayoutSwitch } from './DeliveryLayoutSwitch';
+import type { DeliveryLayout } from '../utils/deliveryLayout';
 import { FormActionFooter } from './FormActionFooter';
 import { IntegrationSections } from './IntegrationSections';
 import { RuleStatusBar } from './RuleStatusBar';
@@ -20,6 +22,8 @@ interface IntegrationFormBodyProps {
   colors: any;
   deliveryModeChoice: 'single' | 'multi';
   onChangeDeliveryMode: (value: 'single' | 'multi') => void;
+  deliveryLayout: DeliveryLayout;
+  onChangeDeliveryLayout: (value: DeliveryLayout) => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
   activePanels: string[];
@@ -52,6 +56,8 @@ export const IntegrationFormBody = ({
   colors,
   deliveryModeChoice,
   onChangeDeliveryMode,
+  deliveryLayout,
+  onChangeDeliveryLayout,
   onExpandAll,
   onCollapseAll,
   activePanels,
@@ -94,6 +100,7 @@ export const IntegrationFormBody = ({
         />
       )}
 
+      <DeliveryLayoutSwitch value={deliveryLayout} onChange={onChangeDeliveryLayout} />
       {(isCreate || isEditMode) && <DeliveryModeSelector value={deliveryModeChoice} onChange={onChangeDeliveryMode} />}
 
       <IntegrationSections

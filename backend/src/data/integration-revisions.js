@@ -224,6 +224,8 @@ async function restoreRevision(orgId, integrationId, revision) {
 
   const saved = await recordRevision({ integrationId, source: 'RESTORED', restoredFrom: Number(revision), previous: before });
   const after = await currentConfig(orgId, integrationId);
+  // Restored stages: cancel, pause or resume their scheduled work to match.
+  await require('../stages/integration-config').applyStageLifecycle({ orgId, integrationId, before, after });
   return { before, after, revision: saved };
 }
 

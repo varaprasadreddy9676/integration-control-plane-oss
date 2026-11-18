@@ -1,5 +1,5 @@
 const ExcelJS = require('exceljs');
-const { Readable } = require('stream');
+const { readSpreadsheetRows } = require('../utils/spreadsheet');
 const { log } = require('../logger');
 
 const LOOKUP_EXPORT_COLUMNS = [
@@ -73,40 +73,8 @@ function createStreamingLookupXlsxWriter(filePath) {
  * @returns {Promise<Object[]>}
  */
 async function readBufferRows(buffer, filename) {
-  const workbook = new ExcelJS.Workbook();
   const ext = (filename || 'import.xlsx').split('.').pop().toLowerCase();
-
-  if (ext === 'csv') {
-    const stream = new Readable();
-    stream.push(buffer);
-    stream.push(null);
-    await workbook.csv.read(stream);
-  } else {
-    await workbook.xlsx.load(buffer);
-  }
-
-  const worksheet = workbook.worksheets[0];
-  if (!worksheet) return [];
-
-  const headers = [];
-  const rows = [];
-
-  worksheet.eachRow({ includeEmpty: false }, (row, rowNum) => {
-    if (rowNum === 1) {
-      row.eachCell({ includeEmpty: true }, (cell, colNum) => {
-        headers[colNum - 1] = cell.value != null ? String(cell.value).trim() : '';
-      });
-    } else {
-      const obj = {};
-      row.eachCell({ includeEmpty: true }, (cell, colNum) => {
-        const header = headers[colNum - 1];
-        if (header) obj[header] = cell.value != null ? cell.value : '';
-      });
-      if (Object.keys(obj).length > 0) rows.push(obj);
-    }
-  });
-
-  return rows;
+  return readSpreadsheetRows(buffer, ext);
 }
 
 /**

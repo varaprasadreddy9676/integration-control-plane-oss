@@ -46,6 +46,9 @@ const isTransformationSkipped = transformer.isTransformationSkipped || (() => fa
 
 const router = express.Router();
 
+// Changing stages or the Send bindings is its own permission (stages:edit).
+const { assertMayEditStages } = require('../stages/integration-config');
+
 router.get(
   '/',
   assertViewAllowed('dashboard'),
@@ -433,6 +436,7 @@ router.post(
       }
     }
 
+    assertMayEditStages(req);
     const integration = await data.addIntegration(req.orgId, req.body);
     log('info', 'Integration created', { id: integration.id, orgId: req.orgId, isMultiAction });
     await auditIntegration.created(req, integration);
@@ -524,6 +528,7 @@ router.put(
       }
     }
 
+    assertMayEditStages(req, beforeIntegration);
     const integration = await data.updateIntegration(req.orgId, req.params.id, req.body);
     if (!integration) {
       return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
@@ -936,7 +941,7 @@ router.post(
           const hasActionScript =
             typeof action.transformation?.script === 'string' && action.transformation.script.trim().length > 0;
           const actionTransformationMode =
-            action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : 'SIMPLE') : null);
+            action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : usesFieldMappings(action.transformation) ? 'SIMPLE' : 'NONE') : null);
 
           if (hasActionTransformation || actionTransformationMode) {
             const actionIntegration = {

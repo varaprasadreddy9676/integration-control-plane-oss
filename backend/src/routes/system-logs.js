@@ -1,26 +1,22 @@
 const express = require('express');
 const fs = require('fs');
 const fsp = require('fs/promises');
-const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const zlib = require('zlib');
-const { log } = require('../logger');
-const mongodb = require('../mongodb');
-const { uuidv4 } = require('../utils/runtime');
+const { createExportJobStore, exportSettings, parseBooleanQuery } = require('../services/export-jobs');
 const { maskLogSecrets } = require('../utils/integration-secrets');
 
 const router = express.Router();
-const SYSTEM_LOG_EXPORT_JOBS_COLLECTION = 'system_log_export_jobs';
-const SYSTEM_LOG_EXPORT_TMP_DIR = path.join(os.tmpdir(), 'integration-control-plane-system-log-exports');
-const SYSTEM_LOG_EXPORT_ASYNC_THRESHOLD = Math.max(
-  1,
-  Number.parseInt(process.env.SYSTEM_LOG_EXPORT_ASYNC_THRESHOLD || '5000', 10)
-);
-const SYSTEM_LOG_EXPORT_JOB_TTL_MS = Math.max(
-  5 * 60 * 1000,
-  Number.parseInt(process.env.SYSTEM_LOG_EXPORT_JOB_TTL_MS || String(6 * 60 * 60 * 1000), 10)
-);
+const { asyncThreshold: SYSTEM_LOG_EXPORT_ASYNC_THRESHOLD, ttlMs: SYSTEM_LOG_EXPORT_JOB_TTL_MS } = exportSettings('SYSTEM_LOG');
+const exportJobs = createExportJobStore({
+  collection: 'system_log_export_jobs',
+  idPrefix: 'slexp',
+  basePath: '/api/v1/system-logs',
+  tmpDirName: 'integration-control-plane-system-log-exports',
+  ttlMs: SYSTEM_LOG_EXPORT_JOB_TTL_MS,
+  label: 'system-log',
+});
 const BACKEND_ROOT = path.join(__dirname, '..', '..');
 const APP_ROOT = path.join(BACKEND_ROOT, '..');
 const LOG_DIR = process.env.SYSTEM_LOG_DIR || path.join(BACKEND_ROOT, 'logs');
@@ -30,13 +26,6 @@ const LOG_SOURCE_VALUES = new Set(['app', 'access', 'all']);
 const STATS_CACHE_TTL_MS = 30_000;
 const STATS_CACHE_MAX_SIZE = 500;
 const _statsCache = new Map();
-let exportIndexesEnsured = false;
-
-const parseBooleanQuery = (value) => {
-  if (typeof value === 'boolean') return value;
-  if (typeof value !== 'string') return false;
-  return ['1', 'true', 'yes', 'y'].includes(value.trim().toLowerCase());
-};
 
 const parseInteger = (value, fallback, minimum = 0, maximum = Number.MAX_SAFE_INTEGER) => {
   const parsed = Number.parseInt(value, 10);
@@ -58,70 +47,6 @@ const parseSystemLogFilters = (query = {}) => ({
   errorCategory: typeof query.errorCategory === 'string' ? query.errorCategory.trim() : '',
   source: normalizeLogSource(query.source),
 });
-
-const ensureExportJobIndexes = async (db) => {
-  if (exportIndexesEnsured) return;
-  const collection = db.collection(SYSTEM_LOG_EXPORT_JOBS_COLLECTION);
-  try {
-    await collection.createIndex({ jobId: 1 }, { unique: true });
-    await collection.createIndex({ createdAt: -1 });
-    await collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-  } catch (error) {
-    log('warn', 'Failed to ensure system-log export indexes', { error: error.message });
-  }
-  exportIndexesEnsured = true;
-};
-
-const toExportJobResponse = (job) => ({
-  jobId: job.jobId,
-  status: job.status,
-  format: job.format,
-  totalRecords: job.totalRecords || 0,
-  processedRecords: job.processedRecords || 0,
-  fileSizeBytes: job.fileSizeBytes || 0,
-  fileName: job.fileName || null,
-  errorMessage: job.errorMessage || null,
-  createdAt: job.createdAt,
-  startedAt: job.startedAt || null,
-  finishedAt: job.finishedAt || null,
-  expiresAt: job.expiresAt || null,
-  statusPath: `/api/v1/system-logs/export/jobs/${encodeURIComponent(job.jobId)}`,
-  downloadPath: `/api/v1/system-logs/export/jobs/${encodeURIComponent(job.jobId)}/download`,
-});
-
-const createExportJob = async (format, filters, totalRecords = 0) => {
-  const db = await mongodb.getDbSafe();
-  await ensureExportJobIndexes(db);
-  const now = new Date();
-  const jobId = `slexp_${Date.now()}_${uuidv4().replace(/-/g, '').slice(0, 8)}`;
-  const sourceSuffix = filters.source && filters.source !== 'app' ? `-${filters.source}` : '';
-  const fileName = `system-logs${sourceSuffix}-${now.toISOString().split('T')[0]}-${jobId}.${format}`;
-  const doc = {
-    jobId,
-    format,
-    filters,
-    status: 'QUEUED',
-    totalRecords: Number(totalRecords) || 0,
-    processedRecords: 0,
-    filePath: null,
-    fileName,
-    fileSizeBytes: 0,
-    errorMessage: null,
-    createdAt: now,
-    updatedAt: now,
-    startedAt: null,
-    finishedAt: null,
-    expiresAt: new Date(now.getTime() + SYSTEM_LOG_EXPORT_JOB_TTL_MS),
-  };
-  await db.collection(SYSTEM_LOG_EXPORT_JOBS_COLLECTION).insertOne(doc);
-  return doc;
-};
-
-const getExportJob = async (jobId) => {
-  const db = await mongodb.getDbSafe();
-  await ensureExportJobIndexes(db);
-  return db.collection(SYSTEM_LOG_EXPORT_JOBS_COLLECTION).findOne({ jobId });
-};
 
 const extractPollId = (message) => {
   if (!message) return null;
@@ -626,96 +551,35 @@ const getProcessLogTail = async ({ lines = 200, maxBytes = 256 * 1024 } = {}) =>
   }
 };
 
-const processExportJob = async (jobId) => {
-  const db = await mongodb.getDbSafe();
-  await ensureExportJobIndexes(db);
-  const jobs = db.collection(SYSTEM_LOG_EXPORT_JOBS_COLLECTION);
+const SYSTEM_LOG_CSV_HEADERS = ['Timestamp', 'Level', 'Stream', 'Message', 'Error Category', 'Metadata'];
 
-  const claimed = await jobs.findOneAndUpdate(
-    { jobId, status: 'QUEUED' },
-    { $set: { status: 'PROCESSING', startedAt: new Date(), updatedAt: new Date() } },
-    { returnDocument: 'after' }
-  );
-  const job = claimed.value;
-  if (!job) return;
-
-  await fsp.mkdir(SYSTEM_LOG_EXPORT_TMP_DIR, { recursive: true });
-  const filePath = path.join(SYSTEM_LOG_EXPORT_TMP_DIR, `${job.jobId}.${job.format}`);
-
-  try {
-    const logs = await readSystemLogs(job.filters || {});
-    if (job.format === 'json') {
-      await fsp.writeFile(filePath, JSON.stringify(logs), 'utf8');
-    } else {
-      const headers = ['Timestamp', 'Level', 'Stream', 'Message', 'Error Category', 'Metadata'];
-      const rows = logs.map((entry) => [
-        entry.timestamp,
-        entry.level,
-        entry.stream || 'app',
-        entry.message || '',
-        entry.errorCategory || '',
-        entry.meta ? JSON.stringify(entry.meta) : '',
-      ]);
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) =>
-          row
-            .map((cell) => {
-              const str = String(cell);
-              if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-                return `"${str.replace(/"/g, '""')}"`;
-              }
-              return str;
-            })
-            .join(',')
-        ),
-      ].join('\n');
-      await fsp.writeFile(filePath, csvContent, 'utf8');
-    }
-    const stat = await fsp.stat(filePath);
-    await jobs.updateOne(
-      { jobId },
-      {
-        $set: {
-          status: 'COMPLETED',
-          processedRecords: logs.length,
-          filePath,
-          fileSizeBytes: stat.size,
-          finishedAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + SYSTEM_LOG_EXPORT_JOB_TTL_MS),
-        },
-      }
-    );
-  } catch (error) {
-    try {
-      await fsp.rm(filePath, { force: true });
-    } catch (_err) {}
-    await jobs.updateOne(
-      { jobId },
-      {
-        $set: {
-          status: 'FAILED',
-          processedRecords: 0,
-          errorMessage: error.message,
-          finishedAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + SYSTEM_LOG_EXPORT_JOB_TTL_MS),
-        },
-      }
-    );
-  }
+const csvCell = (cell) => {
+  const str = String(cell);
+  return str.includes(',') || str.includes('\n') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
 };
 
-const startExportJob = async (format, filters, totalRecords) => {
-  const job = await createExportJob(format, filters, totalRecords);
-  setImmediate(() => {
-    processExportJob(job.jobId).catch((error) => {
-      log('error', 'Unhandled system-log export job failure', { jobId: job.jobId, error: error.message });
-    });
-  });
-  return job;
+const systemLogsCsv = (logs) =>
+  [
+    SYSTEM_LOG_CSV_HEADERS.join(','),
+    ...logs.map((entry) =>
+      [entry.timestamp, entry.level, entry.stream || 'app', entry.message || '', entry.errorCategory || '', entry.meta ? JSON.stringify(entry.meta) : '']
+        .map(csvCell)
+        .join(',')
+    ),
+  ].join('\n');
+
+// A file name stem naming the source (system-logs, system-logs-access).
+const systemLogsStem = (filters) => `system-logs${filters.source && filters.source !== 'app' ? `-${filters.source}` : ''}`;
+
+/** What a background system-log export writes: the logs, as JSON or CSV, in one go. */
+const writeExport = async ({ job, filePath }) => {
+  const logs = await readSystemLogs(job.filters || {});
+  await fsp.writeFile(filePath, job.format === 'json' ? JSON.stringify(logs) : systemLogsCsv(logs), 'utf8');
+  return { processedRecords: logs.length };
 };
+
+const startExportJob = async (format, filters, totalRecords) =>
+  exportJobs.start(await exportJobs.create({ format, fileStem: systemLogsStem(filters), totalRecords, fields: { filters } }), writeExport);
 
 router.get('/', async (req, res) => {
   try {
@@ -754,15 +618,14 @@ router.get('/export/json', async (req, res) => {
   if (useAsyncExport) {
     const job = await startExportJob('json', filters, filters.limit || 0);
     return res.status(202).json({
-      ...toExportJobResponse(job),
+      ...exportJobs.toResponse(job),
       message: 'System log export queued.',
     });
   }
 
   try {
     const logs = await readSystemLogs(filters);
-    const sourceSuffix = filters.source && filters.source !== 'app' ? `-${filters.source}` : '';
-    const filename = `system-logs${sourceSuffix}-${new Date().toISOString().split('T')[0]}.json`;
+    const filename = `${systemLogsStem(filters)}-${new Date().toISOString().split('T')[0]}.json`;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json(logs);
@@ -778,107 +641,31 @@ router.get('/export/csv', async (req, res) => {
   if (useAsyncExport) {
     const job = await startExportJob('csv', filters, filters.limit || 0);
     return res.status(202).json({
-      ...toExportJobResponse(job),
+      ...exportJobs.toResponse(job),
       message: 'System log export queued.',
     });
   }
 
   try {
     const logs = await readSystemLogs(filters);
-    const headers = ['Timestamp', 'Level', 'Stream', 'Message', 'Error Category', 'Metadata'];
-    const rows = logs.map((entry) => [
-      entry.timestamp,
-      entry.level,
-      entry.stream || 'app',
-      entry.message || '',
-      entry.errorCategory || '',
-      entry.meta ? JSON.stringify(entry.meta) : '',
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) =>
-        row
-          .map((cell) => {
-            const str = String(cell);
-            if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-              return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-          })
-          .join(',')
-      ),
-    ].join('\n');
-
-    const sourceSuffix = filters.source && filters.source !== 'app' ? `-${filters.source}` : '';
-    const filename = `system-logs${sourceSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `${systemLogsStem(filters)}-${new Date().toISOString().split('T')[0]}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(csvContent);
+    res.send(systemLogsCsv(logs));
   } catch (err) {
     res.status(500).json({ error: 'Export failed', message: err.message });
   }
 });
 
 router.get('/export/jobs/:jobId', async (req, res) => {
-  const job = await getExportJob(req.params.jobId);
+  const job = await exportJobs.get(req.params.jobId);
   if (!job) {
     return res.status(404).json({ error: 'Export job not found', code: 'NOT_FOUND' });
   }
-  return res.json(toExportJobResponse(job));
+  return res.json(exportJobs.toResponse(job));
 });
 
-router.get('/export/jobs/:jobId/download', async (req, res) => {
-  const job = await getExportJob(req.params.jobId);
-  if (!job) {
-    return res.status(404).json({ error: 'Export job not found', code: 'NOT_FOUND' });
-  }
-  if (job.status !== 'COMPLETED') {
-    return res.status(409).json({ error: 'Export job is not ready', code: 'EXPORT_NOT_READY' });
-  }
-  if (!job.filePath) {
-    return res.status(500).json({ error: 'Export file path missing', code: 'EXPORT_FILE_MISSING' });
-  }
-
-  try {
-    await fsp.access(job.filePath, fs.constants.R_OK);
-  } catch (_err) {
-    return res.status(410).json({ error: 'Export file expired', code: 'EXPORT_FILE_EXPIRED' });
-  }
-
-  const contentType = job.format === 'csv' ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8';
-  res.setHeader('Content-Type', contentType);
-  res.setHeader('Content-Disposition', `attachment; filename="${job.fileName || path.basename(job.filePath)}"`);
-
-  return new Promise((resolve, reject) => {
-    const stream = fs.createReadStream(job.filePath);
-    const onClose = () => {
-      cleanup();
-      resolve();
-    };
-    const onEnd = () => {
-      cleanup();
-      resolve();
-    };
-    const onError = (err) => {
-      cleanup();
-      if (res.headersSent) {
-        resolve();
-        return;
-      }
-      reject(err);
-    };
-    const cleanup = () => {
-      stream.off('error', onError);
-      stream.off('end', onEnd);
-      res.off('close', onClose);
-    };
-    stream.on('error', onError);
-    stream.on('end', onEnd);
-    res.on('close', onClose);
-    stream.pipe(res);
-  });
-});
+router.get('/export/jobs/:jobId/download', exportJobs.downloadHandler());
 
 router.delete('/clear', async (_req, res) => {
   const archivedFiles = [];

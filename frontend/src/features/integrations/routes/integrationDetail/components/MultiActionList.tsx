@@ -1,7 +1,6 @@
-import { Alert, Button, Col, Collapse, Form, Input, Row, Select, Space, Switch, Tag, Typography, theme } from 'antd';
+import { Alert, Button, Col, Collapse, Form, Input, Row, Select, Space, Switch, Tag, Typography, } from 'antd';
 import type { FormInstance } from 'antd';
 import {
-  ArrowRightOutlined,
   DeleteOutlined,
   PlusOutlined,
   BranchesOutlined,
@@ -529,316 +528,101 @@ export const MultiActionList = ({
                                 </Form.Item>
                               </Col>
 
-                              <Col xs={24}>
-                                <Form.Item
-                                  {...restField}
-                                  name={[name, 'transformationMode']}
-                                  label="Transformation Mode"
-                                  initialValue="SCRIPT"
-                                >
-                                  <Select
-                                    options={[
-                                      { value: 'SIMPLE', label: 'Simple Mapping' },
-                                      { value: 'SCRIPT', label: 'JavaScript Script' },
-                                    ]}
-                                    size="middle"
-                                  />
-                                </Form.Item>
-                              </Col>
+                              {/* A transformation is a script: the mode is kept only so the saved action says so. */}
+                              <Form.Item {...restField} name={[name, 'transformationMode']} initialValue="SCRIPT" hidden>
+                                <Input />
+                              </Form.Item>
 
                               <Form.Item noStyle shouldUpdate>
                                 {() => {
-                                  const currentMode = form.getFieldValue(['actions', name, 'transformationMode']);
+                                  const scriptValue = form.getFieldValue([
+                                    'actions',
+                                    name,
+                                    'transformation',
+                                    'script',
+                                  ]);
+                                  const inViewMode = !isCreate && !isEditMode;
+                                  const displayScript = formatScriptForDisplay(scriptValue);
 
-                                  if (currentMode === 'SCRIPT') {
-                                    const scriptValue = form.getFieldValue([
-                                      'actions',
-                                      name,
-                                      'transformation',
-                                      'script',
-                                    ]);
-                                    const inViewMode = !isCreate && !isEditMode;
-                                    const displayScript = formatScriptForDisplay(scriptValue);
-
-                                    return (
-                                      <Col xs={24}>
-                                        {inViewMode && scriptValue ? (
-                                          <div style={{ marginBottom: spacingToNumber(spacing[3]) }}>
-                                            <Typography.Text
-                                              strong
-                                              style={{ display: 'block', marginBottom: spacing[2] }}
-                                            >
-                                              Transformation Script:
-                                            </Typography.Text>
-                                            <MonacoEditorInput height="260px" value={displayScript} readOnly />
-                                          </div>
-                                        ) : (
-                                          <>
-                                            <Collapse
-                                              size="small"
-                                              ghost
-                                              style={{ marginBottom: spacingToNumber(spacing[3]) }}
-                                              items={[
-                                                {
-                                                  key: 'lookup-help',
-                                                  label: (
-                                                    <Space size={4}>
-                                                      <DatabaseOutlined style={{ color: colors.primary[600] }} />
-                                                      <Typography.Text strong style={{ fontSize: 13 }}>
-                                                        Using Lookup Tables in Scripts
-                                                      </Typography.Text>
-                                                    </Space>
-                                                  ),
-                                                  children: (
-                                                    <div>
-                                                      <Typography.Text style={{ fontSize: 12 }}>
-                                                        Use <code>lookup(sourceCode, mappingType)</code> to translate
-                                                        codes:
-                                                      </Typography.Text>
-                                                      <pre
-                                                        style={{
-                                                          background: cssVar.bg.overlay,
-                                                          color: cssVar.text.primary,
-                                                          padding: '8px',
-                                                          borderRadius: 4,
-                                                          fontSize: 11,
-                                                          marginTop: 8,
-                                                          marginBottom: 8,
-                                                        }}
-                                                      >
-                                                        {`// Simple lookup
+                                  return (
+                                    <Col xs={24}>
+                                      {inViewMode && scriptValue ? (
+                                        <div style={{ marginBottom: spacingToNumber(spacing[3]) }}>
+                                          <Typography.Text
+                                            strong
+                                            style={{ display: 'block', marginBottom: spacing[2] }}
+                                          >
+                                            Transformation Script:
+                                          </Typography.Text>
+                                          <MonacoEditorInput height="260px" value={displayScript} readOnly />
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <Collapse
+                                            size="small"
+                                            ghost
+                                            style={{ marginBottom: spacingToNumber(spacing[3]) }}
+                                            items={[
+                                              {
+                                                key: 'lookup-help',
+                                                label: (
+                                                  <Space size={4}>
+                                                    <DatabaseOutlined style={{ color: colors.primary[600] }} />
+                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                      Using Lookup Tables in Scripts
+                                                    </Typography.Text>
+                                                  </Space>
+                                                ),
+                                                children: (
+                                                  <div>
+                                                    <Typography.Text style={{ fontSize: 12 }}>
+                                                      Use <code>lookup(sourceCode, mappingType)</code> to translate
+                                                      codes:
+                                                    </Typography.Text>
+                                                    <pre
+                                                      style={{
+                                                        background: cssVar.bg.overlay,
+                                                        color: cssVar.text.primary,
+                                                        padding: '8px',
+                                                        borderRadius: 4,
+                                                        fontSize: 11,
+                                                        marginTop: 8,
+                                                        marginBottom: 8,
+                                                      }}
+                                                    >
+                                                      {`// Simple lookup
 externalCode: lookup(payload.code, 'SERVICE_CODE'),
 
 // With fallback
 providerID: lookup(payload.doctorId, 'PROVIDER_ID') || 'UNKNOWN'`}
-                                                      </pre>
-                                                      <Typography.Link
-                                                        href="/help/lookup-guide"
-                                                        target="_blank"
-                                                        style={{ fontSize: 12 }}
-                                                      >
-                                                        <BookOutlined style={{ marginRight: 4 }} />
-                                                        View Complete Guide
-                                                      </Typography.Link>
-                                                    </div>
-                                                  ),
-                                                },
-                                              ]}
+                                                    </pre>
+                                                    <Typography.Link
+                                                      href="/help/lookup-guide"
+                                                      target="_blank"
+                                                      style={{ fontSize: 12 }}
+                                                    >
+                                                      <BookOutlined style={{ marginRight: 4 }} />
+                                                      View Complete Guide
+                                                    </Typography.Link>
+                                                  </div>
+                                                ),
+                                              },
+                                            ]}
+                                          />
+                                          <Form.Item
+                                            {...restField}
+                                            name={[name, 'transformation', 'script']}
+                                            label="Transformation Script"
+                                            tooltip="Transform event data"
+                                            rules={[{ required: true, message: 'Transformation script is required' }]}
+                                          >
+                                            <MonacoEditorInput
+                                              height="300px"
+                                              placeholder={`function transform(payload, context) {\n  return {\n    d: [{\n      identity: payload.recordId,\n      type: 'profile',\n      profileData: { Name: payload.name }\n    }]\n  };\n}`}
                                             />
-                                            <Form.Item
-                                              {...restField}
-                                              name={[name, 'transformation', 'script']}
-                                              label="Transformation Script"
-                                              tooltip="Transform event data"
-                                              rules={[{ required: true, message: 'Transformation script is required' }]}
-                                            >
-                                              <MonacoEditorInput
-                                                height="300px"
-                                                placeholder={`function transform(payload, context) {\n  return {\n    d: [{\n      identity: payload.recordId,\n      type: 'profile',\n      profileData: { Name: payload.name }\n    }]\n  };\n}`}
-                                              />
-                                            </Form.Item>
-                                          </>
-                                        )}
-                                      </Col>
-                                    );
-                                  }
-
-                                  return (
-                                    <Col xs={24}>
-                                      <Typography.Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
-                                        Field Mappings
-                                      </Typography.Text>
-                                      <Form.List name={[name, 'transformation', 'mappings']}>
-                                        {(mappingFields, { add: addMapping, remove: removeMapping }) => (
-                                          <>
-                                            {mappingFields.map(
-                                              ({ key: mappingKey, name: mappingName, ...mappingRest }) => (
-                                                <div
-                                                  key={mappingKey}
-                                                  style={{
-                                                    display: 'flex',
-                                                    gap: spacingToNumber(spacing[2]),
-                                                    marginBottom: spacing[2],
-                                                    alignItems: 'center',
-                                                    flexWrap: 'wrap',
-                                                  }}
-                                                >
-                                                  <Form.Item
-                                                    {...mappingRest}
-                                                    name={[mappingName, 'targetField']}
-                                                    style={{ marginBottom: 0, flex: '1 1 150px' }}
-                                                  >
-                                                    <Input placeholder="Target field" size="middle" />
-                                                  </Form.Item>
-                                                  <ArrowRightOutlined style={{ color: cssVar.text.secondary }} />
-                                                  <Form.Item
-                                                    {...mappingRest}
-                                                    name={[mappingName, 'sourceField']}
-                                                    style={{ marginBottom: 0, flex: '1 1 200px' }}
-                                                  >
-                                                    <Select
-                                                      showSearch
-                                                      placeholder="Select source field"
-                                                      size="middle"
-                                                      options={availableFields.map((f) => ({
-                                                        label: `${f.label} (${f.path || f.key})`,
-                                                        value: f.path || f.key,
-                                                      }))}
-                                                      filterOption={(input, option) =>
-                                                        (option?.label?.toString() ?? '')
-                                                          .toLowerCase()
-                                                          .includes(input.toLowerCase())
-                                                      }
-                                                    />
-                                                  </Form.Item>
-                                                  <Form.Item
-                                                    {...mappingRest}
-                                                    name={[mappingName, 'transform']}
-                                                    initialValue="none"
-                                                    style={{ marginBottom: 0, flex: '0 0 120px' }}
-                                                  >
-                                                    <Select
-                                                      size="middle"
-                                                      options={[
-                                                        { value: 'none', label: 'No transform' },
-                                                        { value: 'trim', label: 'Trim' },
-                                                        { value: 'upper', label: 'Uppercase' },
-                                                        { value: 'lower', label: 'Lowercase' },
-                                                        { value: 'lookup', label: 'Lookup' },
-                                                      ]}
-                                                    />
-                                                  </Form.Item>
-                                                  <Form.Item noStyle shouldUpdate>
-                                                    {() => {
-                                                      const transformValue = form.getFieldValue([
-                                                        'actions',
-                                                        name,
-                                                        'transformation',
-                                                        'mappings',
-                                                        mappingName,
-                                                        'transform',
-                                                      ]);
-                                                      if (transformValue === 'lookup') {
-                                                        return (
-                                                          <Form.Item
-                                                            {...mappingRest}
-                                                            name={[mappingName, 'lookupType']}
-                                                            style={{
-                                                              marginBottom: 0,
-                                                              flex: '1 1 200px',
-                                                              minWidth: 200,
-                                                            }}
-                                                            getValueFromEvent={(val) => {
-                                                              return Array.isArray(val) && val.length > 0 ? val[0] : '';
-                                                            }}
-                                                            getValueProps={(val) => {
-                                                              return { value: val ? [val] : [] };
-                                                            }}
-                                                          >
-                                                            <Select
-                                                              placeholder="Select lookup type"
-                                                              size="middle"
-                                                              showSearch
-                                                              mode="tags"
-                                                              maxCount={1}
-                                                              tokenSeparators={[',']}
-                                                              options={lookupTypes.map((t) => ({ label: t, value: t }))}
-                                                              notFoundContent={
-                                                                <Typography.Text
-                                                                  type="secondary"
-                                                                  style={{ color: cssVar.text.secondary }}
-                                                                >
-                                                                  No lookup types found. Type to create new (e.g.,
-                                                                  SERVICE_CODE)
-                                                                </Typography.Text>
-                                                              }
-                                                            />
-                                                          </Form.Item>
-                                                        );
-                                                      }
-                                                      return null;
-                                                    }}
-                                                  </Form.Item>
-                                                  <Button
-                                                    type="text"
-                                                    danger
-                                                    icon={<DeleteOutlined />}
-                                                    onClick={() => removeMapping(mappingName)}
-                                                  />
-                                                </div>
-                                              )
-                                            )}
-                                            <Button
-                                              type="dashed"
-                                              onClick={() =>
-                                                addMapping({ targetField: '', sourceField: '', transform: 'none' })
-                                              }
-                                              block
-                                              size="middle"
-                                              icon={<PlusOutlined />}
-                                              style={{ marginBottom: spacing[3] }}
-                                            >
-                                              Add Field Mapping
-                                            </Button>
-                                          </>
-                                        )}
-                                      </Form.List>
-
-                                      <Typography.Text
-                                        strong
-                                        style={{ display: 'block', marginTop: spacing[3], marginBottom: spacing[2] }}
-                                      >
-                                        Static Fields
-                                      </Typography.Text>
-                                      <Form.List name={[name, 'transformation', 'staticFields']}>
-                                        {(staticFieldsList, { add: addStatic, remove: removeStatic }) => (
-                                          <>
-                                            {staticFieldsList.map(
-                                              ({ key: staticKey, name: staticName, ...staticRest }) => (
-                                                <div
-                                                  key={staticKey}
-                                                  style={{
-                                                    display: 'flex',
-                                                    gap: spacingToNumber(spacing[2]),
-                                                    marginBottom: spacing[2],
-                                                    alignItems: 'center',
-                                                  }}
-                                                >
-                                                  <Form.Item
-                                                    {...staticRest}
-                                                    name={[staticName, 'key']}
-                                                    style={{ marginBottom: 0, flex: 1 }}
-                                                  >
-                                                    <Input placeholder="Key" size="middle" />
-                                                  </Form.Item>
-                                                  <Form.Item
-                                                    {...staticRest}
-                                                    name={[staticName, 'value']}
-                                                    style={{ marginBottom: 0, flex: 1 }}
-                                                  >
-                                                    <Input placeholder="Value" size="middle" />
-                                                  </Form.Item>
-                                                  <Button
-                                                    type="text"
-                                                    danger
-                                                    icon={<DeleteOutlined />}
-                                                    onClick={() => removeStatic(staticName)}
-                                                  />
-                                                </div>
-                                              )
-                                            )}
-                                            <Button
-                                              type="dashed"
-                                              onClick={() => addStatic({ key: '', value: '' })}
-                                              block
-                                              size="middle"
-                                              icon={<PlusOutlined />}
-                                            >
-                                              Add Static Field
-                                            </Button>
-                                          </>
-                                        )}
-                                      </Form.List>
+                                          </Form.Item>
+                                        </>
+                                      )}
                                     </Col>
                                   );
                                 }}

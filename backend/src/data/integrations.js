@@ -6,6 +6,8 @@ const { normalizeRequestPolicy, normalizeRateLimit } = require('../services/requ
 const { normalizePreDeliveryChecks } = require('../services/pre-delivery-checks');
 const { normalizeDeliveryFollowUp } = require('../services/delivery-follow-up-config');
 const { defaultFollowUpFor } = require('../services/delivery-follow-up-presets');
+// Loaded when used: the stages modules reach back into data/ (runners -> transformer).
+const stageConfig = () => require('../stages/integration-config');
 const { validateLifecycleConfig, buildLifecycleProfile, findLifecycleRule } = require('../services/lifecycle-config');
 const {
   validateConditionConfig,
@@ -380,6 +382,10 @@ async function addIntegration(orgId, payload) {
     throw error;
   }
 
+  // Pipeline stages: validated here so every create path (API, duplicate, import,
+  // templates) gets the same rules; a known provider starts with its templates.
+  const stageFields = await stageConfig().stageFieldsForCreate(normalizedOrgId, payload);
+
   const integration = {
     name: payload.name,
     type: payload.type || payload.eventType,
@@ -407,15 +413,20 @@ async function addIntegration(orgId, payload) {
     rateLimits: normalizeRateLimit(payload.rateLimits) || null,
     preDeliveryChecks: normalizePreDeliveryChecks(payload.preDeliveryChecks) || null,
     // A provider the gateway knows (Qikchat) follows up by default; saving enabled:false opts out.
-    deliveryFollowUp: normalizeDeliveryFollowUp(defaultFollowUpFor(payload)),
+    // The template stage, when there is one, does what the old follow-up did: never both.
+    deliveryFollowUp: normalizeDeliveryFollowUp(
+      stageConfig().replacesFollowUp(stageFields.stages) ? payload.deliveryFollowUp : defaultFollowUpFor(payload)
+    ),
+    ...stageFields,
     isActive: payload.isActive !== false,
     timeoutMs: payload.timeoutMs,
     retryCount: payload.retryCount,
-    transformationMode: payload.transformationMode || 'SIMPLE',
+    transformationMode: payload.transformationMode || 'NONE',
     transformation: payload.transformation || null,
-    transformMode: payload.transformationMode || 'SIMPLE',
+    transformMode: payload.transformationMode || 'NONE',
     transformConfig: payload.transformation || null,
-    actions: payload.actions || null,
+    // Stage fields may have normalized each action's stages.
+    actions: stageFields.actions || payload.actions || null,
     resourceType: payload.resourceType || null,
     subjectExtraction:
       lifecycleValidation.normalizedSubjectExtraction || conditionValidation.normalizedSubjectExtraction,
@@ -499,6 +510,8 @@ async function updateIntegration(orgId, id, patch) {
   }
 
   const existing = await getIntegration(id);
+  const stageFields = await stageConfig().stageFieldsForUpdate(normalizedOrgId, existing, updateDoc);
+  if (stageFields) Object.assign(updateDoc, stageFields);
   const mergedLifecycleConfig = {
     resourceType: Object.prototype.hasOwnProperty.call(updateDoc, 'resourceType')
       ? updateDoc.resourceType
@@ -589,6 +602,10 @@ async function updateIntegration(orgId, id, patch) {
   }
 
   const updated = await getIntegration(id);
+  if (previous && writeResult.matchedCount !== 0) {
+    // Pause, resume or cancel scheduled stage work to match the change.
+    await stageConfig().applyStageLifecycle({ orgId: normalizedOrgId, integrationId: previous._id, before: previous, after: updated });
+  }
 
   log('debug', 'Integration updated, retrieved:', {
     scope: 'updateIntegration:retrieved',
@@ -628,6 +645,10 @@ async function deleteIntegration(orgId, id) {
     _id: mongodb.toObjectId(id),
     ...integrationOrgQuery(normalizedOrgId),
   });
+  if (result.deletedCount > 0) {
+    // Its pending stage work is cancelled; run history stays.
+    await stageConfig().applyStageLifecycle({ orgId: normalizedOrgId, integrationId: id, before: null, after: null });
+  }
   return result.deletedCount > 0;
 }
 
@@ -738,6 +759,15 @@ async function listEventTypes(orgId) {
     .filter(Boolean);
 }
 
+/** The integration if it belongs to `orgId` (mapped), else null. */
+async function getOrgIntegration(orgId, integrationId) {
+  const objectId = mongodb.toObjectId(integrationId);
+  if (!objectId) return null;
+  const db = await mongodb.getDbSafe();
+  const integration = await db.collection('integration_configs').findOne({ _id: objectId, orgId });
+  return integration ? mapIntegrationFromMongo(integration) : null;
+}
+
 async function getIntegrationById(integrationId) {
   const db = await mongodb.getDbSafe();
   const integration = await db.collection('integration_configs').findOne({ _id: mongodb.toObjectId(integrationId) });
@@ -763,4 +793,5 @@ module.exports = {
   bulkDeleteIntegrations,
   listEventTypes,
   getIntegrationById,
+  getOrgIntegration,
 };

@@ -44,7 +44,9 @@ export const MonacoEditorInput = ({
           // Display
           minimap: { enabled: false },
           fontSize: 14,
-          fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Monaco, "Courier New", monospace',
+          // System monospace fonts only: Monaco measures a character's width once, and a web font that
+          // arrives afterwards leaves the highlights and the wrapping out of line with the text.
+          fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
           lineNumbers: 'on',
           wordWrap: 'on',
           glyphMargin: true,
@@ -116,6 +118,10 @@ export const MonacoEditorInput = ({
           }
         }}
         theme="vs-dark"
+        onMount={(_editor, monaco) => {
+          // Measure again once every font the page uses has settled.
+          void document.fonts?.ready.then(() => monaco.editor.remeasureFonts());
+        }}
       />
     </div>
   );

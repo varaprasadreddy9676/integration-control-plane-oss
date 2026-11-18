@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Add a step — node library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font-family:inherit}
+.btn{transition:background-color 140ms cubic-bezier(.2,0,0,1),border-color 140ms cubic-bezier(.2,0,0,1)}
+.btn:hover{background:#F3F1EC}
+.btn:focus-visible,.lib-item:focus-visible{outline:2px solid #2B59E6;outline-offset:2px}
+.lib-item{transition:background-color 120ms cubic-bezier(.2,0,0,1)}
+.lib-item:hover{background:#F6F5F1}
+.ghost{animation:ghost-in 220ms cubic-bezier(.2,0,0,1) both}
+@keyframes ghost-in{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+.pop{animation:pop-in 180ms cubic-bezier(.2,0,0,1) both}
+@keyframes pop-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.ghost,.pop{animation:none}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1024px; display: flex; background: #F5F3EE; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #16171B; overflow: hidden">
+<dc-import name="AppNav" theme="light" active="integrations" hint-size="216px,1024px"></dc-import>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="AppHeader" theme="light" save-state="clean" save-text="All changes saved" run-state="ok" run-text="Last delivery: accepted · 3 min ago" hint-size="1224px,108px"></dc-import>
+<main aria-label="Workflow canvas" style="position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background-color: #F5F3EE; background-image: radial-gradient(#D6D0C4 1px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px">
+
+<div style="position: absolute; left: 70px; top: 44px; width: 920px; height: 996px; transform: scale(0.82); transform-origin: 0 0">
+<div style="position: absolute; left: 64px; top: 44px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">EVENT</div>
+<div style="position: absolute; left: 64px; top: 164px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">PREPARE</div>
+<div style="position: absolute; left: 64px; top: 284px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #2B59E6">BEFORE SEND</div>
+<div style="position: absolute; left: 56px; top: 308px; width: 2px; height: 288px; background: #2B59E6; border-radius: 1px"></div>
+<div style="position: absolute; left: 64px; top: 644px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">SEND</div>
+<div style="position: absolute; left: 64px; top: 764px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E; width: 120px">AFTER THE RESPONSE</div>
+<div style="position: absolute; left: 64px; top: 884px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #66676E">LATER</div>
+
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 116px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #9C9688; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-a-1" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9C9688" stroke="none" style="stroke: none; fill: #9C9688; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-1)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 236px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #9C9688; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-a-2" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9C9688" stroke="none" style="stroke: none; fill: #9C9688; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-2)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 356px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #9C9688; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-a-3" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9C9688" stroke="none" style="stroke: none; fill: #9C9688; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-3)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 476px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #2B59E6; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><defs><marker id="m-a-4" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#2B59E6" stroke="none" style="stroke: none; fill: #2B59E6; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-4)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 596px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #2B59E6; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><defs><marker id="m-a-5" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#2B59E6" stroke="none" style="stroke: none; fill: #2B59E6; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-5)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 716px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #9C9688; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-a-6" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9C9688" stroke="none" style="stroke: none; fill: #9C9688; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-6)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 836px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #9C9688; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-a-7" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9C9688" stroke="none" style="stroke: none; fill: #9C9688; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 40" marker-end="url(#m-a-7)"></path></svg>
+<svg width="103" height="8" viewBox="0 0 103 8" preserveAspectRatio="none" style="position: absolute; left: 456px; top: 434px; width: 103px; height: 8px; overflow: visible; fill: none; stroke: #9C9688; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-a-8" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9C9688" stroke="none" style="stroke: none; fill: #9C9688; fill: context-stroke"/></marker></defs><path d="M 0 4 L 100 4" marker-end="url(#m-a-8)"></path></svg>
+
+<div style="position: absolute; left: 200px; top: 40px"><dc-import name="Node" kind="trigger" eyebrow="Event" title="Appointment confirmed" summary="APPOINTMENT_CONFIRMED" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 160px"><dc-import name="Node" kind="transform" eyebrow="Transform" title="Build the reminder" summary="script · 14 lines" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 280px"><dc-import name="Node" kind="http" eyebrow="HTTP request · Before send" title="Check patient consent" summary="GET consent-api/patients/{id}" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 400px"><dc-import name="Node" kind="gate" eyebrow="Gate · Before send" title="Consent granted?" summary="skip() when consent is false" theme="light" hint-size="256px,80px"></dc-import></div>
+<div class="ghost" style="position: absolute; left: 200px; top: 520px; width: 256px; height: 80px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 14px; border: 1.5px dashed #2B59E6; border-radius: 10px; background: rgba(43,89,230,0.05); color: #1F45B8"><span style="width: 32px; height: 32px; border-radius: 8px; border: 1.5px dashed #2B59E6; display: flex; align-items: center; justify-content: center; font-size: 18px; flex: 0 0 auto" aria-hidden="true">+</span><span><b style="display: block; font-size: 14px; line-height: 20px">New step</b><span style="font-size: 12px; line-height: 16px">Before send · after the consent gate</span></span></div>
+<div style="position: absolute; left: 200px; top: 640px"><dc-import name="Node" kind="send" eyebrow="Send" title="Send WhatsApp message" summary="POST api.qikchat.in/v1/messages" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 760px"><dc-import name="Node" kind="script" eyebrow="Gate · After the response" title="Read the provider reply" summary="fail() when accepted is false" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 880px"><dc-import name="Node" kind="schedule" eyebrow="HTTP request · Later" title="Check delivery status" summary="at 30 s · 5 m · 1 h · 24 h" theme="light" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 400px"><dc-import name="Node" kind="skipped" eyebrow="Outcome" title="Skipped" summary="no consent · nothing sent" theme="light" hint-size="256px,80px"></dc-import></div>
+
+<button type="button" class="btn" aria-label="Add a step before send, after building the reminder" style="position: absolute; left: 316px; top: 246px; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #2B59E6; background: #FFFFFF; color: #2B59E6; font-size: 15px; line-height: 1; padding: 0; cursor: pointer">+</button>
+<button type="button" class="btn" aria-label="Add a step before send, after the consent check" style="position: absolute; left: 316px; top: 366px; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #2B59E6; background: #FFFFFF; color: #2B59E6; font-size: 15px; line-height: 1; padding: 0; cursor: pointer">+</button>
+<button type="button" class="btn" aria-label="Add a step after the response, before reading the reply" style="position: absolute; left: 316px; top: 726px; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #2B59E6; background: #FFFFFF; color: #2B59E6; font-size: 15px; line-height: 1; padding: 0; cursor: pointer">+</button>
+<button type="button" class="btn" aria-label="Add a step after the response, after reading the reply" style="position: absolute; left: 316px; top: 846px; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #2B59E6; background: #FFFFFF; color: #2B59E6; font-size: 15px; line-height: 1; padding: 0; cursor: pointer">+</button>
+</div>
+
+<div style="position: absolute; left: 16px; top: 12px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<div role="group" aria-label="Canvas mode" style="display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: #FFFFFF; border: 1px solid #E2DED5">
+<button type="button" class="btn" aria-pressed="true" style="height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: #16171B; color: #FFFFFF; font-size: 12.5px; font-weight: 600; cursor: pointer">Configure</button>
+<button type="button" class="btn" aria-pressed="false" style="height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #45464D; font-size: 12.5px; font-weight: 500; cursor: pointer">Executions</button>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 999px; background: #E8EEFD; color: #1F45B8; font-size: 12.5px; font-weight: 500">Adding a step · the blue + marks every place one can go<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #FFFFFF">Esc</span></span>
+</div>
+</div>
+
+<section class="pop" role="dialog" aria-label="Add a step before send" style="position: absolute; left: 468px; top: 260px; width: 380px; box-sizing: border-box; border-radius: 12px; background: #FFFFFF; border: 1px solid #DCD7CD; box-shadow: 0 12px 32px rgba(22,23,27,0.12), 0 2px 6px rgba(22,23,27,0.06); display: flex; flex-direction: column">
+<div style="padding: 16px 16px 12px 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #EFECE6">
+<div style="display: flex; flex-direction: column; gap: 3px">
+<h2 style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600">Add a step · Before send</h2>
+<p style="margin: 0; font-size: 12.5px; line-height: 18px; color: #45464D">Runs on every attempt, after the message is built and before it is sent. A step here can skip, fail or retry the delivery.</p>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1.5px solid #2B59E6; color: #66676E"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="Search steps and templates" aria-label="Search steps and templates" style="border: 0; outline: none; background: transparent; font-size: 13px; color: #16171B; width: 100%; padding: 0"></label>
+</div>
+<div style="padding: 8px; display: flex; flex-direction: column; gap: 2px">
+<span style="padding: 6px 8px 4px 8px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; color: #66676E">STEPS</span>
+<button type="button" class="lib-item" style="display: flex; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: #F4F7FF; text-align: left; cursor: pointer; width: 100%"><span style="width: 32px; height: 32px; border-radius: 8px; background: #EEEFF1; color: #3D4451; display: flex; align-items: center; justify-content: center; flex: 0 0 auto" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></span><span style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto"><span style="font-size: 13.5px; font-weight: 600; color: #16171B">Script</span><span style="font-size: 12px; color: #45464D">JavaScript that decides, or only records</span></span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: #66676E">↵</span></button>
+<button type="button" class="lib-item" style="display: flex; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; width: 100%"><span style="width: 32px; height: 32px; border-radius: 8px; background: #EAEFFC; color: #2B59E6; display: flex; align-items: center; justify-content: center; flex: 0 0 auto" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/></svg></span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13.5px; font-weight: 600; color: #16171B">HTTP request</span><span style="font-size: 12px; color: #45464D">Call an API and keep values for later steps</span></span></button>
+<button type="button" class="lib-item" style="display: flex; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; width: 100%"><span style="width: 32px; height: 32px; border-radius: 8px; background: #F2EFE7; color: #9A5A00; display: flex; align-items: center; justify-content: center; flex: 0 0 auto" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13.5px; font-weight: 600; color: #16171B">URL check</span><span style="font-size: 12px; color: #45464D">Make sure the links in the message open</span></span></button>
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 8px; opacity: 0.6" aria-disabled="true"><span style="width: 32px; height: 32px; border-radius: 8px; border: 1px dashed #CFC9BE; color: #66676E; display: flex; align-items: center; justify-content: center; flex: 0 0 auto" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h6"/></svg></span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13.5px; font-weight: 600; color: #45464D">Map an answer to a status</span><span style="font-size: 12px; color: #45464D">Only after the response: there is no answer yet here</span></span></div>
+<span style="padding: 10px 8px 4px 8px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; color: #66676E">TEMPLATES</span>
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 8px; opacity: 0.6" aria-disabled="true"><span style="width: 32px; height: 32px; border-radius: 8px; border: 1px dashed #CFC9BE; color: #66676E; display: flex; align-items: center; justify-content: center; flex: 0 0 auto" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13.5px; font-weight: 600; color: #45464D">Qikchat delivery status</span><span style="font-size: 12px; color: #45464D">Runs Later · add it from the Later group</span></span></div>
+</div>
+<div style="padding: 10px 16px; border-top: 1px solid #EFECE6; display: flex; gap: 14px; font-size: 11.5px; color: #66676E; font-family: 'JetBrains Mono', ui-monospace, monospace"><span>↑↓ choose</span><span>↵ add</span><span>esc close</span></div>
+</section>
+
+<aside aria-label="What adding changes" style="position: absolute; right: 24px; top: 72px; width: 300px; box-sizing: border-box; padding: 14px 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E2DED5; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 600">Where a step can go</span>
+<div style="display: grid; grid-template-columns: 116px minmax(0, 1fr); row-gap: 6px; column-gap: 10px; font-size: 12px; line-height: 17px; color: #45464D">
+<span style="font-weight: 600; color: #16171B">Before send</span><span>skip, fail or retry; sees the message</span>
+<span style="font-weight: 600; color: #16171B">After the response</span><span>turn an accepted send into a failure</span>
+<span style="font-weight: 600; color: #16171B">Later</span><span>scheduled checks; observe only</span>
+<span style="font-weight: 600; color: #16171B">On failure</span><span>once the delivery has finally failed</span>
+</div>
+<p style="margin: 0; padding-top: 8px; border-top: 1px solid #EFECE6; font-size: 12px; line-height: 17px; color: #45464D">Nothing goes between Send and its answer: retries are set on the Reliability tab.</p>
+<p style="margin: 0; font-size: 12px; line-height: 17px; color: #45464D">Branches come from where a step runs, so a link can never be wrong. A new step starts as a draft and runs only after you save.</p>
+</aside>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1024}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

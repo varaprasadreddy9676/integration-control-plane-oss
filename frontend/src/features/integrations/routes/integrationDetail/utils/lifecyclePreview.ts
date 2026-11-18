@@ -80,6 +80,3 @@ export const getPreviewWarnings = (
 
 export const getSubjectPreviewKeys = (subjectPreview: SubjectPreviewResult | null): string[] =>
   Object.keys(subjectPreview?.subject?.data || {});
-
-export const getMatchedOnKeys = (cancellationPreview: CancellationPreviewResult | null): string[] =>
-  Array.isArray(cancellationPreview?.matchedOn) ? cancellationPreview.matchedOn : [];

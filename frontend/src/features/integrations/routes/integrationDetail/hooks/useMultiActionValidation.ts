@@ -20,12 +20,9 @@ export const useMultiActionValidation = ({
       formActions.forEach((action: any, i: number) => {
         const actionName = action?.name || `Action ${i + 1}`;
 
-        const actionMode = action?.transformationMode || 'SCRIPT';
-        if (actionMode === 'SCRIPT') {
-          const script = action?.transformation?.script;
-          if (!script || !script.trim()) {
-            errors.push(`${actionName}: Missing transformation script`);
-          }
+        const script = action?.transformation?.script;
+        if (!script || !script.trim()) {
+          errors.push(`${actionName}: Missing transformation script`);
         }
 
         if (action?.targetUrl && !/^https?:\/\/.+/i.test(action.targetUrl)) {

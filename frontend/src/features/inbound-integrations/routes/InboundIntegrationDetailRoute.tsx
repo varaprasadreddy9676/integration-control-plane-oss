@@ -43,6 +43,7 @@ import {
   MessageOutlined,
   WhatsAppOutlined,
   BellOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Editor from '@monaco-editor/react';
@@ -50,6 +51,9 @@ import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils
 import { MetaWhatsAppConfigFields } from '../components/MetaWhatsAppConfigFields';
 import { FcmConfigFields } from '../components/FcmConfigFields';
 import { SmsConfigFields } from '../components/SmsConfigFields';
+import { DeliveryTab } from '../../stages/components/delivery-tab/DeliveryTab';
+import { protocolOf } from '../../stages/deliveryTargets';
+import type { StepEditors } from '../../stages/canvas/stepEditors';
 import {
   getInboundIntegration,
   createInboundIntegration,
@@ -737,6 +741,10 @@ return {
           allowedIpCidrsText: (integration.requestPolicy?.allowedIpCidrs || []).join('\n'),
           allowedBrowserOriginsText: (integration.requestPolicy?.allowedBrowserOrigins || []).join('\n'),
         },
+        // Its one action is the delivery; its stages are edited on the Delivery tab.
+        stages: integration.actions?.[0]?.stages || [],
+        send: integration.actions?.[0]?.send || null,
+        stagesPaused: integration.stagesPaused === true,
         communicationConfig: integration.actions?.[0]?.communicationConfig || {
           channel: 'EMAIL',
           provider: 'SMTP',
@@ -895,8 +903,12 @@ return {
             name: `Send ${communicationConfig.channel}`,
             kind: 'COMMUNICATION',
             communicationConfig,
+            // Pipeline stages of this delivery (Delivery tab).
+            stages: values.stages,
+            send: values.send,
           },
         ];
+        payload.stagesPaused = values.stagesPaused;
         // Response transformation not used for COMMUNICATION
       } else {
         // HTTP integration
@@ -992,6 +1004,47 @@ return {
   const basicComplete = isTabComplete('basic');
   const httpComplete = isTabComplete('http');
 
+  // The Delivery tab's diagram edits the fixed steps (the event, the transformation, the send) in place, with the
+  // sections the other tabs show: nothing sends you to another tab and back. Same as an outbound integration's.
+  type TabItems = NonNullable<React.ComponentProps<typeof Tabs>['items']>;
+  const withStepEditors = (tabs: TabItems): TabItems => {
+    const section = (key: string, title: string) => ({ key, title, node: tabs.find((tab) => tab.key === key)?.children });
+    const stepEditors: StepEditors = {
+      trigger: [section('basic', 'Event'), section('policy', 'Request policy'), section('auth', 'Authentication')],
+      transform: [section('request-transform', 'Request transformation')],
+      send: [section('http', 'Provider')],
+    };
+    return tabs.map((tab) =>
+      tab.key === 'delivery'
+        ? {
+            ...tab,
+            children: (
+              <Card style={{ marginTop: spacing[2] }} size="small">
+                <DeliveryTab
+                  form={form}
+                  integrationId={isCreate ? undefined : id}
+                  stepEditors={stepEditors}
+                  targets={[
+                    {
+                      key: 'action-0',
+                      label: null,
+                      namePath: [],
+                      protocol: protocolOf({ kind: 'COMMUNICATION', communicationConfig: { channel: communicationChannel } }),
+                      actionIndex: 0,
+                    },
+                  ]}
+                  context={() => ({
+                    direction: 'INBOUND',
+                    actions: [{ kind: 'COMMUNICATION', communicationConfig: form.getFieldValue('communicationConfig') }],
+                  })}
+                />
+              </Card>
+            ),
+          }
+        : tab
+    );
+  };
+
   return (
     <div style={{ background: cssVar.bg.base, paddingBottom: spacing[4] }}>
       {/* Page Header */}
@@ -1083,7 +1136,7 @@ return {
             border: `1px solid ${cssVar.border.default}`,
             borderRadius: 8,
           }}
-          items={[
+          items={withStepEditors([
             {
               key: 'basic',
               label: (
@@ -1989,6 +2042,22 @@ return {
                   },
                 ]
               : []),
+            // Email, SMS, WhatsApp and push are deliveries like any other: the same Delivery tab.
+            ...(actionType === 'COMMUNICATION'
+              ? [
+                  {
+                    key: 'delivery',
+                    label: (
+                      <Space size={6}>
+                        <NodeIndexOutlined />
+                        Delivery
+                      </Space>
+                    ),
+                    disabled: !basicComplete || !httpComplete,
+                    children: null, // built by withStepEditors, once every tab's content exists
+                  },
+                ]
+              : []),
             {
               key: 'review',
               label: (
@@ -2287,7 +2356,7 @@ return {
                 </Card>
               ),
             },
-          ]}
+          ])}
         />
 
         {/* Persistent sticky footer — always visible regardless of active tab */}

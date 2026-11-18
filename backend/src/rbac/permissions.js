@@ -28,6 +28,11 @@ const PERMISSIONS = {
   'integration:configure_rate_limit': 'Configure rate limits',
   'integration:version_history': 'Access version history',
 
+  // Pipeline stages
+  'stages:edit': 'Edit pipeline stages and the Send step bindings',
+  'stages:test_live': 'Test stages against live APIs',
+  'stages:replay': 'Replay stage runs and move scheduled work to the current definition',
+
   // Logs & Monitoring
   'logs:view': 'View delivery logs',
   'logs:export': 'Export logs',
@@ -155,6 +160,11 @@ const ROLES = {
       'integration:configure_rate_limit',
       'integration:version_history',
 
+      // Pipeline stages
+      'stages:edit',
+      'stages:test_live',
+      'stages:replay',
+
       // Logs & Monitoring
       'logs:view',
       'logs:export',
@@ -247,6 +257,11 @@ const ROLES = {
       'integration:activate',
       'integration:test',
       'integration:version_history',
+
+      // Pipeline stages
+      'stages:edit',
+      'stages:test_live',
+      'stages:replay',
 
       // Logs (read-only)
       'logs:view',

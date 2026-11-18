@@ -1,47 +1,12 @@
 # Data Transformation
 
-Every integration — outbound, inbound, or scheduled — can reshape the payload before it is sent. Two transformation modes are supported: a simple field-mapping mode for straightforward remapping, and a script mode for anything that requires logic.
+Every integration — outbound, inbound, or scheduled — can reshape the payload before it is sent, with a JavaScript script. An integration without one sends the payload as it is.
 
 ---
 
-## Transformation Modes
+## Writing a Transformation
 
-### SIMPLE Mode — Field Mapping
-
-Define a list of mappings. Each mapping reads a field from the source payload and writes it to the target:
-
-```json
-{
-  "mode": "SIMPLE",
-  "mappings": [
-    { "sourceField": "patient.name",   "targetField": "fullName" },
-    { "sourceField": "appointment.dt", "targetField": "datetime", "transform": "date" },
-    { "sourceField": "status",         "targetField": "status",   "transform": "upper" }
-  ],
-  "staticFields": [
-    { "key": "source", "value": "integration-gateway" }
-  ]
-}
-```
-
-**Dot notation** is supported for nested source fields: `patient.contact.phone`, `items[0].id`, etc.
-
-**Per-field transforms:**
-
-| Transform | Effect |
-|-----------|--------|
-| `trim` | Removes leading/trailing whitespace |
-| `upper` | Converts to uppercase |
-| `lower` | Converts to lowercase |
-| `date` | Converts to ISO date string |
-| `default` | Uses source value, or `defaultValue` if source is undefined |
-| `lookup` | Resolves value against a lookup table |
-
-**Static fields** are added to the output regardless of the input — useful for adding a fixed `source`, `version`, or `environment` field.
-
----
-
-### SCRIPT Mode — Custom JavaScript
+### Custom JavaScript
 
 Write any JavaScript you need. The script runs in a secure sandbox:
 
@@ -110,9 +75,7 @@ Non-2xx responses do not throw — they return the error response as the result,
 
 Lookup tables let you map a raw value to a human-readable or system-specific value without changing the script.
 
-**In SIMPLE mode:** Use `"transform": "lookup"` with a `lookupType`.
-
-**In SCRIPT mode:** Use the `context.http` helper or rely on integration-level lookups configured separately.
+In a script, call `lookup(value, 'TABLE')` (see Lookup Tables), or rely on integration-level lookups configured separately.
 
 **Fallback behaviour:** If a lookup returns null/undefined, the original source value is passed through unchanged.
 
@@ -123,7 +86,7 @@ Lookup tables let you map a raw value to a human-readable or system-specific val
 For inbound integrations, a separate `responseTransformation` config reshapes what your backend returns before sending it back to the caller:
 
 - Input: `{ data, status, headers }` from your backend
-- Same SIMPLE/SCRIPT modes apply
+- Written as a script, like the request transformation
 - Lookups work identically
 
 ---
@@ -152,8 +115,13 @@ Before saving a transformation script, the gateway does a basic syntax parse usi
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `transformation.mode` | `SIMPLE` \| `SCRIPT` | Which mode to use |
-| `transformation.mappings` | array | Field mappings (SIMPLE mode) |
-| `transformation.staticFields` | array | Fixed key/value pairs added to output |
-| `transformation.script` | string | Custom JS code (SCRIPT mode) |
+| `transformation.mode` | `SCRIPT` \| `NONE` | `SCRIPT` when there is a script; `NONE` sends the payload as it is |
+| `transformation.script` | string | The JavaScript that reshapes the payload |
 | `responseTransformation` | object | Same structure, applied to upstream response |
+
+
+---
+
+## Field mappings were removed
+
+Earlier versions had a visual field-mapping mode (`SIMPLE`, with `mappings` and `staticFields`). It was removed: write the same reshaping as a script. A stored configuration that still has mappings fails its deliveries with a message saying so, instead of sending the payload unmapped.

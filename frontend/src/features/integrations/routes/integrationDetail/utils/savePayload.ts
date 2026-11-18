@@ -72,6 +72,11 @@ export const buildIntegrationSavePayload = ({
   rateLimits: values.rateLimits,
   preDeliveryChecks: buildPreDeliveryChecks(values.preDeliveryChecks),
   deliveryFollowUp: buildDeliveryFollowUp(values.deliveryFollowUp),
+  // Pipeline stages (Delivery tab). Untouched stays untouched: sent back unchanged,
+  // which the server does not count as a change of stages.
+  stages: values.stages,
+  send: values.send,
+  stagesPaused: values.stagesPaused,
   deliveryMode: values.deliveryMode,
   schedulingConfig: values.schedulingConfig,
   resourceType: values.resourceType || null,

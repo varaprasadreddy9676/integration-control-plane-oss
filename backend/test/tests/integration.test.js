@@ -122,9 +122,9 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
   });
 
   describe('Webhook Configuration with Transformations', () => {
-    it('should create webhook with SIMPLE transformation', async () => {
+    it('should create webhook with a script transformation', async () => {
       const webhookData = {
-        name: 'TEST_SIMPLE_TRANSFORM',
+        name: 'TEST_SCRIPT_TRANSFORM',
         eventType: 'PATIENT_REGISTERED',
         targetUrl: 'https://api.example.com/webhook',
         httpMethod: 'POST',
@@ -134,17 +134,16 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
           headerName: 'X-API-Key',
           apiKey: 'test_api_key_123'
         },
-        transformationMode: 'SIMPLE',
+        transformationMode: 'SCRIPT',
         transformation: {
-          mappings: [
-            { sourceField: 'firstName', targetField: 'patient_first_name', transform: 'trim' },
-            { sourceField: 'lastName', targetField: 'patient_last_name', transform: 'upper' },
-            { sourceField: 'email', targetField: 'patient_email', transform: 'lower' }
-          ],
-          staticFields: [
-            { key: 'source', value: 'acme' },
-            { key: 'version', value: '1.0' }
-          ]
+          script: `return {
+  ...payload,
+  patient_first_name: payload.firstName,
+  patient_last_name: payload.lastName,
+  patient_email: payload.email,
+  source: 'acme',
+  version: '1.0',
+};`
         },
         isActive: true,
         timeoutMs: 5000,
@@ -160,10 +159,9 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
       });
 
       expect(webhook).toBeDefined();
-      expect(webhook.name).toBe('TEST_SIMPLE_TRANSFORM');
-      expect(webhook.transformationMode).toBe('SIMPLE');
-      expect(webhook.transformation.mappings).toHaveLength(3);
-      expect(webhook.transformation.staticFields).toHaveLength(2);
+      expect(webhook.name).toBe('TEST_SCRIPT_TRANSFORM');
+      expect(webhook.transformationMode).toBe('SCRIPT');
+      expect(webhook.transformation.script).toContain('patient_first_name');
       expect(webhook.outgoingAuthType).toBe('API_KEY');
       expect(webhook.outgoingAuthConfig.apiKey).toBe('test_api_key_123');
     });
@@ -341,10 +339,10 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
   });
 
   describe('Event Processing with Transformations', () => {
-    it('should process event with SIMPLE transformation', async () => {
+    it('should process event with a field-reshaping script', async () => {
       // Create webhook
       const webhookId = await data.addWebhook(1, {
-        name: 'TEST_SIMPLE_PROCESSING',
+        name: 'TEST_SCRIPT_FIELDS_PROCESSING',
         eventType: 'PATIENT_REGISTERED',
         targetUrl: 'https://api.example.com/patients',
         httpMethod: 'POST',
@@ -354,15 +352,14 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
           headerName: 'X-API-Key',
           apiKey: 'test_key'
         },
-        transformationMode: 'SIMPLE',
+        transformationMode: 'SCRIPT',
         transformation: {
-          mappings: [
-            { sourceField: 'firstName', targetField: 'first_name', transform: 'trim' },
-            { sourceField: 'lastName', targetField: 'last_name', transform: 'upper' }
-          ],
-          staticFields: [
-            { key: 'source', value: 'acme' }
-          ]
+          script: `return {
+  ...payload,
+  first_name: payload.firstName,
+  last_name: payload.lastName,
+  source: 'acme',
+};`
         },
         isActive: true,
         timeoutMs: 5000,
@@ -397,7 +394,7 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
       // Manually verify transformation would be applied
       const { applyTransform } = require('../../src/services/transformer');
       const webhook = await data.getWebhook(webhookId);
-      const transformed = applyTransform(webhook, events[0].payload, {
+      const transformed = await applyTransform(webhook, events[0].payload, {
         eventType: 'PATIENT_REGISTERED',
         entityRid: 1
       });
@@ -448,7 +445,7 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
         ]
       };
 
-      const transformed = applyTransform(webhook, testPayload, {
+      const transformed = await applyTransform(webhook, testPayload, {
         eventType: 'BILL_CREATED',
         entityRid: 1
       });
@@ -536,16 +533,15 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
         outgoingAuthConfig: {
           token: 'workflow_test_token'
         },
-        transformationMode: 'SIMPLE',
+        transformationMode: 'SCRIPT',
         transformation: {
-          mappings: [
-            { sourceField: 'patientName', targetField: 'patient', transform: 'trim' },
-            { sourceField: 'appointmentDate', targetField: 'scheduled_date', transform: 'date' }
-          ],
-          staticFields: [
-            { key: 'facility', value: 'Test Clinic' },
-            { key: 'system', value: 'acme' }
-          ]
+          script: `return {
+  ...payload,
+  patient: payload.patientName,
+  scheduled_date: payload.appointmentDate,
+  facility: 'Test Clinic',
+  system: 'acme',
+};`
         },
         isActive: true,
         timeoutMs: 5000,
@@ -568,7 +564,7 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
         doctorId: 'D123'
       };
 
-      const transformed = applyTransform(webhook, testPayload, {
+      const transformed = await applyTransform(webhook, testPayload, {
         eventType: 'APPOINTMENT_CREATED',
         entityRid: 1
       });
@@ -619,7 +615,7 @@ describeRealDb('Integration Tests with Real MongoDB', () => {
   describe('Authentication Header Building', () => {
     it('should build API_KEY authentication headers', async () => {
       const webhook = await db.collection('integration_configs').findOne({
-        name: 'TEST_SIMPLE_TRANSFORM'
+        name: 'TEST_SCRIPT_TRANSFORM'
       });
 
       if (webhook) {

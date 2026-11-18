@@ -30,6 +30,9 @@ const { startSchedulerWorker } = require('./processor/scheduler-worker');
 const { getScheduledJobWorker } = require('./processor/scheduled-job-worker');
 const { startDLQWorker, stopDLQWorker } = require('./processor/dlq-worker');
 const { startFollowUpWorker, stopFollowUpWorker } = require('./processor/follow-up-worker');
+const { startStageRuntime, stopStageRuntime } = require('./stages/runtime');
+const { createJobWorker: createStageJobWorker } = require('./stages/job-worker');
+const { createDeadLetterAlerter } = require('./stages/alerts');
 const { startFailureEmailReportScheduler, sendAlertEmail } = require('./services/notifications/failure-report');
 const { raiseAlert } = require('./services/notifications/raise-alert');
 const { createDlqBacklogWatcher } = require('./services/dlq-backlog-health');
@@ -50,6 +53,7 @@ const outboundIntegrationsRouter = require('./routes/outbound-integrations');
 const inboundIntegrationsRouter = require('./routes/integrations');
 const inboundRuntimePublicRouter = require('./routes/inbound-runtime-public');
 const logsRouter = require('./routes/logs');
+const stagesRouter = require('./routes/stages');
 const systemLogsRouter = require('./routes/system-logs');
 const systemStatusRouter = require('./routes/system-status');
 const clientErrorsRouter = require('./routes/client-errors');
@@ -97,6 +101,8 @@ let stopDeliveryFailureHealthWatcher = () => {};
 let stopDlqBacklogWatcher = () => {};
 let stopDashboardAnalyticsRollupWorker = () => {};
 let dailyCleanupTimer = null;
+let stageJobWorker = null;
+
 let shutdownState = {
   draining: false,
   reason: null,
@@ -175,6 +181,8 @@ async function initiateGracefulDrain(reason, error = null, options = {}) {
     Promise.resolve().then(() => stopPendingDeliveriesWorker()),
     Promise.resolve().then(() => stopDLQWorker()),
     Promise.resolve().then(() => stopFollowUpWorker()),
+    Promise.resolve().then(() => stageJobWorker && stageJobWorker.stop()),
+    Promise.resolve().then(() => stopStageRuntime()),
     Promise.resolve().then(() => stopDashboardAnalyticsRollupWorker()),
     Promise.resolve().then(() => getScheduledJobWorker().stop()),
     Promise.resolve().then(() => stopFailureEmailReportScheduler()),
@@ -389,6 +397,7 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/inbound-integrations`, auth, inboundIntegrationsRouter);
   app.use(`${config.api.basePrefix}/integrations`, auth, inboundIntegrationsRouter); // Runtime proxy endpoint
   app.use(`${config.api.basePrefix}/logs`, auth, logsRouter);
+  app.use(`${config.api.basePrefix}/stages`, auth, stagesRouter);
   app.use(`${config.api.basePrefix}/system-status`, auth, systemStatusRouter);
   app.use(`${config.api.basePrefix}/events`, auth, eventsRouter);
   app.use(`${config.api.basePrefix}/event-sources`, auth, eventSourcesRouter);
@@ -470,6 +479,26 @@ async function bootstrap() {
         log('error', 'Failed to write running process marker', { error: markerError.message });
       });
   });
+
+  // Prove stage isolation before any stage may run; stages stay off if it fails.
+  startStageRuntime(config.stages)
+    .then((stageRuntime) => {
+      const level = stageRuntime.ready && stageRuntime.isolated ? 'info' : 'warn';
+      log(level, `Stage runtime ${stageRuntime.ready ? 'ready' : 'not available'}`, {
+        mode: stageRuntime.mode,
+        isolated: stageRuntime.isolated,
+        checks: stageRuntime.checks,
+        problems: stageRuntime.problems,
+      });
+    })
+    .catch((error) => log('error', 'Stage runtime failed to start', { error: error.message }));
+
+  // Deferred stages (after delivery, on failure) and the repair of left-behind outbox work.
+  stageJobWorker = createStageJobWorker({
+    concurrency: config.stages.poolSize,
+    onDeadLetter: createDeadLetterAlerter({ raise: raiseAlert, log }),
+  });
+  stageJobWorker.start();
 
   stopDeliveryWorker = await startDeliveryWorker();
   stopSchedulerWorker = startSchedulerWorker(); // Start scheduler for delayed/recurring integrations

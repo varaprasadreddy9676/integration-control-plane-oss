@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workflow node</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes node-pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.node-live{animation:none !important}}
+</style>
+</helmet>
+<div title="{{title}}" style="{{rootStyle}}">
+<div style="{{portTop}}" aria-hidden="true"></div>
+<div style="{{tileStyle}}" aria-hidden="true">
+<sc-if value="{{ is.trigger }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></sc-if>
+<sc-if value="{{ is.transform }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2"/><path d="M16 3h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2"/></svg></sc-if>
+<sc-if value="{{ is.http }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/></svg></sc-if>
+<sc-if value="{{ is.script }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></sc-if>
+<sc-if value="{{ is.gate }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 21 12 12 21 3 12z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></sc-if>
+<sc-if value="{{ is.send }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></sc-if>
+<sc-if value="{{ is.retry }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></sc-if>
+<sc-if value="{{ is.schedule }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></sc-if>
+<sc-if value="{{ is.notify }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></sc-if>
+<sc-if value="{{ is.done }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></sc-if>
+<sc-if value="{{ is.skipped }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></sc-if>
+<sc-if value="{{ is.failedEnd }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg></sc-if>
+<sc-if value="{{ is.group }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></sc-if>
+</div>
+<sc-if value="{{ full }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto">
+<div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+<span style="{{eyebrowStyle}}">{{eyebrow}}</span>
+<sc-if value="{{ statusTop }}" hint-placeholder-val="{{ false }}"><span style="{{statusStyle}}"><span class="{{dotClass}}" style="{{dotStyle}}"></span>{{statusText}}</span></sc-if>
+</div>
+<span style="{{titleStyle}}">{{title}}</span>
+<sc-if value="{{ summaryRow }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+<span style="{{summaryStyle}}">{{summary}}</span>
+<sc-if value="{{ statusBottom }}" hint-placeholder-val="{{ false }}"><span style="{{statusStyle}}"><span class="{{dotClass}}" style="{{dotStyle}}"></span>{{statusText}}</span></sc-if>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ compact }}" hint-placeholder-val="{{ false }}">
+<span style="{{titleStyle}}">{{title}}</span>
+<sc-if value="{{ hasStatus }}" hint-placeholder-val="{{ false }}"><span class="{{dotClass}}" style="{{compactDot}}" aria-label="{{statusText}}" role="img"></span></sc-if>
+</sc-if>
+<div style="{{portBottom}}" aria-hidden="true"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"kind":{"editor":"enum","options":["trigger","transform","http","script","gate","send","retry","schedule","notify","done","skipped","failedEnd","group"],"default":"http"},"eyebrow":{"editor":"text","default":"HTTP request · Before send"},"title":{"editor":"text","default":"Check patient consent"},"summary":{"editor":"text","default":"GET consent-api/patients/{id}"},"state":{"editor":"enum","options":["","ok","passed","failed","running","skipped","unvisited","off","issue","edited"],"default":""},"meta":{"editor":"text","default":""},"selected":{"editor":"boolean","default":false},"compact":{"editor":"boolean","default":false},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":256,"height":80}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const yes = (v) => v === true || v === 'true';
+    const theme = p.theme === 'dark' ? 'dark' : 'light';
+    const kind = p.kind || 'http';
+    const state = p.state || '';
+    const selected = yes(p.selected);
+    const compact = yes(p.compact);
+    const title = p.title || '';
+    const T = {
+      light: { surface: '#FFFFFF', quiet: '#F8F7F3', border: '#E2DED5', quietBorder: '#D3CDC1', borderStrong: '#C9C3B7', ink: '#16171B', ink2: '#45464D', ink3: '#66676E', accent: '#2B59E6', accentSoft: 'rgba(43,89,230,0.14)', ok: '#1E7A4C', danger: '#B42318', dangerSoft: 'rgba(180,35,24,0.12)', warn: '#8F5400', neutral: '#5D5E66', shadow: '0 1px 2px rgba(22,23,27,0.06), 0 1px 1px rgba(22,23,27,0.04)' },
+      dark: { surface: '#1C1E21', quiet: '#17191C', border: '#2E3136', quietBorder: '#3A3E44', borderStrong: '#40444B', ink: '#EDEAE3', ink2: '#C2BFB7', ink3: '#97958F', accent: '#43D3B4', accentSoft: 'rgba(67,211,180,0.16)', ok: '#5FD394', danger: '#F47C70', dangerSoft: 'rgba(244,124,112,0.16)', warn: '#EDB95A', neutral: '#97958F', shadow: '0 1px 2px rgba(0,0,0,0.4)' },
+    }[theme];
+    const quiet = state === 'unvisited';
+    // Type accents tint only the icon tile: colour is reserved for status and selection.
+    const tints = {
+      light: { trigger: '#6A4BD6', transform: '#4D5562', http: '#2B59E6', script: '#3D4451', gate: '#9A5A00', send: '#1F4FD1', retry: '#B4570B', schedule: '#11756A', notify: '#B2345E', done: '#1E7A4C', skipped: '#5D5E66', failedEnd: '#B42318', group: '#4D5562' },
+      dark: { trigger: '#A893F5', transform: '#A9B0BC', http: '#7EA2FF', script: '#B5BCC8', gate: '#EDB95A', send: '#86A8FF', retry: '#F2A35E', schedule: '#4FD1C2', notify: '#F28BAE', done: '#5FD394', skipped: '#97958F', failedEnd: '#F47C70', group: '#A9B0BC' },
+    }[theme];
+    const tint = quiet ? T.neutral : tints[kind] || T.ink3;
+    // A name is never cut short to make room for anything else: past 24 characters
+    // (19 compact) it wraps to two lines and the summary gives way.
+    const twoLine = compact ? title.length > 19 : title.length > 24;
+    const w = compact ? 208 : 256;
+    const h = compact ? 44 : 80;
+    let border = `1px solid ${T.border}`;
+    let ring = T.shadow;
+    let bg = T.surface;
+    if (state === 'failed') { border = `1px solid ${T.danger}`; ring = `0 0 0 3px ${T.dangerSoft}`; }
+    if (state === 'running') { border = `1px solid ${T.accent}`; }
+    if (state === 'skipped' || state === 'off') border = `1px dashed ${T.borderStrong}`;
+    // Not taken: a quiet surface and a dashed edge; the words stay readable.
+    if (quiet) { border = `1px dashed ${T.quietBorder}`; ring = 'none'; bg = T.quiet; }
+    if (selected) { border = `1px solid ${T.accent}`; ring = `0 0 0 1px ${T.accent}, 0 0 0 5px ${T.accentSoft}`; }
+    const status = {
+      ok: { color: T.ok, text: p.meta || 'Done' },
+      passed: { color: T.ok, text: p.meta || 'Passed' },
+      failed: { color: T.danger, text: p.meta || 'Failed' },
+      running: { color: T.accent, text: p.meta || 'Running' },
+      skipped: { color: T.neutral, text: p.meta || 'Skipped', hollow: true },
+      off: { color: T.neutral, text: 'Off', hollow: true },
+      unvisited: { color: T.ink3, text: 'Not taken', hollow: true },
+      issue: { color: T.warn, text: p.meta || '1 issue' },
+      edited: { color: T.accent, text: 'Edited' },
+    }[state];
+    const port = (top) => `position: absolute; ${top ? 'top: -5px' : 'bottom: -5px'}; left: ${w / 2 - 4}px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; background: ${bg}; border: 1.5px ${quiet ? 'dashed' : 'solid'} ${quiet ? T.quietBorder : T.borderStrong}`;
+    const mono = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+    const dot = status ? `width: 7px; height: 7px; flex: 0 0 auto; box-sizing: border-box; border-radius: 50%; ${status.hollow ? `border: 1.5px solid ${status.color}; background: transparent;` : `background: ${status.color};`} ${state === 'running' ? 'animation: node-pulse 1.4s ease-in-out infinite;' : ''}` : '';
+    const clamp = 'display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden';
+    const single = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis';
+    return {
+      is: { [kind]: true },
+      full: !compact,
+      compact,
+      eyebrow: p.eyebrow || '',
+      title,
+      summary: p.summary || '',
+      hasStatus: Boolean(status),
+      statusTop: Boolean(status) && twoLine,
+      statusBottom: Boolean(status) && !twoLine,
+      summaryRow: !twoLine,
+      statusText: status ? status.text : '',
+      dotClass: state === 'running' ? 'node-live' : '',
+      rootStyle: `position: relative; width: ${w}px; height: ${h}px; box-sizing: border-box; display: flex; gap: ${compact ? 10 : 12}px; align-items: ${compact ? 'center' : 'flex-start'}; padding: ${compact ? '0 26px 0 12px' : '12px 14px 0 14px'}; background: ${bg}; border: ${border}; border-radius: 10px; box-shadow: ${ring}; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: ${T.ink}; transition: box-shadow 160ms cubic-bezier(.2,0,0,1), border-color 160ms cubic-bezier(.2,0,0,1), background-color 160ms cubic-bezier(.2,0,0,1)`,
+      tileStyle: `flex: 0 0 auto; width: ${compact ? 24 : 32}px; height: ${compact ? 24 : 32}px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: ${tint}; background: color-mix(in oklab, ${tint} ${quiet ? 8 : theme === 'dark' ? 16 : 10}%, transparent)`,
+      eyebrowStyle: `font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: ${T.ink3}; ${single}; min-width: 0; flex: 1 1 auto`,
+      titleStyle: compact
+        ? `font-size: 13px; line-height: 16px; font-weight: 600; color: ${quiet ? T.ink3 : T.ink}; min-width: 0; flex: 1 1 auto; ${twoLine ? clamp : single}`
+        : `font-size: 14px; line-height: ${twoLine ? 18 : 20}px; font-weight: 600; color: ${quiet ? T.ink3 : T.ink}; min-width: 0; ${twoLine ? clamp : single}`,
+      summaryStyle: `font-family: ${mono}; font-size: 11.5px; line-height: 16px; color: ${quiet ? T.ink3 : T.ink2}; ${single}; min-width: 0; flex: 1 1 auto`,
+      statusStyle: `flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; font-family: ${mono}; font-size: 11.5px; line-height: 14px; font-weight: 500; white-space: nowrap; color: ${status ? status.color : T.ink3}`,
+      dotStyle: dot,
+      compactDot: `position: absolute; right: 12px; top: 18px; ${dot}`,
+      portTop: kind === 'trigger' ? 'display: none' : port(true),
+      portBottom: ['done', 'skipped', 'failedEnd'].includes(kind) ? 'display: none' : port(false),
+    };
+  }
+}
+</script>
+</body>
+</html>

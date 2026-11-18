@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Integration header</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.hd-btn{transition:background-color 140ms cubic-bezier(.2,0,0,1),border-color 140ms cubic-bezier(.2,0,0,1)}
+.hd-btn:focus-visible,.hd-tab:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+@keyframes hd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.hd-spin{animation:none !important}}
+</style>
+</helmet>
+<header style="{{rootStyle}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 24px 0 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-width: 0">
+<button type="button" class="hd-btn" aria-label="Back to integrations" style="{{iconBtn}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<div style="display: flex; align-items: center; gap: 10px">
+<h1 style="{{titleStyle}}">{{title}}</h1>
+<label style="{{enabledStyle}}"><input type="checkbox" checked="checked" style="{{switchInput}}"><span style="{{switchTrack}}" aria-hidden="true"><span style="{{switchThumb}}"></span></span>Enabled</label>
+<span style="{{runStyle}}"><span style="{{runDot}}" aria-hidden="true"></span>{{runText}}</span>
+</div>
+<div style="{{subStyle}}"><span>{{subtitle}}</span><span aria-hidden="true">·</span><span style="{{envStyle}}">{{env}}</span></div>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; flex: 0 0 auto">
+<sc-if value="{{ configure }}" hint-placeholder-val="{{ true }}"><span style="{{saveStyle}}" role="status"><sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}"><span class="hd-spin" style="{{spinStyle}}" aria-hidden="true"></span></sc-if><sc-if value="{{ showDot }}" hint-placeholder-val="{{ true }}"><span style="{{saveDot}}" aria-hidden="true"></span></sc-if>{{saveText}}</span></sc-if>
+<button type="button" class="hd-btn" style="{{ghostBtn}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>History</button>
+<button type="button" class="hd-btn" style="{{ghostBtn}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>Test</button>
+<sc-if value="{{ configure }}" hint-placeholder-val="{{ true }}"><button type="button" class="hd-btn" style="{{primaryBtn}}">Save changes</button></sc-if>
+<sc-if value="{{ executions }}" hint-placeholder-val="{{ false }}"><button type="button" class="hd-btn" style="{{primaryBtn}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Edit workflow</button></sc-if>
+</div>
+</div>
+<nav aria-label="Integration sections" style="display: flex; gap: 22px; padding: 0 24px; margin-top: 12px">
+<a href="#" class="hd-tab" style="{{tab}}">Overview</a>
+<a href="#" class="hd-tab" style="{{tab}}">Connection</a>
+<a href="#" class="hd-tab" aria-current="page" style="{{tabOn}}">Workflow</a>
+<a href="#" class="hd-tab" style="{{tab}}">Reliability</a>
+<a href="#" class="hd-tab" style="{{tab}}">Activity</a>
+</nav>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"title":{"editor":"text","default":"Appointment reminders"},"subtitle":{"editor":"text","default":"WhatsApp via Qikchat · Demo Clinic / org 500"},"env":{"editor":"text","default":"Production"},"saveState":{"editor":"enum","options":["unsaved","saving","saved","failed","clean"],"default":"unsaved"},"saveText":{"editor":"text","default":"2 unsaved changes"},"runState":{"editor":"enum","options":["ok","failed","none"],"default":"ok"},"runText":{"editor":"text","default":"Last delivery: accepted · 3 min ago"},"mode":{"editor":"enum","options":["configure","executions"],"default":"configure"},"$preview":{"width":1224,"height":108}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const dark = p.theme === 'dark';
+    const T = dark
+      ? { bg: '#16181B', line: '#2A2D32', ink: '#EDEAE3', ink2: '#C2BFB7', ink3: '#97958F', accent: '#43D3B4', onAccent: '#0B1F1A', ok: '#5FD394', danger: '#F47C70', warn: '#EDB95A', surface: '#1C1E21', soft: 'rgba(237,234,227,0.06)' }
+      : { bg: '#FFFFFF', line: '#E7E3DB', ink: '#16171B', ink2: '#45464D', ink3: '#66676E', accent: '#2B59E6', onAccent: '#FFFFFF', ok: '#1E7A4C', danger: '#B42318', warn: '#8F5400', surface: '#FFFFFF', soft: '#F3F1EC' };
+    const save = p.saveState || 'unsaved';
+    const saveColor = { unsaved: T.warn, saving: T.ink3, saved: T.ok, failed: T.danger, clean: T.ink3 }[save];
+    const run = p.runState || 'ok';
+    const runColor = run === 'ok' ? T.ok : run === 'failed' ? T.danger : T.ink3;
+    const mono = "'JetBrains Mono', ui-monospace, monospace";
+    const btn = 'height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer';
+    const tabBase = `display: inline-flex; align-items: center; height: 34px; font-size: 13.5px; text-decoration: none; border-bottom: 2px solid transparent; box-sizing: border-box`;
+    // Executions are read-only: the way out is Edit workflow, not Save.
+    const executions = p.mode === 'executions';
+    return {
+      configure: !executions,
+      executions,
+      title: p.title || 'Appointment reminders',
+      subtitle: p.subtitle || '',
+      env: p.env || 'Production',
+      saveText: p.saveText || '',
+      runText: p.runText || '',
+      saving: save === 'saving',
+      showDot: save !== 'saving',
+      rootStyle: `width: 100%; height: 108px; box-sizing: border-box; background: ${T.bg}; border-bottom: 1px solid ${T.line}; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: ${T.ink}`,
+      iconBtn: `width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid ${T.line}; background: transparent; color: ${T.ink2}; cursor: pointer`,
+      titleStyle: `margin: 0; font-size: 19px; line-height: 24px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap`,
+      enabledStyle: `display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 9px 0 5px; border-radius: 999px; background: ${T.soft}; font-size: 12px; font-weight: 500; color: ${T.ink2}; cursor: pointer; position: relative`,
+      switchInput: 'position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0',
+      switchTrack: `width: 24px; height: 14px; border-radius: 999px; background: ${T.accent}; position: relative; display: inline-block`,
+      switchThumb: `position: absolute; top: 2px; left: 12px; width: 10px; height: 10px; border-radius: 50%; background: ${T.onAccent}`,
+      runStyle: `display: inline-flex; align-items: center; gap: 7px; font-size: 12px; line-height: 16px; color: ${T.ink2}`,
+      runDot: `width: 7px; height: 7px; border-radius: 50%; background: ${runColor}`,
+      subStyle: `display: flex; align-items: center; gap: 8px; font-size: 12.5px; line-height: 16px; color: ${T.ink3}`,
+      envStyle: `font-family: ${mono}; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid ${T.line}; color: ${T.ink2}`,
+      saveStyle: `display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: ${save === 'unsaved' ? T.ink2 : saveColor}; margin-right: 6px`,
+      saveDot: `width: 7px; height: 7px; border-radius: 50%; background: ${saveColor}`,
+      spinStyle: `width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid ${T.line}; border-top-color: ${T.ink2}; animation: hd-spin 0.8s linear infinite; box-sizing: border-box`,
+      ghostBtn: `${btn}; border: 1px solid ${T.line}; background: ${T.surface}; color: ${T.ink}`,
+      primaryBtn: `${btn}; border: 1px solid ${T.accent}; background: ${T.accent}; color: ${T.onAccent}; font-weight: 600`,
+      tab: `${tabBase}; color: ${T.ink3}`,
+      tabOn: `${tabBase}; color: ${T.ink}; font-weight: 600; border-bottom-color: ${T.ink}`,
+    };
+  }
+}
+</script>
+</body>
+</html>

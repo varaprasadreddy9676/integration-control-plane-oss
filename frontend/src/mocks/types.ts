@@ -1,5 +1,5 @@
 export type IntegrationScope = 'ENTITY_ONLY' | 'INCLUDE_CHILDREN';
-export type TransformationMode = 'SIMPLE' | 'SCRIPT';
+export type TransformationMode = 'NONE' | 'SCRIPT';
 export type OutgoingAuthType = 'NONE' | 'API_KEY' | 'BASIC' | 'BEARER' | 'OAUTH2' | 'CUSTOM' | 'CUSTOM_HEADERS';
 export type DeliveryMode = 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION' | 'WAIT_FOR_EVENT';
 export type ScheduledIntegrationStatus = 'PENDING' | 'SENT' | 'FAILED' | 'CANCELLED' | 'OVERDUE';
@@ -132,8 +132,6 @@ export interface IntegrationAction {
   transformationMode?: TransformationMode;
   transformation?: {
     mode?: TransformationMode;
-    mappings?: Array<Record<string, unknown>>;
-    staticFields?: Array<Record<string, unknown>>;
     script?: string;
   };
 }
@@ -180,14 +178,18 @@ export interface IntegrationConfig {
   }> | null;
   // Asks the provider what became of each accepted send (delivered, read, failed)
   deliveryFollowUp?: DeliveryFollowUpConfig | null;
+  /** Pipeline stages (Delivery tab); see services/stages-api.ts. */
+  stages?: import('../services/stages-api').StageConfig[];
+  send?: import('../services/stages-api').SendBindings | null;
+  stagesPaused?: boolean;
+  stageBudgetMs?: number | null;
+  stageMigration?: { state: 'SHADOW' | 'SWITCHED' | 'ROLLING_BACK' | 'ROLLED_BACK'; sources?: string[] } | null;
   isActive: boolean;
   timeoutMs: number;
   retryCount: number;
   transformationMode: TransformationMode;
   transformation?: {
     mode: TransformationMode;
-    mappings?: Array<Record<string, unknown>>;
-    staticFields?: Array<Record<string, unknown>>;
     script?: string;
   };
   responseTransformation?: {
@@ -350,6 +352,8 @@ export interface DeliveryLog {
   };
   requestHeaders?: Record<string, unknown>; // Actual request headers sent (for debugging)
   followUp?: DeliveryFollowUp | null;
+  /** The latest status of each pipeline stage, by stage id (bodies are fetched with the details). */
+  stageSummary?: Record<string, { status?: string | null; done?: boolean; outcome?: string; seq?: number; name?: string; hook?: string | null }> | null;
   __KEEP_integrationConfig__?: IntegrationConfig; // Enhanced with integration configuration details
   retryAttempts?: DeliveryAttempt[]; // Detailed retry attempts for enhanced UI
   metadata?: {
@@ -469,8 +473,6 @@ export interface IntegrationTemplate {
   transformationMode?: TransformationMode | null;
   transformation?: {
     mode?: TransformationMode;
-    mappings?: Array<Record<string, unknown>>;
-    staticFields?: Array<Record<string, unknown>>;
     script?: string;
   };
   actions?: Array<{
@@ -481,7 +483,6 @@ export interface IntegrationTemplate {
     transformationMode?: TransformationMode;
     transformation?: {
       script?: string;
-      mappings?: Array<Record<string, unknown>>;
     };
   }>;
   isActive?: boolean;

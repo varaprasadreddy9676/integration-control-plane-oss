@@ -6,6 +6,7 @@ const { EventSourceAdapter } = require('./EventSourceAdapter');
 const { log } = require('../logger');
 const hl7 = require('../services/hl7/codec');
 const { normalizeTlsConfig } = require('../services/hl7/tls-options');
+const { isIpInCidr } = require('../utils/ip-address');
 const {
   createOwnerId,
   acquireListenerLock,
@@ -47,30 +48,6 @@ function normalizeIp(value) {
   return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
 }
 
-function ipv4ToInt(ip) {
-  const parts = normalizeIp(ip).split('.');
-  if (parts.length !== 4) return null;
-
-  let result = 0;
-  for (const part of parts) {
-    if (!/^\d+$/.test(part)) return null;
-    const octet = Number(part);
-    if (octet < 0 || octet > 255) return null;
-    result = (result << 8) + octet;
-  }
-  return result >>> 0;
-}
-
-function ipv4MatchesCidr(ip, cidr) {
-  const [range, prefixRaw] = String(cidr || '').split('/');
-  const prefix = Number(prefixRaw);
-  const ipInt = ipv4ToInt(ip);
-  const rangeInt = ipv4ToInt(range);
-  if (ipInt === null || rangeInt === null || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false;
-  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
-  return (ipInt & mask) === (rangeInt & mask);
-}
-
 function normalizeIpAllowlist(config = {}) {
   const entries = [
     ...(Array.isArray(config.allowedSourceIps) ? config.allowedSourceIps : []),
@@ -87,7 +64,7 @@ function isIpAllowed(remoteAddress, allowlist) {
   const ip = normalizeIp(remoteAddress);
   return allowlist.some((entry) => {
     if (entry.includes('/')) {
-      return ipv4MatchesCidr(ip, entry);
+      return isIpInCidr(ip, entry);
     }
     return normalizeIp(entry) === ip;
   });

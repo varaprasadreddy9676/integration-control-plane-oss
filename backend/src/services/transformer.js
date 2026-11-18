@@ -1,5 +1,6 @@
 const { log } = require('../logger');
 const { applyLookups, resolveLookup } = require('./lookup-service');
+const { getGlobalUtilities } = require('./script-utilities');
 const { maskLogSecrets } = require('../utils/integration-secrets');
 
 const MAX_DEPTH = 50;
@@ -71,82 +72,24 @@ function validateScript(script) {
   }
 }
 
+const FIELD_MAPPINGS_REMOVED =
+  'This transformation uses field mappings, which were removed. Rewrite it as a script (Transformation > JavaScript).';
+
 /**
- * Get nested value from object using dot notation
- * e.g., getNestedValue(obj, 'patient.phoneNumber') => obj.patient.phoneNumber
+ * Whether a stored transformation still carries field mappings (or static fields), the mode that
+ * was removed. One with none of them sends the payload as it is, as it always did.
  */
-function getNestedValue(obj, path) {
-  if (!path || !obj) return undefined;
-  const keys = path.split('.');
-  let value = obj;
-  for (const key of keys) {
-    value = value?.[key];
-    if (value === undefined) return undefined;
-  }
-  return value;
-}
-
-async function applySimpleTransform(payload, transformation = {}, event = {}) {
-  const source = payload && typeof payload === 'object' ? payload : {};
-  const result = { ...source }; // Start with original payload, then apply mappings
-  const mappings = transformation && Array.isArray(transformation.mappings) ? transformation.mappings : [];
-
-  for (const row of mappings) {
-    if (!row.targetField || !row.sourceField) continue;
-
-    // Support nested field access with dot notation
-    const sourceVal = getNestedValue(source, row.sourceField);
-    let val = sourceVal;
-
-    switch (row.transform) {
-      case 'trim':
-        val = typeof sourceVal === 'string' ? sourceVal.trim() : sourceVal;
-        break;
-      case 'upper':
-        val = typeof sourceVal === 'string' ? sourceVal.toUpperCase() : sourceVal;
-        break;
-      case 'lower':
-        val = typeof sourceVal === 'string' ? sourceVal.toLowerCase() : sourceVal;
-        break;
-      case 'date':
-        val = sourceVal ? new Date(sourceVal).toISOString() : sourceVal;
-        break;
-      case 'default':
-        val = sourceVal ?? row.defaultValue;
-        break;
-      case 'lookup':
-        if (row.lookupType && sourceVal) {
-          // Apply inline lookup transformation
-          const { resolveLookup } = require('./lookup-service');
-          val = await resolveLookup(sourceVal, row.lookupType, event.orgId, event.orgUnitRid);
-          // If no mapping found, keep original value (PASSTHROUGH behavior)
-          if (val === null || val === undefined) {
-            val = sourceVal;
-          }
-        }
-        break;
-      default:
-        break;
-    }
-
-    if (val !== undefined) {
-      result[row.targetField] = val;
-    }
-  }
-
-  const staticFields = transformation && Array.isArray(transformation.staticFields) ? transformation.staticFields : [];
-  staticFields.forEach((field) => {
-    if (field?.key) {
-      result[field.key] = field.value;
-    }
-  });
-
-  return result;
+function usesFieldMappings(transformation) {
+  if (!transformation || typeof transformation !== 'object') return false;
+  return (
+    (Array.isArray(transformation.mappings) && transformation.mappings.length > 0) ||
+    (Array.isArray(transformation.staticFields) && transformation.staticFields.length > 0)
+  );
 }
 
 /**
  * Apply transformation to payload
- * Step 1: Apply standard transformation (SIMPLE or SCRIPT)
+ * Step 1: Apply the script transformation, if any
  * Step 2: Apply lookups (code mappings)
  */
 async function applyTransform(integration, payload, context = {}, _spansOut = null) {
@@ -162,7 +105,10 @@ async function applyTransform(integration, payload, context = {}, _spansOut = nu
   // Scheduled jobs store the mode inside the transformation object.
   switch (integration.transformationMode || integration.transformation?.mode) {
     case 'SIMPLE':
-      transformed = await applySimpleTransform(payload, integration.transformation, event);
+      // The removed mode: a configuration that never had mappings is a pass-through; one that has them must not
+      // be sent unmapped without a word.
+      if (usesFieldMappings(integration.transformation)) throw new Error(FIELD_MAPPINGS_REMOVED);
+      transformed = payload;
       break;
     case 'SCRIPT':
       if (!validateScript(integration.transformation?.script)) {
@@ -195,98 +141,6 @@ async function applyTransform(integration, payload, context = {}, _spansOut = nu
   }
 
   return transformed;
-}
-
-/**
- * Global utility functions available to all transformation scripts
- */
-function getGlobalUtilities() {
-  // Define epoch as a standalone function so datetime can reference it directly
-  const epochFn = (dateStr) => {
-    if (!dateStr) return null;
-    try {
-      let date;
-      if (typeof dateStr === 'number') {
-        date = dateStr > 10000000000 ? new Date(dateStr) : new Date(dateStr * 1000);
-      } else if (dateStr.includes('/')) {
-        // Handle DD/MM/YYYY or DD/MM/YYYY HH:MM AM/PM format
-        const parts = dateStr.split(' ');
-        const [day, month, year] = parts[0].split('/');
-
-        if (parts.length > 1) {
-          // Has time component like "04/02/2026 04:07 PM"
-          const timeStr = parts.slice(1).join(' ');
-          const isoDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timeStr}`;
-          date = new Date(isoDateStr);
-        } else {
-          // Date only like "04/02/2026"
-          date = new Date(year, month - 1, day);
-        }
-      } else if (dateStr.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}/)) {
-        const parts = dateStr.split(/[\s-]+/);
-        const monthMap = {
-          jan: 0,
-          feb: 1,
-          mar: 2,
-          apr: 3,
-          may: 4,
-          jun: 5,
-          jul: 6,
-          aug: 7,
-          sep: 8,
-          oct: 9,
-          nov: 10,
-          dec: 11,
-        };
-        date = new Date(parts[2], monthMap[parts[1].toLowerCase().substring(0, 3)], parts[0]);
-      } else {
-        date = new Date(dateStr);
-      }
-      return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
-    } catch (_e) {
-      return null;
-    }
-  };
-
-  return {
-    // Date/Time utilities
-    epoch: epochFn,
-
-    datetime: (date, time, timezone) => {
-      if (!date) return null;
-      const tz = timezone || '+05:30';
-      const dateTimeStr = time ? `${date}T${time}${tz}` : `${date}T00:00:00${tz}`;
-      return epochFn(dateTimeStr); // Call epochFn directly instead of this.epoch
-    },
-
-    // String utilities
-    uppercase: (str) => (str ? String(str).toUpperCase() : str),
-
-    lowercase: (str) => (str ? String(str).toLowerCase() : str),
-
-    trim: (str) => (str ? String(str).trim() : str),
-
-    // Phone utilities
-    formatPhone: (phone, countryCode) => {
-      if (!phone) return phone;
-      const cc = countryCode || '91';
-      const cleaned = String(phone).replace(/\D/g, '');
-      if (cleaned.startsWith(cc)) return `+${cleaned}`;
-      return `+${cc}${cleaned}`;
-    },
-
-    // Object utilities
-    get: (obj, path, defaultValue) => {
-      if (!path || !obj) return defaultValue;
-      const keys = path.split('.');
-      let value = obj;
-      for (const key of keys) {
-        value = value?.[key];
-        if (value === undefined) return defaultValue;
-      }
-      return value;
-    },
-  };
 }
 
 /**
@@ -616,8 +470,9 @@ async function applyScriptTransform(
  */
 function hasResponseTransform(responseTransformation) {
   if (!responseTransformation) return false;
-  const mode = responseTransformation.mode || 'SIMPLE';
-  return mode !== 'SCRIPT' || Boolean(String(responseTransformation.script || '').trim());
+  if (responseTransformation.mode === 'SCRIPT') return Boolean(String(responseTransformation.script || '').trim());
+  // Not a script: a leftover field mapping counts as configured (applying it says it was removed), and so do lookups.
+  return usesFieldMappings(responseTransformation) || (Array.isArray(responseTransformation.lookups) && responseTransformation.lookups.length > 0);
 }
 
 /**
@@ -647,7 +502,8 @@ async function applyResponseTransform(integration, response, context = {}, _span
 
   switch (mode) {
     case 'SIMPLE':
-      transformed = await applySimpleTransform(response, integration.responseTransformation, event);
+      if (usesFieldMappings(integration.responseTransformation)) throw new Error(FIELD_MAPPINGS_REMOVED);
+      transformed = response;
       break;
     case 'SCRIPT':
       if (!validateScript(integration.responseTransformation?.script)) {
@@ -682,6 +538,7 @@ module.exports = {
   validateScript,
   applyScriptTransform,
   applyTransform,
+  usesFieldMappings,
   applyResponseTransform,
   hasResponseTransform,
   truncateForTrace,

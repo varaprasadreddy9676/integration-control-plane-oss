@@ -31,7 +31,7 @@ export type AuthType = 'NONE' | 'API_KEY' | 'BEARER' | 'BASIC' | 'OAUTH2';
 /**
  * Transform modes (matches backend schema)
  */
-export type TransformMode = 'NONE' | 'SIMPLE' | 'SCRIPT';
+export type TransformMode = 'NONE' | 'SCRIPT';
 
 /**
  * HTTP methods
@@ -171,19 +171,6 @@ export interface TransformNodeData extends BaseNodeData {
   nodeType: 'transform';
   transformMode: TransformMode;
   transformDirection: 'request' | 'response'; // Which payload to transform
-
-  // SIMPLE mode - Visual field mapping
-  simpleMapping?: {
-    fieldMappings: Array<{
-      id: string; // Unique ID for this mapping
-      sourcePath: string; // JSONPath to source field
-      targetPath: string; // JSONPath to target field
-      defaultValue?: any; // Default if source is missing
-      transform?: 'none' | 'uppercase' | 'lowercase' | 'trim' | 'date_format';
-    }>;
-    staticFields?: Record<string, any>; // Hard-coded fields to add
-    removeUnmapped?: boolean; // If true, only include mapped fields
-  };
 
   // SCRIPT mode - JavaScript transformation
   scriptCode?: string; // JavaScript code: function transform(input) { return output; }
@@ -489,26 +476,10 @@ export interface BackendIntegrationPayload {
   requestTransformation?: {
     mode: TransformMode;
     script?: string;
-    simpleMapping?: {
-      fieldMappings?: Array<{
-        source: string;
-        target: string;
-        defaultValue?: any;
-      }>;
-      staticFields?: Record<string, any>;
-    };
   } | null;
   responseTransformation?: {
     mode: TransformMode;
     script?: string;
-    simpleMapping?: {
-      fieldMappings?: Array<{
-        source: string;
-        target: string;
-        defaultValue?: any;
-      }>;
-      staticFields?: Record<string, any>;
-    };
   } | null;
 
   // Outbound transform fields (legacy/outbound config)
@@ -516,14 +487,6 @@ export interface BackendIntegrationPayload {
   transformation?: {
     mode?: TransformMode;
     script?: string;
-    simpleMapping?: {
-      fieldMappings?: Array<{
-        source: string;
-        target: string;
-        defaultValue?: any;
-      }>;
-      staticFields?: Record<string, any>;
-    };
   } | null;
 
   // Rate limiting

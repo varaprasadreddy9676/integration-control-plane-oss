@@ -2,6 +2,7 @@ const { log } = require('../logger');
 const data = require('./index');
 const config = require('../config');
 const { validateTargetUrl } = require('../utils/url-check');
+const { replacePlaceholders, replacePlaceholdersInObject } = require('../utils/placeholders');
 
 // Pre-built integration templates are now stored in MongoDB
 const WEBHOOK_TEMPLATES = {};
@@ -48,37 +49,6 @@ async function getTemplateCategories(orgId) {
   }
 }
 
-function replacePlaceholders(value, placeholders) {
-  if (typeof value !== 'string') return value;
-  let result = value;
-  Object.keys(placeholders || {}).forEach((key) => {
-    const placeholder = `{{${key}}}`;
-    if (result.includes(placeholder)) {
-      result = result.replace(new RegExp(placeholder, 'g'), placeholders[key] || '');
-    }
-  });
-  return result;
-}
-
-function replacePlaceholdersInObject(obj, placeholders) {
-  if (!obj || typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) {
-    return obj.map((item) => replacePlaceholdersInObject(item, placeholders));
-  }
-  const result = {};
-  Object.keys(obj).forEach((key) => {
-    const value = obj[key];
-    if (typeof value === 'string') {
-      result[key] = replacePlaceholders(value, placeholders);
-    } else if (typeof value === 'object') {
-      result[key] = replacePlaceholdersInObject(value, placeholders);
-    } else {
-      result[key] = value;
-    }
-  });
-  return result;
-}
-
 async function createIntegrationFromTemplate(orgId, templateId, overrides = {}) {
   const template = await getTemplateById(orgId, templateId);
   if (!template) {
@@ -108,6 +78,9 @@ async function createIntegrationFromTemplate(orgId, templateId, overrides = {}) 
       overrides.placeholders
     ),
     actions: replacePlaceholdersInObject(overrides.actions || template.actions, overrides.placeholders),
+    // Pipeline stages and Send bindings the template brings (validated on create).
+    ...(overrides.stages || template.stages ? { stages: overrides.stages || template.stages } : {}),
+    ...(overrides.send || template.send ? { send: overrides.send || template.send } : {}),
     isActive: overrides.isActive !== undefined ? overrides.isActive : true,
     description: overrides.description || template.description,
     metadata: {

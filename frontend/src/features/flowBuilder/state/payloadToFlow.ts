@@ -289,7 +289,6 @@ function convertOutboundEventPayload(payload: BackendIntegrationPayload, flowSta
       data: convertTransformPayload(
         {
           mode: payload.transformationMode,
-          simpleMapping: payload.transformation?.simpleMapping,
           script: payload.transformation?.script,
         },
         'request',
@@ -477,7 +476,6 @@ function convertOutboundScheduledPayload(payload: BackendIntegrationPayload, flo
       data: convertTransformPayload(
         {
           mode: payload.transformationMode,
-          simpleMapping: payload.transformation?.simpleMapping,
           script: payload.transformation?.script,
         },
         'request',
@@ -619,20 +617,7 @@ function convertTransformPayload(
     transformDirection: direction,
   };
 
-  if (transform.mode === 'SIMPLE' && transform.simpleMapping) {
-    data.simpleMapping = {
-      fieldMappings:
-        transform.simpleMapping.fieldMappings?.map((m, index) => ({
-          id: `mapping-${index + 1}`,
-          sourcePath: m.source,
-          targetPath: m.target,
-          defaultValue: m.defaultValue,
-          transform: 'none',
-        })) || [],
-      staticFields: transform.simpleMapping.staticFields,
-      removeUnmapped: false,
-    };
-  } else if (transform.mode === 'SCRIPT') {
+  if (transform.mode === 'SCRIPT') {
     data.scriptCode = transform.script;
     data.scriptTimeout = 5000;
   }

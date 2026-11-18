@@ -78,11 +78,9 @@ X-API-Key: your-api-key
 
 ## Using Lookups in Transformations
 
-### SIMPLE Mode (Visual Field Mapping)
+### In a transformation script
 
-In the field mapping editor, set the source field and choose **Lookup** as the transformation type. Select the lookup table by name. At delivery time, the source value is looked up and replaced with the target value.
-
-If no match is found, the original value is passed through unchanged.
+Call `lookup(value, 'TABLE')` from the script. If no match is found, the original value is passed through unchanged.
 
 ### SCRIPT Mode (JavaScript)
 

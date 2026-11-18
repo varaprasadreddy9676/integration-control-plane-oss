@@ -28,7 +28,7 @@ How Integration Control Plane compares to Svix, Convoy, Hookdeck, and building i
 
 **Where ICPlane wins:**
 - **Scheduled jobs and cron** — Svix is purely event-driven. ICPlane supports cron, interval, and delayed scheduling with MySQL/MongoDB/API data sources.
-- **Transformations included free** — Svix paywalls JavaScript transformations behind the $490/mo Professional tier. ICPlane includes both visual field mapping and JavaScript transformations at no cost.
+- **Transformations included free** — Svix paywalls JavaScript transformations behind the $490/mo Professional tier. ICPlane includes JavaScript transformations at no cost.
 - **DLQ with auto-retry** — Svix marks failed messages and lets users manually retry. ICPlane has a dedicated DLQ worker with configurable automatic retry policies.
 - **Multi-tenancy depth** — ICPlane has 7 RBAC roles, org-scoped data isolation at the query level, and org hierarchies. Svix has basic RBAC and app-level separation.
 
@@ -51,7 +51,6 @@ How Integration Control Plane compares to Svix, Convoy, Hookdeck, and building i
 - **Scheduled jobs** — Convoy has none. ICPlane supports cron, interval, and delayed execution.
 - **DLQ with auto-retry** — Convoy relies on circuit breaking and manual retry. ICPlane has a dedicated DLQ worker.
 - **Transformation engine** — Convoy's JavaScript runtime is limited to ES5 (via Goja), no modules, no async/await. ICPlane runs full JavaScript with Node.js.
-- **Visual field mapping** — ICPlane offers a UI-driven SIMPLE mode alongside script mode. Convoy is code-only.
 - **True open source** — ICPlane is AGPL v3.0 (OSI-approved). Convoy uses Elastic License v2.0, which prohibits offering it as a hosted service and is not recognized as open source by OSI.
 - **Data retention** — Convoy Pro retains data for only 7 days. ICPlane retains data as long as your MongoDB has storage.
 
@@ -73,7 +72,7 @@ How Integration Control Plane compares to Svix, Convoy, Hookdeck, and building i
 - **Fully self-hosted** — Hookdeck's core platform is SaaS-only and cannot be self-hosted. Only their Outpost (outbound) component is self-hostable. ICPlane runs entirely on your infrastructure.
 - **No usage-based pricing** — Hookdeck charges per event, per throughput unit, and for add-ons like static IPs ($150/mo). ICPlane is free to run.
 - **Scheduled jobs** — Hookdeck has none.
-- **Visual transformations** — Hookdeck is JavaScript-only with a 1-second timeout, no async, and no external network access. ICPlane offers visual field mapping plus full JavaScript.
+- **Transformations** — Hookdeck is JavaScript-only with a 1-second timeout, no async, and no external network access. ICPlane runs full async JavaScript with controlled HTTP access.
 - **Data retention** — Hookdeck retains data for 3 days on Free, 7 on Team, 30 on Growth ($499/mo). ICPlane is unlimited.
 - **DLQ** — Hookdeck uses an "Issues" system with manual replay. ICPlane has a proper DLQ with automated retry.
 

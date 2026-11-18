@@ -8,7 +8,7 @@ Outbound delivery is the core of the gateway. When an event is received, the sys
 
 1. **Event arrives** in the queue with an `orgId`, `eventType`, and `payload`.
 2. **Matching integrations** are fetched — all `OUTBOUND` configs that match the event type and are active.
-3. **Payload transformation** is applied (field mapping or custom JS script).
+3. **Payload transformation** is applied (a custom JS script, if the integration has one).
 4. Depending on `deliveryMode`, the system either:
    - sends immediately,
    - creates scheduled rows,

@@ -183,7 +183,6 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 **Services** (`backend/src/services/`):
 
 **Transformation Service** (`transformation/`)
-- Field mapping with nested object support (dot notation)
 - Lookup resolution inline
 - Custom JavaScript execution (secure VM sandboxed)
 - Built-in `hl7` helper for HL7 v2 JSON-to-HL7 and HL7-to-JSON transformations
@@ -529,8 +528,7 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Transformation                              │
-│  • SIMPLE: Field mapping + lookups + static fields               │
-│  • SCRIPT: Custom JavaScript (secure VM sandboxed)                     │
+│  • SCRIPT: Custom JavaScript (secure VM sandboxed), + lookups    │
 │  Input: event.payload                                            │
 │  Output: transformed payload                                     │
 └───────────────────────────┬─────────────────────────────────────┘
@@ -614,8 +612,7 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 ┌─────────────────────────────────────────────────────────────────┐
 │                Transform Request Payload                         │
 │  Apply requestTransformation:                                    │
-│  • SIMPLE: Field mapping + lookups                               │
-│  • SCRIPT: Custom JavaScript                                     │
+│  • SCRIPT: Custom JavaScript, + lookups                          │
 │  Input: req.body                                                 │
 │  Output: transformedRequest                                      │
 └───────────────────────────┬─────────────────────────────────────┘
@@ -802,8 +799,7 @@ The system supports three distinct integration patterns:
   httpMethod: 'POST' | 'PUT' | 'PATCH',
 
   // Transformation
-  transformationMode: 'SIMPLE' | 'SCRIPT',
-  fieldMappings: FieldMapping[],  // For SIMPLE mode
+  transformationMode: 'NONE' | 'SCRIPT',
   transformScript: string,        // For SCRIPT mode
 
   // Authentication

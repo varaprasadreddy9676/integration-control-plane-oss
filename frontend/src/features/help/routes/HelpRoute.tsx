@@ -25,10 +25,10 @@ export const HelpRoute = () => {
     {
       key: 'transformations',
       title: 'Transformations Guide',
-      description: 'Master SIMPLE and SCRIPT transformations to reshape event data',
+      description: 'Write scripts that reshape event data',
       icon: <CodeOutlined style={{ fontSize: 32, color: colors.success[600] }} />,
       path: '/help/transformations',
-      topics: ['Field Mappings', 'JavaScript Scripting', 'Available Functions', 'Best Practices'],
+      topics: ['JavaScript Scripting', 'Available Functions', 'Best Practices'],
       comingSoon: true
     },
     {

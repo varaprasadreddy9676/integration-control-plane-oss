@@ -160,6 +160,23 @@ const defaultConfig = {
     launchRateLimitMax: parsePositiveNumber(process.env.PORTAL_LAUNCH_RATE_LIMIT_MAX, 20),
     launchRateLimitWindowSeconds: parsePositiveNumber(process.env.PORTAL_LAUNCH_RATE_LIMIT_WINDOW_SECONDS, 60),
   },
+  stages: {
+    // Where stage scripts run: host | sidecar | none (see src/stages/runtime/isolation.js).
+    isolation: process.env.STAGE_ISOLATION || 'none',
+    // host mode: one uid per runner from this range, e.g. "61000-61031".
+    runnerUids: process.env.STAGE_RUNNER_UIDS || null,
+    // sidecar mode: the stage-runner container's socket.
+    runnerSocket: process.env.STAGE_RUNNER_SOCKET || '/run/stage-runner/runner.sock',
+    // Without isolation, stage scripts run only when this is true; never by default in production.
+    allowUnisolated: parseBoolean(process.env.STAGE_ALLOW_UNISOLATED, process.env.NODE_ENV !== 'production'),
+    // A file runners must not be able to read (the backend's .env, for example); checked at startup.
+    protectedFile: process.env.STAGE_PROTECTED_FILE || null,
+    // New integrations start with their provider's stage templates (and not the
+    // old follow-up). Switch on per environment once stages run there.
+    templatesByDefault: parseBoolean(process.env.STAGE_TEMPLATES_BY_DEFAULT, false),
+    poolSize: parsePositiveNumber(process.env.STAGE_POOL_SIZE, 4),
+    memoryMb: parsePositiveNumber(process.env.STAGE_MEMORY_MB, 128),
+  },
   // NOTE: Event types are now managed in MongoDB 'event_types' collection (56 events)
   // Do not specify eventTypes here - use the populate-event-types.js script instead
 };

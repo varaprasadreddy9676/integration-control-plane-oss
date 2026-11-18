@@ -36,13 +36,10 @@ const baseProps = {
   onValidateScript: () => {},
   onCopyExampleScript: () => {},
   onValidationClose: () => {},
-  transformationTab: 'SIMPLE' as const,
   selectedEventType: 'order.created',
-  mappingState: { mappings: [], staticFields: [] },
   scriptValue: '',
-  tagTone: () => ({}),
-  onPreview: () => {},
-  onOpenDesigner: () => {},
+  transformationEditor: null,
+  deliveryLayout: 'classic' as const,
   integrationId: 'i1',
 };
 

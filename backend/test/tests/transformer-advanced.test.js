@@ -483,86 +483,22 @@ describe('Advanced Transformer Tests', () => {
     });
   });
 
-  describe('Nested Field Access in SIMPLE Mode', () => {
-    it('should support nested source fields with dot notation', async () => {
-      const integration = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'patient.name', targetField: 'patientName' },
-            { sourceField: 'patient.contact.email', targetField: 'email' },
-            { sourceField: 'appointment.doctor.id', targetField: 'doctorId' }
-          ]
-        }
-      };
-
-      const payload = {
-        patient: {
-          name: 'Jane Doe',
-          contact: {
-            email: 'jane@example.com',
-            phone: '1234567890'
-          }
-        },
-        appointment: {
-          doctor: {
-            id: 'D123',
-            name: 'Dr. Smith'
-          }
-        }
-      };
-
-      const result = await applyTransform(integration, payload, {});
-
-      expect(result.patientName).toBe('Jane Doe');
-      expect(result.email).toBe('jane@example.com');
-      expect(result.doctorId).toBe('D123');
-    });
-
-    it('should handle undefined nested paths gracefully', async () => {
-      const integration = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'missing.nested.field', targetField: 'result' }
-          ]
-        }
-      };
-
-      const payload = { test: 'data' };
-      const result = await applyTransform(integration, payload, {});
-
-      expect(result.result).toBeUndefined();
-    });
-  });
-
   describe('Response Transformations (INBOUND)', () => {
-    it('should apply SIMPLE response transformation', async () => {
+    it('fails a response transformation that still has field mappings, and says what to do', async () => {
       const integration = {
         tenantId: 1,
         responseTransformation: {
           mode: 'SIMPLE',
-          mappings: [
-            { sourceField: 'external_patient_id', targetField: 'patientId' },
-            { sourceField: 'status_code', targetField: 'status', transform: 'upper' }
-          ],
-          staticFields: [
-            { key: 'source', value: 'external_api' }
-          ]
-        }
+          mappings: [{ sourceField: 'external_patient_id', targetField: 'patientId' }],
+          staticFields: [{ key: 'source', value: 'external_api' }],
+        },
       };
+      await expect(applyResponseTransform(integration, { external_patient_id: 'EXT-1' }, {})).rejects.toThrow(/field mappings.*removed/i);
+    });
 
-      const response = {
-        external_patient_id: 'EXT-12345',
-        status_code: 'active',
-        data: 'test'
-      };
-
-      const result = await applyResponseTransform(integration, response, {});
-
-      expect(result.patientId).toBe('EXT-12345');
-      expect(result.status).toBe('ACTIVE');
-      expect(result.source).toBe('external_api');
+    it('passes the response through when the old mode never had a mapping', async () => {
+      const response = { a: 1 };
+      expect(await applyResponseTransform({ responseTransformation: { mode: 'SIMPLE', mappings: [] } }, response, {})).toBe(response);
     });
 
     it('treats an empty SCRIPT as no response transformation', () => {
@@ -572,7 +508,9 @@ describe('Advanced Transformer Tests', () => {
       expect(hasResponseTransform({ mode: 'SCRIPT', script: '' })).toBe(false);
       expect(hasResponseTransform({ mode: 'SCRIPT', script: '  ' })).toBe(false);
       expect(hasResponseTransform({ mode: 'SCRIPT', script: 'return payload;' })).toBe(true);
-      expect(hasResponseTransform({ mode: 'SIMPLE', mappings: [] })).toBe(true);
+      expect(hasResponseTransform({ mode: 'SIMPLE', mappings: [] })).toBe(false);
+      expect(hasResponseTransform({ mode: 'SIMPLE', mappings: [{ sourceField: 'a', targetField: 'b' }] })).toBe(true);
+      expect(hasResponseTransform({ mode: 'SIMPLE', lookups: [{ field: 'x', type: 'T' }] })).toBe(true);
     });
 
     it('passes the response through when the SCRIPT is empty (the create default)', async () => {
@@ -779,20 +717,6 @@ describe('Advanced Transformer Tests', () => {
       const result = await applyTransform(integration, payload, {});
 
       expect(result).toEqual(payload);
-    });
-
-    it('should handle null payload gracefully', async () => {
-      const integration = {
-        transformationMode: 'SIMPLE',
-        transformation: {
-          mappings: [
-            { sourceField: 'test', targetField: 'output' }
-          ]
-        }
-      };
-
-      const result = await applyTransform(integration, null, {});
-      expect(result).toBeDefined();
     });
   });
 

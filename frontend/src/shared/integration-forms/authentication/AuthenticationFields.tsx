@@ -43,7 +43,9 @@ export const AuthenticationFields = ({
   mode,
   spacing,
   authTypeFieldName = 'outgoingAuthType',
+  secretLabel,
 }: AuthenticationFieldsProps) => {
+  const secure = (label: string) => (secretLabel ? secretLabel(label) : label);
   // Context-aware labels
   const getLabel = (baseLabel: string) => {
     if (mode === 'inbound') {
@@ -82,7 +84,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'apiKey']}
-              label="API Key"
+              label={secure('API Key')}
               rules={[{ required: true, message: 'API Key is required' }]}
             >
               <Input.Password placeholder="Enter your API key" />
@@ -106,7 +108,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'password']}
-              label="Password"
+              label={secure('Password')}
               rules={[{ required: true, message: 'Password is required' }]}
             >
               <Input.Password placeholder="Enter password" />
@@ -120,7 +122,7 @@ export const AuthenticationFields = ({
         <Col xs={24}>
           <Form.Item
             name={[...fieldPrefix, 'token']}
-            label="Bearer Token"
+            label={secure('Bearer Token')}
             rules={[{ required: true, message: 'Token is required for Bearer auth' }]}
           >
             <Input.Password placeholder="Enter bearer token" />
@@ -146,7 +148,7 @@ export const AuthenticationFields = ({
           <Col xs={24}>
             <Form.Item
               name={[...fieldPrefix, 'secret']}
-              label="HMAC Secret"
+              label={secure('HMAC Secret')}
               rules={[{ required: true, message: 'HMAC secret is required' }]}
             >
               <Input.Password placeholder="Enter shared signing secret" />
@@ -207,7 +209,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'consumerKey']}
-              label="Consumer Key"
+              label={secure('Consumer Key')}
               rules={[{ required: true, message: 'Consumer Key is required for OAuth 1.0a' }]}
             >
               <Input.Password placeholder="Enter consumer key" />
@@ -216,7 +218,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'consumerSecret']}
-              label="Consumer Secret"
+              label={secure('Consumer Secret')}
               rules={[{ required: true, message: 'Consumer Secret is required' }]}
             >
               <Input.Password placeholder="Enter consumer secret" />
@@ -225,7 +227,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'token']}
-              label="Access Token"
+              label={secure('Access Token')}
               rules={[{ required: true, message: 'Access Token is required' }]}
             >
               <Input.Password placeholder="Enter access token" />
@@ -234,7 +236,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'tokenSecret']}
-              label="Token Secret"
+              label={secure('Token Secret')}
               rules={[{ required: true, message: 'Token Secret is required' }]}
             >
               <Input.Password placeholder="Enter token secret" />
@@ -291,7 +293,7 @@ export const AuthenticationFields = ({
           <Col xs={24} md={12}>
             <Form.Item
               name={[...fieldPrefix, 'clientSecret']}
-              label="Client Secret"
+              label={secure('Client Secret')}
               rules={[{ required: true, message: 'Client Secret is required' }]}
             >
               <Input.Password placeholder="Enter client secret" />

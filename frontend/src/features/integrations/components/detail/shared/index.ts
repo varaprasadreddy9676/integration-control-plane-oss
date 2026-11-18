@@ -4,7 +4,6 @@ export { SecureBadge, SecureLabel } from './SecureBadge';
 export {
   UrlRequirementsHelp,
   DataSecurityHelp,
-  OAuth2RequirementsHelp,
   SchedulingScriptHelp,
   UtilityFunctionsHelp,
   MultiActionModeHelp,

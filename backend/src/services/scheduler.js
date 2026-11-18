@@ -1,5 +1,6 @@
 const { VM } = require('../utils/secure-vm');
 const { log, logError } = require('../logger');
+const { getGlobalUtilities } = require('./script-utilities');
 
 /**
  * Execute scheduling script in sandboxed environment
@@ -10,64 +11,14 @@ const { log, logError } = require('../logger');
  */
 async function executeSchedulingScript(script, event, context = {}) {
   try {
-    // Utility functions available in scheduling scripts
-    // Define epoch as a standalone function so datetime can reference it directly
-    const epochFn = (dateStr) => {
-      if (!dateStr) return null;
-      try {
-        let date;
-        if (typeof dateStr === 'number') {
-          date = dateStr > 10000000000 ? new Date(dateStr) : new Date(dateStr * 1000);
-        } else if (dateStr.includes('/')) {
-          // Handle DD/MM/YYYY or DD/MM/YYYY HH:MM AM/PM format
-          const parts = dateStr.split(' ');
-          const [day, month, year] = parts[0].split('/');
-
-          if (parts.length > 1) {
-            // Has time component like "04/02/2026 04:07 PM"
-            const timeStr = parts.slice(1).join(' ');
-            const isoDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timeStr}`;
-            date = new Date(isoDateStr);
-          } else {
-            // Date only like "04/02/2026"
-            date = new Date(year, month - 1, day);
-          }
-        } else if (dateStr.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}/)) {
-          const parts = dateStr.split(/[\s-]+/);
-          const monthMap = {
-            jan: 0,
-            feb: 1,
-            mar: 2,
-            apr: 3,
-            may: 4,
-            jun: 5,
-            jul: 6,
-            aug: 7,
-            sep: 8,
-            oct: 9,
-            nov: 10,
-            dec: 11,
-          };
-          date = new Date(parts[2], monthMap[parts[1].toLowerCase().substring(0, 3)], parts[0]);
-        } else {
-          date = new Date(dateStr);
-        }
-        return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
-      } catch (_e) {
-        return null;
-      }
-    };
+    // Utility functions available in scheduling scripts: the shared ones every
+    // script sees (epoch, datetime), plus the date arithmetic scheduling needs.
+    const { epoch, datetime } = getGlobalUtilities();
 
     const utilities = {
       // Date/Time conversion utilities
-      epoch: epochFn,
-
-      datetime: (date, time, timezone) => {
-        if (!date) return null;
-        const tz = timezone || '+05:30';
-        const dateTimeStr = time ? `${date}T${time}${tz}` : `${date}T00:00:00${tz}`;
-        return epochFn(dateTimeStr); // Call epochFn directly instead of this.epoch
-      },
+      epoch,
+      datetime,
 
       // Date parsing
       parseDate: (dateString) => {

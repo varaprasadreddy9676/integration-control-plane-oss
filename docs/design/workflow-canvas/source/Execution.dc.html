@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Execution — a delivered reminder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input,select{font-family:inherit}
+.btn{transition:background-color 140ms cubic-bezier(.2,0,0,1),border-color 140ms cubic-bezier(.2,0,0,1)}
+.btn:hover{background:#24272B}
+.btn:focus-visible,.tab:focus-visible{outline:2px solid #43D3B4;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1024px; display: flex; background: #131416; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; color: #EDEAE3; overflow: hidden">
+<dc-import name="AppNav" theme="dark" active="integrations" hint-size="216px,1024px"></dc-import>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="AppHeader" theme="dark" mode="executions" save-state="clean" save-text="" run-state="ok" run-text="Last delivery: accepted · 3 min ago" hint-size="1224px,108px"></dc-import>
+<div style="flex: 1 1 auto; min-height: 0; display: flex">
+
+<main aria-label="Workflow canvas, execution view" style="position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid #2A2D32">
+<div style="position: relative; flex: 1 1 auto; overflow: hidden; background-color: #131416; background-image: radial-gradient(#2A2C30 1px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px">
+
+<div style="position: absolute; left: 60px; top: 50px; width: 920px; height: 996px; transform: scale(0.64); transform-origin: 0 0">
+<div style="position: absolute; left: 64px; top: 44px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86">EVENT</div>
+<div style="position: absolute; left: 64px; top: 164px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86">PREPARE</div>
+<div style="position: absolute; left: 64px; top: 284px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86">BEFORE SEND</div>
+<div style="position: absolute; left: 56px; top: 308px; width: 1px; height: 168px; background: #34373C"></div>
+<div style="position: absolute; left: 64px; top: 524px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86">SEND</div>
+<div style="position: absolute; left: 64px; top: 644px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86; width: 120px">AFTER THE RESPONSE</div>
+<div style="position: absolute; left: 64px; top: 764px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86">LATER</div>
+<div style="position: absolute; left: 64px; top: 884px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; color: #8E8C86">OUTCOME</div>
+
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 116px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-1" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-1)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 236px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-2" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-2)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 356px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-3" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-3)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 476px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-4" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-4)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 596px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-5" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-5)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 716px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-6" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-6)"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 324px; top: 836px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #43D3B4; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round" aria-hidden="true"><defs><marker id="m-ex-7" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#43D3B4" stroke="none" style="stroke: none; fill: #43D3B4; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 39" marker-end="url(#m-ex-7)"></path></svg>
+<svg width="103" height="8" viewBox="0 0 103 8" preserveAspectRatio="none" style="position: absolute; left: 456px; top: 434px; width: 103px; height: 8px; overflow: visible; fill: none; stroke: #3A3D43; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 0 4 L 103 4"></path></svg>
+<svg width="103" height="8" viewBox="0 0 103 8" preserveAspectRatio="none" style="position: absolute; left: 456px; top: 554px; width: 103px; height: 8px; overflow: visible; fill: none; stroke: #3A3D43; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 0 4 L 103 4"></path></svg>
+<svg width="427" height="368" viewBox="0 0 427 368" preserveAspectRatio="none" style="position: absolute; left: 453px; top: 194px; width: 427px; height: 368px; overflow: visible; fill: none; stroke: #3A3D43; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 363 364 L 423 364 L 423 4 L 4 4"></path></svg>
+<svg width="8" height="163" viewBox="0 0 8 163" preserveAspectRatio="none" style="position: absolute; left: 727px; top: 596px; width: 8px; height: 163px; overflow: visible; fill: none; stroke: #3A3D43; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 0 L 4 163"></path></svg>
+<svg width="197" height="89" viewBox="0 0 197 89" preserveAspectRatio="none" style="position: absolute; left: 452px; top: 674px; width: 197px; height: 89px; overflow: visible; fill: none; stroke: #3A3D43; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 4 L 193 4 L 193 86"></path></svg>
+<svg width="8" height="43" viewBox="0 0 8 43" preserveAspectRatio="none" style="position: absolute; left: 684px; top: 836px; width: 8px; height: 43px; overflow: visible; fill: none; stroke: #3A3D43; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 4" aria-hidden="true"><path d="M 4 0 L 4 43"></path></svg>
+
+<div style="position: absolute; left: 200px; top: 40px"><dc-import name="Node" kind="trigger" eyebrow="Event" title="Appointment confirmed" summary="APPOINTMENT_CONFIRMED" state="ok" meta="14:02:09" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 160px"><dc-import name="Node" kind="transform" eyebrow="Transform" title="Build the reminder" summary="script · 14 lines" state="ok" meta="6 ms" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 280px"><dc-import name="Node" kind="http" eyebrow="HTTP request · Before send" title="Check patient consent" summary="GET consent-api/patients/{id}" state="ok" meta="212 ms" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 400px"><dc-import name="Node" kind="gate" eyebrow="Gate · Before send" title="Consent granted?" summary="consent: true → continue" state="ok" meta="3 ms" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 520px"><dc-import name="Node" kind="send" eyebrow="Send · attempt 1" title="Send WhatsApp message" summary="POST api.qikchat.in → 200" state="ok" meta="640 ms" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 640px"><dc-import name="Node" kind="script" eyebrow="Gate · After the response" title="Read the provider reply" summary="ACCEPTED · messageId wa-8f2c…" state="ok" meta="4 ms" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 760px"><dc-import name="Node" kind="schedule" eyebrow="HTTP request · Later" title="Check delivery status" summary="3 checks · READ at the 1 h check" state="ok" meta="READ" selected="true" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 200px; top: 880px"><dc-import name="Node" kind="done" eyebrow="Outcome" title="Delivered" summary="read 14:31 · seen at 15:02" state="ok" meta="Done" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 400px"><dc-import name="Node" kind="skipped" eyebrow="Outcome" title="Skipped" summary="not taken" state="unvisited" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 520px"><dc-import name="Node" kind="retry" eyebrow="Reliability" title="Retry up to 3 attempts" summary="not needed" state="unvisited" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 760px"><dc-import name="Node" kind="notify" eyebrow="Script · On failure" title="Notify the front desk" summary="not taken" state="unvisited" theme="dark" hint-size="256px,80px"></dc-import></div>
+<div style="position: absolute; left: 560px; top: 880px"><dc-import name="Node" kind="failedEnd" eyebrow="Outcome" title="Delivery failed" summary="not taken" state="unvisited" theme="dark" hint-size="256px,80px"></dc-import></div>
+
+<div style="position: absolute; left: 342px; top: 488px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: rgba(67,211,180,0.14); color: #8BE8D3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Yes</div>
+<div style="position: absolute; left: 342px; top: 608px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: rgba(67,211,180,0.14); color: #8BE8D3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Answered · 200</div>
+<div style="position: absolute; left: 342px; top: 728px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: rgba(67,211,180,0.14); color: #8BE8D3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Accepted</div>
+<div style="position: absolute; left: 342px; top: 848px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; background: rgba(67,211,180,0.14); color: #8BE8D3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">READ · checks end</div>
+<div style="position: absolute; left: 480px; top: 410px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; border: 1px solid #2E3136; color: #8E8C86; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">No</div>
+<div style="position: absolute; left: 474px; top: 530px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; border: 1px solid #2E3136; color: #8E8C86; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Error</div>
+<div style="position: absolute; left: 600px; top: 170px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; border: 1px solid #2E3136; color: #8E8C86; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Retry · new attempt</div>
+<div style="position: absolute; left: 743px; top: 668px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; border: 1px solid #2E3136; color: #8E8C86; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Exhausted</div>
+<div style="position: absolute; left: 512px; top: 650px; height: 20px; padding: 0 7px; display: flex; align-items: center; border-radius: 999px; border: 1px solid #2E3136; color: #8E8C86; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; white-space: nowrap">Rejected</div>
+</div>
+
+<div style="position: absolute; left: 16px; top: 12px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<div role="group" aria-label="Canvas mode" style="display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: #1C1E21; border: 1px solid #2E3136">
+<button type="button" class="btn" aria-pressed="false" style="height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #C2BFB7; font-size: 12.5px; font-weight: 500; cursor: pointer">Configure</button>
+<button type="button" class="btn" aria-pressed="true" style="height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: #EDEAE3; color: #131416; font-size: 12.5px; font-weight: 600; cursor: pointer">Executions</button>
+</div>
+<div style="display: flex; align-items: center; height: 36px; border-radius: 9px; background: #1C1E21; border: 1px solid #2E3136">
+<button type="button" class="btn" aria-label="Previous delivery" style="width: 32px; height: 34px; border: 0; background: transparent; color: #C2BFB7; border-radius: 8px; cursor: pointer">‹</button>
+<label for="run-pick" style="position: absolute; width: 1px; height: 1px; overflow: hidden">Delivery</label>
+<select id="run-pick" style="height: 34px; border: 0; background: transparent; color: #EDEAE3; font-size: 12.5px; font-family: 'JetBrains Mono', ui-monospace, monospace; padding: 0 4px"><option>Delivery 6adc…2df · today 14:02:09</option></select>
+<button type="button" class="btn" aria-label="Next delivery" style="width: 32px; height: 34px; border: 0; background: transparent; color: #C2BFB7; border-radius: 8px; cursor: pointer">›</button>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 6px; border: 1px solid #3A3E44; color: #EDEAE3; font-size: 12px; font-weight: 500"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 7v6c0 4 3.5 7 8 8 4.5-1 8-4 8-8V7z"/></svg>Production data</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" class="btn" style="height: 36px; padding: 0 12px; border-radius: 9px; background: #1C1E21; border: 1px solid #2E3136; color: #EDEAE3; font-size: 12.5px; cursor: pointer">Fit</button>
+</div>
+</div>
+</div>
+
+<div style="flex: 0 0 auto; height: 216px; box-sizing: border-box; display: flex; flex-direction: column; background: #16181B; border-top: 1px solid #2A2D32">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px 0 16px; height: 40px; border-bottom: 1px solid #24272B">
+<div role="tablist" aria-label="Execution drawer" style="display: flex; gap: 18px">
+<button type="button" role="tab" aria-selected="true" class="tab" style="height: 40px; border: 0; background: transparent; padding: 0; color: #EDEAE3; font-size: 12.5px; font-weight: 600; border-bottom: 2px solid #43D3B4; cursor: pointer">Trace</button>
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 40px; border: 0; background: transparent; padding: 0; color: #97958F; font-size: 12.5px; font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer">Logs</button>
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 40px; border: 0; background: transparent; padding: 0; color: #97958F; font-size: 12.5px; font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer">Payloads</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(95,211,148,0.12); color: #8EE3B3; font-size: 12px; font-weight: 500"><span style="width: 7px; height: 7px; border-radius: 50%; background: #5FD394" aria-hidden="true"></span>Delivered · 1 attempt · sent in 0.9 s</span><button type="button" class="btn" aria-label="Collapse the drawer" style="width: 28px; height: 28px; border-radius: 7px; border: 1px solid #2E3136; background: transparent; color: #C2BFB7; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+</div>
+<div style="flex: 1 1 auto; padding: 8px 16px; display: grid; grid-template-columns: 210px minmax(0, 1fr) 84px; row-gap: 6px; column-gap: 12px; align-content: start; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: #C2BFB7">
+<span style="grid-column: 1 / -1; display: flex; justify-content: space-between; color: #97958F; font-size: 11px"><span>SENDING · 14:02:09.4 → 14:02:10.3</span><span>scale: 0 – 900 ms</span></span>
+<span>Build the reminder</span><div style="position: relative; height: 12px; background: #1F2125; border-radius: 3px"><div style="position: absolute; left: 0%; width: 0.7%; top: 0; bottom: 0; border-radius: 2px; background: #A9B0BC"></div></div><span style="text-align: right">6 ms</span>
+<span>Check patient consent</span><div style="position: relative; height: 12px; background: #1F2125; border-radius: 3px"><div style="position: absolute; left: 0.7%; width: 23.6%; top: 0; bottom: 0; border-radius: 3px; background: #43D3B4"></div></div><span style="text-align: right">212 ms</span>
+<span>Consent granted?</span><div style="position: relative; height: 12px; background: #1F2125; border-radius: 3px"><div style="position: absolute; left: 24.3%; width: 0.5%; top: 0; bottom: 0; border-radius: 2px; background: #43D3B4"></div></div><span style="text-align: right">3 ms</span>
+<span>Send WhatsApp message</span><div style="position: relative; height: 12px; background: #1F2125; border-radius: 3px"><div style="position: absolute; left: 24.8%; width: 71.1%; top: 0; bottom: 0; border-radius: 3px; background: #7EA2FF"></div></div><span style="text-align: right">640 ms</span>
+<span>Read the provider reply</span><div style="position: relative; height: 12px; background: #1F2125; border-radius: 3px"><div style="position: absolute; left: 95.9%; width: 0.5%; top: 0; bottom: 0; border-radius: 2px; background: #43D3B4"></div></div><span style="text-align: right">4 ms</span>
+<span style="grid-column: 1 / -1; display: flex; justify-content: space-between; color: #97958F; font-size: 11px; margin-top: 2px"><span>SCHEDULED CHECKS · after the accepted send at 14:02:10</span><span>scale: 0 – 1 h</span></span>
+<span>Check delivery status</span><div style="position: relative; height: 12px; background: #1F2125; border-radius: 3px"><div style="position: absolute; left: 0.8%; width: 3px; top: 0; bottom: 0; background: #97958F"></div><div style="position: absolute; left: 8.3%; width: 3px; top: 0; bottom: 0; background: #7EA2FF"></div><div style="position: absolute; left: calc(100% - 3px); width: 3px; top: 0; bottom: 0; background: #5FD394"></div></div><span style="text-align: right">3 checks</span>
+</div>
+</div>
+</main>
+
+<aside aria-label="Step inspector" style="flex: 0 0 400px; width: 400px; display: flex; flex-direction: column; background: #16181B; min-height: 0">
+<div style="padding: 18px 20px 0 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(79,209,194,0.14); color: #4FD1C2; display: flex; align-items: center; justify-content: center" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #97958F">HTTP request · Later</span>
+<h2 style="margin: 0; font-size: 17px; line-height: 22px; font-weight: 600">Check delivery status</h2>
+</div>
+</div>
+<div role="tablist" aria-label="Step" style="display: flex; gap: 20px; border-bottom: 1px solid #2A2D32">
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 36px; border: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: 500; color: #97958F; border-bottom: 2px solid transparent; cursor: pointer">Configure</button>
+<button type="button" role="tab" aria-selected="false" class="tab" style="height: 36px; border: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: 500; color: #97958F; border-bottom: 2px solid transparent; cursor: pointer">Test</button>
+<button type="button" role="tab" aria-selected="true" class="tab" style="height: 36px; border: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: 600; color: #EDEAE3; border-bottom: 2px solid #43D3B4; cursor: pointer">Runs · this delivery</button>
+</div>
+</div>
+<div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px 20px 20px 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: #C2BFB7"><span>Checks after the accepted send</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; color: #97958F">30 s · 5 m · 1 h · 24 h</span></div>
+
+<div style="display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 12px">
+<div style="display: flex; flex-direction: column; align-items: center"><span style="width: 10px; height: 10px; border-radius: 50%; background: #97958F; margin-top: 4px" aria-hidden="true"></span><span style="flex: 1 1 auto; width: 1px; background: #2E3136; margin-top: 4px"></span></div>
+<div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 16px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 13px; font-weight: 600">Check 1 · SENT</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #97958F">14:02:40 · +30 s</span></div><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #97958F">GET /v1/messages?msgid=wa-8f2c… → 200</span></div>
+<div style="display: flex; flex-direction: column; align-items: center"><span style="width: 10px; height: 10px; border-radius: 50%; background: #7EA2FF; margin-top: 4px" aria-hidden="true"></span><span style="flex: 1 1 auto; width: 1px; background: #2E3136; margin-top: 4px"></span></div>
+<div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 16px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 13px; font-weight: 600">Check 2 · DELIVERED</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #97958F">14:07:10 · +5 m</span></div><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #97958F">GET /v1/messages?msgid=wa-8f2c… → 200</span></div>
+<div style="display: flex; flex-direction: column; align-items: center"><span style="width: 10px; height: 10px; border-radius: 50%; background: #5FD394; margin-top: 4px" aria-hidden="true"></span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 13px; font-weight: 600">Check 3 · READ · finished</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #97958F">15:02:10 · +1 h</span></div>
+<div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 11.5px; color: #97958F">Request</span><button type="button" class="btn" style="height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid #2E3136; background: transparent; color: #C2BFB7; font-size: 11.5px; cursor: pointer">Copy as cURL</button></div>
+<pre style="margin: 0; padding: 10px 12px; border-radius: 8px; background: #101113; border: 1px solid #24272B; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 18px; color: #C2BFB7; white-space: pre-wrap; word-break: break-all">curl -X GET "https://api.qikchat.in/v1/messages?msgid=wa-8f2c…" \
+  -H "QIKCHAT-API-KEY: ••••••••"</pre>
+<span style="font-size: 11.5px; color: #97958F">Response · 200 · 190 ms</span>
+<pre style="margin: 0; padding: 10px 12px; border-radius: 8px; background: #101113; border: 1px solid #24272B; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 18px; color: #C2BFB7; white-space: pre-wrap">{ "status": true,
+  "message": { "payload": { "message": {
+    "status": "read", "to": "•••••3210",
+    "readAt": "14:31:05" } } } }</pre>
+<span style="font-size: 12px; color: #C2BFB7">Decided <b style="color: #8BE8D3; font-weight: 600">READ</b> (read at 14:31:05, seen by this check), done: nothing more to wait for. The 24 h check was not needed.</span>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1024}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

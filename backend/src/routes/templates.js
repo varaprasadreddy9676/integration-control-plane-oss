@@ -4,6 +4,7 @@ const data = require('../data');
 const templates = require('../data/templates');
 const catalog = require('../services/integration-templates/catalog');
 const asyncHandler = require('../utils/async-handler');
+const { replacePlaceholders, replacePlaceholdersInObject } = require('../utils/placeholders');
 const { auditTemplate } = require('../middleware/audit');
 const { maskIntegrationSecrets, restoreMaskedSecrets, containsSecretMask } = require('../utils/integration-secrets');
 
@@ -222,41 +223,6 @@ router.post(
           code: 'VALIDATION_ERROR',
         });
       }
-
-      // Helper function to replace placeholders in strings
-      const replacePlaceholders = (value, placeholders) => {
-        if (typeof value !== 'string') return value;
-        let result = value;
-        Object.keys(placeholders || {}).forEach((key) => {
-          const placeholder = `{{${key}}}`;
-          if (result.includes(placeholder)) {
-            result = result.replace(new RegExp(placeholder, 'g'), placeholders[key] || '');
-          }
-        });
-        return result;
-      };
-
-      // Helper function to replace placeholders in objects recursively
-      const replacePlaceholdersInObject = (obj, placeholders) => {
-        if (!obj || typeof obj !== 'object') return obj;
-
-        if (Array.isArray(obj)) {
-          return obj.map((item) => replacePlaceholdersInObject(item, placeholders));
-        }
-
-        const result = {};
-        Object.keys(obj).forEach((key) => {
-          const value = obj[key];
-          if (typeof value === 'string') {
-            result[key] = replacePlaceholders(value, placeholders);
-          } else if (typeof value === 'object') {
-            result[key] = replacePlaceholdersInObject(value, placeholders);
-          } else {
-            result[key] = value;
-          }
-        });
-        return result;
-      };
 
       // Build integration config from template with overrides
       const __KEEP_integrationConfig__ = {

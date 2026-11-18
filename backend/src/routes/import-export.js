@@ -1,5 +1,6 @@
 const express = require('express');
 const { log } = require('../logger');
+const { stagesForExport, actionsForExport, prepareStagesForImport, prepareActionsForImport } = require('../stages/integration-config');
 const data = require('../data');
 const templates = require('../data/templates');
 const asyncHandler = require('../utils/async-handler');
@@ -308,6 +309,19 @@ router.post(
             req.orgId,
             existingIntegration
           );
+          const stageImport = await prepareStagesForImport(importedIntegration.stages, {
+            orgId: req.orgId,
+            existingStages: (existingIntegration && existingIntegration.stages) || [],
+          });
+          if (stageImport.stages) integrationForImport.stages = stageImport.stages;
+          else delete integrationForImport.stages;
+          // An integration with actions: each action's secrets and stages.
+          const actionImport = await prepareActionsForImport(importedIntegration.actions, {
+            orgId: req.orgId,
+            existingActions: (existingIntegration && existingIntegration.actions) || [],
+          });
+          if (actionImport.actions) integrationForImport.actions = actionImport.actions;
+          else delete integrationForImport.actions;
 
           if (existingIntegration) {
             // Update existing integration
@@ -323,6 +337,7 @@ router.post(
                 integrationId: importedIntegration.id,
                 integration: updatedIntegration,
                 action: 'updated',
+                stagesNeedingAttention: stageImport.attention,
               });
               results.summary.updated++;
             } else {
@@ -346,6 +361,7 @@ router.post(
               integration: createdIntegration,
               action: 'created',
               needsCredentials,
+              stagesNeedingAttention: stageImport.attention,
             });
             results.summary.successful++;
           }
@@ -557,6 +573,13 @@ function sanitizeIntegrationForExport(integration, includeSensitive = false, for
     transformationMode: integration.transformationMode,
     headers: integration.headers,
     metadata: integration.metadata || {},
+    // Pipeline stages and their Send bindings (scripts left out without sensitive data).
+    stages: stagesForExport(integration.stages, includeSensitive),
+    // The deliveries of an integration with actions (email, SMS, HL7, HTTP), each with its stages.
+    ...(Array.isArray(integration.actions) && integration.actions.length ? { actions: actionsForExport(integration.actions, includeSensitive) } : {}),
+    send: integration.send || null,
+    stagesPaused: integration.stagesPaused === true,
+    stageBudgetMs: integration.stageBudgetMs || null,
     createdAt: integration.createdAt,
     updatedAt: integration.updatedAt,
   };
@@ -677,9 +700,13 @@ function validateImportData(importData, format) {
           errors.push(`Integration at index ${index}: Missing name`);
           valid = false;
         }
+        const hasActions = Array.isArray(integration.actions) && integration.actions.length > 0;
         if (!integration.targetUrl) {
-          errors.push(`Integration at index ${index}: Missing targetUrl`);
-          valid = false;
+          // An integration with actions names its targets per action.
+          if (!hasActions) {
+            errors.push(`Integration at index ${index}: Missing targetUrl`);
+            valid = false;
+          }
         } else if (!isValidUrl(integration.targetUrl)) {
           errors.push(`Integration at index ${index}: Invalid targetUrl`);
           valid = false;

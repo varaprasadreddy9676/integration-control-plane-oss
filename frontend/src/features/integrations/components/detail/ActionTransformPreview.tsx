@@ -34,7 +34,6 @@ export const ActionTransformPreview = ({
   const runPreview = () => {
     try {
       const action = form.getFieldValue(['actions', actionIndex]);
-      const mode = action?.transformationMode || 'SCRIPT';
       const payload = JSON.parse(sampleInput || '{}');
       const context = {
         eventType: form.getFieldValue('eventType') || 'TEST_EVENT',
@@ -42,54 +41,12 @@ export const ActionTransformPreview = ({
         entityName: 'Test Entity'
       };
 
-      let result;
-      if (mode === 'SCRIPT') {
-        const script = action?.transformation?.script;
-        if (!script) {
-          setOutput(JSON.stringify({ error: 'No script defined' }, null, 2));
-          return;
-        }
-        const fn = new Function('payload', 'context', script);
-        result = fn(payload, context);
-      } else {
-        // SIMPLE mode
-        const mappings = action?.transformation?.mappings || [];
-        const staticFields = action?.transformation?.staticFields || [];
-        result = {};
-
-        // Apply mappings
-        mappings.forEach((mapping: any) => {
-          if (mapping.targetField && mapping.sourceField) {
-            const keys = mapping.sourceField.split('.');
-            let value = payload;
-            for (const key of keys) {
-              value = value?.[key];
-            }
-
-            // Apply transform
-            switch (mapping.transform) {
-              case 'trim':
-                value = typeof value === 'string' ? value.trim() : value;
-                break;
-              case 'upper':
-                value = typeof value === 'string' ? value.toUpperCase() : value;
-                break;
-              case 'lower':
-                value = typeof value === 'string' ? value.toLowerCase() : value;
-                break;
-            }
-
-            result[mapping.targetField] = value;
-          }
-        });
-
-        // Apply static fields
-        staticFields.forEach((field: any) => {
-          if (field.key) {
-            result[field.key] = field.value;
-          }
-        });
+      const script = action?.transformation?.script;
+      if (!script) {
+        setOutput(JSON.stringify({ error: 'No script defined' }, null, 2));
+        return;
       }
+      const result = new Function('payload', 'context', script)(payload, context);
 
       setOutput(JSON.stringify(result, null, 2));
     } catch (err: any) {

@@ -10,9 +10,9 @@ import {
   removeIntegrationSecret,
   getIntegrationCredentials,
 } from '../../../services/api';
-import type { IntegrationConfig } from '../../../mocks/types';
+import type { } from '../../../mocks/types';
 import { IntegrationSigningSection } from '../components/IntegrationSigningSection';
-import { useDesignTokens, withAlpha, spacingToNumber, cssVar } from '../../../design-system/utils';
+import { useDesignTokens, cssVar } from '../../../design-system/utils';
 import { useTenant } from '../../../app/tenant-context';
 import { useAuth } from '../../../app/auth-context';
 import { useIntegrationForm } from '../hooks';
@@ -23,7 +23,6 @@ import { useAvailableFields } from './integrationDetail/hooks/useAvailableFields
 import { useIntegrationDraft } from './integrationDetail/hooks/useIntegrationDraft';
 import { useIntegrationKeyboardShortcuts } from './integrationDetail/hooks/useIntegrationKeyboardShortcuts';
 import { useIntegrationQueries } from './integrationDetail/hooks/useIntegrationQueries';
-import { useTransformationActions } from './integrationDetail/hooks/useTransformationActions';
 import { useMultiActionValidation } from './integrationDetail/hooks/useMultiActionValidation';
 import { useAutoExpandSections } from './integrationDetail/hooks/useAutoExpandSections';
 import { useDeliveryModeSync } from './integrationDetail/hooks/useDeliveryModeSync';
@@ -34,15 +33,18 @@ import { useIntegrationImportExport } from './integrationDetail/hooks/useIntegra
 import { IntegrationPageHeader } from './integrationDetail/components/IntegrationPageHeader';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
 import { IntegrationHistoryButton } from '../../integration-history';
-import { TransformationDrawer } from './integrationDetail/components/TransformationDrawer';
 import { ReviewConfirmDrawer } from './integrationDetail/components/ReviewConfirmDrawer';
 import { buildIntegrationSectionItems } from './integrationDetail/components/IntegrationSectionsContent';
 import { IntegrationFormContainer } from './integrationDetail/components/IntegrationFormContainer';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { IntegrationFormBody } from './integrationDetail/components/IntegrationFormBody';
+import { readDeliveryLayout, saveDeliveryLayout } from './integrationDetail/utils/deliveryLayout';
+import { buildFollowUpStep } from '../../../services/stages-api';
+import { applyClassicToSteps, classicFromSteps } from './integrationDetail/utils/classicSteps';
+import type { ClassicSteps } from './integrationDetail/utils/classicSteps';
+import type { DeliveryLayout } from './integrationDetail/utils/deliveryLayout';
 import { TransformationDesigner } from './integrationDetail/components/TransformationDesigner';
 import { buildPreviewContext } from './integrationDetail/utils/previewContext';
-import { registerPreviewRunner } from './integrationDetail/utils/previewRunner';
 import { createTagTone } from './integrationDetail/utils/styles';
 import { useSchedulingScripts } from './integrationDetail/hooks/useSchedulingScripts';
 import { validateScheduling } from './integrationDetail/utils/validateScheduling';
@@ -69,8 +71,15 @@ export const IntegrationDetailRoute = () => {
   const queryClient = useQueryClient();
   const isCreate = !id || id === 'new';
   const [form] = Form.useForm();
-  const [transformationTab, setTransformationTab] = useState<'SIMPLE' | 'SCRIPT'>('SIMPLE');
-  const [scriptValue, setScriptValue] = useState(defaultScript);
+  // The script is the transformation; empty means the event is sent as it is.
+  const [scriptValue, setScriptValue] = useState('');
+  // For an integration that runs on steps: what the classic tabs showed when it loaded, to write back only what changes.
+  const classicOnLoad = useRef<ClassicSteps | null>(null);
+  const [deliveryLayout, setDeliveryLayout] = useState<DeliveryLayout>(readDeliveryLayout);
+  const changeDeliveryLayout = (layout: DeliveryLayout) => {
+    saveDeliveryLayout(layout);
+    setDeliveryLayout(layout);
+  };
   const [responseTransformEnabled, setResponseTransformEnabled] = useState(false);
   const [responseTransformScript, setResponseTransformScript] = useState(`// Inspect the remote API's response body.
 // Call skip(reason) to signal a business-level failure.
@@ -83,10 +92,6 @@ export const IntegrationDetailRoute = () => {
 // }
 `);
   const { message: messageApi, modal } = App.useApp();
-  const [mappingState, setMappingState] = useState<{ mappings: any[]; staticFields: any[] }>({
-    mappings: [],
-    staticFields: [],
-  });
 
   // Watch form fields to trigger re-render and unlock tabs dynamically
   const formName = Form.useWatch('name', form);
@@ -101,7 +106,6 @@ export const IntegrationDetailRoute = () => {
     message?: string;
   }>({ status: 'idle' });
   const [isValidatingScript, setIsValidatingScript] = useState(false);
-  const [missingRequiredMappings, setMissingRequiredMappings] = useState(0);
   const [multiActionValidationErrors, setMultiActionValidationErrors] = useState<string[]>([]);
 
   // Track saving state (prevent double-submission)
@@ -121,39 +125,24 @@ export const IntegrationDetailRoute = () => {
 
     // Reset form and state
     form.resetFields();
-    setTransformationTab('SIMPLE');
-    setScriptValue(defaultScript);
-    setMappingState({ mappings: [], staticFields: [] });
+    setScriptValue('');
     setActivePanels(currentIsCreate ? ['configuration'] : []);
     setMultiActionMode(false);
     setSchedulingScriptValidation({ status: 'idle' });
     setIsValidatingScript(false);
-    setMissingRequiredMappings(0);
     setMultiActionValidationErrors([]);
     setSampleInput('');
     setSampleOutput('Awaiting preview…');
-    setLastPreviewMeta(undefined);
     setDeliveryModeChoice('single');
     setResponseTransformEnabled(false);
   }, [id]);
 
   const [sampleInput, setSampleInput] = useState<string>('');
   const [sampleOutput, setSampleOutput] = useState<string>('Awaiting preview…');
-  const [isTransformOpen, setIsTransformOpen] = useState(false);
   const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
   const [isReviewDrawerOpen, setIsReviewDrawerOpen] = useState(false);
-  const [lastPreviewMeta, setLastPreviewMeta] = useState<{ durationMs?: number; status?: number } | undefined>(
-    undefined
-  );
-  const runPreviewRef = useRef<() => void>();
-  const requiredRef = useRef<HTMLDivElement | null>(null);
   const prevSingleConfigRef = useRef<{ targetUrl?: string; httpMethod?: string } | null>(null);
-  const prevSingleTransformRef = useRef<{
-    mode: 'SIMPLE' | 'SCRIPT';
-    script?: string;
-    mappings?: any[];
-    staticFields?: any[];
-  } | null>(null);
+  const prevSingleTransformRef = useRef<{ script?: string } | null>(null);
   const [deliveryModeChoice, setDeliveryModeChoice] = useState<'single' | 'multi'>('single');
   const [multiActionMode, setMultiActionMode] = useState(false);
 
@@ -255,21 +244,7 @@ export const IntegrationDetailRoute = () => {
   const isActiveValue =
     formState.isActiveWatchValue !== undefined ? formState.isActiveWatchValue : (existingIntegration?.isActive ?? true);
   const isDetailLoading = !isCreate && integrationLoading && !existingIntegration;
-  const missingFieldList = useMemo(
-    () =>
-      (mappingState.mappings as any[])
-        .filter((m: any) => ['entity_id', 'bill_id', 'event_type', 'source'].includes(m.targetField) && !m.sourceField)
-        .map((m: any) => m.targetField),
-    [mappingState.mappings]
-  );
-  const transformationHasContent = useMemo(() => {
-    if (transformationTab === 'SCRIPT') {
-      return Boolean(scriptValue && scriptValue.trim().length > 0);
-    }
-    const mappingsCount = mappingState.mappings?.length ?? 0;
-    const staticFieldsCount = mappingState.staticFields?.length ?? 0;
-    return mappingsCount > 0 || staticFieldsCount > 0;
-  }, [mappingState.mappings, mappingState.staticFields, scriptValue, transformationTab]);
+  const transformationHasContent = scriptValue.trim().length > 0;
 
   // Determine if this is a multi-action integration
   const hasActions = Array.isArray(formState.actions) && formState.actions.length > 0;
@@ -376,15 +351,8 @@ export const IntegrationDetailRoute = () => {
         transformation: normalizedTransformation,
         actions: normalizedActions,
       });
-      setTransformationTab(existingIntegration.transformationMode);
-      if (existingIntegration.transformation) {
-        setMappingState({
-          mappings: (existingIntegration.transformation as any).mappings ?? [],
-          staticFields: (existingIntegration.transformation as any).staticFields ?? [],
-        });
-        if ((existingIntegration.transformation as any).script) {
-          setScriptValue(formatScriptForDisplay((existingIntegration.transformation as any).script));
-        }
+      if ((existingIntegration.transformation as any)?.script) {
+        setScriptValue(formatScriptForDisplay((existingIntegration.transformation as any).script));
       }
 
       // Load response transformation
@@ -392,6 +360,20 @@ export const IntegrationDetailRoute = () => {
       if (responseScript && responseScript.trim()) {
         setResponseTransformScript(responseScript);
         setResponseTransformEnabled(true);
+      }
+
+      // On steps already (old settings cleared): the classic tabs show and edit its steps.
+      const onSteps = (existingIntegration as any).stageMigration?.state === 'SWITCHED' && !((existingIntegration.actions?.length ?? 0) > 0);
+      if (onSteps) {
+        const classic = classicFromSteps((existingIntegration as any).stages);
+        classicOnLoad.current = classic;
+        setResponseTransformEnabled(classic.response.on);
+        if (classic.response.script) setResponseTransformScript(classic.response.script);
+        form.setFieldsValue({
+          deliveryFollowUp: { enabled: classic.followUp.on, script: classic.followUp.script, checkAfterSeconds: classic.followUp.checkAfterSeconds },
+        });
+      } else {
+        classicOnLoad.current = null;
       }
     }
   }, [existingIntegration, form]);
@@ -465,19 +447,15 @@ const firstTime = addHours(now(), 1);
     });
   };
 
-  const { handlePreviewTransformation, handleOpenTransformDesigner } = useTransformationActions({
-    selectedEventType: formState.selectedEventType,
-    setIsTransformOpen,
-    runPreview: () => runPreviewRef.current?.(),
-    messageApi,
-  });
-
   const handleSubmit = async (submittedValues: any) => {
     setIsSaving(true);
     try {
       // Tabs may preserve fields that are not currently mounted. Read the
       // complete store so a collapsed or unvisited section is still saved.
-      const values = { ...form.getFieldsValue(true), ...submittedValues };
+      // Actions always come from the store: fields of an action registered on
+      // another tab (its stages, on the Delivery tab) would submit as partial actions.
+      const store = form.getFieldsValue(true);
+      const values = { ...store, ...submittedValues, actions: store.actions ?? submittedValues.actions };
       const urlPattern = /^https?:\/\/.+/i;
       const isMultiActionSubmit = isMultiAction;
       const formActions = form.getFieldValue('actions');
@@ -563,29 +541,6 @@ const firstTime = addHours(now(), 1);
               messageApi.error(`Action ${i + 1} (${action.name}): Transformation script is required`);
               return;
             }
-          } else if (actionMode === 'SIMPLE') {
-            // Validate SIMPLE mode has at least one mapping or static field
-            const hasMappings = action.transformation?.mappings && action.transformation.mappings.length > 0;
-            const hasStaticFields =
-              action.transformation?.staticFields && action.transformation.staticFields.length > 0;
-
-            if (!hasMappings && !hasStaticFields) {
-              messageApi.error(`Action ${i + 1} (${action.name}): Add at least one field mapping or static field`);
-              return;
-            }
-
-            // Validate that mappings have both target and source fields
-            if (hasMappings) {
-              for (let j = 0; j < action.transformation.mappings.length; j++) {
-                const mapping = action.transformation.mappings[j];
-                if (!mapping.targetField || !mapping.sourceField) {
-                  messageApi.error(
-                    `Action ${i + 1} (${action.name}): Field mapping ${j + 1} must have both target and source fields`
-                  );
-                  return;
-                }
-              }
-            }
           }
         }
       }
@@ -596,13 +551,6 @@ const firstTime = addHours(now(), 1);
       }
       if (values.retryCount < 0 || values.retryCount > 10) {
         messageApi.error('Retry count must be between 0 and 10.');
-        return;
-      }
-      // Only validate required mappings for SIMPLE mode (not SCRIPT or multi-action)
-      if (!isMultiActionSubmit && transformationTab === 'SIMPLE' && missingRequiredMappings > 0) {
-        const details = missingFieldList.length ? ` Missing: ${missingFieldList.join(', ')}` : '';
-        messageApi.warning(`Please map all required fields (${missingRequiredMappings} remaining).${details}`);
-        requiredRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
       try {
@@ -641,7 +589,7 @@ const firstTime = addHours(now(), 1);
           subjectExtraction,
           lifecycleRules,
           conditionConfig,
-          transformationMode: transformationTab,
+          transformationMode: transformationHasContent ? 'SCRIPT' : 'NONE',
         });
 
         const normalizedActions = (resolvedActions ?? []).map((action: any) => {
@@ -722,15 +670,43 @@ const firstTime = addHours(now(), 1);
           // Single-action integration: include targetUrl and transformation
           payload.targetUrl = values.targetUrl;
           payload.transformation = {
-            mode: transformationTab,
-            mappings: mappingState.mappings as any[],
-            staticFields: mappingState.staticFields as any[],
+            mode: transformationHasContent ? 'SCRIPT' : 'NONE',
             script: scriptValue,
           };
           (payload as any).responseTransformation = {
             mode: 'SCRIPT',
             script: responseTransformEnabled ? responseTransformScript : '',
           };
+          if (classicOnLoad.current) {
+            // The classic tabs edited its steps: write what changed into them, and keep the old settings switched
+            // off (a follow-up or response check on both paths would run twice).
+            // The whole form store, not `values`: a tab that was never opened has no registered fields.
+            const loaded = classicOnLoad.current;
+            const followUp = form.getFieldValue('deliveryFollowUp');
+            // Switched on with no step yet: the server builds it (the provider's script and schedule, the hosts it may call).
+            const newFollowUp =
+              !loaded.followUp.exists && followUp?.enabled === true
+                ? await buildFollowUpStep({
+                    integrationId: existingIntegration?.id,
+                    integration: { targetUrl: values.targetUrl },
+                    script: followUp.script || '',
+                    checkAfterSeconds: followUp.checkAfterSeconds,
+                  })
+                : undefined;
+            payload.stages = applyClassicToSteps(
+              (form.getFieldValue('stages') || []) as any[],
+              {
+                response: { exists: true, on: responseTransformEnabled, script: responseTransformScript },
+                followUp: followUp
+                  ? { exists: true, on: followUp.enabled === true, script: followUp.script || '', checkAfterSeconds: followUp.checkAfterSeconds }
+                  : loaded.followUp,
+              },
+              loaded,
+              newFollowUp
+            );
+            (payload as any).deliveryFollowUp = { enabled: false, script: '' };
+            (payload as any).responseTransformation = { mode: 'SCRIPT', script: '' };
+          }
         }
 
         if (isCreate) {
@@ -761,10 +737,7 @@ const firstTime = addHours(now(), 1);
 
   const { handleTest } = useIntegrationTest({
     existingIntegration,
-    missingRequiredMappings,
-    missingFieldList,
     messageApi,
-    requiredRef,
   });
 
   // View/Edit mode handlers
@@ -898,9 +871,7 @@ const firstTime = addHours(now(), 1);
     form,
     deliveryModeChoice,
     isMultiAction,
-    transformationTab,
     scriptValue,
-    mappingState,
     setDeliveryModeChoice,
     setMultiActionMode,
     setActivePanels,
@@ -908,6 +879,24 @@ const firstTime = addHours(now(), 1);
     prevSingleTransformRef,
     modal,
   });
+
+  const transformationEditor = (
+      <TransformationDesigner
+        scriptValue={scriptValue}
+        onScriptChange={setScriptValue}
+        sampleInput={sampleInput}
+        onSampleInputChange={setSampleInput}
+        sampleOutput={sampleOutput}
+        onSampleOutputChange={setSampleOutput}
+        availableFields={availableFields as any[]}
+        eventPayload={selectedEventTypeData?.samplePayload}
+        onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
+        getPreviewContext={() => buildPreviewContext(form)}
+        onValidateScript={() => messageApi.success('Script validated')}
+        eventTypes={eventTypes.map((et) => et.eventType)}
+        currentEventType={form.getFieldValue('eventType')}
+      />
+  );
 
   useAutoExpandSections({
     isCreate,
@@ -930,7 +919,6 @@ const firstTime = addHours(now(), 1);
     form,
     messageApi,
   });
-
 
   return (
     <div style={{ paddingBottom: spacing[12] }}>
@@ -964,7 +952,6 @@ const firstTime = addHours(now(), 1);
               existingIntegration={existingIntegration}
               isMultiAction={isMultiAction}
               deliveryModeValue={formState.deliveryModeValue}
-              transformationTab={transformationTab}
               isActiveValue={isActiveValue}
               isSaving={isSaving}
               spacing={spacing}
@@ -1010,13 +997,15 @@ const firstTime = addHours(now(), 1);
               isActiveValue={isActiveValue}
               canTest={!isCreate}
               canSave={
-                isMultiAction ? multiActionValidationErrors.length === 0 && hasActions : missingRequiredMappings === 0
+                isMultiAction ? multiActionValidationErrors.length === 0 && hasActions : true
               }
               spacing={spacing}
               token={token}
               colors={colors}
               deliveryModeChoice={deliveryModeChoice}
               onChangeDeliveryMode={handleSwitchMode}
+              deliveryLayout={deliveryLayout}
+              onChangeDeliveryLayout={changeDeliveryLayout}
               onExpandAll={handleExpandAll}
               onCollapseAll={handleCollapseAll}
               activePanels={activePanels}
@@ -1062,7 +1051,6 @@ const firstTime = addHours(now(), 1);
                   spacing={spacing}
                 />
               }
-              missingRequiredCount={isMultiAction ? 0 : missingRequiredMappings}
               validationErrors={multiActionValidationErrors}
               onActivate={() => {
                 form.setFieldsValue({ isActive: true });
@@ -1097,17 +1085,14 @@ const firstTime = addHours(now(), 1);
                 onValidateScript: handleValidateSchedulingScript,
                 onCopyExampleScript: handleCopyExampleScript,
                 onValidationClose: () => setSchedulingScriptValidation({ status: 'idle' }),
-                transformationTab,
                 selectedEventType: formState.selectedEventType || existingIntegration?.eventType,
-                mappingState,
                 scriptValue,
-                lastPreviewMeta,
-                tagTone,
-                onPreview: handlePreviewTransformation,
-                onOpenDesigner: handleOpenTransformDesigner,
+                transformationEditor,
+                deliveryLayout,
                 isReadOnly: !isCreate && !isEditMode,
                 isLoading: isDetailLoading,
                 integrationId: existingIntegration?.id,
+                onOpenTab: (key: string) => setActivePanels([key]),
                 hasPersistedFollowUpConfig: Boolean(
                   existingIntegration?.resourceType ||
                     existingIntegration?.subjectExtraction ||
@@ -1127,34 +1112,6 @@ const firstTime = addHours(now(), 1);
             />
           )}
         </IntegrationFormContainer>
-        <TransformationDrawer open={isTransformOpen} onClose={() => setIsTransformOpen(false)}>
-          <TransformationDesigner
-            transformationTab={transformationTab}
-            onChangeTab={setTransformationTab}
-            scriptValue={scriptValue}
-            onScriptChange={setScriptValue}
-            mappings={mappingState.mappings as any[]}
-            onMappingsChange={(mappings) => setMappingState((s) => ({ ...s, mappings }))}
-            staticFields={mappingState.staticFields as any[]}
-            onStaticFieldsChange={(staticFields) => setMappingState((s) => ({ ...s, staticFields }))}
-            sampleInput={sampleInput}
-            onSampleInputChange={setSampleInput}
-            sampleOutput={sampleOutput}
-            onSampleOutputChange={setSampleOutput}
-            requiredAnchorRef={requiredRef}
-            onMissingRequiredChange={setMissingRequiredMappings}
-            availableFields={availableFields as any[]}
-            availableFieldTree={availableFieldTree as any[]}
-            eventPayload={selectedEventTypeData?.samplePayload}
-            onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
-            getPreviewContext={() => buildPreviewContext(form)}
-            onValidateScript={() => messageApi.success('Script validated')}
-            onPreviewMeta={setLastPreviewMeta}
-            onRegisterRunPreview={registerPreviewRunner(runPreviewRef)}
-            eventTypes={eventTypes.map((et) => et.eventType)}
-            currentEventType={form.getFieldValue('eventType')}
-          />
-        </TransformationDrawer>
 
         {/* Review & Confirm Drawer */}
         <ReviewConfirmDrawer
@@ -1170,7 +1127,7 @@ const firstTime = addHours(now(), 1);
           deliveryMode={formState.deliveryModeValue || 'IMMEDIATE'}
           retryPolicy={`${formState.retryValue ?? 3} retries, ${formState.timeoutValue ?? 30000}ms timeout`}
           authMethod={formState.authTypeValue || 'NONE'}
-          transformationType={transformationTab === 'SCRIPT' ? 'JavaScript Transform' : 'Simple Mapping'}
+          transformationType={transformationHasContent ? 'JavaScript Transform' : 'None'}
           readinessChecks={[
             {
               label: 'Rule name and event type configured',
@@ -1193,17 +1150,15 @@ const firstTime = addHours(now(), 1);
               // Without a transformation the event payload is sent as-is, which is valid.
               advisory: true,
               warning:
-                !transformationHasContent && !isMultiAction ? 'No transformation: the event payload is sent as-is' : undefined,
+                !transformationHasContent && !isMultiAction
+                  ? 'No transformation: the event payload is sent as-is'
+                  : undefined,
             },
             {
               label: 'No validation errors',
-              isComplete: multiActionValidationErrors.length === 0 && (isMultiAction || missingRequiredMappings === 0),
+              isComplete: multiActionValidationErrors.length === 0,
               warning:
-                multiActionValidationErrors.length > 0
-                  ? `${multiActionValidationErrors.length} errors to fix`
-                  : missingRequiredMappings > 0
-                    ? `${missingRequiredMappings} required mappings missing`
-                    : undefined,
+                multiActionValidationErrors.length > 0 ? `${multiActionValidationErrors.length} errors to fix` : undefined,
             },
           ]}
           isSaving={isSaving}
