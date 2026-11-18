@@ -39,6 +39,8 @@ import { IntegrationFormContainer } from './integrationDetail/components/Integra
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { IntegrationFormBody } from './integrationDetail/components/IntegrationFormBody';
 import { readDeliveryLayout, saveDeliveryLayout } from './integrationDetail/utils/deliveryLayout';
+import { applyClassicToSteps, classicFromSteps } from './integrationDetail/utils/classicSteps';
+import type { ClassicSteps } from './integrationDetail/utils/classicSteps';
 import type { DeliveryLayout } from './integrationDetail/utils/deliveryLayout';
 import { TransformationDesigner } from './integrationDetail/components/TransformationDesigner';
 import { buildPreviewContext } from './integrationDetail/utils/previewContext';
@@ -70,6 +72,8 @@ export const IntegrationDetailRoute = () => {
   const [form] = Form.useForm();
   // The script is the transformation; empty means the event is sent as it is.
   const [scriptValue, setScriptValue] = useState('');
+  // For an integration that runs on steps: what the classic tabs showed when it loaded, to write back only what changes.
+  const classicOnLoad = useRef<ClassicSteps | null>(null);
   const [deliveryLayout, setDeliveryLayout] = useState<DeliveryLayout>(readDeliveryLayout);
   const changeDeliveryLayout = (layout: DeliveryLayout) => {
     saveDeliveryLayout(layout);
@@ -355,6 +359,20 @@ export const IntegrationDetailRoute = () => {
       if (responseScript && responseScript.trim()) {
         setResponseTransformScript(responseScript);
         setResponseTransformEnabled(true);
+      }
+
+      // On steps already (old settings cleared): the classic tabs show and edit its steps.
+      const onSteps = (existingIntegration as any).stageMigration?.state === 'SWITCHED' && !((existingIntegration.actions?.length ?? 0) > 0);
+      if (onSteps) {
+        const classic = classicFromSteps((existingIntegration as any).stages);
+        classicOnLoad.current = classic;
+        setResponseTransformEnabled(classic.response.on);
+        if (classic.response.script) setResponseTransformScript(classic.response.script);
+        form.setFieldsValue({
+          deliveryFollowUp: { enabled: classic.followUp.on, script: classic.followUp.script, checkAfterSeconds: classic.followUp.checkAfterSeconds },
+        });
+      } else {
+        classicOnLoad.current = null;
       }
     }
   }, [existingIntegration, form]);
@@ -658,6 +676,25 @@ const firstTime = addHours(now(), 1);
             mode: 'SCRIPT',
             script: responseTransformEnabled ? responseTransformScript : '',
           };
+          if (classicOnLoad.current) {
+            // The classic tabs edited its steps: write what changed into them, and keep the old settings switched
+            // off (a follow-up or response check on both paths would run twice).
+            // The whole form store, not `values`: a tab that was never opened has no registered fields.
+            const loaded = classicOnLoad.current;
+            const followUp = form.getFieldValue('deliveryFollowUp');
+            payload.stages = applyClassicToSteps(
+              (form.getFieldValue('stages') || []) as any[],
+              {
+                response: { exists: true, on: responseTransformEnabled, script: responseTransformScript },
+                followUp: followUp
+                  ? { exists: true, on: followUp.enabled === true, script: followUp.script || '', checkAfterSeconds: followUp.checkAfterSeconds }
+                  : loaded.followUp,
+              },
+              loaded
+            );
+            (payload as any).deliveryFollowUp = { enabled: false, script: '' };
+            (payload as any).responseTransformation = { mode: 'SCRIPT', script: '' };
+          }
         }
 
         if (isCreate) {

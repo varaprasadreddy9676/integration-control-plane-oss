@@ -41,9 +41,10 @@ export const visibleDeliveryTabs = ({ layout, isMultiAction, stageCount, migrati
   const steps = isMultiAction || layout === 'steps' || alreadySteps;
   return {
     steps,
-    // The old tabs and the steps do the same jobs: show the old ones in classic, or while their setting is in effect.
-    responseTransform: !isMultiAction && (layout === 'steps' ? responseCheckOn : migrationState !== 'SWITCHED'),
-    followUp: !isMultiAction && (layout === 'steps' ? followUpOn : migrationState !== 'SWITCHED'),
+    // The old tabs and the steps do the same jobs: show the old ones in classic (on a migrated integration they
+    // edit its steps), or in steps while their old setting is in effect.
+    responseTransform: !isMultiAction && (layout === 'steps' ? responseCheckOn && migrationState !== 'SWITCHED' : true),
+    followUp: !isMultiAction && (layout === 'steps' ? followUpOn && migrationState !== 'SWITCHED' : true),
     stepsShownAnyway: !isMultiAction && layout !== 'steps' && alreadySteps,
   };
 };

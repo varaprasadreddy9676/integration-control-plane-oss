@@ -30,6 +30,7 @@ import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
 import { visibleDeliveryTabs } from '../utils/deliveryLayout';
+import { classicFromSteps } from '../utils/classicSteps';
 import type { DeliveryLayout } from '../utils/deliveryLayout';
 import { DeliveryTab } from '../../../../stages/components/delivery-tab/DeliveryTab';
 import type { StepEditors } from '../../../../stages/canvas/stepEditors';
@@ -321,6 +322,8 @@ export const buildIntegrationSectionItems = ({
 
   // Check if configuration tab is complete (required for all other tabs)
   const configComplete = isTabComplete('configuration');
+  const runsOnSteps = form.getFieldValue('stageMigration')?.state === 'SWITCHED';
+  const classicSteps = classicFromSteps(form.getFieldValue('stages'));
 
   const items: TabsProps['items'] = [
     {
@@ -628,7 +631,14 @@ export const buildIntegrationSectionItems = ({
       ),
       disabled: !configComplete,
       children: wrapContent(
-        isReadOnly ? (
+        runsOnSteps && !classicSteps.followUp.exists ? (
+          <Alert
+            type="info"
+            showIcon
+            message="This integration runs on steps and has no delivery follow-up yet"
+            description="Switch the layout to Steps and add a step under Later (scheduled) to check what became of a message."
+          />
+        ) : isReadOnly ? (
           <DeliveryFollowUpView form={form} />
         ) : (
           <DeliveryFollowUpSection form={form} integrationId={integrationId} />
@@ -728,8 +738,8 @@ export const buildIntegrationSectionItems = ({
                   type="info"
                   showIcon
                   style={{ marginBottom: spacing[3] }}
-                  message="This integration already uses steps"
-                  description="Its response check, follow-up and alerts are steps now, so they are shown here whichever layout you chose."
+                  message="This integration runs on steps"
+                  description="Its response check and follow-up are steps. You can edit them here or in the classic tabs; they are the same thing."
                 />
               )}
               <DeliveryTab

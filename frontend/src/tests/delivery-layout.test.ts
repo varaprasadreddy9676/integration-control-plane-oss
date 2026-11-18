@@ -23,9 +23,13 @@ describe('which delivery tabs an integration shows', () => {
     expect(visibleDeliveryTabs({ ...base, layout: 'steps', stageCount: 2 }).stepsShownAnyway).toBe(false);
   });
 
-  it('a migrated integration, whose old settings were cleared, does not show the empty old tabs', () => {
-    const shown = visibleDeliveryTabs({ ...base, migrationState: 'SWITCHED' });
-    expect(shown).toMatchObject({ steps: true, responseTransform: false, followUp: false });
+  it('a migrated integration keeps the familiar tabs in classic (they edit its steps), and has no duplicates in steps', () => {
+    expect(visibleDeliveryTabs({ ...base, migrationState: 'SWITCHED' })).toMatchObject({ steps: true, responseTransform: true, followUp: true });
+    expect(visibleDeliveryTabs({ ...base, layout: 'steps', migrationState: 'SWITCHED', responseCheckOn: true, followUpOn: true })).toMatchObject({
+      steps: true,
+      responseTransform: false,
+      followUp: false,
+    });
   });
 
   it('multi-action has only steps for these jobs, in either layout', () => {
