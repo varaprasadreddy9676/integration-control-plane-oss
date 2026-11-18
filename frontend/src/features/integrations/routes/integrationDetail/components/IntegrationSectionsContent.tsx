@@ -29,6 +29,8 @@ import { DeliveryTimingSection } from './DeliveryTimingSection';
 import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
+import { visibleDeliveryTabs } from '../utils/deliveryLayout';
+import type { DeliveryLayout } from '../utils/deliveryLayout';
 import { DeliveryTab } from '../../../../stages/components/delivery-tab/DeliveryTab';
 import type { StepEditors } from '../../../../stages/canvas/stepEditors';
 import { deliveriesOf, stageCountOf } from '../../../../stages/deliveryTargets';
@@ -66,6 +68,7 @@ export interface IntegrationSectionsContentProps {
   scriptValue: string;
   /** The transformation editor, shown in the Transformation tab while editing. */
   transformationEditor: React.ReactNode;
+  deliveryLayout: DeliveryLayout;
   isReadOnly?: boolean;
   isLoading?: boolean;
   integrationId?: string;
@@ -114,6 +117,7 @@ export const buildIntegrationSectionItems = ({
   selectedEventType,
   scriptValue,
   transformationEditor,
+  deliveryLayout,
   isReadOnly = false,
   isLoading = false,
   integrationId,
@@ -696,7 +700,22 @@ export const buildIntegrationSectionItems = ({
     send: [section('configuration', 'Target'), section('authentication', 'Authentication'), section('timingFollowUp', 'Timing and follow-up')],
     retry: [section('reliability', 'Retries and limits')],
   };
-  return items.map((item) =>
+  const current = form.getFieldsValue(true);
+  const visible = visibleDeliveryTabs({
+    layout: deliveryLayout,
+    isMultiAction,
+    stageCount,
+    migrationState: current.stageMigration?.state,
+    responseCheckOn: responseTransformEnabled,
+    followUpOn: current.deliveryFollowUp?.enabled === true,
+  });
+  const shown = items.filter(
+    (item) =>
+      (item.key !== 'delivery' || visible.steps) &&
+      (item.key !== 'responseTransform' || visible.responseTransform) &&
+      (item.key !== 'deliveryFollowUp' || visible.followUp)
+  );
+  return shown.map((item) =>
     item.key === 'delivery'
       ? {
           ...item,
@@ -704,6 +723,15 @@ export const buildIntegrationSectionItems = ({
           // disabled fieldset would make the diagram's buttons unclickable.
           children: (
             <Card style={{ marginTop: spacing[2] }} size="small">
+              {visible.stepsShownAnyway && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: spacing[3] }}
+                  message="This integration already uses steps"
+                  description="Its response check, follow-up and alerts are steps now, so they are shown here whichever layout you chose."
+                />
+              )}
               <DeliveryTab
                 form={form}
                 integrationId={integrationId}

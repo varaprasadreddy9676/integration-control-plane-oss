@@ -50,6 +50,7 @@ const baseProps = {
   selectedEventType: 'order.created',
   scriptValue: '',
   transformationEditor: null,
+  deliveryLayout: 'classic' as const,
 };
 
 const renderTab = (tabKey: string, isReadOnly: boolean, formValues: Record<string, unknown>) => {

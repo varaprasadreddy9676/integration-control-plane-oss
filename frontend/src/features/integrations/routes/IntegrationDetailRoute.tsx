@@ -38,6 +38,8 @@ import { buildIntegrationSectionItems } from './integrationDetail/components/Int
 import { IntegrationFormContainer } from './integrationDetail/components/IntegrationFormContainer';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { IntegrationFormBody } from './integrationDetail/components/IntegrationFormBody';
+import { readDeliveryLayout, saveDeliveryLayout } from './integrationDetail/utils/deliveryLayout';
+import type { DeliveryLayout } from './integrationDetail/utils/deliveryLayout';
 import { TransformationDesigner } from './integrationDetail/components/TransformationDesigner';
 import { buildPreviewContext } from './integrationDetail/utils/previewContext';
 import { createTagTone } from './integrationDetail/utils/styles';
@@ -68,6 +70,11 @@ export const IntegrationDetailRoute = () => {
   const [form] = Form.useForm();
   // The script is the transformation; empty means the event is sent as it is.
   const [scriptValue, setScriptValue] = useState('');
+  const [deliveryLayout, setDeliveryLayout] = useState<DeliveryLayout>(readDeliveryLayout);
+  const changeDeliveryLayout = (layout: DeliveryLayout) => {
+    saveDeliveryLayout(layout);
+    setDeliveryLayout(layout);
+  };
   const [responseTransformEnabled, setResponseTransformEnabled] = useState(false);
   const [responseTransformScript, setResponseTransformScript] = useState(`// Inspect the remote API's response body.
 // Call skip(reason) to signal a business-level failure.
@@ -948,6 +955,8 @@ const firstTime = addHours(now(), 1);
               colors={colors}
               deliveryModeChoice={deliveryModeChoice}
               onChangeDeliveryMode={handleSwitchMode}
+              deliveryLayout={deliveryLayout}
+              onChangeDeliveryLayout={changeDeliveryLayout}
               onExpandAll={handleExpandAll}
               onCollapseAll={handleCollapseAll}
               activePanels={activePanels}
@@ -1030,6 +1039,7 @@ const firstTime = addHours(now(), 1);
                 selectedEventType: formState.selectedEventType || existingIntegration?.eventType,
                 scriptValue,
                 transformationEditor,
+                deliveryLayout,
                 isReadOnly: !isCreate && !isEditMode,
                 isLoading: isDetailLoading,
                 integrationId: existingIntegration?.id,
