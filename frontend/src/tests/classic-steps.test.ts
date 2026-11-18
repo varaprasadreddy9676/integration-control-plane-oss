@@ -73,9 +73,14 @@ describe('the classic tabs over a switched integration\'s steps', () => {
     expect(step.enabled).toBe(false);
   });
 
-  it('does not invent a follow-up step: with none, a change in the tab changes nothing', () => {
+  it('adds the follow-up step the server built when the tab switches a follow-up on and there is none', () => {
     const before = classicFromSteps([other]);
-    const result = applyClassicToSteps([other], { ...before, followUp: { exists: false, on: true, script: 'x', checkAfterSeconds: [30] } }, before);
-    expect(result).toEqual([other]);
+    const built = { ...followUpStep, id: 'deliveryStatus' } as StageConfig;
+    const now = { ...before, followUp: { exists: false, on: true, script: 'x', checkAfterSeconds: [30] } };
+    expect(applyClassicToSteps([other], now, before, built)).toEqual([other, built]);
+    // ...but not when it was not switched on, or one exists already
+    expect(applyClassicToSteps([other], before, before, built)).toEqual([other]);
+    const hasOne = classicFromSteps([followUpStep]);
+    expect(applyClassicToSteps([followUpStep], { ...hasOne, followUp: { ...hasOne.followUp, script: 'y' } }, hasOne, built)).toHaveLength(1);
   });
 });

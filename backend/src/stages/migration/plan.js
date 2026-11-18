@@ -169,6 +169,28 @@ function planMigration(integration, { followUpOrigins = [] } = {}) {
   return { stages, unsupported, notes, sources };
 }
 
+/**
+ * The follow-up step for an integration that already runs on steps and has none, from what the person set up
+ * in the classic tab ({ script, checkAfterSeconds }). A recognised provider starts from its own script and
+ * schedule. The step may call only the hosts the script names (or, when it sends the integration's headers and
+ * names none, the integration's own host). Null when there is no script and no provider script to start from.
+ */
+function newFollowUpStage(integration, { script, checkAfterSeconds } = {}) {
+  const preset = findPreset(integration);
+  const code = typeof script === 'string' && script.trim() ? script : preset ? preset.config.script : '';
+  if (!code.trim()) return null;
+  const schedule = Array.isArray(checkAfterSeconds) && checkAfterSeconds.length ? checkAfterSeconds : preset ? preset.config.checkAfterSeconds : undefined;
+  let origins;
+  if (preset && !(typeof script === 'string' && script.trim())) {
+    origins = [originOf(integration.targetUrl)];
+  } else {
+    origins = [...new Set((code.match(/https?:\/\/[^\s'"`)]+/g) || []).filter((url) => !url.includes('${')).map(originOf))];
+    if (origins.length === 0 && /context\s*\.\s*headers/.test(code)) origins = [originOf(integration.targetUrl)];
+    if (preset && !origins.includes(originOf(integration.targetUrl))) origins.push(originOf(integration.targetUrl));
+  }
+  return followUpStage({ enabled: true, script: code, ...(schedule ? { checkAfterSeconds: schedule } : {}) }, origins.filter(Boolean));
+}
+
 /** The origins an integration's follow-up checks have called (from their recorded calls). */
 async function followUpOriginsFromHistory(orgId, integrationId, { limit = 200 } = {}) {
   const mongodb = require('../../mongodb');
@@ -196,4 +218,4 @@ async function followUpOriginsFromHistory(orgId, integrationId, { limit = 200 } 
   return [...origins];
 }
 
-module.exports = { planMigration, followUpOriginsFromHistory, hasResponseScript, SOURCES };
+module.exports = { planMigration, newFollowUpStage, followUpOriginsFromHistory, hasResponseScript, SOURCES };

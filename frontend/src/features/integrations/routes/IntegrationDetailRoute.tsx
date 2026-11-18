@@ -39,6 +39,7 @@ import { IntegrationFormContainer } from './integrationDetail/components/Integra
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { IntegrationFormBody } from './integrationDetail/components/IntegrationFormBody';
 import { readDeliveryLayout, saveDeliveryLayout } from './integrationDetail/utils/deliveryLayout';
+import { buildFollowUpStep } from '../../../services/stages-api';
 import { applyClassicToSteps, classicFromSteps } from './integrationDetail/utils/classicSteps';
 import type { ClassicSteps } from './integrationDetail/utils/classicSteps';
 import type { DeliveryLayout } from './integrationDetail/utils/deliveryLayout';
@@ -682,6 +683,16 @@ const firstTime = addHours(now(), 1);
             // The whole form store, not `values`: a tab that was never opened has no registered fields.
             const loaded = classicOnLoad.current;
             const followUp = form.getFieldValue('deliveryFollowUp');
+            // Switched on with no step yet: the server builds it (the provider's script and schedule, the hosts it may call).
+            const newFollowUp =
+              !loaded.followUp.exists && followUp?.enabled === true
+                ? await buildFollowUpStep({
+                    integrationId: existingIntegration?.id,
+                    integration: { targetUrl: values.targetUrl },
+                    script: followUp.script || '',
+                    checkAfterSeconds: followUp.checkAfterSeconds,
+                  })
+                : undefined;
             payload.stages = applyClassicToSteps(
               (form.getFieldValue('stages') || []) as any[],
               {
@@ -690,7 +701,8 @@ const firstTime = addHours(now(), 1);
                   ? { exists: true, on: followUp.enabled === true, script: followUp.script || '', checkAfterSeconds: followUp.checkAfterSeconds }
                   : loaded.followUp,
               },
-              loaded
+              loaded,
+              newFollowUp
             );
             (payload as any).deliveryFollowUp = { enabled: false, script: '' };
             (payload as any).responseTransformation = { mode: 'SCRIPT', script: '' };

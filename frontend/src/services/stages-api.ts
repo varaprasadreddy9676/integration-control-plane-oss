@@ -200,6 +200,10 @@ export const getStageJobCounts = async (integrationId: string, stageId: string):
 export const repinStageJobs = async (integrationId: string, stageId: string, reason: string): Promise<{ moved: number }> =>
   apiRequest(`/stages/integrations/${integrationId}/stages/${stageId}/repin`, json({ reason }));
 
+/** The follow-up step for an integration that runs on steps and has none (from the classic tab's values). */
+export const buildFollowUpStep = async (body: { integrationId?: string; integration?: { targetUrl?: string }; script?: string; checkAfterSeconds?: number[] }): Promise<StageConfig> =>
+  (await apiRequest<{ stage: StageConfig }>('/stages/follow-up-step', json(body))).stage;
+
 export const getStageRuntime = async (): Promise<StageRuntimeStatus> => apiRequest('/stages/runtime');
 
 export interface CredentialOption {

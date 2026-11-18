@@ -631,17 +631,21 @@ export const buildIntegrationSectionItems = ({
       ),
       disabled: !configComplete,
       children: wrapContent(
-        runsOnSteps && !classicSteps.followUp.exists ? (
-          <Alert
-            type="info"
-            showIcon
-            message="This integration runs on steps and has no delivery follow-up yet"
-            description="Switch the layout to Steps and add a step under Later (scheduled) to check what became of a message."
-          />
-        ) : isReadOnly ? (
+        isReadOnly ? (
           <DeliveryFollowUpView form={form} />
         ) : (
-          <DeliveryFollowUpSection form={form} integrationId={integrationId} />
+          <>
+            {runsOnSteps && !classicSteps.followUp.exists && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: spacing[3] }}
+                message="Saving creates the follow-up step"
+                description="This integration runs on steps. Switch the follow-up on and save: its step is created for you, from the provider's script if you don't write one."
+              />
+            )}
+            <DeliveryFollowUpSection form={form} integrationId={integrationId} />
+          </>
         )
       ),
     });

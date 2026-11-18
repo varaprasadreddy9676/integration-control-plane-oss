@@ -28,6 +28,7 @@ const { flowStats } = require('../stages/flow-stats');
 const { saveImpact } = require('../stages/save-impact');
 const { stageOutcomes } = require('../stages/outcomes');
 const { buildGuide } = require('../stages/authoring-guide');
+const { newFollowUpStage } = require('../stages/migration/plan');
 const { getStageRuntime } = require('../stages/runtime');
 const { usageToday } = require('../stages/limits');
 const config = require('../config');
@@ -64,6 +65,21 @@ router.get(
   asyncHandler(async (req, res) => {
     const integration = req.query.integrationId ? await loadIntegration(req.orgId, req.query.integrationId) : null;
     res.json({ templates: templates.listTemplates(integration) });
+  })
+);
+
+/**
+ * The follow-up step for an integration that runs on steps and has none, from what the classic tab holds.
+ * Body: { integrationId?, integration?: { targetUrl }, script?, checkAfterSeconds? }.
+ */
+router.post(
+  '/follow-up-step',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    const existing = body.integrationId ? await loadIntegration(req.orgId, body.integrationId) : null;
+    const stage = newFollowUpStage({ ...(existing || {}), ...(body.integration || {}) }, { script: body.script, checkAfterSeconds: body.checkAfterSeconds });
+    if (!stage) throw new ValidationError('Write the check\'s script: there is no provider script to start from');
+    res.json({ stage });
   })
 );
 

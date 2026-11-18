@@ -47,7 +47,7 @@ const newResponseStep = (script: string): StageConfig =>
   }) as StageConfig;
 
 /** The steps with the tabs' changes written in; a step the tabs did not change is returned as the same object. */
-export const applyClassicToSteps = (stages: StageConfig[], now: ClassicSteps, before: ClassicSteps): StageConfig[] => {
+export const applyClassicToSteps = (stages: StageConfig[], now: ClassicSteps, before: ClassicSteps, newFollowUp?: StageConfig): StageConfig[] => {
   const responseChanged = now.response.on !== before.response.on || now.response.script !== before.response.script;
   const followUpChanged =
     now.followUp.on !== before.followUp.on ||
@@ -69,5 +69,7 @@ export const applyClassicToSteps = (stages: StageConfig[], now: ClassicSteps, be
     return stage;
   });
   if (responseChanged && !before.response.exists && now.response.on) result = [...result, newResponseStep(now.response.script)];
+  // The follow-up step is built by the server (provider script, allowed hosts): added when the tab switched one on.
+  if (newFollowUp && !before.followUp.exists && now.followUp.on) result = [...result, newFollowUp];
   return result;
 };
