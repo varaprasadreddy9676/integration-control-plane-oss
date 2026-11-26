@@ -1,0 +1,262 @@
+.login-root {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* Left hero panel: always dark, independent of the app theme */
+.login-hero {
+  position: relative;
+  display: flex;
+  flex: 0 0 58%;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 44px 60px;
+  overflow: hidden;
+  background: #09090b;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.login-hero::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: '';
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.login-hero::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: '';
+  background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, #09090b 100%);
+}
+
+.login-hero-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-logo-mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  border-radius: 7px;
+}
+
+.login-logo-name {
+  color: #fafafa;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.login-hero-copy {
+  max-width: 520px;
+}
+
+.login-headline {
+  margin: 0 0 14px;
+  color: #fafafa;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.7px;
+}
+
+.login-subhead {
+  margin: 0 0 26px;
+  color: #a1a1aa;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.login-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 40px;
+  padding: 0;
+  list-style: none;
+}
+
+.login-chip {
+  padding: 3px 9px;
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.login-pillars {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.login-pillar {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.login-pillar-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.07);
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  border-radius: 8px;
+}
+
+.login-pillar-title {
+  margin: 0;
+  color: #e4e4e7;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.login-pillar-text {
+  margin: 3px 0 0;
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Right sign-in panel follows the app theme */
+.login-panel {
+  display: grid;
+  flex: 1;
+  min-height: 100vh;
+  padding: 32px 24px;
+  place-items: center;
+  background: var(--color-bg-base);
+}
+
+.login-content {
+  width: 100%;
+  max-width: 360px;
+  padding: 28px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.login-mobile-brand {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.login-mobile-brand .login-logo-mark {
+  width: 26px;
+  height: 26px;
+  flex-basis: 26px;
+  border-radius: 6px;
+}
+
+.login-mobile-brand-name {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.login-heading {
+  margin-bottom: 20px;
+}
+
+.login-title {
+  margin: 0 0 4px !important;
+  color: var(--color-text-primary) !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  line-height: 1.3;
+}
+
+.login-description {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.login-form .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.login-form .ant-form-item-label > label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.login-form .ant-input-affix-wrapper {
+  min-height: 40px;
+  border-radius: 8px;
+}
+
+.login-form .ant-input-prefix {
+  margin-inline-end: 8px;
+  color: var(--color-text-muted);
+}
+
+.login-submit.ant-btn {
+  height: 40px;
+  margin-top: 4px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.login-access-note {
+  display: block;
+  margin-top: 20px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .login-hero {
+    display: none;
+  }
+
+  .login-mobile-brand {
+    display: flex;
+  }
+
+  .login-content {
+    padding: 24px 20px;
+  }
+}
