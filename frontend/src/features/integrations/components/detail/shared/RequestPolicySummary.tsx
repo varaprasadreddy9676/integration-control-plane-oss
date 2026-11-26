@@ -1,4 +1,6 @@
-import { Space, Tag, Tooltip, Typography } from 'antd';
+import { Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
+import { StatusBadge } from '../../../../../components/common/StatusBadge';
 import type { RequestPolicyConfig } from '../../../../../services/api';
 
 const { Text } = Typography;
@@ -28,7 +30,9 @@ export const RequestPolicySummary = ({
   if (!ipCount && !originCount && !rateEnabled) {
     return compact ? (
       <Tooltip title="No IP/origin restrictions or rate limiting configured — accepts requests from any source">
-        <Tag color="orange">Open access</Tag>
+        <span>
+          <StatusBadge label="Open access" variant="warning" size="small" />
+        </span>
       </Tooltip>
     ) : (
       <Text type="secondary">{emptyLabel}</Text>
@@ -39,19 +43,19 @@ export const RequestPolicySummary = ({
     <Space size={compact ? 4 : 6} wrap>
       {ipCount > 0 && (
         <Tooltip title={policy?.allowedIpCidrs?.join(', ')}>
-          <Tag color="blue">
+          <Text>
             {ipCount} IP rule{ipCount === 1 ? '' : 's'}
-          </Tag>
+          </Text>
         </Tooltip>
       )}
       {originCount > 0 && (
         <Tooltip title={policy?.allowedBrowserOrigins?.join(', ')}>
-          <Tag color="gold">
+          <Text>
             {originCount} origin{originCount === 1 ? '' : 's'}
-          </Tag>
+          </Text>
         </Tooltip>
       )}
-      {rateEnabled && <Tag color="purple">{getRateLimitLabel(policy)}</Tag>}
+      {rateEnabled && <Text>{getRateLimitLabel(policy)}</Text>}
       {!compact && <Text type="secondary">Inbound request guardrails</Text>}
     </Space>
   );

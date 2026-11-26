@@ -1,9 +1,10 @@
-import { Button } from 'antd';
-import { ApiOutlined, SyncOutlined } from '@ant-design/icons';
+
+import { Icon as GatewayIcon } from "./Icon";
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 import { StatePanel } from './StatePanel';
 import type { ReactNode } from 'react';
 import type { StateGlyph } from './StatePanel';
+import { Button } from './LegacyButton';
 
 interface Props {
   onRetry?: () => void;
@@ -44,7 +45,7 @@ export const ServerOfflineState = ({
           width: '100%',
           maxWidth: 480,
           background: cssVar.bg.surface,
-          borderRadius: 12,
+          borderRadius: 8,
           border: `1px solid ${cssVar.border.subtle}`,
           boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06)',
         }}
@@ -58,10 +59,10 @@ export const ServerOfflineState = ({
           actions={
             actions ?? (
             <>
-              <Button type="primary" size="large" icon={<SyncOutlined />} onClick={onRetry}>
+              <Button type="primary" size="large" icon={<GatewayIcon name="SyncOutlined" />} onClick={onRetry}>
                 Retry connection
               </Button>
-              <Button size="large" icon={<ApiOutlined />} href="/integration-gateway/docs">
+              <Button size="large" icon={<GatewayIcon name="ApiOutlined" />} href="/integration-gateway/docs">
                 System status
               </Button>
             </>

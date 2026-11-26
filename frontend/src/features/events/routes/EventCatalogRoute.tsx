@@ -1,30 +1,24 @@
 import { useState, useMemo } from 'react';
-import type { KeyboardEvent } from 'react';
-import { Input, Card, Typography, Space, Tag, Button, Collapse, Empty, Spin, Alert, Grid, Popconfirm, Tooltip, message } from 'antd';
-import {
-  SearchOutlined,
-  ThunderboltOutlined,
-  FolderOpenOutlined,
-  FileTextOutlined,
-  InfoCircleOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  DownloadOutlined
-} from '@ant-design/icons';
+import { Space, Collapse, Grid, Popconfirm, Tooltip, message } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from "../../../components/common/Icon";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAllEventTypes, deleteEventType, importEventTemplates } from '../../../services/api';
 import type { EventType } from '../../../services/api';
 import { useNavigateWithParams } from '../../../utils/navigation';
-import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
 import { EventDetailDrawer } from '../components/EventDetailDrawer';
-import { useThemeMode } from '../../../app/theme-provider';
 import { PermissionGuard } from '../../../components/common/PermissionGuard';
 import { FEATURES } from '../../../utils/permissions';
 import { EventTypeEditorModal } from './EventTypeEditorModal';
 import { useTenant } from '../../../app/tenant-context';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { FilterBar } from '../../../components/common/FilterBar';
+import { SearchInput } from '../../../components/common/ListControls';
+import { MetaTag } from '../../../components/common/MetaTag';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
 
-const { Title, Text, Paragraph } = Typography;
 const EVENT_TYPE_CATALOG_QUERY_KEY = 'eventTypeCatalog';
 
 const getEventDisplayLabel = (event: Partial<EventType>) =>
@@ -35,9 +29,6 @@ const getEventCategoryLabel = (event: Partial<EventType>) => event.category?.tri
 const getEventDescription = (event: Partial<EventType>) => event.description?.trim() || '';
 
 export const EventCatalogRoute = () => {
-  const { token, spacing } = useDesignTokens();
-  const colors = cssVar.legacy;
-  const { mode } = useThemeMode();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const navigate = useNavigateWithParams();
@@ -52,7 +43,7 @@ export const EventCatalogRoute = () => {
   const [importing, setImporting] = useState(false);
 
   // Fetch all event types
-  const { data: eventTypes = [], isLoading, error } = useQuery({
+  const { data: eventTypes = [], isLoading, error, refetch } = useQuery({
     queryKey: [EVENT_TYPE_CATALOG_QUERY_KEY, orgId],
     queryFn: getAllEventTypes,
     staleTime: 10 * 60 * 1000 // 10 minutes
@@ -106,13 +97,6 @@ export const EventCatalogRoute = () => {
     setDrawerOpen(true);
   };
 
-  const handleEventKeyDown = (eventItem: EventType, e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleEventClick(eventItem);
-    }
-  };
-
   const handleCreateIntegration = (eventType: string) => {
     navigate(`/integrations/new?eventType=${encodeURIComponent(eventType)}`);
   };
@@ -153,85 +137,44 @@ export const EventCatalogRoute = () => {
 
   const isOrgSpecific = (event: EventType) => event.orgId !== null && event.orgId !== undefined;
 
-  const renderEventCard = (event: EventType) => (
-    <Card
+  const renderEventRow = (event: EventType) => (
+    <article
       key={event.eventType}
       data-record-id={event.eventType}
-      className="event-card"
-      hoverable
-      onClick={() => handleEventClick(event)}
-      onKeyDown={(e) => handleEventKeyDown(event, e)}
-      role="button"
-      tabIndex={0}
-      aria-label={`View details for ${getEventDisplayLabel(event)}`}
-      style={{
-        marginBottom: spacing[3],
-        borderRadius: token.borderRadius,
-        background: mode === 'dark' ? withAlpha(colors.neutral[800], 0.5) : cssVar.bg.surface,
-        border: `1px solid ${mode === 'dark' ? withAlpha(colors.neutral[700], 0.3) : cssVar.border.default}`,
-        cursor: 'pointer'
-      }}
-      styles={{ body: { padding: spacing[4] } }}
+      className="event-catalog-row"
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing[3] }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-              <FileTextOutlined style={{ color: colors.primary[600], fontSize: 16 }} />
-              <Text strong style={{ fontSize: 15, color: token.colorText }}>
-                {getEventDisplayLabel(event)}
-              </Text>
-              {/* Global / Custom badge */}
-              {isOrgSpecific(event) ? (
-                <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>Custom</Tag>
-              ) : (
-                <Tag color="default" style={{ margin: 0, fontSize: 11 }}>Global template</Tag>
-              )}
-            </div>
-
-            <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-              {getEventDescription(event) || 'No description available'}
-            </Text>
-
-            <Space size={spacingToNumber(spacing[2])} wrap>
-              <Tag
-                style={{
-                  margin: 0,
-                  fontSize: 11,
-                  padding: '2px 8px',
-                  background: mode === 'dark' ? withAlpha(colors.neutral[800], 0.6) : withAlpha(colors.neutral[100], 0.8),
-                  color: token.colorTextSecondary,
-                  fontFamily: 'monospace'
-                }}
-              >
-                {event.eventType}
-              </Tag>
-              <Tag
-                color="blue"
-                style={{ margin: 0, fontSize: 11, padding: '2px 8px' }}
-              >
-                {event.fields?.length || 0} fields
-              </Tag>
-              {event.samplePayload && (
-                <Tag
-                  color="green"
-                  style={{ margin: 0, fontSize: 11, padding: '2px 8px' }}
-                >
-                  Sample available
-                </Tag>
-              )}
-            </Space>
+      <div className="event-catalog-row-main">
+        <div className="event-catalog-row-heading">
+          <div className="event-catalog-row-title">
+            <Button
+              type="link"
+              className="event-catalog-view-button"
+              onClick={() => handleEventClick(event)}
+              aria-label={`View details for ${getEventDisplayLabel(event)}`}
+            >
+              {getEventDisplayLabel(event)}
+            </Button>
+            <MetaTag size="small" variant={isOrgSpecific(event) ? 'event' : 'neutral'}>
+              {isOrgSpecific(event) ? 'Custom' : 'Global template'}
+            </MetaTag>
+          </div>
+          <Text color="secondary" className="event-catalog-description">
+            {getEventDescription(event) || 'No description available'}
+          </Text>
+          <Space size={6} wrap>
+            <MetaTag size="small" variant="neutral">{event.eventType}</MetaTag>
+            <MetaTag size="small" variant="category">{event.fields?.length || 0} fields</MetaTag>
+            {event.samplePayload && <MetaTag size="small" variant="neutral">Sample available</MetaTag>}
           </Space>
         </div>
-
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+        <div className="event-catalog-row-actions">
           {/* Edit/Delete — only for org-specific events */}
           <PermissionGuard feature={FEATURES.EVENT_CATALOGUE} operation="write">
             {isOrgSpecific(event) && (
               <>
                 <Tooltip title="Edit">
                   <Button
-                    icon={<EditOutlined />}
+                    icon={<GatewayIcon name="EditOutlined" />}
                     size="small"
                     onClick={(e) => handleEdit(event, e)}
                   />
@@ -246,7 +189,7 @@ export const EventCatalogRoute = () => {
                 >
                   <Tooltip title="Delete">
                     <Button
-                      icon={<DeleteOutlined />}
+                      icon={<GatewayIcon name="DeleteOutlined" />}
                       size="small"
                       danger
                       onClick={(e) => e.stopPropagation()}
@@ -261,7 +204,7 @@ export const EventCatalogRoute = () => {
             <Button
               type="primary"
               size="small"
-              icon={<ThunderboltOutlined />}
+              icon={<GatewayIcon name="ThunderboltOutlined" />}
               onClick={(e) => {
                 e.stopPropagation();
                 handleCreateIntegration(event.eventType);
@@ -272,183 +215,88 @@ export const EventCatalogRoute = () => {
           )}
         </div>
       </div>
-    </Card>
+    </article>
   );
 
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <Spin size="large" tip="Loading event catalog...">
-          <div style={{ minHeight: 80 }} />
-        </Spin>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert
-        type="error"
-        message="Failed to load event catalog"
-        description={error instanceof Error ? error.message : 'Unknown error occurred'}
-        showIcon
-      />
-    );
-  }
-
   return (
-    <>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: spacing[6] }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: spacing[3], marginBottom: spacing[3] }}>
-            <Title level={2} style={{ margin: 0, fontSize: isMobile ? 24 : 32 }}>
-              Event Catalog
-            </Title>
-
-            {/* Action buttons — visible to users with manage permission */}
+    <PageTemplate
+      className="event-catalog-workspace"
+      header={
+        <PageHeader
+          title="Event catalog"
+          description="Browse shared event templates and organization-specific event types."
+          actions={
             <PermissionGuard feature={FEATURES.EVENT_CATALOGUE} operation="write">
-              <Space wrap>
-                <Button
-                  icon={<DownloadOutlined />}
-                  loading={importing}
-                  onClick={handleImportTemplates}
-                >
-                  Import Templates
+              <Space wrap size={8}>
+                <Button icon={<GatewayIcon name="DownloadOutlined" />} loading={importing} onClick={handleImportTemplates}>
+                  Import templates
                 </Button>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleAddNew}
-                >
-                  Add Event Type
+                <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} onClick={handleAddNew}>
+                  Add event type
                 </Button>
               </Space>
             </PermissionGuard>
-          </div>
-
-          <Paragraph type="secondary" style={{ fontSize: 15, marginBottom: spacing[4] }}>
-            Browse all available event types. Global templates are shared across all orgs; Custom types are specific to your org.
-          </Paragraph>
-
-          {/* Search */}
-          <Input
-            size="large"
-            placeholder="Search events by name, type, or category..."
-            prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            allowClear
-            aria-label="Search event catalog"
-            style={{
-              maxWidth: 600,
-              borderRadius: token.borderRadiusLG
-            }}
-          />
-
-          {/* Stats */}
-          <div style={{ marginTop: spacing[4], display: 'flex', gap: spacing[4], flexWrap: 'wrap' }}>
-            <div>
-              <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>Total Events</Text>
-              <Text strong style={{ fontSize: 24, color: colors.primary[600] }}>
-                {eventTypes.length}
-              </Text>
-            </div>
-            <div>
-              <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>Categories</Text>
-              <Text strong style={{ fontSize: 24, color: colors.info[600] }}>
-                {Object.keys(eventsByCategory).length}
-              </Text>
-            </div>
-            <div>
-              <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>Custom</Text>
-              <Text strong style={{ fontSize: 24, color: colors.success?.[600] || colors.primary[600] }}>
-                {eventTypes.filter(isOrgSpecific).length}
-              </Text>
-            </div>
-            {searchQuery && (
-              <div>
-                <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>Filtered Results</Text>
-                <Text strong style={{ fontSize: 24, color: colors.success[600] }}>
-                  {totalEvents}
-                </Text>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Event Categories */}
-        {totalEvents === 0 ? (
-          <div>
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <span>
-                  {searchQuery ? `No events matching "${searchQuery}"` : 'No events available'}
-                </span>
-              }
-            />
-            {searchQuery && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: spacing[2] }}>
-                <Button onClick={() => setSearchQuery('')}>Clear search</Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <Collapse
-            defaultActiveKey={Object.keys(eventsByCategory)}
-            ghost
-            expandIconPosition="end"
-            style={{ background: 'transparent' }}
-            items={Object.entries(eventsByCategory).map(([category, events]) => ({
-              key: category,
-              label: (
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3] }}>
-                  <FolderOpenOutlined style={{ color: colors.primary[600], fontSize: 18 }} />
-                  <Text strong style={{ fontSize: 16 }}>
-                    {category}
-                  </Text>
-                  <Tag
-                    style={{
-                      margin: 0,
-                      background: mode === 'dark' ? withAlpha(colors.primary[900], 0.3) : withAlpha(colors.primary[50], 0.8),
-                      color: mode === 'dark' ? colors.primary[300] : colors.primary[700],
-                      fontSize: 12
-                    }}
-                  >
-                    {events.length} {events.length === 1 ? 'event' : 'events'}
-                  </Tag>
-                </div>
-              ),
-              children: (
-                <div style={{ paddingLeft: isMobile ? 0 : spacing[8], paddingTop: spacing[3] }}>
-                  {events.map(renderEventCard)}
-                </div>
-              ),
-              style: {
-                marginBottom: spacing[3],
-                background: mode === 'dark' ? withAlpha(colors.neutral[800], 0.3) : withAlpha(colors.neutral[50], 0.8),
-                borderRadius: token.borderRadiusLG,
-                border: `1px solid ${mode === 'dark' ? withAlpha(colors.neutral[700], 0.3) : cssVar.border.default}`,
-                padding: `${spacing[3]} ${spacing[4]}`
-              }
-            }))}
-          />
-        )}
-
-        {/* Info Alert */}
-        <Alert
-          icon={<InfoCircleOutlined />}
-          message="Event Types & Integrations"
-          description="Event types represent different actions that occur in your source system. Global templates are read-only; create custom event types to match your own source system's schema."
-          type="info"
-          showIcon
-          style={{
-            marginTop: spacing[6],
-            borderRadius: token.borderRadiusLG
-          }}
+          }
         />
-      </div>
+      }
+    >
+
+      <FilterBar rightSlot={
+        <Button onClick={() => refetch()} aria-label="Refresh event catalog">Refresh</Button>
+      }>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          isNarrow={isMobile}
+          label="Search event catalog"
+          placeholder="Search name, event type, description, or category"
+          width={360}
+        />
+      </FilterBar>
+
+      <section className="event-catalog-summary" aria-label="Event catalog summary">
+        <div><span>Total event types</span><strong>{eventTypes.length.toLocaleString()}</strong></div>
+        <div><span>Categories shown</span><strong>{Object.keys(eventsByCategory).length.toLocaleString()}</strong></div>
+        <div><span>Organization-specific</span><strong>{eventTypes.filter(isOrgSpecific).length.toLocaleString()}</strong></div>
+        {searchQuery && <div><span>Matching events</span><strong>{totalEvents.toLocaleString()}</strong></div>}
+      </section>
+
+      {isLoading ? (
+        <StatePanel glyph="connecting" title="Loading event catalog" size="compact" />
+      ) : error ? (
+        <StatePanel
+          glyph="disrupted"
+          tone="critical"
+          title="Event catalog could not be loaded"
+          description={error instanceof Error ? error.message : 'The request failed. Try again.'}
+          actions={<Button onClick={() => refetch()}>Retry</Button>}
+        />
+      ) : totalEvents === 0 ? (
+        <StatePanel
+          glyph="searching"
+          title={searchQuery ? 'No event types match this search' : 'No event types available'}
+          description={searchQuery ? 'Try another term or clear the search.' : 'Add a custom event type or import the shared templates.'}
+          actions={searchQuery ? <Button onClick={() => setSearchQuery('')}>Clear search</Button> : undefined}
+        />
+      ) : (
+        <Collapse
+          className="event-catalog-categories"
+          defaultActiveKey={Object.keys(eventsByCategory)}
+          ghost
+          expandIconPosition="end"
+          items={Object.entries(eventsByCategory).map(([category, events]) => ({
+            key: category,
+            label: (
+              <div className="event-catalog-category-heading">
+                <GatewayIcon name="FolderOpenOutlined" aria-hidden="true" />
+                <Text weight="semibold">{category}</Text>
+                <MetaTag size="small" variant="neutral">{events.length} {events.length === 1 ? 'event' : 'events'}</MetaTag>
+              </div>
+            ),
+            children: <div className="event-catalog-category-list">{events.map(renderEventRow)}</div>,
+          }))}
+        />
+      )}
 
       {/* Event Detail Drawer */}
       <EventDetailDrawer
@@ -471,6 +319,6 @@ export const EventCatalogRoute = () => {
         existing={editingEvent}
         categories={categories}
       />
-    </>
+    </PageTemplate>
   );
 };

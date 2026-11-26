@@ -1,6 +1,8 @@
-import { Row, Col, Form, Input, Select, AutoComplete, Space, Typography, Tag, Divider, Collapse } from 'antd';
-import { CheckCircleFilled, WarningFilled } from '@ant-design/icons';
-import type { FormInstance } from 'antd';
+import { Row, Col, Form, Input, Select, AutoComplete, Space, Divider, Collapse } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { StatusBadge } from '../../../../components/common/StatusBadge';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { cssVar, withAlpha } from '../../../../design-system/utils';
@@ -74,8 +76,9 @@ export const ConfigurationSection = ({
             extra={
               !eventTypesLoading && !eventTypes?.length ? (
                 <>
-                  No event types yet. <Link to={buildUrlWithOrgId('/events/catalog')}>Add one in the Event Catalog</Link>
-                  , or pick * to match every event.
+                  No event types yet.{' '}
+                  <Link to={buildUrlWithOrgId('/events/catalog')}>Add one in the Event Catalog</Link>, or pick * to
+                  match every event.
                 </>
               ) : undefined
             }
@@ -95,9 +98,9 @@ export const ConfigurationSection = ({
         {isMultiAction ? (
           <Col xs={24}>
             <Space size="small" style={{ color: colors.info[600], marginBottom: spacing[3] }}>
-              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              <Text type="supporting" size="base" color="secondary">
                 Target URLs are configured in each action below. Expand the <strong>"Actions"</strong> section to edit.
-              </Typography.Text>
+              </Text>
             </Space>
           </Col>
         ) : (
@@ -146,9 +149,9 @@ export const ConfigurationSection = ({
           >
             <Select options={uiConfig?.scopeTypes || []} size="middle" />
           </Form.Item>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="supporting" size="sm" color="secondary">
             Entity only applies to this entity. Include children applies to all child entities of the parent.
-          </Typography.Text>
+          </Text>
         </Col>
         <Col xs={24} sm={8}>
           <Form.Item
@@ -169,28 +172,28 @@ export const ConfigurationSection = ({
 
       {/* Child Entities Display - Only show when scope is INCLUDE_CHILDREN */}
       {scopeValue === 'INCLUDE_CHILDREN' && tenant && tenant.childEntities && tenant.childEntities.length > 0 && (
-        <Row gutter={[spacingToNumber(spacing[4]), spacingToNumber(spacing[4])]} style={{ marginTop: spacing[4] }}>
+        <Row gutter={[spacingToNumber(spacing[4]), spacingToNumber(spacing[4])]} className="console-margin-top-4">
           <Col xs={24}>
             <Divider style={{ margin: `${spacing[3]} 0` }} />
 
             {/* Compact Summary Status */}
             {(excludedOrgUnits?.length || 0) === tenant.childEntities.length ? (
-              <Space size="small" style={{ marginBottom: spacing[4] }}>
-                <WarningFilled style={{ color: colors.error[600], fontSize: 16 }} />
-                <Typography.Text strong style={{ color: colors.error[700] }}>
+              <Space size="small" className="console-margin-bottom-4">
+                <GatewayIcon name="WarningFilled" className="console-text-error" />
+                <Text weight="semibold" style={{ color: colors.error[700] }}>
                   All child entities excluded - integration will only process parent events
-                </Typography.Text>
+                </Text>
               </Space>
             ) : (
-              <Space size="small" style={{ marginBottom: spacing[4] }}>
-                <CheckCircleFilled style={{ color: colors.success[600], fontSize: 16 }} />
-                <Typography.Text strong style={{ color: colors.success[700] }}>
+              <Space size="small" className="console-margin-bottom-4">
+                <GatewayIcon name="CheckCircleFilled" className="console-text-success" />
+                <Text weight="semibold" style={{ color: colors.success[700] }}>
                   Processing events from {tenant.childEntities.length + 1 - (excludedOrgUnits?.length || 0)} entities
-                </Typography.Text>
+                </Text>
                 {excludedOrgUnits && excludedOrgUnits.length > 0 && (
-                  <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                  <Text type="supporting" size="base" color="secondary">
                     ({excludedOrgUnits.length} excluded)
-                  </Typography.Text>
+                  </Text>
                 )}
               </Space>
             )}
@@ -201,9 +204,7 @@ export const ConfigurationSection = ({
               label={
                 <Space>
                   <span>Excluded Child Entities (Optional)</span>
-                  <Tag color="default" style={{ fontSize: 11 }}>
-                    {tenant.childEntities.length} available
-                  </Tag>
+                  <Text type="supporting" color="secondary">{tenant.childEntities.length} available</Text>
                 </Space>
               }
               tooltip="Exclude specific child entities"
@@ -239,12 +240,12 @@ export const ConfigurationSection = ({
                   key: 'entities',
                   label: (
                     <Space>
-                      <Typography.Text strong style={{ fontSize: 14 }}>
+                      <Text size="base" weight="semibold">
                         View all entities ({tenant.childEntities.length + 1})
-                      </Typography.Text>
-                      <Typography.Text style={{ fontSize: 12, color: cssVar.text.muted }}>
+                      </Text>
+                      <Text type="supporting" size="sm" color="secondary">
                         Click to see which entities will receive this integration
-                      </Typography.Text>
+                      </Text>
                     </Space>
                   ),
                   children: (
@@ -262,34 +263,20 @@ export const ConfigurationSection = ({
                         }}
                       >
                         <Space>
-                          <Typography.Text strong style={{ fontSize: 14 }}>
+                          <Text size="base" weight="semibold">
                             {tenant.tenantName}
-                          </Typography.Text>
-                          <Tag color="blue" style={{ fontSize: 11 }}>
-                            Parent
-                          </Tag>
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            RID: {tenant.orgId}
-                          </Typography.Text>
+                          </Text>
+                          <Text type="supporting" color="secondary">Parent</Text>
+                          <Text type="code">RID: {tenant.orgId}</Text>
                         </Space>
-                        <Tag
-                          style={{
-                            fontSize: 12,
-                            margin: 0,
-                            color: cssVar.success.text,
-                            background: withAlpha(cssVar.success.bg, 0.8),
-                            border: `1px solid ${cssVar.success.border}`,
-                          }}
-                        >
-                          ✓ Included
-                        </Tag>
+                        <StatusBadge status="SUCCESS" label="Included" />
                       </div>
 
                       {/* Child Entities */}
-                      <Divider style={{ margin: `${spacing[2]} 0` }}>
-                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Divider className="console-margin-y-2">
+                        <Text type="supporting" size="sm" color="secondary">
                           Child Entities ({tenant.childEntities.length})
-                        </Typography.Text>
+                        </Text>
                       </Divider>
 
                       <div
@@ -319,30 +306,22 @@ export const ConfigurationSection = ({
                               }}
                             >
                               <Space direction="vertical" size={0}>
-                                <Typography.Text
-                                  strong={!isExcluded}
+                                <Text
+                                  weight={isExcluded ? 'normal' : 'semibold'}
                                   style={{
-                                    fontSize: 13,
                                     color: isExcluded ? cssVar.text.muted : cssVar.text.primary,
                                   }}
                                 >
                                   {child.name}
-                                </Typography.Text>
-                                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                </Text>
+                                <Text type="code" color="secondary">
                                   RID: {child.rid} • {child.code}
-                                </Typography.Text>
+                                </Text>
                               </Space>
-                              <Tag
-                                style={{
-                                  fontSize: 11,
-                                  margin: 0,
-                                  color: isExcluded ? cssVar.text.secondary : cssVar.success.text,
-                                  background: isExcluded ? cssVar.bg.subtle : withAlpha(cssVar.success.bg, 0.8),
-                                  border: `1px solid ${isExcluded ? cssVar.border.default : cssVar.success.border}`,
-                                }}
-                              >
-                                {isExcluded ? '✕ Excluded' : '✓ Included'}
-                              </Tag>
+                              <StatusBadge
+                                status={isExcluded ? 'SKIPPED' : 'SUCCESS'}
+                                label={isExcluded ? 'Excluded' : 'Included'}
+                              />
                             </div>
                           );
                         })}

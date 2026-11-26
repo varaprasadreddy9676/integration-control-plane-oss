@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Modal, Form, Input, Switch, Button, Space, Alert, Typography, Select } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Modal, Form, Input, Switch, Space, Select, Grid } from '@/components/common/LegacyAntdControls';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Text } from '@astryxdesign/core/Text';
+import { cssVar } from '../../../design-system/utils';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import type { EventType, EventTypeInput } from '../../../services/api';
 import { createEventType, updateEventType } from '../../../services/api';
+import { Button } from '../../../components/common/LegacyButton';
 
 const { TextArea } = Input;
-const { Text } = Typography;
 
 /** Simplified field shape used in the form (matches actual backend storage) */
 interface FormField {
@@ -38,6 +41,8 @@ const emptyField = (): FormField => ({ path: '', type: 'string', description: ''
 export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] }: Props) => {
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
+  const screens = Grid.useBreakpoint();
+  const compact = !screens.md;
 
   const [fields, setFields] = useState<FormField[]>([emptyField()]);
   const [samplePayloadText, setSamplePayloadText] = useState('');
@@ -143,9 +148,9 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
       open={open}
       title={isEdit ? `Edit: ${existing?.eventType}` : 'Add Event Type'}
       onCancel={onClose}
-      width={720}
+      width={Math.min(760, typeof window === 'undefined' ? 760 : window.innerWidth - 24)}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="ui-extracted-732c51f585">
           <Button onClick={onClose}>Cancel</Button>
           <Button type="primary" loading={saving} onClick={handleSave}>
             {isEdit ? 'Update' : 'Create'}
@@ -154,7 +159,7 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
       }
       destroyOnHidden
     >
-      {error && <Alert type="error" message={error} style={{ marginBottom: 16 }} showIcon />}
+      {error && <Banner status="error" title={error} />}
 
       <Form form={form} layout="vertical" initialValues={{ isActive: true }}>
         <Form.Item
@@ -169,7 +174,7 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
           ]}
           extra={isEdit ? 'Event type ID cannot be changed after creation.' : 'Uppercase, e.g. ORDER_PLACED'}
         >
-          <Input disabled={isEdit} placeholder="ORDER_PLACED" style={{ fontFamily: 'monospace' }} />
+          <Input disabled={isEdit} placeholder="ORDER_PLACED" className="console-font-mono" />
         </Form.Item>
 
         <Form.Item name="label" label="Label" rules={[{ required: true, message: 'Label is required' }]}>
@@ -180,21 +185,28 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
           <TextArea rows={2} placeholder="Triggered when an order is placed by a customer" />
         </Form.Item>
 
-        <Space style={{ width: '100%' }} direction="horizontal">
-          <Form.Item name="category" label="Category" style={{ width: 280 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: compact ? '1fr' : 'minmax(220px, 1fr) auto',
+            gap: 'var(--spacing-3)',
+            alignItems: 'start',
+          }}
+        >
+          <Form.Item name="category" label="Category" className="console-margin-bottom-4">
             <Select showSearch allowClear placeholder="Custom" options={categoryOptions} mode={undefined} />
           </Form.Item>
 
-          <Form.Item name="isActive" label="Active" valuePropName="checked">
+          <Form.Item name="isActive" label="Active" valuePropName="checked" className="console-margin-bottom-4">
             <Switch />
           </Form.Item>
-        </Space>
+        </div>
 
         {/* Fields editor */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <Text strong>Fields</Text>
-            <Button size="small" icon={<PlusOutlined />} onClick={addField}>
+        <div className="console-margin-bottom-4">
+          <div className="console-row-between-center-spaced">
+            <Text weight="semibold">Fields</Text>
+            <Button size="small" icon={<GatewayIcon name="PlusOutlined" />} onClick={addField}>
               Add Field
             </Button>
           </div>
@@ -204,9 +216,11 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
               key={index}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 100px 2fr 1fr 32px',
-                gap: 6,
-                marginBottom: 6,
+                gridTemplateColumns: compact
+                  ? 'minmax(0, 1fr) minmax(88px, 0.5fr)'
+                  : 'minmax(150px, 2fr) 100px minmax(130px, 2fr) minmax(100px, 1fr) 32px',
+                gap: 'var(--spacing-2)',
+                marginBottom: 'var(--spacing-2)',
                 alignItems: 'center',
               }}
             >
@@ -214,37 +228,53 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
                 placeholder="path (e.g. customer.name)"
                 value={field.path}
                 onChange={(e) => handleFieldChange(index, 'path', e.target.value)}
-                style={{ fontFamily: 'monospace', fontSize: 12 }}
+                className="console-mono-caption"
+                aria-label={`Field ${index + 1} path`}
               />
               <Select
                 value={field.type || 'string'}
                 onChange={(v) => handleFieldChange(index, 'type', v)}
                 options={FIELD_TYPES.map((t) => ({ value: t, label: t }))}
                 size="small"
+                aria-label={`Field ${index + 1} type`}
               />
               <Input
                 placeholder="description"
                 value={field.description}
                 onChange={(e) => handleFieldChange(index, 'description', e.target.value)}
-                style={{ fontSize: 12 }}
+                style={{ fontSize: 'var(--console-type-caption)', ...(compact ? { gridColumn: '1 / 2' } : {}) }}
+                aria-label={`Field ${index + 1} description`}
               />
-              <Input
-                placeholder="example"
-                value={field.example}
-                onChange={(e) => handleFieldChange(index, 'example', e.target.value)}
-                style={{ fontSize: 12 }}
-              />
+              {!compact && (
+                <Input
+                  placeholder="example"
+                  value={field.example}
+                  onChange={(e) => handleFieldChange(index, 'example', e.target.value)}
+                  className="console-type-caption"
+                />
+              )}
               <Button
-                icon={<DeleteOutlined />}
+                icon={<GatewayIcon name="DeleteOutlined" />}
                 size="small"
                 danger
                 onClick={() => removeField(index)}
                 disabled={fields.length === 1}
+                aria-label={`Remove field ${index + 1}`}
+                style={compact ? { justifySelf: 'end' } : undefined}
               />
+              {compact && (
+                <Input
+                  placeholder="Example value"
+                  value={field.example}
+                  onChange={(e) => handleFieldChange(index, 'example', e.target.value)}
+                  className="ui-extracted-77307d10ca"
+                  aria-label={`Field ${index + 1} example`}
+                />
+              )}
             </div>
           ))}
           {fields.length === 0 && (
-            <Button type="dashed" block icon={<PlusOutlined />} onClick={addField}>
+            <Button type="dashed" block icon={<GatewayIcon name="PlusOutlined" />} onClick={addField}>
               Add first field
             </Button>
           )}
@@ -252,7 +282,7 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
 
         {/* Sample payload JSON editor */}
         <div>
-          <Text strong style={{ display: 'block', marginBottom: 6 }}>
+          <Text weight="semibold" display="block" className="console-margin-bottom-2">
             Sample Payload (JSON, optional)
           </Text>
           <TextArea
@@ -263,10 +293,14 @@ export const EventTypeEditorModal = ({ open, onClose, existing, categories = [] 
               setSamplePayloadError('');
             }}
             placeholder={'{\n  "orderId": "ORD-123",\n  "amount": 99.99\n}'}
-            style={{ fontFamily: 'monospace', fontSize: 12 }}
+            className="console-mono-caption"
           />
           {samplePayloadError && (
-            <Text type="danger" style={{ fontSize: 12 }}>
+            <Text
+              type="supporting"
+              color="primary"
+              style={{ color: cssVar.error.text, fontSize: 'var(--console-type-caption)' }}
+            >
               {samplePayloadError}
             </Text>
           )}

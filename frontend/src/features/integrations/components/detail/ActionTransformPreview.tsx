@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Collapse, Input, Typography } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
-import type { FormInstance } from 'antd';
+import { Collapse, Input } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
+import { cssVar } from '../../../../design-system/utils';
+import { Button } from '../../../../components/common/LegacyButton';
 
 interface ActionTransformPreviewProps {
   actionIndex: number;
   form: FormInstance;
   selectedEventTypeData: any;
-  colors: any;
   spacing: any;
   token: any;
 }
@@ -16,9 +18,8 @@ export const ActionTransformPreview = ({
   actionIndex,
   form,
   selectedEventTypeData,
-  colors,
   spacing,
-  token
+  token,
 }: ActionTransformPreviewProps) => {
   const [sampleInput, setSampleInput] = useState('{}');
   const [output, setOutput] = useState('');
@@ -38,7 +39,7 @@ export const ActionTransformPreview = ({
       const context = {
         eventType: form.getFieldValue('eventType') || 'TEST_EVENT',
         tenantId: 100,
-        entityName: 'Test Entity'
+        entityName: 'Test Entity',
       };
 
       const script = action?.transformation?.script;
@@ -63,16 +64,16 @@ export const ActionTransformPreview = ({
         {
           key: 'preview',
           label: (
-            <Typography.Text type="secondary">
-              <ThunderboltOutlined /> Test Transformation
-            </Typography.Text>
+            <Text type="supporting" color="secondary">
+              <GatewayIcon name="ThunderboltOutlined" /> Test Transformation
+            </Text>
           ),
           children: (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing[3] }}>
+            <div className="action-transform-preview-grid" style={{ gap: spacing[3] }}>
               <div>
-                <Typography.Text strong style={{ display: 'block', marginBottom: spacing[1] }}>
+                <Text weight="semibold" display="block" className="console-margin-bottom-1">
                   Sample Input
-                </Typography.Text>
+                </Text>
                 <Input.TextArea
                   value={sampleInput}
                   onChange={(e) => setSampleInput(e.target.value)}
@@ -80,16 +81,21 @@ export const ActionTransformPreview = ({
                   placeholder='{"orderId": 12345}'
                   style={{
                     fontFamily: 'monospace',
-                    fontSize: 12,
-                    background: colors.neutral[900],
-                    color: colors.neutral[50]
+                    fontSize: 'var(--console-type-caption)',
+                    background: cssVar.table.codeBg,
+                    color: cssVar.text.primary,
                   }}
                 />
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: spacing[1] }}>
-                  <Typography.Text strong>Output</Typography.Text>
-                  <Button size="small" type="primary" onClick={runPreview} icon={<ThunderboltOutlined />}>
+                  <Text weight="semibold">Output</Text>
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={runPreview}
+                    icon={<GatewayIcon name="ThunderboltOutlined" />}
+                  >
                     Run
                   </Button>
                 </div>
@@ -100,15 +106,15 @@ export const ActionTransformPreview = ({
                   placeholder="Click Run to preview"
                   style={{
                     fontFamily: 'monospace',
-                    fontSize: 12,
-                    background: colors.neutral[900],
-                    color: colors.neutral[50]
+                    fontSize: 'var(--console-type-caption)',
+                    background: cssVar.table.codeBg,
+                    color: cssVar.text.primary,
                   }}
                 />
               </div>
             </div>
-          )
-        }
+          ),
+        },
       ]}
     />
   );

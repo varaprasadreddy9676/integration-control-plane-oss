@@ -1,14 +1,7 @@
-import { Button, Space, Tooltip } from 'antd';
-import {
-  SaveOutlined,
-  CloseOutlined,
-  EditOutlined,
-  ThunderboltOutlined,
-  CopyOutlined,
-  DownloadOutlined,
-  UploadOutlined,
-} from '@ant-design/icons';
+import { Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from "../../../../components/common/Icon";
 import { spacingToNumber } from '../../../../design-system/utils';
+import { Button } from '../../../../components/common/LegacyButton';
 
 export interface FormActionsProps {
   /**
@@ -224,23 +217,23 @@ export const FormActions = ({
                 : testEnabledTooltip || 'Send a test event'
             }
           >
-            <Button onClick={onTest} disabled={isActive === false} icon={<ThunderboltOutlined />} size={size}>
+            <Button onClick={onTest} disabled={isActive === false} icon={<GatewayIcon name="ThunderboltOutlined" />} size={size}>
               {testText || 'Test'}
             </Button>
           </Tooltip>
         )}
         {canExport && onExport && (
-          <Button onClick={onExport} icon={<DownloadOutlined />} size={size}>
+          <Button onClick={onExport} icon={<GatewayIcon name="DownloadOutlined" />} size={size}>
             {exportText || 'Export'}
           </Button>
         )}
         {!isPortalSession && canDuplicate && onDuplicate && (
-          <Button onClick={onDuplicate} icon={<CopyOutlined />} size={size}>
+          <Button onClick={onDuplicate} icon={<GatewayIcon name="CopyOutlined" />} size={size}>
             {duplicateText || 'Duplicate'}
           </Button>
         )}
         {!isPortalSession && onToggleEdit && (
-          <Button type="primary" icon={<EditOutlined />} onClick={onToggleEdit} size={size}>
+          <Button type="primary" icon={<GatewayIcon name="EditOutlined" />} onClick={onToggleEdit} size={size}>
             {editText || 'Edit'}
           </Button>
         )}
@@ -252,12 +245,12 @@ export const FormActions = ({
   if (mode === 'view' && isEditMode) {
     return (
       <Space size={spacingToNumber(spacing['2'])} wrap>
-        <Button icon={<CloseOutlined />} onClick={onCancel} size={size}>
+        <Button icon={<GatewayIcon name="CloseOutlined" />} onClick={onCancel} size={size}>
           {cancelText || 'Cancel'}
         </Button>
         <Button
           type="primary"
-          icon={<SaveOutlined />}
+          icon={<GatewayIcon name="SaveOutlined" />}
           onClick={onSave}
           loading={isSaving}
           disabled={isSaving || !canSave}
@@ -273,7 +266,7 @@ export const FormActions = ({
   if (mode === 'edit') {
     return (
       <Space size={spacingToNumber(spacing['2'])} wrap>
-        <Button icon={<CloseOutlined />} onClick={onCancel} size={size}>
+        <Button icon={<GatewayIcon name="CloseOutlined" />} onClick={onCancel} size={size}>
           {cancelText || 'Cancel'}
         </Button>
         {canTest && onTest && (
@@ -284,14 +277,14 @@ export const FormActions = ({
                 : testEnabledTooltip || 'Send a test event'
             }
           >
-            <Button onClick={onTest} disabled={!canSave} icon={<ThunderboltOutlined />} size={size}>
+            <Button onClick={onTest} disabled={!canSave} icon={<GatewayIcon name="ThunderboltOutlined" />} size={size}>
               {testText || 'Test'}
             </Button>
           </Tooltip>
         )}
         <Button
           type="primary"
-          icon={<SaveOutlined />}
+          icon={<GatewayIcon name="SaveOutlined" />}
           onClick={onSave}
           loading={isSaving}
           disabled={isSaving || !canSave}
@@ -308,7 +301,7 @@ export const FormActions = ({
     return (
       <Space size={spacingToNumber(spacing['2'])} wrap>
         {canImport && onImport && (
-          <Button onClick={onImport} icon={<UploadOutlined />} size={size}>
+          <Button onClick={onImport} icon={<GatewayIcon name="UploadOutlined" />} size={size}>
             {importText || 'Import Config'}
           </Button>
         )}

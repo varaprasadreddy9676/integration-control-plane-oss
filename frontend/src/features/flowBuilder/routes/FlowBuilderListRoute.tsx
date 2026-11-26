@@ -5,29 +5,25 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { App, Button, Space, Tag, Input, Card, Dropdown, Typography, Tooltip, Alert, Empty } from 'antd';
-import type { MenuProps, TableColumnsType } from 'antd';
-import {
-  PlusOutlined,
-  SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  EllipsisOutlined,
-  BlockOutlined,
-  ThunderboltOutlined,
-  ClockCircleOutlined,
-  ApiOutlined,
-} from '@ant-design/icons';
+import { App, Space, Dropdown, Tooltip, Segmented } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
+import { Text } from '@astryxdesign/core/Text';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import type { MenuProps, TableColumnsType } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from "../../../components/common/Icon";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { deleteInboundIntegration, deleteIntegration, getAllIntegrations } from '../../../services/api';
-import { cssVar } from '../../../design-system/utils';
 import type { IntegrationMode } from '../state/flowTypes';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { useTenant } from '../../../app/tenant-context';
+import { FilterBar } from '../../../components/common/FilterBar';
+import { SearchInput } from '../../../components/common/ListControls';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
 
-const { Text } = Typography;
 
 interface IntegrationListItem {
   id: string;
@@ -141,31 +137,17 @@ export const FlowBuilderListRoute: React.FC = () => {
     });
   };
 
-  // Get mode color
-  const getModeColor = (mode: IntegrationMode): string => {
-    switch (mode) {
-      case 'INBOUND':
-        return 'blue';
-      case 'OUTBOUND_EVENT':
-        return 'green';
-      case 'OUTBOUND_SCHEDULED':
-        return 'orange';
-      default:
-        return 'default';
-    }
-  };
-
   // Get mode icon
   const getModeIcon = (mode: IntegrationMode) => {
     switch (mode) {
       case 'INBOUND':
-        return <ApiOutlined />;
+        return <GatewayIcon name="ApiOutlined" />;
       case 'OUTBOUND_EVENT':
-        return <ThunderboltOutlined />;
+        return <GatewayIcon name="ThunderboltOutlined" />;
       case 'OUTBOUND_SCHEDULED':
-        return <ClockCircleOutlined />;
+        return <GatewayIcon name="ClockCircleOutlined" />;
       default:
-        return <BlockOutlined />;
+        return <GatewayIcon name="BlockOutlined" />;
     }
   };
 
@@ -178,9 +160,9 @@ export const FlowBuilderListRoute: React.FC = () => {
       width: '25%',
       render: (name: string, record: IntegrationListItem) => (
         <Space direction="vertical" size={0}>
-          <Text strong>{name}</Text>
+          <Text weight="semibold">{name}</Text>
           {record.eventType && (
-            <Text type="secondary" style={{ fontSize: '12px' }}>
+            <Text type="supporting" color="secondary" size="sm">
               Event: {record.eventType}
             </Text>
           )}
@@ -193,9 +175,10 @@ export const FlowBuilderListRoute: React.FC = () => {
       key: 'mode',
       width: '20%',
       render: (mode: IntegrationMode) => (
-        <Tag color={getModeColor(mode)} icon={getModeIcon(mode)}>
-          {mode.replace('_', ' ')}
-        </Tag>
+        <Space size={6}>
+          {getModeIcon(mode)}
+          <Text type="supporting" color="secondary">{mode.replace('_', ' ')}</Text>
+        </Space>
       ),
       filters: [
         { text: 'Inbound', value: 'INBOUND' },
@@ -213,19 +196,15 @@ export const FlowBuilderListRoute: React.FC = () => {
         url ? (
           <Tooltip title={url}>
             <Text
-              style={{
-                maxWidth: '300px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                display: 'block',
-              }}
+              maxLines={1}
+              hasTruncateTooltip="above"
+              className="ui-extracted-f4d279753b"
             >
               {url}
             </Text>
           </Tooltip>
         ) : (
-          <Text type="secondary">-</Text>
+          <Text type="supporting" color="secondary">-</Text>
         ),
     },
     {
@@ -234,7 +213,7 @@ export const FlowBuilderListRoute: React.FC = () => {
       key: 'isActive',
       width: '10%',
       render: (isActive: boolean) => (
-        <Tag color={isActive ? 'success' : 'default'}>{isActive ? 'Active' : 'Inactive'}</Tag>
+        <StatusBadge label={isActive ? 'Active' : 'Inactive'} variant={isActive ? 'success' : 'neutral'} showIcon={false} />
       ),
       filters: [
         { text: 'Active', value: true },
@@ -252,7 +231,7 @@ export const FlowBuilderListRoute: React.FC = () => {
           {
             key: 'edit',
             label: 'Edit in Flow Builder',
-            icon: <EditOutlined />,
+            icon: <GatewayIcon name="EditOutlined" />,
             onClick: () => handleEdit(record),
           },
           {
@@ -261,7 +240,7 @@ export const FlowBuilderListRoute: React.FC = () => {
           {
             key: 'delete',
             label: 'Delete',
-            icon: <DeleteOutlined />,
+            icon: <GatewayIcon name="DeleteOutlined" />,
             danger: true,
             disabled: deleteMutation.isPending,
             onClick: () => handleDelete(record),
@@ -270,11 +249,11 @@ export const FlowBuilderListRoute: React.FC = () => {
 
         return (
           <Space size="small">
-            <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+            <Button type="primary" size="small" icon={<GatewayIcon name="EditOutlined" />} onClick={() => handleEdit(record)}>
               Edit Flow
             </Button>
             <Dropdown menu={{ items: menuItems }} trigger={['click']}>
-              <Button size="small" icon={<EllipsisOutlined />} />
+              <Button size="small" icon={<GatewayIcon name="EllipsisOutlined" />} />
             </Dropdown>
           </Space>
         );
@@ -287,114 +266,70 @@ export const FlowBuilderListRoute: React.FC = () => {
     {
       key: 'inbound',
       label: 'Inbound Integration',
-      icon: <ApiOutlined />,
+      icon: <GatewayIcon name="ApiOutlined" />,
       onClick: () => handleCreateNew('INBOUND'),
     },
     {
       key: 'outbound-event',
       label: 'Outbound Event Integration',
-      icon: <ThunderboltOutlined />,
+      icon: <GatewayIcon name="ThunderboltOutlined" />,
       onClick: () => handleCreateNew('OUTBOUND_EVENT'),
     },
     {
       key: 'outbound-scheduled',
       label: 'Outbound Scheduled Integration',
-      icon: <ClockCircleOutlined />,
+      icon: <GatewayIcon name="ClockCircleOutlined" />,
       onClick: () => handleCreateNew('OUTBOUND_SCHEDULED'),
     },
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: cssVar.bg.base, paddingBottom: '32px' }}>
-      {/* Page Header */}
-      <PageHeader
+    <PageTemplate
+      as="main"
+      className="flow-builder-list-workspace"
+      contentClassName="flow-builder-list-workspace__content"
+      header={<PageHeader
         title="Flow Builder"
         description="Visual integration designer - Create and manage integrations using a drag-and-drop flow builder"
         breadcrumb={[{ label: 'Configuration' }, { label: 'Flow Builder' }]}
         actions={
           <Dropdown menu={{ items: createMenuItems }} placement="bottomRight">
-            <Button type="primary" size="large" icon={<PlusOutlined />}>
+            <Button type="primary" size="large" icon={<GatewayIcon name="PlusOutlined" />}>
               Create New Integration
             </Button>
           </Dropdown>
         }
-      />
+      />}
+    >
 
-      {/* Info Alert */}
-      <Card style={{ margin: '24px' }}>
-        <Alert
-          type="info"
-          showIcon
-          message="Visual Flow Builder"
-          description={
-            <div>
-              <p style={{ marginBottom: '8px' }}>
-                The Flow Builder provides a visual drag-and-drop interface for creating and managing integrations. It
-                supports all integration types:
-              </p>
-              <ul style={{ paddingLeft: '20px', marginBottom: 0 }}>
-                <li>
-                  <strong>Inbound:</strong> Real-time API proxy integrations
-                </li>
-                <li>
-                  <strong>Outbound Event:</strong> Event-triggered delivery integrations
-                </li>
-                <li>
-                  <strong>Outbound Scheduled:</strong> Scheduled/delayed delivery integrations
-                </li>
-              </ul>
-            </div>
-          }
-        />
-      </Card>
+      <section className="flow-builder-capability-note">
+        <Banner status="info" title="Design inbound, event-driven, and scheduled integrations in one visual workflow." />
+      </section>
 
       {/* Filters */}
-      <Card style={{ margin: '24px' }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Input
-              placeholder="Search integrations..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: '400px' }}
-              allowClear
-            />
-            <Space>
-              <Text type="secondary">Filter by mode:</Text>
-              <Space.Compact>
-                <Button type={selectedMode === 'all' ? 'primary' : 'default'} onClick={() => setSelectedMode('all')}>
-                  All
-                </Button>
-                <Button
-                  type={selectedMode === 'INBOUND' ? 'primary' : 'default'}
-                  onClick={() => setSelectedMode('INBOUND')}
-                  icon={<ApiOutlined />}
-                >
-                  Inbound
-                </Button>
-                <Button
-                  type={selectedMode === 'OUTBOUND_EVENT' ? 'primary' : 'default'}
-                  onClick={() => setSelectedMode('OUTBOUND_EVENT')}
-                  icon={<ThunderboltOutlined />}
-                >
-                  Event
-                </Button>
-                <Button
-                  type={selectedMode === 'OUTBOUND_SCHEDULED' ? 'primary' : 'default'}
-                  onClick={() => setSelectedMode('OUTBOUND_SCHEDULED')}
-                  icon={<ClockCircleOutlined />}
-                >
-                  Scheduled
-                </Button>
-              </Space.Compact>
-            </Space>
-          </Space>
-        </Space>
-      </Card>
+      <FilterBar>
+        <SearchInput
+          value={searchText}
+          onChange={setSearchText}
+          label="Search integrations"
+          placeholder="Search name, event type, or target URL"
+          width={360}
+        />
+        <Segmented
+          aria-label="Filter integrations by mode"
+          value={selectedMode}
+          onChange={(value) => setSelectedMode(value as 'all' | IntegrationMode)}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: <><GatewayIcon name="ApiOutlined" /> Inbound</>, value: 'INBOUND' },
+            { label: <><GatewayIcon name="ThunderboltOutlined" /> Event</>, value: 'OUTBOUND_EVENT' },
+            { label: <><GatewayIcon name="ClockCircleOutlined" /> Scheduled</>, value: 'OUTBOUND_SCHEDULED' },
+          ]}
+        />
+      </FilterBar>
 
       {/* Table */}
-      <Card style={{ margin: '24px' }}>
+      <section className="flow-builder-table-surface" aria-label="Integrations">
         <ModernTable
           columns={columns}
           dataSource={filteredIntegrations}
@@ -407,26 +342,26 @@ export const FlowBuilderListRoute: React.FC = () => {
           }}
           locale={{
             emptyText: (
-              <Empty
-                description={
-                  searchText || selectedMode !== 'all'
-                    ? 'No integrations match your filters'
-                    : 'No integrations created yet'
+              <StatePanel
+                size="compact"
+                glyph="searching"
+                title={searchText || selectedMode !== 'all' ? 'No matching integrations' : 'No integrations yet'}
+                description={searchText || selectedMode !== 'all' ? 'Adjust filters to see integrations.' : undefined}
+                actions={
+                  !searchText && selectedMode === 'all' ? (
+                    <Dropdown menu={{ items: createMenuItems }} placement="bottomRight">
+                      <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />}>
+                        Create integration
+                      </Button>
+                    </Dropdown>
+                  ) : undefined
                 }
-              >
-                {!searchText && selectedMode === 'all' && (
-                  <Dropdown menu={{ items: createMenuItems }} placement="bottomRight">
-                    <Button type="primary" icon={<PlusOutlined />}>
-                      Create Your First Integration
-                    </Button>
-                  </Dropdown>
-                )}
-              </Empty>
+              />
             ),
           }}
         />
-      </Card>
-    </div>
+      </section>
+    </PageTemplate>
   );
 };
 

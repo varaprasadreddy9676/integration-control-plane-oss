@@ -599,21 +599,11 @@ function buildDelivery(delivery: DeliveryInput, group: number, input: FlowInput,
   afterChain
     .slice(0, -1)
     .forEach((from, i) => plus(`a${i}`, 'after_response', i, from, afterChain[i + 1], 'Add a step after the response'));
-  const laterChain = [...(afterNodes.length ? [afterNodes[afterNodes.length - 1]] : [send]), ...laterNodes, delivered];
-  if (laterNodes.length) {
-    laterChain
-      .slice(1, -1)
-      .forEach((from, i) => plus(`l${i}`, 'after_delivery', i + 1, from, laterChain[i + 2], 'Add a later check'));
-    plus(
-      'l-end',
-      'after_delivery',
-      laterNodes.length,
-      laterNodes[laterNodes.length - 1],
-      delivered,
-      'Add a later check'
-    );
-  } else {
-    plus('l-end', 'after_delivery', 0, afterNodes[afterNodes.length - 1] || send, delivered, 'Add a later check');
+  const laterStart = afterNodes[afterNodes.length - 1] || send;
+  for (let position = 0; position <= laterNodes.length; position += 1) {
+    const from = position === 0 ? laterStart : laterNodes[position - 1];
+    const to = position === laterNodes.length ? delivered : laterNodes[position];
+    plus(`l${position}`, 'after_delivery', position, from, to, 'Add a later check');
   }
   const failChain = [...failureNodes, failedEnd];
   failureNodes.forEach((from, i) =>

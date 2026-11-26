@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Typography } from 'antd';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 
 interface ConfigSectionProps {
@@ -20,7 +21,7 @@ export const ConfigSection = ({ icon, title, description, actions, children }: C
   const colors = cssVar.legacy;
 
   return (
-    <div>
+    <section className="config-section" aria-label={title}>
       <div
         style={{
           display: 'flex',
@@ -30,29 +31,34 @@ export const ConfigSection = ({ icon, title, description, actions, children }: C
           marginBottom: spacing[3],
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-          {icon && <span style={{ fontSize: 16, color: colors.primary[600], display: 'flex' }}>{icon}</span>}
-          <Typography.Text strong style={{ fontSize: 14 }}>
+        <div className="console-flex-center-gap-2">
+          {icon && (
+            <span style={{ fontSize: 'var(--console-type-section)', color: colors.primary[600], display: 'flex' }}>
+              {icon}
+            </span>
+          )}
+          <Heading level={5} className="console-section-heading-inline">
             {title}
-          </Typography.Text>
+          </Heading>
         </div>
         {actions}
       </div>
       {description && (
-        <Typography.Text
-          type="secondary"
+        <Text
+          type="supporting"
+          as="div"
           style={{
             display: 'block',
-            fontSize: 13,
+            fontSize: 'var(--console-type-body)',
             lineHeight: 1.5,
             marginTop: `-${spacing[2]}`,
             marginBottom: spacing[3],
           }}
         >
           {description}
-        </Typography.Text>
+        </Text>
       )}
       <div>{children}</div>
-    </div>
+    </section>
   );
 };

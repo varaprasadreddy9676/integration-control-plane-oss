@@ -5,20 +5,17 @@
  */
 
 import React from 'react';
-import { Drawer, Timeline, Typography, Space, Card, Tag, Button, Collapse, Empty, Alert } from 'antd';
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  ClockCircleOutlined,
-  DownOutlined,
-  CopyOutlined,
-  CloseOutlined,
-} from '@ant-design/icons';
-import { cssVar } from '../../../design-system/utils';
+import { Drawer, Timeline, Space, Card, Collapse } from '@/components/common/LegacyAntdControls';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import type { FlowExecutionResult, FlowExecutionStep } from '../state/flowTypes';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { Button } from '../../../components/common/LegacyButton';
 
-const { Text, Title } = Typography;
 const { Panel } = Collapse;
 
 export interface FlowRunPanelProps {
@@ -40,22 +37,11 @@ export const FlowRunPanel: React.FC<FlowRunPanelProps> = ({ visible, executionRe
   const getStatusIcon = (status: 'success' | 'failed' | 'skipped') => {
     switch (status) {
       case 'success':
-        return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+        return <GatewayIcon name="CheckCircleOutlined" className="console-text-secondary" />;
       case 'failed':
-        return <CloseCircleOutlined style={{ color: '#f5222d' }} />;
+        return <GatewayIcon name="CloseCircleOutlined" className="console-text-secondary" />;
       case 'skipped':
-        return <ClockCircleOutlined style={{ color: '#8c8c8c' }} />;
-    }
-  };
-
-  const getStatusColor = (status: 'success' | 'failed' | 'skipped') => {
-    switch (status) {
-      case 'success':
-        return 'success';
-      case 'failed':
-        return 'error';
-      case 'skipped':
-        return 'default';
+        return <GatewayIcon name="ClockCircleOutlined" className="console-text-muted" />;
     }
   };
 
@@ -63,13 +49,15 @@ export const FlowRunPanel: React.FC<FlowRunPanelProps> = ({ visible, executionRe
     <Drawer
       title={
         <Space>
-          <Title level={5} style={{ margin: 0 }}>
+          <Heading level={5} className="console-margin-none">
             Test Execution Results
-          </Title>
+          </Heading>
           {executionResult && (
-            <Tag color={executionResult.success ? 'success' : 'error'}>
-              {executionResult.success ? 'SUCCESS' : 'FAILED'}
-            </Tag>
+            <StatusBadge
+              status={executionResult.success ? 'SUCCESS' : 'FAILED'}
+              label={executionResult.success ? 'Success' : 'Failed'}
+              variant={executionResult.success ? 'success' : 'error'}
+            />
           )}
         </Space>
       }
@@ -77,104 +65,64 @@ export const FlowRunPanel: React.FC<FlowRunPanelProps> = ({ visible, executionRe
       onClose={onClose}
       open={visible}
       height="50vh"
-      extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
+      extra={<Button type="text" icon={<GatewayIcon name="CloseOutlined" />} onClick={onClose} />}
     >
       {!executionResult ? (
-        <Empty description="No test execution results available" style={{ marginTop: '50px' }} />
+        <StatePanel size="compact" glyph="searching" title="No test results" />
       ) : (
-        <div style={{ padding: '0 24px' }}>
+        <div className="flow-run-content">
           {/* Summary */}
-          <Card
-            size="small"
-            style={{ marginBottom: '24px' }}
-            styles={{
-              body: {
-                background: executionResult.success ? cssVar.success.bg : cssVar.error.bg,
-              },
-            }}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Card size="small" className="console-margin-bottom-6">
+            <Space direction="vertical" className="console-width-full">
+              <div className="console-flex-between">
                 <Space>
-                  <Text strong>Total Execution Time:</Text>
-                  <Text>{formatDuration(executionResult.executionTime)}</Text>
+                  <AstryxText weight="semibold">Total Execution Time:</AstryxText>
+                  <AstryxText>{formatDuration(executionResult.executionTime)}</AstryxText>
                 </Space>
                 <Space>
-                  <Text strong>Steps:</Text>
-                  <Text>{executionResult.steps.length}</Text>
+                  <AstryxText weight="semibold">Steps:</AstryxText>
+                  <AstryxText>{executionResult.steps.length}</AstryxText>
                 </Space>
               </div>
 
               {executionResult.error && (
-                <Alert
-                  message="Execution Error"
+                <Banner
+                  status="error"
+                  title="Execution Error"
                   description={
                     <div>
-                      <div style={{ marginBottom: '8px' }}>
+                      <div className="console-margin-bottom-2">
                         <strong>Message:</strong> {executionResult.error.message}
                       </div>
                       {executionResult.error.nodeId && (
-                        <div style={{ marginBottom: '8px' }}>
+                        <div className="console-margin-bottom-2">
                           <strong>Node ID:</strong> {executionResult.error.nodeId}
                         </div>
                       )}
                       {executionResult.error.stack && (
                         <details>
-                          <summary style={{ cursor: 'pointer', marginTop: '8px' }}>View Stack Trace</summary>
-                          <pre
-                            className="clamped-code-block"
-                            style={{
-                              fontSize: '11px',
-                              background: cssVar.bg.overlay,
-                              color: cssVar.text.primary,
-                              padding: '8px',
-                              borderRadius: '4px',
-                              marginTop: '8px',
-                              overflow: 'auto',
-                            }}
-                          >
-                            {executionResult.error.stack}
-                          </pre>
+                          <summary className="console-cursor-pointer console-margin-top-2">View Stack Trace</summary>
+                          <pre className="clamped-code-block flow-run-stack-code">{executionResult.error.stack}</pre>
                         </details>
                       )}
                     </div>
                   }
-                  type="error"
-                  showIcon
                 />
               )}
 
               {executionResult.output && (
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <Text strong>Output:</Text>
+                  <div className="console-row-between-center-spaced">
+                    <AstryxText weight="semibold">Output:</AstryxText>
                     <Button
                       size="small"
-                      icon={<CopyOutlined />}
+                      icon={<GatewayIcon name="CopyOutlined" />}
                       onClick={() => copyToClipboard(JSON.stringify(executionResult.output, null, 2))}
                     >
                       Copy
                     </Button>
                   </div>
-                  <pre
-                    className="clamped-code-block"
-                    style={{
-                      background: cssVar.bg.base,
-                      padding: '12px',
-                      borderRadius: '4px',
-                      overflow: 'auto',
-                      maxHeight: '200px',
-                      fontSize: '12px',
-                      fontFamily: 'monospace',
-                    }}
-                  >
+                  <pre className="clamped-code-block flow-run-output-code">
                     {JSON.stringify(executionResult.output, null, 2)}
                   </pre>
                 </div>
@@ -183,91 +131,66 @@ export const FlowRunPanel: React.FC<FlowRunPanelProps> = ({ visible, executionRe
           </Card>
 
           {/* Execution steps timeline */}
-          <Title level={5} style={{ marginBottom: '16px' }}>
+          <Heading level={5} className="console-margin-bottom-4">
             Execution Steps
-          </Title>
+          </Heading>
 
           <Timeline
             items={executionResult.steps.map((step, index) => ({
               dot: getStatusIcon(step.status),
-              color: getStatusColor(step.status),
               children: (
-                <Card
-                  key={index}
-                  size="small"
-                  style={{
-                    marginBottom: '8px',
-                    borderLeft: `3px solid ${
-                      step.status === 'success'
-                        ? cssVar.success.text
-                        : step.status === 'failed'
-                          ? cssVar.error.text
-                          : cssVar.border.default
-                    }`,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '8px',
-                    }}
-                  >
+                <Card key={index} size="small" className="flow-run-step-card console-margin-bottom-2">
+                  <div className="console-row-between-center-spaced">
                     <Space>
-                      <Text strong>{step.nodeType}</Text>
-                      <Tag color={getStatusColor(step.status)}>{step.status.toUpperCase()}</Tag>
+                      <AstryxText weight="semibold">{step.nodeType}</AstryxText>
+                      <StatusBadge
+                        status={step.status.toUpperCase()}
+                        label={step.status.charAt(0).toUpperCase() + step.status.slice(1)}
+                        variant={step.status === 'success' ? 'success' : step.status === 'failed' ? 'error' : 'neutral'}
+                      />
                     </Space>
-                    <Text type="secondary">{formatDuration(step.durationMs)}</Text>
+                    <AstryxText type="supporting" color="secondary">
+                      {formatDuration(step.durationMs)}
+                    </AstryxText>
                   </div>
 
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                  <AstryxText type="supporting" color="secondary" className="console-type-caption">
                     Node ID: {step.nodeId}
-                  </Text>
+                  </AstryxText>
 
-                  {step.error && <Alert message={step.error} type="error" showIcon style={{ marginTop: '8px' }} />}
+                  {step.error && <Banner status="error" title={step.error} />}
 
                   {(step.input || step.output) && (
                     <Collapse
                       ghost
-                      style={{ marginTop: '8px' }}
-                      expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+                      className="console-margin-top-2"
+                      expandIcon={({ isActive }) => <GatewayIcon name="DownOutlined" rotate={isActive ? 180 : 0} />}
                     >
                       {step.input && (
-                        <Panel header={<Text type="secondary">Input Data</Text>} key="input">
-                          <pre
-                            className="clamped-code-block"
-                            style={{
-                              background: cssVar.bg.base,
-                              padding: '8px',
-                              borderRadius: '4px',
-                              overflow: 'auto',
-                              maxHeight: '150px',
-                              fontSize: '11px',
-                              fontFamily: 'monospace',
-                              margin: 0,
-                            }}
-                          >
+                        <Panel
+                          header={
+                            <AstryxText type="supporting" color="secondary">
+                              Input Data
+                            </AstryxText>
+                          }
+                          key="input"
+                        >
+                          <pre className="clamped-code-block flow-run-output-code flow-run-output-code--compact">
                             {JSON.stringify(step.input, null, 2)}
                           </pre>
                         </Panel>
                       )}
 
                       {step.output && (
-                        <Panel header={<Text type="secondary">Output Data</Text>} key="output">
-                          <pre
-                            className="clamped-code-block"
-                            style={{
-                              background: cssVar.bg.base,
-                              padding: '8px',
-                              borderRadius: '4px',
-                              overflow: 'auto',
-                              maxHeight: '150px',
-                              fontSize: '11px',
-                              fontFamily: 'monospace',
-                              margin: 0,
-                            }}
-                          >
+                        <Panel
+                          header={
+                            <AstryxText type="supporting" color="secondary">
+                              Output Data
+                            </AstryxText>
+                          }
+                          key="output"
+                        >
+                          <pre className="clamped-code-block flow-run-output-code flow-run-output-code--compact">
                             {JSON.stringify(step.output, null, 2)}
                           </pre>
                         </Panel>

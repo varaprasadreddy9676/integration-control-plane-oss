@@ -1,4 +1,4 @@
-import { DatePicker, Input, Select } from 'antd';
+import { DatePicker, Input, Select } from "@/components/common/LegacyAntdControls";
 import dayjs from 'dayjs';
 import type { ConditionPredicateValueType } from '../../../../../mocks/types';
 
@@ -55,8 +55,7 @@ export const ConditionValueInput = ({ value, onChange, valueType, fieldType }: C
     const parsedValue = typeof value === 'string' && value ? dayjs(value) : null;
 
     return (
-      <DatePicker
-        style={{ width: '100%' }}
+      <DatePicker className="console-width-full"
         showTime={showTime}
         format={showTime ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'}
         placeholder={showTime ? 'Select date and time' : 'Select date'}

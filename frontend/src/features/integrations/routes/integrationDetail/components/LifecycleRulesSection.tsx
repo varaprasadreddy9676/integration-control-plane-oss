@@ -1,8 +1,10 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { useEffect } from 'react';
-import { Button, Card, Empty, Form, Space } from 'antd';
+import { Card, Form, Space } from '@/components/common/LegacyAntdControls';
 import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { LifecycleRuleCard } from './LifecycleRuleCard';
+import { StatePanel } from '../../../../../components/common/StatePanel';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 interface LifecycleRulesSectionProps extends LifecyclePanelSurfaceProps {
   eventTypeOptions: Array<{ label: string; value: string }>;
@@ -41,18 +43,16 @@ export const LifecycleRulesSection = ({
   }, [defaultMatchKeys, form, lifecycleRules]);
 
   return (
-    <Card
-      size="small"
-      title="Does this event later get cancelled or rescheduled?"
-      style={{ borderRadius: token.borderRadiusLG }}
-    >
+    <Card size="small" title="Does this event later get cancelled or rescheduled?" className="console-card-radius">
       <Form.List name="lifecycleRules">
         {(fields, { add, remove }) => (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space direction="vertical" size={12} className="console-width-full">
             {fields.length === 0 && (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="Add a follow-up event if it should cancel, reschedule, replace, or ignore pending deliveries."
+              <StatePanel
+                size="compact"
+                glyph="searching"
+                title="No lifecycle rules"
+                description="Add a rule to manage held deliveries."
               />
             )}
             {fields.map((field) => {
@@ -69,7 +69,7 @@ export const LifecycleRulesSection = ({
             })}
             <Button
               type="dashed"
-              icon={<PlusOutlined />}
+              icon={<GatewayIcon name="PlusOutlined" />}
               onClick={() =>
                 add({
                   eventTypes: [],

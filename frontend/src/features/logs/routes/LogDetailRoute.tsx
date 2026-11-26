@@ -1,30 +1,20 @@
 import { useState } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import {
   Card,
   Descriptions,
   Space,
-  Tag,
   Collapse,
-  Typography,
-  Button,
   message,
   Timeline,
   Divider,
-  Skeleton,
-} from 'antd';
+} from '@/components/common/LegacyAntdControls';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  CopyOutlined,
-  ReloadOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  LoadingOutlined,
-  CodeOutlined,
-} from '@ant-design/icons';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { getLogById, getIntegrationById, retryLog, getApiBaseUrl } from '../../../services/api';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { getLogById, retryLog, getApiBaseUrl } from '../../../services/api';
 import { formatDateTime } from '../../../utils/format';
 import { resolveGatewayUrl } from '../../../utils/curl';
 import { copyTextToClipboard } from '../../../utils/clipboard';
@@ -34,22 +24,24 @@ import { DeliveryAttempt } from '../../../mocks/types';
 import { useTenant } from '../../../app/tenant-context';
 import { RequestPolicySummary } from '../../integrations/components/detail/shared/RequestPolicySummary';
 import { Hl7LogPanel, isHl7LogLike } from '../components/Hl7LogPanel';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Panel } = Collapse;
 const { Text, Title } = Typography;
 
 export const LogDetailRoute = () => {
-  const { spacing, token, borderRadius } = useDesignTokens();
+  const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
   const { id } = useParams();
   const navigate = useNavigate();
   const { orgId } = useTenant();
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['log', id],
     queryFn: () => (id ? getLogById(id) : Promise.resolve(undefined)),
     enabled: Boolean(id),
   });
-
 
   const handleReplayWithPayload = async (options: { payload: unknown; reason: string; force: boolean }) => {
     if (!id) return;
@@ -218,13 +210,13 @@ export const LogDetailRoute = () => {
   const getAttemptIcon = (attempt: DeliveryAttempt) => {
     switch (attempt.status) {
       case 'SUCCESS':
-        return <CheckCircleOutlined style={{ color: colors.success[600] }} />;
+        return <GatewayIcon name="CheckCircleOutlined" className="console-text-success" />;
       case 'FAILED':
-        return <ExclamationCircleOutlined style={{ color: colors.error[600] }} />;
+        return <GatewayIcon name="ExclamationCircleOutlined" className="console-text-error" />;
       case 'RETRYING':
-        return <LoadingOutlined style={{ color: colors.warning[600] }} />;
+        return <GatewayIcon name="LoadingOutlined" className="console-text-warning" />;
       default:
-        return <ClockCircleOutlined style={{ color: colors.info[600] }} />;
+        return <GatewayIcon name="ClockCircleOutlined" style={{ color: colors.info[600] }} />;
     }
   };
 
@@ -294,51 +286,43 @@ export const LogDetailRoute = () => {
       dot={getAttemptIcon(attempt)}
       color={attempt.status === 'SUCCESS' ? 'green' : attempt.status === 'FAILED' ? 'red' : 'blue'}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size="small">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Space direction="vertical" className="console-width-full" size="small">
+        <div className="console-flex-between-center">
           <Space>
-            <Title level={5} style={{ margin: 0, color: getAttemptColor(attempt) }}>
+            <Title level={5} style={{ margin: 'var(--spacing-0)', color: getAttemptColor(attempt) }}>
               Attempt {attempt.attemptNumber}
             </Title>
-            <Tag
-              color={attempt.status === 'SUCCESS' ? 'success' : attempt.status === 'FAILED' ? 'error' : 'processing'}
-            >
-              {attempt.status}
-            </Tag>
+            <StatusBadge status={attempt.status} />
           </Space>
           <Text type="secondary">{formatDateTime(attempt.attemptedAt)}</Text>
         </div>
 
         {attempt.retryReason && (
-          <Text type="secondary" style={{ fontStyle: 'italic' }}>
+          <Text type="secondary" className="ui-extracted-e9b019cefa">
             Reason: {attempt.retryReason}
           </Text>
         )}
 
-        <Descriptions size="small" column={3} bordered>
+        <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3, lg: 3, xl: 3, xxl: 3 }} bordered>
           {attempt.responseStatus && (
-            <Descriptions.Item label="HTTP Status">
-              <Tag color={attempt.responseStatus >= 200 && attempt.responseStatus < 300 ? 'green' : 'red'}>
-                {attempt.responseStatus}
-              </Tag>
-            </Descriptions.Item>
+            <Descriptions.Item label="HTTP Status">{renderHttpStatus(attempt.responseStatus)}</Descriptions.Item>
           )}
           {attempt.responseTimeMs && (
             <Descriptions.Item label="Response Time">{attempt.responseTimeMs} ms</Descriptions.Item>
           )}
           <Descriptions.Item label="Target">
-            <Text code style={{ fontSize: '11px' }}>
+            <Text code className="console-type-caption">
               {attempt.targetUrl}
             </Text>
           </Descriptions.Item>
         </Descriptions>
 
         {attempt.errorMessage && (
-          <div style={{ marginTop: spacing[1] }}>
+          <div className="console-margin-top-1">
             <Text type="danger" strong>
               Error:
             </Text>
-            <Text code style={{ display: 'block', marginTop: spacing[0.5], fontSize: '12px' }}>
+            <Text code style={{ display: 'block', marginTop: spacing[0.5], fontSize: 'var(--console-type-caption)' }}>
               {attempt.errorMessage}
             </Text>
           </div>
@@ -347,11 +331,11 @@ export const LogDetailRoute = () => {
         <Collapse size="small" ghost>
           <Panel
             header={
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="console-flex-between-center">
                 <Text strong>Request Details</Text>
                 <Button
                   size="small"
-                  icon={<CopyOutlined />}
+                  icon={<GatewayIcon name="CopyOutlined" />}
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(generateCurlCommandForAttempt(attempt, __KEEP_integrationConfig__));
@@ -363,31 +347,17 @@ export const LogDetailRoute = () => {
             }
             key="request"
           >
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Space direction="vertical" className="console-width-full" size="middle">
               <div>
                 <Text strong>cURL Command:</Text>
-                <div style={{ position: 'relative' }}>
+                <div className="console-position-relative">
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<GatewayIcon name="CopyOutlined" />}
                     onClick={() => copyToClipboard(generateCurlCommandForAttempt(attempt, __KEEP_integrationConfig__))}
-                    style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
+                    className="console-position-absolute-inset-1"
                   />
-                  <pre
-                    style={{
-                      background: 'var(--color-code-bg)',
-                      color: 'var(--color-text-primary)',
-                      padding: spacing[2],
-                      paddingRight: spacing[5],
-                      borderRadius: token.borderRadiusLG,
-                      fontSize: '11px',
-                      lineHeight: '1.4',
-                      maxHeight: '150px',
-                      overflow: 'auto',
-                      fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                      marginTop: spacing[1],
-                    }}
-                  >
+                  <pre className="log-detail-code-preview log-detail-code-preview--curl log-detail-code-preview--compact">
                     {generateCurlCommandForAttempt(attempt, __KEEP_integrationConfig__)}
                   </pre>
                 </div>
@@ -398,25 +368,13 @@ export const LogDetailRoute = () => {
                   <Text strong>Request Payload:</Text>
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<GatewayIcon name="CopyOutlined" />}
                     onClick={() => copyToClipboard(JSON.stringify(attempt.requestPayload, null, 2))}
                   >
                     Copy JSON
                   </Button>
                 </Space>
-                <pre
-                  style={{
-                    background: withAlpha(token.colorTextBase, 0.06),
-                    color: token.colorText,
-                    padding: spacing[2],
-                    borderRadius: token.borderRadiusLG,
-                    fontSize: '11px',
-                    lineHeight: '1.4',
-                    maxHeight: '150px',
-                    overflow: 'auto',
-                    marginTop: spacing[1],
-                  }}
-                >
+                <pre className="log-detail-code-preview log-detail-code-preview--compact">
                   {JSON.stringify(attempt.requestPayload, null, 2)}
                 </pre>
               </div>
@@ -425,12 +383,12 @@ export const LogDetailRoute = () => {
 
           <Panel
             header={
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="console-flex-between-center">
                 <Text strong>Response Details</Text>
                 {attempt.responseBody && (
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<GatewayIcon name="CopyOutlined" />}
                     onClick={(e) => {
                       e.stopPropagation();
                       copyToClipboard(formatResponseBody(attempt.responseBody));
@@ -445,28 +403,18 @@ export const LogDetailRoute = () => {
           >
             <div>
               <Text strong>Response Body:</Text>
-              <div style={{ position: 'relative' }}>
+              <div className="console-position-relative">
                 {attempt.responseBody && (
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<GatewayIcon name="CopyOutlined" />}
                     onClick={() => copyToClipboard(formatResponseBody(attempt.responseBody))}
-                    style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
+                    className="console-position-absolute-inset-1"
                   />
                 )}
                 <pre
-                  style={{
-                    background: withAlpha(token.colorTextBase, 0.04),
-                    color: token.colorText,
-                    padding: spacing[2],
-                    paddingRight: attempt.responseBody ? spacing[5] : spacing[2],
-                    borderRadius: token.borderRadiusLG,
-                    fontSize: '11px',
-                    lineHeight: '1.4',
-                    maxHeight: '150px',
-                    overflow: 'auto',
-                    marginTop: spacing[1],
-                  }}
+                  className="log-detail-code-preview log-detail-code-preview--compact"
+                  data-copyable={Boolean(attempt.responseBody)}
                 >
                   {formatResponseBody(attempt.responseBody) || 'No response captured'}
                 </pre>
@@ -478,41 +426,64 @@ export const LogDetailRoute = () => {
     </Timeline.Item>
   );
 
-  const tagTone = (base: string) => ({
-    borderRadius: borderRadius.full,
-    borderColor: withAlpha(base, 0.4),
-    background: withAlpha(base, 0.14),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing['2.5'],
-    paddingBlock: spacing['0.5'],
-  });
+  const renderHttpStatus = (status: unknown) => {
+    if (typeof status !== 'number') return <Text type="secondary">N/A</Text>;
+    return (
+      <code className={`console-text-secondary font-tabular${status >= 400 ? ' console-text-error' : ''}`}>
+        {status}
+      </code>
+    );
+  };
 
   return (
-    <div>
-      <PageHeader
-        title="Delivery log"
-        breadcrumb={[{ label: 'Logs', path: '/logs' }, { label: id ?? '' }]}
-        compact
-        actions={<Link to="/logs">Back to logs</Link>}
-      />
-      {isLoading || !data ? (
-        <Space direction="vertical" style={{ width: '100%' }} size={spacingToNumber(spacing[3])}>
-          <Card title="Overview" size="small">
-            <Skeleton active paragraph={{ rows: 6 }} />
-          </Card>
-          <Card title="Integration Configuration" size="small">
-            <Skeleton active paragraph={{ rows: 5 }} />
-          </Card>
-          <Card title="Delivery Timeline" size="small">
-            <Skeleton active paragraph={{ rows: 7 }} />
-          </Card>
-        </Space>
+    <PageTemplate
+      header={
+        <PageHeader
+          title="Delivery log"
+          breadcrumb={[
+            { label: 'Logs', path: '/logs' },
+            { label: integration?.name || data?.__KEEP_integrationName__ || data?.eventType || 'Delivery log' },
+          ]}
+          compact
+          actions={<Link to="/logs">Back to logs</Link>}
+        />
+      }
+    >
+      {isLoading && !data ? (
+        <StatePanel
+          glyph="connecting"
+          size="regular"
+          title="Loading delivery log"
+          description="Fetching delivery details."
+        />
+      ) : isError && !data ? (
+        <StatePanel
+          glyph="disrupted"
+          tone="critical"
+          title="Could not load delivery log"
+          description="The request failed."
+          actions={
+            <Button size="small" icon={<GatewayIcon name="ReloadOutlined" />} onClick={() => void refetch()}>
+              Retry
+            </Button>
+          }
+        />
+      ) : !data ? (
+        <StatePanel
+          glyph="searching"
+          title="Delivery log not found"
+          description="This record may have been removed."
+          actions={
+            <Button size="small" type="primary" onClick={() => navigate('/logs')}>
+              Back to logs
+            </Button>
+          }
+        />
       ) : (
-        <Space direction="vertical" style={{ width: '100%' }} size={spacingToNumber(spacing[3])}>
+        <Space direction="vertical" className="console-width-full" size={spacingToNumber(spacing[3])}>
           {/* Overview Card */}
           <Card title="Overview" size="small">
-            <Descriptions column={2} bordered size="small">
+            <Descriptions column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} bordered size="small">
               <Descriptions.Item label="Integration">{data.__KEEP_integrationName__}</Descriptions.Item>
               <Descriptions.Item label="Event type">{data.eventType}</Descriptions.Item>
               <Descriptions.Item label="Flow">
@@ -521,35 +492,23 @@ export const LogDetailRoute = () => {
                   : data.direction || 'OUTBOUND'}
               </Descriptions.Item>
               <Descriptions.Item label="Status">
-                <span
-                  style={tagTone(
-                    data.status === 'SUCCESS'
-                      ? colors.success[600]
-                      : data.status === 'FAILED'
-                        ? colors.error[600]
-                        : data.status === 'RETRYING'
-                          ? colors.warning[600]
-                          : colors.info[600]
-                  )}
-                >
-                  {data.status}
-                </span>
+                <StatusBadge status={data.status} />
               </Descriptions.Item>
               <Descriptions.Item label="Attempt Count">
-                <Tag color={data.attemptCount > 1 ? 'orange' : 'blue'}>
+                <Text type="secondary">
                   {data.attemptCount} {data.attemptCount === 1 ? 'attempt' : 'attempts'}
-                </Tag>
+                </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Created">{formatDateTime(data.createdAt)}</Descriptions.Item>
               <Descriptions.Item label="Response status">
-                {hasResponseStatus ? <Tag color={responseOk ? 'green' : 'red'}>{responseStatus}</Tag> : '—'}
+                {hasResponseStatus ? renderHttpStatus(responseStatus) : '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Response time">
                 {data.responseTimeMs ? `${data.responseTimeMs} ms` : '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Error Message">
                 {data.errorMessage ? (
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Space direction="vertical" size={8} className="console-width-full">
                     <Text type="danger">{data.errorMessage}</Text>
                   </Space>
                 ) : (
@@ -559,7 +518,6 @@ export const LogDetailRoute = () => {
             </Descriptions>
           </Card>
 
-
           {/* Integration Configuration Details */}
           {integration && (
             <Card
@@ -568,27 +526,28 @@ export const LogDetailRoute = () => {
               extra={
                 <Button
                   type="link"
-                  icon={<ReloadOutlined />}
+                  icon={<GatewayIcon name="ReloadOutlined" />}
                   onClick={() => navigate(`/integrations/${integration.id}`)}
                 >
                   View Integration
                 </Button>
               }
             >
-              <Descriptions column={2} bordered size="small">
+              <Descriptions column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} bordered size="small">
                 <Descriptions.Item label="Target URL">{integration.targetUrl}</Descriptions.Item>
                 <Descriptions.Item label="HTTP Method">
-                  <Tag color="blue">{integration.httpMethod}</Tag>
+                  <Text code>{integration.httpMethod}</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Authentication">
-                  <Tag color={integration.outgoingAuthType === 'NONE' ? 'green' : 'orange'}>
-                    {integration.outgoingAuthType}
-                  </Tag>
+                  <Text code>{integration.outgoingAuthType}</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Timeout">{integration.timeoutMs} ms</Descriptions.Item>
                 <Descriptions.Item label="Max Retries">{integration.retryCount}</Descriptions.Item>
                 <Descriptions.Item label="Active">
-                  <Tag color={integration.isActive ? 'green' : 'red'}>{integration.isActive ? 'Yes' : 'No'}</Tag>
+                  <StatusBadge
+                    label={integration.isActive ? 'Active' : 'Inactive'}
+                    variant={integration.isActive ? 'success' : 'neutral'}
+                  />
                 </Descriptions.Item>
                 {data.direction === 'INBOUND' && (
                   <Descriptions.Item label="Request Policy" span={2}>
@@ -601,17 +560,17 @@ export const LogDetailRoute = () => {
                 {senderRoutingMetadata && (
                   <Descriptions.Item label="Sender Routing" span={2}>
                     <Space size={[6, 6]} wrap>
-                      <Tag color="blue">{senderRoutingMetadata.routingDecision || 'resolved'}</Tag>
+                      <Text type="secondary">Decision: {senderRoutingMetadata.routingDecision || 'resolved'}</Text>
                       {senderRoutingMetadata.requestedFrom && (
-                        <Tag>{`requested: ${senderRoutingMetadata.requestedFrom}`}</Tag>
+                        <Text type="secondary">Requested: {senderRoutingMetadata.requestedFrom}</Text>
                       )}
                       {senderRoutingMetadata.senderProfile?.fromEmail && (
-                        <Tag color="green">{`resolved: ${senderRoutingMetadata.senderProfile.fromEmail}`}</Tag>
+                        <Text type="secondary">Resolved: {senderRoutingMetadata.senderProfile.fromEmail}</Text>
                       )}
                       {senderRoutingMetadata.senderProfile?.provider && (
-                        <Tag>{senderRoutingMetadata.senderProfile.provider}</Tag>
+                        <Text type="secondary">Provider: {senderRoutingMetadata.senderProfile.provider}</Text>
                       )}
-                      {senderRoutingMetadata.senderProfile?.isDefault && <Tag color="gold">Default profile</Tag>}
+                      {senderRoutingMetadata.senderProfile?.isDefault && <Text type="secondary">Default profile</Text>}
                     </Space>
                   </Descriptions.Item>
                 )}
@@ -624,9 +583,12 @@ export const LogDetailRoute = () => {
             <Card title={isScriptJob ? 'Script Job Execution' : 'Scheduled Job Execution Flow'} size="small">
               <Timeline>
                 {scriptSkipReason && (
-                  <Timeline.Item color="orange" dot={<ExclamationCircleOutlined style={{ fontSize: '16px' }} />}>
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text strong style={{ fontSize: '14px' }}>
+                  <Timeline.Item
+                    color="orange"
+                    dot={<GatewayIcon name="ExclamationCircleOutlined" className="console-type-section" />}
+                  >
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <Text strong className="console-type-control">
                         Skipped
                       </Text>
                       <Text type="secondary">{scriptSkipReason}</Text>
@@ -637,16 +599,16 @@ export const LogDetailRoute = () => {
                 {hasScriptLogs && (
                   <Timeline.Item
                     color={scriptLogs.some((l: any) => l.level === 'error') ? 'red' : 'blue'}
-                    dot={<CodeOutlined style={{ fontSize: '16px' }} />}
+                    dot={<GatewayIcon name="CodeOutlined" className="console-type-section" />}
                   >
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text strong style={{ fontSize: '14px' }}>
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <div className="console-flex-between-center">
+                        <Text strong className="console-type-control">
                           Script Console Output
                         </Text>
                         <Button
                           size="small"
-                          icon={<CopyOutlined />}
+                          icon={<GatewayIcon name="CopyOutlined" />}
                           onClick={() =>
                             copyToClipboard(
                               scriptLogs
@@ -663,43 +625,27 @@ export const LogDetailRoute = () => {
                       </div>
                       <Text type="secondary">{scriptLogs.length} log line(s) captured during execution</Text>
                       <div
-                        style={{
-                          background: 'var(--color-code-bg)',
-                          borderRadius: token.borderRadiusLG,
-                          padding: spacing[2],
-                          fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                          fontSize: '12px',
-                          maxHeight: 320,
-                          overflow: 'auto',
-                        }}
+                        className="console-script-output console-script-output--detail"
                       >
                         {scriptLogs.map((entry: any, i: number) => (
                           <div
                             key={i}
-                            style={{
-                              display: 'flex',
-                              gap: spacing[2],
-                              padding: '3px 0',
-                              borderBottom: i < scriptLogs.length - 1 ? '1px solid var(--color-border-subtle)' : 'none',
-                            }}
+                            className="console-script-output__line"
                           >
-                            <span style={{ color: 'var(--color-text-muted)', flexShrink: 0, fontSize: '11px' }}>
+                            <span
+                              className="console-script-output__time"
+                            >
                               {new Date(entry.ts).toLocaleTimeString()}
                             </span>
                             <span
-                              style={{
-                                color:
-                                  entry.level === 'error' ? 'var(--color-error-text)' : entry.level === 'warn' ? 'var(--color-warning-text)' : 'var(--color-text-secondary)',
-                                fontWeight: 600,
-                                flexShrink: 0,
-                                textTransform: 'uppercase',
-                                fontSize: '10px',
-                                minWidth: 36,
-                              }}
+                              className="console-script-output__level console-script-output__level--detail"
+                              data-level={String(entry.level).toLowerCase()}
                             >
                               {entry.level}
                             </span>
-                            <span style={{ color: 'var(--color-text-primary)', wordBreak: 'break-word' }}>{entry.message}</span>
+                            <span className="console-script-output__message">
+                              {entry.message}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -708,36 +654,26 @@ export const LogDetailRoute = () => {
                 )}
 
                 {metadata.recordsFetched !== undefined && (
-                  <Timeline.Item color="blue" dot={<CheckCircleOutlined style={{ fontSize: '16px' }} />}>
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text strong style={{ fontSize: '14px' }}>
+                  <Timeline.Item
+                    color="blue"
+                    dot={<GatewayIcon name="CheckCircleOutlined" className="console-type-section" />}
+                  >
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <Text strong className="console-type-control">
                         Step 1: Data Fetched from Source
                       </Text>
                       <Text type="secondary">Retrieved {metadata.recordsFetched} record(s) from data source</Text>
                       {hasDataFetched && (
                         <Collapse size="small" ghost>
                           <Panel header={<Text strong>View Data</Text>} key="dataFetched">
-                            <div style={{ position: 'relative' }}>
+                            <div className="console-position-relative">
                               <Button
                                 size="small"
-                                icon={<CopyOutlined />}
+                                icon={<GatewayIcon name="CopyOutlined" />}
                                 onClick={() => copyToClipboard(JSON.stringify(dataFetched, null, 2))}
-                                style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
+                                className="console-position-absolute-inset-1"
                               />
-                              <pre
-                                style={{
-                                  background: withAlpha(token.colorTextBase, 0.06),
-                                  color: token.colorText,
-                                  padding: spacing[2],
-                                  paddingRight: spacing[5],
-                                  borderRadius: token.borderRadiusLG,
-                                  fontSize: '11px',
-                                  lineHeight: '1.4',
-                                  maxHeight: '200px',
-                                  overflow: 'auto',
-                                  marginTop: spacing[1],
-                                }}
-                              >
+                              <pre className="log-detail-code-preview log-detail-code-preview--compact log-detail-code-preview--copyable">
                                 {JSON.stringify(dataFetched, null, 2)}
                               </pre>
                             </div>
@@ -749,35 +685,25 @@ export const LogDetailRoute = () => {
                 )}
 
                 {hasTransformedPayload && (
-                  <Timeline.Item color="green" dot={<CheckCircleOutlined style={{ fontSize: '16px' }} />}>
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text strong style={{ fontSize: '14px' }}>
+                  <Timeline.Item
+                    color="green"
+                    dot={<GatewayIcon name="CheckCircleOutlined" className="console-type-section" />}
+                  >
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <Text strong className="console-type-control">
                         Step 2: Data Transformed
                       </Text>
                       <Text type="secondary">Applied transformation script to prepare payload for delivery</Text>
                       <Collapse size="small" ghost>
                         <Panel header={<Text strong>View Transformed Payload</Text>} key="transformed">
-                          <div style={{ position: 'relative' }}>
+                          <div className="console-position-relative">
                             <Button
                               size="small"
-                              icon={<CopyOutlined />}
+                              icon={<GatewayIcon name="CopyOutlined" />}
                               onClick={() => copyToClipboard(JSON.stringify(transformedPayload, null, 2))}
-                              style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
+                              className="console-position-absolute-inset-1"
                             />
-                            <pre
-                              style={{
-                                background: withAlpha(token.colorTextBase, 0.06),
-                                color: token.colorText,
-                                padding: spacing[2],
-                                paddingRight: spacing[5],
-                                borderRadius: token.borderRadiusLG,
-                                fontSize: '11px',
-                                lineHeight: '1.4',
-                                maxHeight: '200px',
-                                overflow: 'auto',
-                                marginTop: spacing[1],
-                              }}
-                            >
+                            <pre className="log-detail-code-preview log-detail-code-preview--compact log-detail-code-preview--copyable">
                               {JSON.stringify(transformedPayload, null, 2)}
                             </pre>
                           </div>
@@ -792,27 +718,27 @@ export const LogDetailRoute = () => {
                     color={responseOk ? 'green' : 'red'}
                     dot={
                       responseOk ? (
-                        <CheckCircleOutlined style={{ fontSize: '16px' }} />
+                        <GatewayIcon name="CheckCircleOutlined" className="console-type-section" />
                       ) : (
-                        <ExclamationCircleOutlined style={{ fontSize: '16px' }} />
+                        <GatewayIcon name="ExclamationCircleOutlined" className="console-type-section" />
                       )
                     }
                   >
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text strong style={{ fontSize: '14px' }}>
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <Text strong className="console-type-control">
                         Step 3: HTTP Request Sent
                       </Text>
-                      <Descriptions size="small" column={2} bordered>
+                      <Descriptions size="small" column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} bordered>
                         <Descriptions.Item label="Method">
-                          <Tag color="blue">{metadata.httpRequest.method}</Tag>
+                          <Text code>{metadata.httpRequest.method}</Text>
                         </Descriptions.Item>
                         <Descriptions.Item label="URL">
-                          <Text code style={{ fontSize: '11px' }}>
+                          <Text code className="console-type-caption">
                             {metadata.httpRequest.url}
                           </Text>
                         </Descriptions.Item>
                         <Descriptions.Item label="Response Status">
-                          <Tag color={responseOk ? 'green' : 'red'}>{hasResponseStatus ? responseStatus : 'N/A'}</Tag>
+                          {hasResponseStatus ? renderHttpStatus(responseStatus) : <Text type="secondary">N/A</Text>}
                         </Descriptions.Item>
                         <Descriptions.Item label="Response Time">
                           {data.responseTimeMs ? `${data.responseTimeMs} ms` : 'N/A'}
@@ -827,7 +753,7 @@ export const LogDetailRoute = () => {
                                 <Text strong>cURL Command</Text>
                                 <Button
                                   size="small"
-                                  icon={<CopyOutlined />}
+                                  icon={<GatewayIcon name="CopyOutlined" />}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     copyToClipboard(curlCommand || '');
@@ -839,52 +765,18 @@ export const LogDetailRoute = () => {
                             }
                             key="curl"
                           >
-                            <pre
-                              style={{
-                                background: 'var(--color-code-bg)',
-                                color: 'var(--color-text-primary)',
-                                padding: spacing[2],
-                                borderRadius: token.borderRadiusLG,
-                                fontSize: '11px',
-                                lineHeight: '1.4',
-                                maxHeight: '200px',
-                                overflow: 'auto',
-                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                              }}
-                            >
+                            <pre className="log-detail-code-preview log-detail-code-preview--curl log-detail-code-preview--compact">
                               {curlCommand}
                             </pre>
                           </Panel>
                         )}
                         <Panel header={<Text strong>Request Headers</Text>} key="headers">
-                          <pre
-                            style={{
-                              background: withAlpha(token.colorTextBase, 0.06),
-                              color: token.colorText,
-                              padding: spacing[2],
-                              borderRadius: token.borderRadiusLG,
-                              fontSize: '11px',
-                              lineHeight: '1.4',
-                              maxHeight: '150px',
-                              overflow: 'auto',
-                            }}
-                          >
+                          <pre className="log-detail-code-preview log-detail-code-preview--compact">
                             {JSON.stringify(metadata.httpRequest.headers, null, 2)}
                           </pre>
                         </Panel>
                         <Panel header={<Text strong>Request Body</Text>} key="body">
-                          <pre
-                            style={{
-                              background: withAlpha(token.colorTextBase, 0.06),
-                              color: token.colorText,
-                              padding: spacing[2],
-                              borderRadius: token.borderRadiusLG,
-                              fontSize: '11px',
-                              lineHeight: '1.4',
-                              maxHeight: '200px',
-                              overflow: 'auto',
-                            }}
-                          >
+                          <pre className="log-detail-code-preview log-detail-code-preview--compact">
                             {JSON.stringify(metadata.httpRequest.body, null, 2)}
                           </pre>
                         </Panel>
@@ -895,8 +787,8 @@ export const LogDetailRoute = () => {
 
                 {data.responseBody && (
                   <Timeline.Item color={responseOk ? 'green' : 'red'}>
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text strong style={{ fontSize: '14px' }}>
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <Text strong className="console-type-control">
                         Step 4: Response Received
                       </Text>
                       <Collapse size="small" ghost>
@@ -906,7 +798,7 @@ export const LogDetailRoute = () => {
                               <Text strong>View Response</Text>
                               <Button
                                 size="small"
-                                icon={<CopyOutlined />}
+                                icon={<GatewayIcon name="CopyOutlined" />}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   copyToClipboard(formatResponseBody(data.responseBody));
@@ -918,18 +810,7 @@ export const LogDetailRoute = () => {
                           }
                           key="response"
                         >
-                          <pre
-                            style={{
-                              background: withAlpha(token.colorTextBase, 0.04),
-                              color: token.colorText,
-                              padding: spacing[2],
-                              borderRadius: token.borderRadiusLG,
-                              fontSize: '11px',
-                              lineHeight: '1.4',
-                              maxHeight: '200px',
-                              overflow: 'auto',
-                            }}
-                          >
+                          <pre className="log-detail-code-preview log-detail-code-preview--compact log-detail-code-preview--response">
                             {formatResponseBody(data.responseBody) || 'No response captured'}
                           </pre>
                         </Panel>
@@ -939,9 +820,12 @@ export const LogDetailRoute = () => {
                 )}
 
                 {data.errorMessage && (
-                  <Timeline.Item color="red" dot={<ExclamationCircleOutlined style={{ fontSize: '16px' }} />}>
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text strong style={{ fontSize: '14px', color: colors.error[600] }}>
+                  <Timeline.Item
+                    color="red"
+                    dot={<GatewayIcon name="ExclamationCircleOutlined" className="console-type-section" />}
+                  >
+                    <Space direction="vertical" className="console-width-full" size="small">
+                      <Text strong style={{ fontSize: 'var(--console-type-control)', color: colors.error[600] }}>
                         Error Occurred
                       </Text>
                       <div
@@ -954,9 +838,9 @@ export const LogDetailRoute = () => {
                       >
                         <Text type="danger">{data.errorMessage}</Text>
                         {metadata.errorContext && (
-                          <div style={{ marginTop: spacing[2] }}>
-                            <Text type="secondary" style={{ display: 'block' }}>
-                              Failed at stage: <Tag color="red">{metadata.errorContext.stage}</Tag>
+                          <div className="console-margin-top-2">
+                            <Text type="secondary" className="console-display-block">
+                              Failed at step: <Text strong>{metadata.errorContext.stage}</Text>
                             </Text>
                           </div>
                         )}
@@ -973,7 +857,7 @@ export const LogDetailRoute = () => {
             {hasHl7Details && (
               <Panel
                 header={
-                  <Title level={5} style={{ margin: 0 }}>
+                  <Title level={5} className="console-margin-none">
                     HL7 Message Details
                   </Title>
                 }
@@ -999,13 +883,13 @@ export const LogDetailRoute = () => {
 
             <Panel
               header={
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Title level={5} style={{ margin: 0 }}>
+                <div className="console-flex-between-center">
+                  <Title level={5} className="console-margin-none">
                     Request Details
                   </Title>
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<GatewayIcon name="CopyOutlined" />}
                     onClick={() => copyToClipboard(JSON.stringify(data.requestPayload, null, 2))}
                   >
                     Copy JSON
@@ -1014,31 +898,17 @@ export const LogDetailRoute = () => {
               }
               key="request"
             >
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Space direction="vertical" className="console-width-full" size="middle">
                 <div>
                   <Title level={5}>Request Payload</Title>
-                  <div style={{ position: 'relative' }}>
+                  <div className="console-position-relative">
                     <Button
                       size="small"
-                      icon={<CopyOutlined />}
+                      icon={<GatewayIcon name="CopyOutlined" />}
                       onClick={() => copyToClipboard(JSON.stringify(data.requestPayload, null, 2))}
-                      style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
+                      className="console-position-absolute-inset-1"
                     />
-                    <pre
-                      className="clamped-code-block"
-                      style={{
-                        background: withAlpha(token.colorTextBase, 0.06),
-                        color: token.colorText,
-                        padding: spacing[3],
-                        paddingRight: spacing[5],
-                        borderRadius: token.borderRadiusLG,
-                        border: `1px solid ${token.colorBorderSecondary}`,
-                        fontSize: '12px',
-                        lineHeight: '1.5',
-                        maxHeight: '300px',
-                        overflow: 'auto',
-                      }}
-                    >
+                    <pre className="clamped-code-block log-detail-code-preview log-detail-code-preview--large log-detail-code-preview--copyable">
                       {JSON.stringify(data.requestPayload, null, 2)}
                     </pre>
                   </div>
@@ -1047,10 +917,10 @@ export const LogDetailRoute = () => {
                 {integration && data.direction === 'COMMUNICATION' ? (
                   <div>
                     <Title level={5}>Email Test cURL</Title>
-                    <div style={{ position: 'relative' }}>
+                    <div className="console-position-relative">
                       <Button
                         size="small"
-                        icon={<CopyOutlined />}
+                        icon={<GatewayIcon name="CopyOutlined" />}
                         onClick={() => {
                           const payload = data.requestPayload as any;
                           const smtpConfig = integration?.actions?.[data.actionIndex ?? 0]?.communicationConfig?.smtp;
@@ -1087,25 +957,11 @@ export const LogDetailRoute = () => {
                           ].join('\n');
                           copyToClipboard(curl);
                         }}
-                        style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
+                        className="console-overlay-copy-action"
                       >
                         Copy cURL
                       </Button>
-                      <pre
-                        className="clamped-code-block"
-                        style={{
-                          background: 'var(--color-code-bg)',
-                          color: 'var(--color-text-primary)',
-                          padding: spacing[3],
-                          borderRadius: token.borderRadiusLG,
-                          border: `1px solid ${token.colorBorderSecondary}`,
-                          fontSize: '12px',
-                          lineHeight: '1.5',
-                          maxHeight: '300px',
-                          overflow: 'auto',
-                          fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                        }}
-                      >
+                      <pre className="clamped-code-block log-detail-code-preview log-detail-code-preview--large log-detail-code-preview--curl">
                         {(() => {
                           const payload = data.requestPayload as any;
                           const smtpConfig = integration?.actions?.[data.actionIndex ?? 0]?.communicationConfig?.smtp;
@@ -1144,10 +1000,10 @@ export const LogDetailRoute = () => {
                   integration && (
                     <div>
                       <Title level={5}>cURL Command</Title>
-                      <div style={{ position: 'relative' }}>
+                      <div className="console-position-relative">
                         <Button
                           size="small"
-                          icon={<CopyOutlined />}
+                          icon={<GatewayIcon name="CopyOutlined" />}
                           onClick={() =>
                             copyToClipboard(
                               generateCurlCommand(
@@ -1159,25 +1015,11 @@ export const LogDetailRoute = () => {
                               )
                             )
                           }
-                          style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
+                          className="console-overlay-copy-action"
                         >
                           Copy cURL
                         </Button>
-                        <pre
-                          className="clamped-code-block"
-                          style={{
-                            background: 'var(--color-code-bg)',
-                            color: 'var(--color-text-primary)',
-                            padding: spacing[3],
-                            borderRadius: token.borderRadiusLG,
-                            border: `1px solid ${token.colorBorderSecondary}`,
-                            fontSize: '12px',
-                            lineHeight: '1.5',
-                            maxHeight: '200px',
-                            overflow: 'auto',
-                            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                          }}
-                        >
+                        <pre className="clamped-code-block log-detail-code-preview log-detail-code-preview--medium log-detail-code-preview--curl">
                           {generateCurlCommand(
                             integration,
                             data.requestPayload,
@@ -1195,14 +1037,14 @@ export const LogDetailRoute = () => {
 
             <Panel
               header={
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Title level={5} style={{ margin: 0 }}>
+                <div className="console-flex-between-center">
+                  <Title level={5} className="console-margin-none">
                     Response Details
                   </Title>
                   {data.responseBody && (
                     <Button
                       size="small"
-                      icon={<CopyOutlined />}
+                      icon={<GatewayIcon name="CopyOutlined" />}
                       onClick={() => copyToClipboard(formatResponseBody(data.responseBody))}
                     >
                       Copy Response
@@ -1212,12 +1054,10 @@ export const LogDetailRoute = () => {
               }
               key="response"
             >
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Space direction="vertical" className="console-width-full" size="middle">
                 <Descriptions column={1} bordered size="small">
                   {hasResponseStatus && (
-                    <Descriptions.Item label="HTTP Status">
-                      <Tag color={responseOk ? 'green' : 'red'}>{responseStatus}</Tag>
-                    </Descriptions.Item>
+                    <Descriptions.Item label="HTTP Status">{renderHttpStatus(responseStatus)}</Descriptions.Item>
                   )}
                   {data.responseTimeMs && (
                     <Descriptions.Item label="Response Time">{data.responseTimeMs} ms</Descriptions.Item>
@@ -1233,29 +1073,18 @@ export const LogDetailRoute = () => {
 
                 <div>
                   <Title level={5}>Response Body</Title>
-                  <div style={{ position: 'relative' }}>
+                  <div className="console-position-relative">
                     {data.responseBody && (
                       <Button
                         size="small"
-                        icon={<CopyOutlined />}
+                        icon={<GatewayIcon name="CopyOutlined" />}
                         onClick={() => copyToClipboard(formatResponseBody(data.responseBody))}
-                        style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
+                        className="console-position-absolute-inset-1"
                       />
                     )}
                     <pre
-                      className="clamped-code-block"
-                      style={{
-                        background: withAlpha(token.colorTextBase, 0.04),
-                        color: token.colorText,
-                        padding: spacing[3],
-                        paddingRight: data.responseBody ? spacing[5] : spacing[3],
-                        borderRadius: token.borderRadiusLG,
-                        border: `1px solid ${token.colorBorderSecondary}`,
-                        fontSize: '12px',
-                        lineHeight: '1.5',
-                        maxHeight: '300px',
-                        overflow: 'auto',
-                      }}
+                      className="clamped-code-block log-detail-code-preview log-detail-code-preview--large log-detail-code-preview--response"
+                      data-copyable={Boolean(data.responseBody)}
                     >
                       {formatResponseBody(data.responseBody) || 'No response captured'}
                     </pre>
@@ -1268,33 +1097,22 @@ export const LogDetailRoute = () => {
             {data.retryAttempts && data.retryAttempts.length > 0 && (
               <Panel
                 header={
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-                    <Title level={5} style={{ margin: 0 }}>
+                  <div className="console-flex-center-gap-2">
+                    <Title level={5} className="console-margin-none">
                       Delivery Attempts Timeline
                     </Title>
-                    <Tag color="blue">{data.retryAttempts.length} attempts</Tag>
-                    <Tag
-                      color={data.status === 'SUCCESS' ? 'success' : data.status === 'FAILED' ? 'error' : 'processing'}
-                    >
-                      Final: {data.status}
-                    </Tag>
+                    <Text type="secondary">{data.retryAttempts.length} attempts</Text>
+                    <StatusBadge status={data.status} label={`Final: ${data.status}`} />
                   </div>
                 }
                 key="retry-timeline"
               >
-                <div
-                  style={{
-                    background: withAlpha(colors.info[100], 0.3),
-                    padding: spacing[3],
-                    borderRadius: token.borderRadiusLG,
-                    marginBottom: spacing[3],
-                  }}
-                >
+                <div className="log-detail-retry-summary">
                   <Space direction="vertical" size="small">
                     <Text strong>Delivery Summary:</Text>
                     <Space split={<Divider type="vertical" />}>
                       <Text>
-                        Total Attempts: <Tag color="blue">{data.attemptCount}</Tag>
+                        Total Attempts: <Text>{data.attemptCount}</Text>
                       </Text>
                       <Text>
                         Duration:{' '}
@@ -1303,7 +1121,7 @@ export const LogDetailRoute = () => {
                           : 'N/A'}
                       </Text>
                       <Text>
-                        Final Status: <Tag color={data.status === 'SUCCESS' ? 'success' : 'error'}>{data.status}</Tag>
+                        Final Status: <StatusBadge status={data.status} />
                       </Text>
                     </Space>
                   </Space>
@@ -1311,7 +1129,7 @@ export const LogDetailRoute = () => {
 
                 <Timeline
                   mode="left"
-                  style={{ marginTop: spacing[3] }}
+                  className="console-margin-top-3"
                   items={data.retryAttempts.map((attempt, index) => ({
                     key: attempt.attemptNumber,
                     children: <AttemptTimelineItem attempt={attempt} __KEEP_integrationConfig__={integration} />,
@@ -1324,32 +1142,22 @@ export const LogDetailRoute = () => {
             {!data.retryAttempts && data.attemptCount > 1 && (
               <Panel
                 header={
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-                    <Title level={5} style={{ margin: 0 }}>
+                  <div className="console-flex-center-gap-2">
+                    <Title level={5} className="console-margin-none">
                       Retry Information
                     </Title>
-                    <Tag color="orange">{data.attemptCount} total attempts</Tag>
-                    <Tag color="default">Legacy View</Tag>
+                    <Text type="secondary">{data.attemptCount} total attempts</Text>
+                    <Text type="secondary">Legacy view</Text>
                   </div>
                 }
                 key="retries"
               >
                 <Descriptions column={1} bordered size="small">
                   <Descriptions.Item label="Total Attempts">
-                    <Tag color="orange">{data.attemptCount}</Tag>
+                    <Text>{data.attemptCount}</Text>
                   </Descriptions.Item>
                   <Descriptions.Item label="Final Status">
-                    <span
-                      style={tagTone(
-                        data.status === 'SUCCESS'
-                          ? colors.success[600]
-                          : data.status === 'FAILED'
-                            ? colors.error[600]
-                            : colors.warning[600]
-                      )}
-                    >
-                      {data.status}
-                    </span>
+                    <StatusBadge status={data.status} />
                   </Descriptions.Item>
                   <Descriptions.Item label="Integration Max Retries">
                     {integration?.retryCount || 'N/A'}
@@ -1359,7 +1167,7 @@ export const LogDetailRoute = () => {
                   </Descriptions.Item>
                 </Descriptions>
 
-                <div style={{ marginTop: spacing[3] }}>
+                <div className="console-margin-top-3">
                   <Text type="secondary">
                     <strong>Note:</strong> This log shows aggregated retry information. New logs will include detailed
                     information for each individual attempt with request/response details.
@@ -1370,6 +1178,6 @@ export const LogDetailRoute = () => {
           </Collapse>
         </Space>
       )}
-    </div>
+    </PageTemplate>
   );
 };

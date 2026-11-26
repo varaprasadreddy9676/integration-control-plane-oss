@@ -1,13 +1,13 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
 import { ThemeProvider } from '../app/theme-provider';
 
 // Regression test: the Outbound Integrations tab filtered with `direction !== 'INBOUND'`,
-// which let SCHEDULED/SCRIPT_JOB records (e.g. "Tailspin Daily Sync Report") leak into a tab meant
+// which let SCHEDULED/SCRIPT_JOB records (e.g. "Nova Daily Sync Report") leak into a tab meant
 // only for real-time event-triggered deliveries — duplicating them with the dedicated
 // Scheduled Jobs tab, inflating the "total" count, and rendering broken empty Event/Method
 // tags for a record type that has neither. Fixed to filter with `direction === 'OUTBOUND'`.
@@ -15,7 +15,8 @@ import { ThemeProvider } from '../app/theme-provider';
 // chaining) in the search-query filter would throw for any outbound record with no eventType
 // the moment a user typed into the search box — fixed to `item.eventType?.toLowerCase()`.
 
-vi.mock('../utils/navigation', () => ({
+vi.mock('../utils/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/navigation')>()),
   useNavigateWithParams: () => vi.fn(),
 }));
 
@@ -58,7 +59,7 @@ describe('Outbound Integrations tab — categorization', () => {
       },
       {
         id: 'sched-1',
-        name: 'Tailspin Daily Sync Report',
+        name: 'Nova Daily Sync Report',
         direction: 'SCHEDULED',
         isActive: true,
         updatedAt: new Date().toISOString(),
@@ -105,10 +106,18 @@ describe('Outbound Integrations tab — categorization', () => {
   });
 
   it('excludes SCHEDULED/SCRIPT_JOB records from the outbound table', async () => {
+    window.history.replaceState({}, '', '/?orgId=33');
     await renderRoute();
 
     expect(await screen.findByText('CleverTap - Advance Created')).toBeInTheDocument();
-    expect(screen.queryByText('Tailspin Daily Sync Report')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nova Daily Sync Report')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'CleverTap - Advance Created' })).toHaveAttribute(
+      'href',
+      '/integrations/out-1?orgId=33'
+    );
+    expect(document.querySelector('.ant-tag')).not.toBeInTheDocument();
+    expect(document.querySelector('.ant-typography')).not.toBeInTheDocument();
+    window.history.replaceState({}, '', '/');
   });
 
   it('counts only real outbound records in the "total" chip, not scheduled jobs', async () => {
@@ -118,5 +127,18 @@ describe('Outbound Integrations tab — categorization', () => {
     // 2 OUTBOUND fixtures + 1 SCHEDULED fixture that must not be counted.
     expect(screen.getByText('2 total')).toBeInTheDocument();
     expect(screen.queryByText('3 total')).not.toBeInTheDocument();
+  });
+
+  it('shows a retryable shared error state and recovers after a failed load', async () => {
+    mockApi.getIntegrations.mockRejectedValueOnce(new Error('Network unavailable')).mockResolvedValueOnce([]);
+    await renderRoute();
+
+    expect(await screen.findByText('Failed to load event rules')).toBeInTheDocument();
+    expect(screen.getByText('Network unavailable')).toBeInTheDocument();
+    expect(document.querySelector('.ant-alert')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(mockApi.getIntegrations).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('No event rules yet')).toBeInTheDocument();
   });
 });

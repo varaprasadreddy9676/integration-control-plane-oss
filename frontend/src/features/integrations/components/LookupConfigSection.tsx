@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Form, Select, Input, Space, Typography, Alert, Collapse, Tag, Tooltip, Divider } from 'antd';
-import { PlusOutlined, DeleteOutlined, InfoCircleOutlined, DatabaseOutlined, SwapOutlined, BookOutlined } from '@ant-design/icons';
+import { Card, Form, Select, Input, Space, Collapse, Tooltip, Divider } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getLookupTypes } from '../../../services/api';
 import { cssVar, useDesignTokens } from '../../../design-system/utils';
 import type { LookupConfig, UnmappedBehavior } from '../../../mocks/types';
+import { Button } from '../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../components/common';
 
 interface LookupConfigSectionProps {
   value?: LookupConfig[];
@@ -19,7 +23,7 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
 
   const { data: typesData } = useQuery({
     queryKey: ['lookup-types'],
-    queryFn: getLookupTypes
+    queryFn: getLookupTypes,
   });
 
   const types = typesData?.types || [];
@@ -30,7 +34,7 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
       sourceField: '',
       targetField: '',
       unmappedBehavior: 'PASSTHROUGH',
-      defaultValue: undefined
+      defaultValue: undefined,
     };
     onChange?.([...value, newLookup]);
     setExpanded([`${value.length}`]);
@@ -45,7 +49,7 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
     const newValue = [...value];
     newValue[index] = {
       ...newValue[index],
-      [field]: fieldValue
+      [field]: fieldValue,
     };
     onChange?.(newValue);
   };
@@ -53,49 +57,46 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
   return (
     <div>
       <div style={{ marginBottom: spacing[4], display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-          <DatabaseOutlined style={{ color: colors.primary[600], fontSize: 18 }} />
-          <Typography.Title level={5} style={{ margin: 0 }}>
+        <div className="console-flex-center-gap-2">
+          <GatewayIcon size="md" name="DatabaseOutlined" className="console-text-accent" />
+          <Heading level={5} className="console-margin-none">
             Code Mappings (Lookups)
-          </Typography.Title>
+          </Heading>
           <Tooltip title="Apply code translation after transformation completes">
-            <InfoCircleOutlined style={{ color: cssVar.text.muted, fontSize: 14 }} />
+            <GatewayIcon size="xsm" name="InfoCircleOutlined" style={{ color: cssVar.text.muted }} />
           </Tooltip>
         </div>
-        <Button
-          type="dashed"
-          size="small"
-          icon={<PlusOutlined />}
-          onClick={handleAdd}
-        >
+        <Button type="dashed" size="small" icon={<GatewayIcon name="PlusOutlined" />} onClick={handleAdd}>
           Add Mapping
         </Button>
       </div>
 
-      <Alert
+      <Notice
         type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
+        icon={<GatewayIcon name="InfoCircleOutlined" />}
         message="Lookup mappings run AFTER standard transformations"
         description={
           <div>
-            <p style={{ marginBottom: 8 }}>Lookups translate codes from your system to external system codes. They execute in the following order:</p>
-            <ol style={{ marginBottom: 8, paddingLeft: 20 }}>
+            <p className="console-margin-bottom-2">
+              Lookups translate codes from your system to external system codes. They execute in the following order:
+            </p>
+            <ol className="ui-extracted-cae904643a">
               <li>Your transformation script runs first</li>
               <li>Lookup mappings apply to the transformed payload</li>
               <li>Final payload delivered to target endpoint</li>
             </ol>
-            <p style={{ marginBottom: 8 }}>
-              <strong>In Scripts:</strong> You can also use lookups directly in transformation scripts with the <code>lookup(code, type)</code> function.
+            <p className="console-margin-bottom-2">
+              <strong>In Scripts:</strong> You can also use lookups directly in transformation scripts with the{' '}
+              <code>lookup(code, type)</code> function.
             </p>
-            <p style={{ marginBottom: 0 }}>
-              <Link to="/help/lookup-guide" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <BookOutlined /> View Complete Lookup Tables Guide
+            <p className="console-margin-bottom-none">
+              <Link to="/help/lookup-guide" className="console-inline-flex-center-gap-1">
+                <GatewayIcon name="BookOutlined" /> View Complete Lookup Tables Guide
               </Link>
             </p>
           </div>
         }
-        style={{ marginBottom: spacing[4] }}
+        className="console-margin-bottom-4"
       />
 
       {value.length === 0 ? (
@@ -103,14 +104,17 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
           style={{
             textAlign: 'center',
             padding: spacing[6],
-            background: colors.neutral[50],
-            border: `1px dashed ${colors.neutral[300]}`
+            background: cssVar.bg.subtle,
+            border: `1px dashed ${colors.neutral[300]}`,
           }}
         >
-          <DatabaseOutlined style={{ fontSize: 48, color: cssVar.text.muted, marginBottom: spacing[3] }} />
-          <Typography.Text type="secondary">
+          <GatewayIcon
+            name="DatabaseOutlined"
+            style={{ width: 48, height: 48, color: cssVar.text.muted, marginBottom: spacing[3] }}
+          />
+          <Text type="supporting" color="secondary">
             No lookup mappings configured. Click "Add Mapping" to start.
-          </Typography.Text>
+          </Text>
         </Card>
       ) : (
         <Collapse
@@ -120,18 +124,16 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
             key: `${index}`,
             label: (
               <Space>
-                <SwapOutlined style={{ color: colors.primary[600] }} />
-                <Typography.Text strong>
-                  {lookup.type || 'Untitled Mapping'}
-                </Typography.Text>
+                <GatewayIcon name="SwapOutlined" className="console-text-accent" />
+                <Text weight="semibold">{lookup.type || 'Untitled Mapping'}</Text>
                 {lookup.sourceField && lookup.targetField && (
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="supporting" size="sm" color="secondary">
                     {lookup.sourceField} → {lookup.targetField}
-                  </Typography.Text>
+                  </Text>
                 )}
-                <Tag color={lookup.unmappedBehavior === 'FAIL' ? 'error' : lookup.unmappedBehavior === 'DEFAULT' ? 'warning' : 'default'}>
+                <Text type="supporting" color="secondary">
                   {lookup.unmappedBehavior}
-                </Tag>
+                </Text>
               </Space>
             ),
             extra: (
@@ -139,7 +141,7 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
                 type="text"
                 danger
                 size="small"
-                icon={<DeleteOutlined />}
+                icon={<GatewayIcon name="DeleteOutlined" />}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleRemove(index);
@@ -148,68 +150,68 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
             ),
             children: (
               <div>
-                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Space direction="vertical" className="console-width-full" size="middle">
                   {/* Mapping Type */}
                   <div>
-                    <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
+                    <Text weight="semibold" display="block" className="console-margin-bottom-1">
                       Mapping Type *
-                    </Typography.Text>
+                    </Text>
                     <Select
                       placeholder="Select or type to create new (e.g., SERVICE_CODE, DIAGNOSIS_CODE)"
-                      style={{ width: '100%' }}
+                      className="console-width-full"
                       value={lookup.type ? [lookup.type] : undefined}
                       onChange={(val) => handleChange(index, 'type', Array.isArray(val) ? val[0] : val)}
                       showSearch
                       mode="tags"
                       maxCount={1}
                       tokenSeparators={[',']}
-                      options={types.map(t => ({ label: t, value: t }))}
+                      options={types.map((t) => ({ label: t, value: t }))}
                     />
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="supporting" size="sm" color="secondary">
                       The category of code mapping (matches lookup table type)
-                    </Typography.Text>
+                    </Text>
                   </div>
 
-                  <Divider style={{ margin: '8px 0' }} />
+                  <Divider className="console-margin-y-2" />
 
                   {/* Source and Target Fields */}
                   <div>
-                    <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
+                    <Text weight="semibold" display="block" className="console-margin-bottom-1">
                       Source Field *
-                    </Typography.Text>
+                    </Text>
                     <Input
                       placeholder="e.g., serviceCode or items[].serviceCode"
                       value={lookup.sourceField}
                       onChange={(e) => handleChange(index, 'sourceField', e.target.value)}
                     />
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="supporting" size="sm" color="secondary">
                       Field path in payload to translate. Supports arrays using [] notation.
-                    </Typography.Text>
+                    </Text>
                   </div>
 
                   <div>
-                    <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
+                    <Text weight="semibold" display="block" className="console-margin-bottom-1">
                       Target Field *
-                    </Typography.Text>
+                    </Text>
                     <Input
                       placeholder="e.g., externalServiceCode or items[].externalCode"
                       value={lookup.targetField}
                       onChange={(e) => handleChange(index, 'targetField', e.target.value)}
                     />
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="supporting" size="sm" color="secondary">
                       Field path where translated code will be written
-                    </Typography.Text>
+                    </Text>
                   </div>
 
-                  <Divider style={{ margin: '8px 0' }} />
+                  <Divider className="console-margin-y-2" />
 
                   {/* Unmapped Behavior */}
                   <div>
-                    <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
+                    <Text weight="semibold" display="block" className="console-margin-bottom-1">
                       Unmapped Behavior *
-                    </Typography.Text>
+                    </Text>
                     <Select
-                      style={{ width: '100%' }}
+                      className="console-width-full"
                       value={lookup.unmappedBehavior}
                       onChange={(val: UnmappedBehavior) => handleChange(index, 'unmappedBehavior', val)}
                       options={[
@@ -224,56 +226,59 @@ export const LookupConfigSection = ({ value = [], onChange }: LookupConfigSectio
                         {
                           label: 'DEFAULT - Use default value',
                           value: 'DEFAULT',
-                        }
+                        },
                       ]}
                     />
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="supporting" size="sm" color="secondary">
                       What to do when no mapping is found for a code
-                    </Typography.Text>
+                    </Text>
                   </div>
 
                   {/* Default Value (only show if DEFAULT behavior selected) */}
                   {lookup.unmappedBehavior === 'DEFAULT' && (
                     <div>
-                      <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
+                      <Text weight="semibold" display="block" className="console-margin-bottom-1">
                         Default Value *
-                      </Typography.Text>
+                      </Text>
                       <Input
                         placeholder="Enter default value for unmapped codes"
                         value={lookup.defaultValue}
                         onChange={(e) => handleChange(index, 'defaultValue', e.target.value)}
                       />
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="supporting" size="sm" color="secondary">
                         This value will be used when no mapping exists
-                      </Typography.Text>
+                      </Text>
                     </div>
                   )}
                 </Space>
               </div>
-            )
+            ),
           }))}
         />
       )}
 
       {/* Script Helper Documentation */}
       {value.length > 0 && (
-        <Alert
+        <Notice
           type="success"
-          showIcon
-          style={{ marginTop: spacing[4] }}
+          className="console-margin-top-4"
           message="Using Lookups in Transformation Scripts"
           description={
             <div>
-              <p style={{ marginBottom: 8 }}>You can also use lookups directly in your SCRIPT transformations:</p>
-              <pre style={{
-                background: colors.neutral[900],
-                color: colors.neutral[100],
-                padding: spacing[3],
-                borderRadius: 4,
-                fontSize: 12,
-                overflow: 'auto'
-              }}>
-{`// In your transformation script:
+              <p className="console-margin-bottom-2">
+                You can also use lookups directly in your SCRIPT transformations:
+              </p>
+              <pre
+                style={{
+                  background: cssVar.table.codeBg,
+                  color: cssVar.text.primary,
+                  padding: spacing[3],
+                  borderRadius: 4,
+                  fontSize: 'var(--console-type-caption)',
+                  overflow: 'auto',
+                }}
+              >
+                {`// In your transformation script:
 return {
   ...payload,
   // Simple lookup
@@ -289,9 +294,10 @@ return {
   }))
 };`}
               </pre>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                The <code>lookup(code, type)</code> function is available in all transformation scripts and respects the hierarchical lookup resolution (entity-specific → parent-level).
-              </Typography.Text>
+              <Text type="supporting" size="sm" color="secondary">
+                The <code>lookup(code, type)</code> function is available in all transformation scripts and respects the
+                hierarchical lookup resolution (entity-specific → parent-level).
+              </Text>
             </div>
           }
         />

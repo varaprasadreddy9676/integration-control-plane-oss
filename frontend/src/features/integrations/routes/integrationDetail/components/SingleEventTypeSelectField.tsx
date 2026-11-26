@@ -1,4 +1,4 @@
-import { Form, Select } from 'antd';
+import { Form, Select } from "@/components/common/LegacyAntdControls";
 import { getPrimaryEventType, toSingleEventTypeList } from '../utils/followUpRule';
 
 interface SingleEventTypeSelectFieldProps {
@@ -49,8 +49,7 @@ export const SingleEventTypeSelectField = ({
   return (
     <Form.Item
       name={formItemName}
-      label={label}
-      style={{ marginBottom: 0 }}
+      label={label} className="console-margin-bottom-none"
       rules={[
         {
           validator: async (_rule, value) => {

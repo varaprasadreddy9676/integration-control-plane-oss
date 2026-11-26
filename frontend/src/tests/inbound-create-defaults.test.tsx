@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
 
+vi.mock('../app/theme-provider', () => ({ useThemeMode: () => ({ mode: 'light' }) }));
+
 vi.mock('@monaco-editor/react', () => ({
   default: () => <div data-testid="monaco-editor" />,
 }));
@@ -29,6 +31,7 @@ vi.mock('../app/tenant-context', () => ({
 }));
 
 vi.mock('../design-system/utils', () => ({
+  editorFontSize: () => 14,
   spacingToNumber: (value: string | number) => {
     if (typeof value === 'number') return value;
     const parsed = parseInt(String(value), 10);

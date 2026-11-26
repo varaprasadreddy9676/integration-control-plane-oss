@@ -1,7 +1,11 @@
-import { Alert, Space, Tag, Typography } from 'antd';
+import { Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
+import { Banner } from '@astryxdesign/core/Banner';
 import type { DeliveryFollowUp, FollowUpCheck, FollowUpHttpCall } from '../../../mocks/types';
 import { formatDateTimeWithSeconds } from '../../../utils/format';
-import { followUpStatusColor, followUpStatusLabel } from './followUpStatus';
+import { followUpStatusLabel, followUpStatusVariant } from './followUpStatus';
+import { cssVar } from '../../../design-system/utils';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Text } = Typography;
 
@@ -21,49 +25,55 @@ const prettyBody = (body: string): string => {
 };
 
 const blockStyle = {
-  margin: 0,
-  padding: 12,
-  borderRadius: 8,
-  background: 'var(--bg-subtle, #f5f5f5)',
-  fontSize: 12,
+  margin: 'var(--spacing-0)',
+  padding: 'var(--spacing-3)',
+  borderRadius: 4,
+  background: cssVar.bg.subtle,
+  fontSize: 'var(--console-type-caption)',
   whiteSpace: 'pre-wrap' as const,
   wordBreak: 'break-all' as const,
   fontFamily: 'var(--font-mono, ui-monospace, monospace)',
 };
 
 const HttpCall = ({ call }: { call: FollowUpHttpCall }) => (
-  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+  <Space direction="vertical" size={8} className="console-width-full">
     <div>
-      <Text type="secondary" style={{ fontSize: 12 }}>
+      <Text type="secondary" className="console-type-caption">
         Request
       </Text>
       <pre style={blockStyle}>{buildFollowUpCurl(call)}</pre>
     </div>
     <div>
-      <Text type="secondary" style={{ fontSize: 12 }}>
+      <Text type="secondary" className="console-type-caption">
         Response
         {call.statusCode !== null && call.statusCode !== undefined ? ` · ${call.statusCode}` : ''}
         {call.durationMs !== null && call.durationMs !== undefined ? ` · ${call.durationMs} ms` : ''}
       </Text>
-      {call.error && <Alert type="error" showIcon message={call.error} style={{ marginBottom: 8 }} />}
-      {call.responseBody ? <pre style={blockStyle}>{prettyBody(call.responseBody)}</pre> : !call.error && <Text type="secondary"> (empty)</Text>}
+      {call.error && <Banner status="error" title={call.error} className="console-margin-bottom-2" />}
+      {call.responseBody ? (
+        <pre style={blockStyle}>{prettyBody(call.responseBody)}</pre>
+      ) : (
+        !call.error && <Text type="secondary"> (empty)</Text>
+      )}
     </div>
   </Space>
 );
 
 const Check = ({ entry }: { entry: FollowUpCheck }) => (
-  <div style={{ border: '1px solid var(--border-subtle, #e5e7eb)', borderRadius: 8, padding: 12 }}>
-    <Space direction="vertical" size={10} style={{ width: '100%' }}>
+  <div style={{ border: `1px solid ${cssVar.border.subtle}`, borderRadius: 4, padding: 'var(--spacing-3)' }}>
+    <Space direction="vertical" size={10} className="console-width-full">
       <Space wrap>
         <Text strong>Check {entry.check}</Text>
         <Text type="secondary">{formatDateTimeWithSeconds(entry.at)}</Text>
         {entry.outcome === 'RESULT' && entry.status && (
-          <Tag color={followUpStatusColor(entry.status)} style={{ margin: 0 }}>
-            {followUpStatusLabel(entry.status)}
-          </Tag>
+          <StatusBadge
+            label={followUpStatusLabel(entry.status)}
+            variant={followUpStatusVariant(entry.status)}
+            showIcon={false}
+          />
         )}
-        {entry.outcome === 'ERROR' && <Tag color="red" style={{ margin: 0 }}>Script error</Tag>}
-        {entry.outcome === 'SKIPPED' && <Tag style={{ margin: 0 }}>Stopped</Tag>}
+        {entry.outcome === 'ERROR' && <StatusBadge label="Script error" variant="error" showIcon={false} />}
+        {entry.outcome === 'SKIPPED' && <StatusBadge label="Stopped" variant="neutral" showIcon={false} />}
       </Space>
 
       {entry.httpCalls.length === 0 && <Text type="secondary">The script made no request.</Text>}
@@ -71,13 +81,12 @@ const Check = ({ entry }: { entry: FollowUpCheck }) => (
         <HttpCall key={index} call={call} />
       ))}
 
-      {entry.outcome === 'ERROR' && entry.error && <Alert type="error" showIcon message={entry.error} />}
+      {entry.outcome === 'ERROR' && entry.error && <Banner status="error" title={entry.error} />}
       {entry.outcome === 'SKIPPED' && entry.reason && <Text>Stopped following up: {entry.reason}</Text>}
       {entry.outcome === 'RESULT' && (entry.errorCode || entry.errorMessage) && (
-        <Alert
-          type="warning"
-          showIcon
-          message={entry.errorCode ? `Reason ${entry.errorCode}` : 'Reason'}
+        <Banner
+          status="warning"
+          title={entry.errorCode ? `Reason ${entry.errorCode}` : 'Reason'}
           description={entry.errorMessage || undefined}
         />
       )}
@@ -89,7 +98,7 @@ const Check = ({ entry }: { entry: FollowUpCheck }) => (
 export const FollowUpChecks = ({ followUp }: { followUp: DeliveryFollowUp }) => {
   const history = followUp.history || [];
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space direction="vertical" size={12} className="console-width-full">
       {history.length === 0 && (
         <Text type="secondary">
           The requests of each check are not recorded for this delivery (it was followed up before checks were kept).

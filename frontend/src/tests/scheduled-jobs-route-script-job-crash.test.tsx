@@ -8,8 +8,8 @@ import { ThemeProvider } from '../app/theme-provider';
 
 // Regression test: the Scheduled Jobs list's "Data Source" and "Target" columns rendered
 // `dataSource.type` and `<Tooltip title={url}>` directly with no null-check. A SCRIPT_JOB
-// record (e.g. "Tailspin Daily Sync Report") has neither `dataSource` nor `targetUrl` — this
-// crashed the whole list the moment one existed. Fixed to render a "SCRIPT" tag and an
+// record (e.g. "Nova Daily Sync Report") has neither `dataSource` nor `targetUrl` — this
+// crashed the whole list the moment one existed. Fixed to render neutral script metadata and an
 // em-dash for SCRIPT_JOB / missing-value rows instead.
 
 vi.mock('../components/common/PageHeader', () => ({
@@ -37,7 +37,8 @@ describe('Scheduled Jobs list — SCRIPT_JOB rows with no dataSource/targetUrl',
     mockApi.getAllScheduledJobs.mockResolvedValue([
       {
         _id: 'sched-1',
-        name: 'Tailspin Daily Sync Report',
+        name: 'Nova Daily Sync Report',
+        type: 'SCRIPT_JOB',
         direction: 'SCRIPT_JOB',
         // Deliberately no dataSource or targetUrl — this is exactly what crashed the old
         // `dataSource.type` / `<Tooltip title={url}>` column renders.
@@ -64,17 +65,19 @@ describe('Scheduled Jobs list — SCRIPT_JOB rows with no dataSource/targetUrl',
     );
   };
 
-  it('does not crash and shows a SCRIPT tag instead of the raw data source type', async () => {
-    await renderRoute();
+  it('does not crash and shows neutral script metadata instead of a colored type tag', async () => {
+    const { container } = await renderRoute();
 
-    expect(await screen.findByText('Tailspin Daily Sync Report')).toBeInTheDocument();
-    expect(screen.getByText('SCRIPT')).toBeInTheDocument();
+    expect(await screen.findByText('Nova Daily Sync Report')).toBeInTheDocument();
+    expect(screen.getByText('Script job')).toBeInTheDocument();
+    expect(screen.getByText('User script')).toBeInTheDocument();
+    expect(container.querySelector('.ant-tag')).not.toBeInTheDocument();
   });
 
   it('shows an em-dash instead of an empty tooltip for the missing target URL', async () => {
     await renderRoute();
 
-    await screen.findByText('Tailspin Daily Sync Report');
+    await screen.findByText('Nova Daily Sync Report');
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 });

@@ -5,6 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../app/theme-provider';
 
 const mockNavigate = vi.fn();
+const { mockCopyTextToClipboard } = vi.hoisted(() => ({
+  mockCopyTextToClipboard: vi.fn().mockResolvedValue(true),
+}));
+vi.mock('../utils/clipboard', () => ({ copyTextToClipboard: mockCopyTextToClipboard }));
 vi.mock('../utils/navigation', () => ({ useNavigateWithParams: () => mockNavigate }));
 vi.mock('../app/tenant-context', () => ({ useTenant: () => ({ orgId: 7 }) }));
 
@@ -53,7 +57,7 @@ vi.mock('../services/api', () => mockApi);
 async function renderSection() {
   const { QuickSetupSection } = await import('../features/templates/components/QuickSetupSection');
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={qc}>
       <ThemeProvider>
         <QuickSetupSection />
@@ -70,13 +74,20 @@ describe('QuickSetupSection', () => {
   });
 
   it('shows a card for each built-in setup', async () => {
-    await renderSection();
+    const { container } = await renderSection();
     expect(await screen.findByText('Slack: post events to a channel')).toBeInTheDocument();
     expect(screen.getByText('Stripe: receive webhooks')).toBeInTheDocument();
+    expect(screen.getByText('Outbound').closest('.status-badge')).toBeInTheDocument();
+    expect(screen.getByText('Inbound').closest('.status-badge')).toBeInTheDocument();
+    expect(container.querySelectorAll('.ant-tag')).toHaveLength(0);
+    expect(container.querySelectorAll('.ant-typography')).toHaveLength(0);
   });
 
   it('checks inputs before building, then creates the integration through the normal API', async () => {
-    mockApi.buildFromTemplateCatalog.mockResolvedValue({ direction: 'OUTBOUND', payload: { name: 'Slack: ORDER_PLACED' } });
+    mockApi.buildFromTemplateCatalog.mockResolvedValue({
+      direction: 'OUTBOUND',
+      payload: { name: 'Slack: ORDER_PLACED' },
+    });
     mockApi.createIntegration.mockResolvedValue({ id: 'int-1', name: 'Slack: ORDER_PLACED' });
     await renderSection();
 
@@ -84,7 +95,9 @@ describe('QuickSetupSection', () => {
     fireEvent.change(await screen.findByLabelText('Event'), { target: { value: 'ORDER_PLACED' } });
     fireEvent.change(screen.getByLabelText('Slack webhook URL'), { target: { value: 'https://example.com/x' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create integration' }));
-    expect(await screen.findByText('Slack webhook URLs start with https://hooks.slack.com/services/')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Slack webhook URLs start with https://hooks.slack.com/services/')
+    ).toBeInTheDocument();
     expect(mockApi.buildFromTemplateCatalog).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText('Slack webhook URL'), {
@@ -117,8 +130,9 @@ describe('QuickSetupSection', () => {
     fireEvent.change(screen.getByLabelText('Forward events to'), { target: { value: 'https://api.example.com/hook' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create integration' }));
 
-    expect(
-      await screen.findByText('https://gateway.example.com/api/v1/public/integrations/stripe-events?orgId=7')
-    ).toBeInTheDocument();
+    const endpoint = 'https://gateway.example.com/api/v1/public/integrations/stripe-events?orgId=7';
+    expect(await screen.findByText(endpoint)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy endpoint URL' }));
+    await waitFor(() => expect(mockCopyTextToClipboard).toHaveBeenCalledWith(endpoint));
   });
 });

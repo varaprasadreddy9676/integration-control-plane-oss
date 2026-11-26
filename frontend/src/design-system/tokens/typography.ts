@@ -5,13 +5,10 @@ export const typography = {
       '-apple-system',
       'BlinkMacSystemFont',
       'Segoe UI',
-      'Roboto',
-      'Helvetica Neue',
-      'Arial',
       'sans-serif'
     ],
-    mono: ['JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', 'Courier New', 'monospace'],
-    numeric: ['Tabular Nums', 'Inter', 'sans-serif']
+    mono: ['JetBrains Mono', 'SFMono-Regular', 'Consolas', 'monospace'],
+    numeric: ['JetBrains Mono', 'SFMono-Regular', 'monospace']
   },
   // Compact type scale (Stripe-style: 14px base instead of 16px for tighter, more premium feel)
   fontSize: {
@@ -44,27 +41,27 @@ export const typography = {
     relaxed: 1.625,    // Reading content
     loose: 1.75        // Spaced content
   },
-  // Refined letter-spacing for premium typography
+  // Keep tracking neutral for clear, compact operational text.
   letterSpacing: {
-    tighter: '-0.02em', // Headings (subtle tightening)
-    tight: '-0.01em',   // Large text
+    tighter: '0',
+    tight: '0',
     normal: '0',        // Body text
-    wide: '0.01em',     // Slight spacing
-    wider: '0.025em',   // Labels
-    widest: '0.05em'    // Uppercase labels
+    wide: '0',
+    wider: '0',
+    widest: '0'
   },
   heading: {
     h1: {
       fontSize: '5xl',
       fontWeight: 'bold',
       lineHeight: 'tight',
-      letterSpacing: 'tight'
+      letterSpacing: 'normal'
     },
     h2: {
       fontSize: '4xl',
       fontWeight: 'bold',
       lineHeight: 'tight',
-      letterSpacing: 'tight'
+      letterSpacing: 'normal'
     },
     h3: {
       fontSize: '3xl',
@@ -117,8 +114,8 @@ export const typography = {
     label: {
       fontSize: 'xs',
       fontWeight: 'medium',
-      textTransform: 'uppercase',
-      letterSpacing: 'widest',
+      textTransform: 'none',
+      letterSpacing: 'normal',
       color: 'neutral[600]'
     },
     code: {

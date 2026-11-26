@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { TablePaginationConfig } from 'antd';
+import type { TablePaginationConfig } from "@/components/common/LegacyAntdControls";
 
 export interface UsePaginatedTableOptions {
   /**

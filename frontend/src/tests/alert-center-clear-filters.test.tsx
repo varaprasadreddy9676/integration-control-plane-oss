@@ -59,6 +59,55 @@ describe('Alert Center Clear Filters', () => {
     expect(firstCall.status).toBe('FAILED');
   });
 
+  it('shows the failed alert row when the failed summary count is nonzero', async () => {
+    mockApi.getAlertCenterLogs.mockResolvedValue([
+      {
+        id: 'alert-failure-1',
+        tenantId: 33,
+        type: 'DELIVERY_FAILURE_REPORT',
+        channel: 'EMAIL',
+        status: 'FAILED',
+        subject: 'Delivery failures detected',
+        recipients: ['integration-ops@example.test'],
+        totalFailures: 3,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    mockApi.getAlertCenterStatsSummary.mockResolvedValue({ total: 8, sent: 7, failed: 1, skipped: 0 });
+
+    await renderRoute();
+
+    expect(await screen.findByText('Delivery failures detected')).toBeInTheDocument();
+    expect(screen.getByLabelText('Alert totals')).toHaveTextContent('Failed1');
+    expect(screen.queryByText('No data')).not.toBeInTheDocument();
+  });
+
+  it('uses the shared delivered status vocabulary and keeps summary metadata out of chips', async () => {
+    mockApi.getAlertCenterLogs.mockResolvedValue([
+      {
+        id: 'alert-sent-1',
+        tenantId: 33,
+        type: 'DELIVERY_FAILURE_REPORT',
+        channel: 'EMAIL',
+        status: 'SENT',
+        subject: 'Delivery report sent',
+        recipients: ['integration-ops@example.test'],
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    mockApi.getAlertCenterStatsSummary.mockResolvedValue({ total: 4, sent: 3, failed: 1, skipped: 0 });
+
+    const { container } = await renderRoute();
+
+    expect(await screen.findByText('Delivery report sent')).toBeInTheDocument();
+    expect(screen.getAllByText('Delivered').length).toBeGreaterThan(0);
+    expect(screen.queryByText('SENT')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Alert totals')).toHaveTextContent('Total alerts4Delivered3Failed1Skipped0');
+    expect(container.querySelector('.alert-center-summary .ant-tag')).not.toBeInTheDocument();
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+    expect(await screen.findByRole('option', { name: 'Delivered' })).toBeInTheDocument();
+  });
+
   it('clears the status filter entirely instead of re-applying the FAILED default', async () => {
     await renderRoute();
 

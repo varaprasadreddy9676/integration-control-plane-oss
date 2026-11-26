@@ -1,52 +1,16 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
-  Button,
-  Layout,
-  Typography,
   Space,
   Badge,
   Grid,
-  Drawer,
   Select,
   Modal,
   Dropdown,
   Avatar,
   Tooltip,
   Spin,
-} from 'antd';
-import {
-  RadarChartOutlined,
-  ApiOutlined,
-  HistoryOutlined,
-  SettingOutlined,
-  DeploymentUnitOutlined,
-  ThunderboltOutlined,
-  MoonOutlined,
-  SunOutlined,
-  AppstoreOutlined,
-  FileTextOutlined,
-  ClockCircleOutlined,
-  BellOutlined,
-  DatabaseOutlined,
-  BookOutlined,
-  MenuOutlined,
-  TeamOutlined,
-  ApartmentOutlined,
-  LineChartOutlined,
-  WarningOutlined,
-  BlockOutlined,
-  CalendarOutlined,
-  LogoutOutlined,
-  SafetyOutlined,
-  CodeOutlined,
-  CloudServerOutlined,
-  AuditOutlined,
-  BarChartOutlined,
-  IdcardOutlined,
-  PieChartOutlined,
-  SearchOutlined,
-  KeyOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../components/common/Icon';
 import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { getOrgSwitchDestination, shouldConfirmOrgSwitch, useNavigateWithParams } from '../utils/navigation';
@@ -66,7 +30,14 @@ import { listAdminOrgSummaries, getLogStatsSummary } from '../services/api';
 import { isFeatureEnabled } from '../utils/featureFlags';
 import { CommandPalette } from '../components/layout/CommandPalette';
 import { AppSidebar } from '../components/layout/AppSidebar';
+import { getActiveNavigationKey } from './navigation-state';
+import { AppShell } from '@astryxdesign/core/AppShell';
+import { MobileNav } from '@astryxdesign/core/MobileNav';
+import { SideNavRenderContext } from '@astryxdesign/core/SideNav';
+import { TopNav } from '@astryxdesign/core/TopNav';
 import '../design-system/theme/responsive-dashboard.css';
+import { Button } from '../components/common/LegacyButton';
+import { Typography } from '../components/common/LegacyTypography';
 
 // ── Lazy-loaded route chunks ────────────────────────────────────────────────
 // Each import() becomes a separate bundle chunk loaded only when first visited.
@@ -102,7 +73,6 @@ const n = <K extends string>(mod: Promise<Record<K, React.ComponentType>>, key: 
     });
 };
 
-const LandingPage = lazy(() => n(import('../features/landing/LandingPage'), 'LandingPage'));
 const DocsPage = lazy(() => n(import('../features/landing/DocsPage'), 'DocsPage'));
 const LoginRoute = lazy(() => n(import('../features/auth/LoginRoute'), 'LoginRoute'));
 const PortalLaunchRoute = lazy(() => n(import('../features/auth/PortalLaunchRoute'), 'PortalLaunchRoute'));
@@ -173,7 +143,7 @@ const SystemStatusRoute = lazy(() =>
 
 const RouteFallback = () => (
   // data-route-loading: page transitions wait for this to go (view-transition.ts).
-  <div data-route-loading style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '40vh' }}>
+  <div data-route-loading className="ui-extracted-d0b5df9733">
     <Spin size="large" />
   </div>
 );
@@ -181,7 +151,6 @@ const RouteFallback = () => (
 export const App = () => {
   const { token, spacing, zIndex: zIndexTokens } = useDesignTokens();
   const screens = Grid.useBreakpoint();
-  const isTabletDown = !screens.lg;
   const isMobile = !screens.md;
   const location = useLocation();
   const navigate = useNavigateWithParams();
@@ -192,9 +161,6 @@ export const App = () => {
   const isOrgAdmin = user?.role === 'ORG_ADMIN';
   const isImpersonating = user?.impersonated;
   const isPortalSession = !!(user as any)?.isPortalSession;
-  const isDetailOrConfigRoute = /^\/(integrations|inbound-integrations|scheduled-jobs)\/[^/]+$/.test(location.pathname);
-  const showGlobalNewIntegrationAction =
-    !isPortalSession && location.pathname !== '/integrations' && !isDetailOrConfigRoute;
   const portalAllowedViews: string[] = (() => {
     if (!isPortalSession) return [];
     try {
@@ -316,21 +282,6 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Auto-collapse sidebar on tablet/mobile (but respect user preference on desktop).
-  //
-  // Grid.useBreakpoint() reports {} on the first render, before its media
-  // queries are evaluated — so `!screens.lg` is true on every load, including
-  // desktop. This effect therefore collapsed the sidebar immediately and the
-  // persistence effect below wrote that back to localStorage, meaning an
-  // expanded sidebar could never survive a reload and every desktop user saw
-  // 29 unlabelled icons. Wait until the breakpoints actually resolve.
-  useEffect(() => {
-    if (screens.lg === undefined) return;
-    if (isTabletDown) {
-      setCollapsed(true);
-    }
-  }, [isTabletDown, screens.lg]);
-
   // Handle logout with complete cache clearing
   const handleLogout = () => {
     // Clear React Query cache
@@ -368,7 +319,7 @@ export const App = () => {
       if (portalCanView('dashboard')) {
         groups.push({
           label: 'Overview',
-          items: [{ key: '/dashboard', icon: <RadarChartOutlined />, label: 'Dashboard' }],
+          items: [{ key: '/dashboard', icon: <GatewayIcon name="RadarChartOutlined" />, label: 'Dashboard' }],
         });
       }
 
@@ -380,12 +331,12 @@ export const App = () => {
           {
             label: 'Integrations',
             items: [
-              { key: '/integrations', icon: <ApiOutlined />, label: 'All Integrations' },
+              { key: '/integrations', icon: <GatewayIcon name="ApiOutlined" />, label: 'All Integrations' },
               ...(isFeatureEnabled('integrationFlowBuilderEnabled')
-                ? [{ key: '/flow-builder', icon: <BlockOutlined />, label: 'Flow Builder' }]
+                ? [{ key: '/flow-builder', icon: <GatewayIcon name="BlockOutlined" />, label: 'Flow Builder' }]
                 : []),
-              { key: '/scheduled', icon: <CalendarOutlined />, label: 'Delayed Deliveries' },
-              { key: '/scheduled-jobs', icon: <ClockCircleOutlined />, label: 'Scheduled Jobs' },
+              { key: '/scheduled', icon: <GatewayIcon name="CalendarOutlined" />, label: 'Delayed Deliveries' },
+              { key: '/scheduled-jobs', icon: <GatewayIcon name="ClockCircleOutlined" />, label: 'Scheduled Jobs' },
             ],
           },
 
@@ -393,9 +344,9 @@ export const App = () => {
           {
             label: 'Resources',
             items: [
-              { key: '/events/catalog', icon: <DeploymentUnitOutlined />, label: 'Event Catalog' },
-              { key: '/templates', icon: <AppstoreOutlined />, label: 'Templates' },
-              { key: '/lookups', icon: <DatabaseOutlined />, label: 'Lookup Tables' },
+              { key: '/events/catalog', icon: <GatewayIcon name="DeploymentUnitOutlined" />, label: 'Event Catalog' },
+              { key: '/templates', icon: <GatewayIcon name="AppstoreOutlined" />, label: 'Templates' },
+              { key: '/lookups', icon: <GatewayIcon name="DatabaseOutlined" />, label: 'Lookup Tables' },
             ],
           }
         );
@@ -403,19 +354,21 @@ export const App = () => {
         // Portal session — show integrations list only (read-only scope enforced by backend)
         groups.push({
           label: 'Integrations',
-          items: [{ key: '/integrations', icon: <ApiOutlined />, label: 'All Integrations' }],
+          items: [{ key: '/integrations', icon: <GatewayIcon name="ApiOutlined" />, label: 'All Integrations' }],
         });
       }
 
       const monitorItems = [
-        ...(portalCanView('logs') ? [{ key: '/logs', icon: <HistoryOutlined />, label: 'Delivery Logs' }] : []),
+        ...(portalCanView('logs')
+          ? [{ key: '/logs', icon: <GatewayIcon name="HistoryOutlined" />, label: 'Delivery Logs' }]
+          : []),
         ...(!isPortalSession
           ? [
-              { key: '/events', icon: <FileTextOutlined />, label: 'Event Audit' },
-              { key: '/alert-center', icon: <BellOutlined />, label: 'Alert Center' },
-              { key: '/dlq', icon: <WarningOutlined />, label: 'Dead Letter Queue' },
-              { key: '/bulk', icon: <ThunderboltOutlined />, label: 'Bulk Operations' },
-              { key: '/system-logs', icon: <CodeOutlined />, label: 'System Logs' },
+              { key: '/events', icon: <GatewayIcon name="FileTextOutlined" />, label: 'Event Audit' },
+              { key: '/alert-center', icon: <GatewayIcon name="BellOutlined" />, label: 'Alert Center' },
+              { key: '/dlq', icon: <GatewayIcon name="WarningOutlined" />, label: 'Dead Letter Queue' },
+              { key: '/bulk', icon: <GatewayIcon name="ThunderboltOutlined" />, label: 'Bulk Operations' },
+              { key: '/system-logs', icon: <GatewayIcon name="CodeOutlined" />, label: 'System Logs' },
             ]
           : []),
       ];
@@ -426,17 +379,15 @@ export const App = () => {
 
       // Settings — not shown in portal sessions
       if (!isPortalSession) {
-        groups.push(
-          {
-            label: 'Settings',
-            items: [
-              { key: '/settings', icon: <SettingOutlined />, label: 'Organization' },
-              { key: '/settings/event-source', icon: <CloudServerOutlined />, label: 'Event Source' },
-              { key: '/settings/providers', icon: <AppstoreOutlined />, label: 'Providers' },
-              { key: '/help', icon: <BookOutlined />, label: 'Documentation' },
-            ],
-          }
-        );
+        groups.push({
+          label: 'Settings',
+          items: [
+            { key: '/settings', icon: <GatewayIcon name="SettingOutlined" />, label: 'Organization' },
+            { key: '/settings/event-source', icon: <GatewayIcon name="CloudServerOutlined" />, label: 'Event Source' },
+            { key: '/settings/providers', icon: <GatewayIcon name="AppstoreOutlined" />, label: 'Providers' },
+            { key: '/help', icon: <GatewayIcon name="BookOutlined" />, label: 'Documentation' },
+          ],
+        });
       }
     }
 
@@ -445,16 +396,16 @@ export const App = () => {
       groups.push({
         label: 'Administration',
         items: [
-          { key: '/admin/orgs', icon: <ApartmentOutlined />, label: 'Org Directory' },
-          { key: '/admin/users', icon: <TeamOutlined />, label: 'User Management' },
-          { key: '/admin/roles', icon: <SafetyOutlined />, label: 'Role Management' },
-          { key: '/admin/api-keys', icon: <KeyOutlined />, label: 'API Keys' },
-          { key: '/admin/rate-limits', icon: <LineChartOutlined />, label: 'Rate Limits' },
-          { key: '/admin/audit-logs', icon: <AuditOutlined />, label: 'Audit Logs' },
-          { key: '/admin/user-activity', icon: <BarChartOutlined />, label: 'User Activity' },
-          { key: '/admin/storage', icon: <PieChartOutlined />, label: 'Storage & Usage' },
-          { key: '/admin/system-status', icon: <CloudServerOutlined />, label: 'System Status' },
-          { key: '/admin/permissions', icon: <IdcardOutlined />, label: 'My Permissions' },
+          { key: '/admin/orgs', icon: <GatewayIcon name="ApartmentOutlined" />, label: 'Org Directory' },
+          { key: '/admin/users', icon: <GatewayIcon name="TeamOutlined" />, label: 'User Management' },
+          { key: '/admin/roles', icon: <GatewayIcon name="SafetyOutlined" />, label: 'Role Management' },
+          { key: '/admin/api-keys', icon: <GatewayIcon name="KeyOutlined" />, label: 'API Keys' },
+          { key: '/admin/rate-limits', icon: <GatewayIcon name="LineChartOutlined" />, label: 'Rate Limits' },
+          { key: '/admin/audit-logs', icon: <GatewayIcon name="AuditOutlined" />, label: 'Audit Logs' },
+          { key: '/admin/user-activity', icon: <GatewayIcon name="BarChartOutlined" />, label: 'User Activity' },
+          { key: '/admin/storage', icon: <GatewayIcon name="PieChartOutlined" />, label: 'Storage & Usage' },
+          { key: '/admin/system-status', icon: <GatewayIcon name="CloudServerOutlined" />, label: 'System Status' },
+          { key: '/admin/permissions', icon: <GatewayIcon name="IdcardOutlined" />, label: 'My Permissions' },
         ],
       });
     } else if (isOrgAdmin) {
@@ -463,11 +414,11 @@ export const App = () => {
       groups.push({
         label: 'Team',
         items: [
-          { key: '/admin/api-keys', icon: <KeyOutlined />, label: 'API Keys' },
-          { key: '/admin/user-activity', icon: <BarChartOutlined />, label: 'User Activity' },
-          { key: '/admin/storage', icon: <PieChartOutlined />, label: 'Storage & Usage' },
-          { key: '/admin/system-status', icon: <CloudServerOutlined />, label: 'System Status' },
-          { key: '/admin/permissions', icon: <IdcardOutlined />, label: 'My Permissions' },
+          { key: '/admin/api-keys', icon: <GatewayIcon name="KeyOutlined" />, label: 'API Keys' },
+          { key: '/admin/user-activity', icon: <GatewayIcon name="BarChartOutlined" />, label: 'User Activity' },
+          { key: '/admin/storage', icon: <GatewayIcon name="PieChartOutlined" />, label: 'Storage & Usage' },
+          { key: '/admin/system-status', icon: <GatewayIcon name="CloudServerOutlined" />, label: 'System Status' },
+          { key: '/admin/permissions', icon: <GatewayIcon name="IdcardOutlined" />, label: 'My Permissions' },
         ],
       });
     }
@@ -476,12 +427,7 @@ export const App = () => {
   }, [isSuperAdmin, isAdmin, isOrgAdmin, orgId, isPortalSession, portalAllowedViews]);
 
   const activeKey = useMemo(() => {
-    const all = navGroups.flatMap((group) => group.items);
-    // Sort by key length (longest first) to match more specific paths first
-    // This ensures /scheduled-jobs matches before /scheduled
-    const sorted = [...all].sort((a, b) => b.key.length - a.key.length);
-    const match = sorted.find((item) => location.pathname.startsWith(item.key));
-    return match?.key ?? '/dashboard';
+    return getActiveNavigationKey(location.pathname, navGroups) ?? '';
   }, [location.pathname, navGroups]);
 
   const isLoginRoute = location.pathname.startsWith('/login');
@@ -517,18 +463,136 @@ export const App = () => {
   });
   const failedCount = failedStats?.failed ?? 0;
 
+  const handleOrgChange = (value?: number) => {
+    if (!value) {
+      Modal.confirm({
+        title: 'Clear org context?',
+        content: 'You will return to the global admin view.',
+        okText: 'Clear',
+        okButtonProps: { danger: true },
+        cancelText: 'Cancel',
+        onOk: () => clearOrgId(),
+      });
+      return;
+    }
+
+    if (Number(value) === orgId) return;
+    const orgSwitchDestination = getOrgSwitchDestination(location.pathname);
+    if (!shouldConfirmOrgSwitch(orgId)) {
+      setManualOrgId(Number(value), orgSwitchDestination || undefined);
+      return;
+    }
+
+    Modal.confirm({
+      title: 'Switch organization?',
+      content: orgSwitchDestination
+        ? `Switch context to Org ${value}? This record belongs to the current organization, so you will return to its list. Unsaved changes will be lost.`
+        : `Switch context to Org ${value}? Unsaved changes may be lost.`,
+      okText: 'Switch',
+      cancelText: 'Cancel',
+      onOk: () => setManualOrgId(Number(value), orgSwitchDestination || undefined),
+    });
+  };
+
+  const createMenuItems = [
+    {
+      key: 'integration',
+      icon: <GatewayIcon name="ApiOutlined" />,
+      label: 'New integration',
+      onClick: () => navigate('/integrations/new'),
+    },
+    {
+      key: 'inbound',
+      icon: <GatewayIcon name="CloudServerOutlined" />,
+      label: 'New inbound integration',
+      onClick: () => navigate('/inbound-integrations/new'),
+    },
+    {
+      key: 'scheduled-job',
+      icon: <GatewayIcon name="CalendarOutlined" />,
+      label: 'New scheduled job',
+      onClick: () => navigate('/scheduled-jobs/new'),
+    },
+    {
+      key: 'template',
+      icon: <GatewayIcon name="AppstoreOutlined" />,
+      label: 'New template',
+      onClick: () => navigate('/templates/new'),
+    },
+    {
+      key: 'lookup',
+      icon: <GatewayIcon name="DatabaseOutlined" />,
+      label: 'New lookup mapping',
+      onClick: () => navigate('/lookups/new'),
+    },
+    ...(isFeatureEnabled('integrationFlowBuilderEnabled')
+      ? [
+          {
+            key: 'flow',
+            icon: <GatewayIcon name="BlockOutlined" />,
+            label: 'New flow',
+            onClick: () => navigate('/flow-builder/new'),
+          },
+        ]
+      : []),
+  ];
+  const mobileMoreMenuItems = [
+    { key: 'user', label: user?.email ?? 'Account', disabled: true },
+    ...(!isPortalSession ? [{ type: 'group' as const, label: 'Create', children: createMenuItems }] : []),
+    { type: 'divider' as const },
+    ...(failedCount > 0
+      ? [
+          {
+            key: 'failed',
+            icon: <GatewayIcon name="WarningOutlined" />,
+            label: `${failedCount} failed deliveries`,
+            onClick: () => navigate('/logs?status=FAILED&dateRange=all', { state: { applyFilters: Date.now() } }),
+          },
+        ]
+      : []),
+    ...(!isPortalSession
+      ? [
+          {
+            key: 'settings',
+            icon: <GatewayIcon name="SettingOutlined" />,
+            label: 'Organization settings',
+            onClick: () => navigate('/settings'),
+          },
+          {
+            key: 'permissions',
+            icon: <GatewayIcon name="IdcardOutlined" />,
+            label: 'My permissions',
+            onClick: () => navigate('/admin/permissions'),
+          },
+        ]
+      : []),
+    {
+      key: 'theme',
+      icon: mode === 'dark' ? <GatewayIcon name="SunOutlined" /> : <GatewayIcon name="MoonOutlined" />,
+      label: mode === 'dark' ? 'Light mode' : 'Dark mode',
+      onClick: toggleMode,
+    },
+    { type: 'divider' as const },
+    {
+      key: 'logout',
+      icon: <GatewayIcon name="LogoutOutlined" />,
+      label: 'Sign out',
+      danger: true,
+      onClick: handleLogout,
+    },
+  ];
+
   // User profile dropdown items
   const userMenuItems = [
     {
       key: 'user-info',
       label: (
-        <div style={{ padding: '4px 0' }}>
-          <Typography.Text strong style={{ display: 'block', fontSize: 13 }}>
+        <div className="ui-extracted-ea0765548d">
+          <Typography.Text strong className="ui-extracted-991c3e85b7">
             {user?.email}
           </Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Typography.Text type="secondary" className="console-type-caption">
             {user?.role?.replace(/_/g, ' ')}
-            {user?.orgId ? ` · Org ${user.orgId}` : ''}
           </Typography.Text>
         </div>
       ),
@@ -539,13 +603,13 @@ export const App = () => {
       ? [
           {
             key: 'settings',
-            icon: <SettingOutlined />,
+            icon: <GatewayIcon name="SettingOutlined" />,
             label: 'Organization Settings',
             onClick: () => navigate('/settings'),
           },
           {
             key: 'permissions',
-            icon: <IdcardOutlined />,
+            icon: <GatewayIcon name="IdcardOutlined" />,
             label: 'My Permissions',
             onClick: () => navigate('/admin/permissions'),
           },
@@ -554,7 +618,7 @@ export const App = () => {
       : []),
     {
       key: 'logout',
-      icon: <LogoutOutlined />,
+      icon: <GatewayIcon name="LogoutOutlined" />,
       label: 'Sign out',
       danger: true,
       onClick: handleLogout,
@@ -579,465 +643,354 @@ export const App = () => {
     activeKey,
     onNavigate: (path: string) => {
       navigate(path);
-      if (isMobile) setCollapsed(true);
     },
     onToggle: toggleSidebar,
-    tenantName: tenant?.tenantName,
-    tenantCode: tenant?.tenantCode,
-    isSuperAdmin,
-    isAdmin,
     failedCount,
-    onOpenSearch: () => setCmdPaletteOpen(true),
   };
 
+  const hasAppNavigation = !isEmbedded && !isSystemStatusStandaloneRoute;
   const renderShell = () => (
     <div className="app-shell">
-      {/* Skip-to-content — WCAG 2.4.1, visible on focus for keyboard users */}
-      <a
-        href="#main-content"
-        style={{
-          position: 'absolute',
-          top: -999,
-          left: -999,
-          zIndex: 9999,
-          padding: '8px 16px',
-          background: '#6366f1',
-          color: '#fff',
-          borderRadius: 6,
-          fontWeight: 600,
-          fontSize: 14,
-          textDecoration: 'none',
+      <ToastHost />
+      <CommandPalette
+        open={cmdPaletteOpen}
+        onClose={() => setCmdPaletteOpen(false)}
+        navGroups={navGroups}
+        failedCount={failedCount}
+      />
+
+      <AppShell
+        className="product-app-shell"
+        variant="section"
+        height="auto"
+        contentPadding={0}
+        mobileNav={{
+          content: (
+            <MobileNav header="Integration Gateway" label="Integration Gateway navigation">
+              <SideNavRenderContext value="drawer-content">
+                <AppSidebar {...sidebarProps} />
+              </SideNavRenderContext>
+            </MobileNav>
+          ),
         }}
-        onFocus={(e) => {
-          e.currentTarget.style.top = '16px';
-          e.currentTarget.style.left = '16px';
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.top = '-999px';
-          e.currentTarget.style.left = '-999px';
-        }}
-      >
-        Skip to main content
-      </a>
-      <Layout style={{ minHeight: '100vh', background: 'transparent', position: 'relative', zIndex: 1 }}>
-        <ToastHost />
-        <CommandPalette
-          open={cmdPaletteOpen}
-          onClose={() => setCmdPaletteOpen(false)}
-          navGroups={navGroups}
-          failedCount={failedCount}
-        />
-
-        {/* Desktop Sidebar - Hidden in embedded mode */}
-        {!isMobile && !isEmbedded && !isSystemStatusStandaloneRoute && (
-          <Layout.Sider
-            collapsed={collapsed}
-            collapsedWidth={68}
-            width={240}
-            className="app-sider"
-            style={{
-              background: 'var(--color-sidebar-bg)',
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'auto',
-              borderRight: `1px solid ${cssVar.border.subtle}`,
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <AppSidebar {...sidebarProps} />
-          </Layout.Sider>
-        )}
-
-        {/* Mobile Drawer - Hidden in embedded mode */}
-        {isMobile && !isEmbedded && !isSystemStatusStandaloneRoute && (
-          <Drawer
-            placement="left"
-            open={!collapsed}
-            onClose={() => setCollapsed(true)}
-            width={280}
-            closable={false}
-            bodyStyle={{
-              padding: 0,
-              background: 'var(--color-sidebar-bg)',
-            }}
-            styles={{
-              body: {
-                padding: 0,
-              },
-            }}
-          >
-            <AppSidebar {...sidebarProps} />
-          </Drawer>
-        )}
-        <Layout style={{ background: 'transparent', minHeight: '100vh' }}>
-          {!isEmbedded && !isSystemStatusStandaloneRoute && (
-            <Layout.Header
-              style={{
-                background: mode === 'dark' ? 'rgba(11, 18, 32, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-                paddingInline: spacing[4],
-                paddingBlock: isMobile ? spacing[2] : 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: isMobile ? 'wrap' : 'nowrap',
-                rowGap: spacing[2],
-                gap: spacing[4],
-                borderBottom: `1px solid ${cssVar.border.subtle}`,
-                position: 'sticky',
-                top: 0,
-                zIndex: zIndexTokens.stickyHeader,
-                height: isMobile ? 'auto' : 64,
-                minHeight: 64,
-                backdropFilter: 'blur(12px)',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              {/* Left: Hamburger + Tenant Info */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing[3],
-                  flex: isMobile ? '1 1 100%' : 1,
-                  minWidth: 0,
-                }}
-              >
-                {/* Hamburger Button — mobile only; desktop uses sidebar collapse toggle */}
-                {isMobile && (
-                  <Button
-                    type="text"
-                    onClick={toggleSidebar}
-                    icon={<MenuOutlined />}
-                    aria-label="Open navigation"
-                    style={{
-                      color: token.colorText,
-                      height: 40,
-                      width: 40,
-                      flexShrink: 0,
-                    }}
-                  />
-                )}
-
-                {/* Tenant Info — redundant with the org switcher below on mobile for admins, so it's
-                    hidden there to leave room; non-admin mobile users have no switcher, so it stays
-                    as their only org context. */}
-                {!(isMobile && (isSuperAdmin || isAdmin) && !isImpersonating) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], minWidth: 0 }}>
-                    <Badge status={tenant ? 'success' : 'default'} style={{ flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <Typography.Text
-                        strong
-                        style={{
-                          fontSize: 14,
-                          color: token.colorText,
-                          display: 'block',
-                          lineHeight: 1.4,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                        title={tenant?.tenantName ?? undefined}
-                      >
-                        {shortTenantName(tenant?.tenantName) ??
-                          (isSuperAdmin || isAdmin ? 'Global Admin View' : 'Tenant')}
-                      </Typography.Text>
-                      <div style={{ display: 'flex', gap: spacing[2], alignItems: 'center' }}>
-                        <Typography.Text
-                          type="secondary"
-                          style={{
-                            fontSize: 12,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {tenant?.tenantCode ?? (isSuperAdmin || isAdmin ? 'Select org from dropdown' : '')}
-                        </Typography.Text>
-                        {tenant && (
-                          <Typography.Text
-                            type="secondary"
-                            style={{
-                              fontSize: 12,
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            • {tenant.region ?? 'Global'}
-                          </Typography.Text>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isPortalSession && <PortalScopeBadge />}
-
-                {(isSuperAdmin || isAdmin) && !isImpersonating && (
-                  <Select
-                    size="small"
-                    placeholder="Switch org"
-                    value={orgId && orgId > 0 ? orgId : undefined}
-                    style={isMobile ? { flex: 1, minWidth: 0 } : { minWidth: 160 }}
-                    allowClear
-                    options={adminOrgs.map((org) => ({
-                      label: org.name ? `${org.name} (Org ${org.orgId})` : `Org ${org.orgId}`,
-                      value: org.orgId,
-                    }))}
-                    onChange={(value) => {
-                      if (!value) {
-                        Modal.confirm({
-                          title: 'Clear org context?',
-                          content: 'You will return to the global admin view.',
-                          okText: 'Clear',
-                          okButtonProps: { danger: true },
-                          cancelText: 'Cancel',
-                          onOk: () => clearOrgId(),
-                        });
-                        return;
-                      }
-
-                      if (Number(value) === orgId) {
-                        return;
-                      }
-
-                      const orgSwitchDestination = getOrgSwitchDestination(location.pathname);
-
-                      if (!shouldConfirmOrgSwitch(orgId)) {
-                        setManualOrgId(Number(value), orgSwitchDestination || undefined);
-                        return;
-                      }
-
-                      Modal.confirm({
-                        title: 'Switch organization?',
-                        content: orgSwitchDestination
-                          ? `Switch context to Org ${value}? This record belongs to the current organization, so you will return to its list. Unsaved changes will be lost.`
-                          : `Switch context to Org ${value}? Unsaved changes may be lost.`,
-                        okText: 'Switch',
-                        cancelText: 'Cancel',
-                        onOk: () => setManualOrgId(Number(value), orgSwitchDestination || undefined),
-                      });
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Right: Actions */}
-              <Space size={spacingToNumber(spacing[2])}>
-                {/* Command palette trigger */}
-                <Tooltip title="Search pages (⌘K)">
-                  <Button
-                    type="text"
-                    icon={<SearchOutlined />}
-                    onClick={() => setCmdPaletteOpen(true)}
-                    aria-label="Open command palette"
-                    style={{ height: 40, width: 40, color: token.colorTextSecondary }}
-                  />
-                </Tooltip>
-
-                {showGlobalNewIntegrationAction && (
-                  <Button
-                    type="primary"
-                    onClick={() => navigate('/integrations/new')}
-                    icon={<ThunderboltOutlined />}
-                    style={{
-                      fontWeight: 600,
-                      height: 38,
-                      borderRadius: 8,
-                      background: 'linear-gradient(180deg, #2563EB 0%, #1D4ED8 100%)',
-                      border: '1px solid #1D4ED8',
-                      boxShadow: '0 1px 2px rgba(37, 99, 235, 0.25)',
-                    }}
-                  >
-                    {!isMobile && 'New Integration'}
-                  </Button>
-                )}
-
-                {/* Failed deliveries badge — only when there are failures */}
-                {failedCount > 0 && (
-                  <Tooltip title={`${failedCount} failed deliveries — click to view`}>
-                    <Button
-                      type="text"
-                      icon={<WarningOutlined style={{ color: '#E11D48' }} />}
-                      onClick={() =>
-                        navigate('/logs?status=FAILED&dateRange=all', {
-                          state: { applyFilters: Date.now() },
-                        })
-                      }
-                      aria-label={`${failedCount} failed deliveries`}
-                      style={{
-                        color: '#E11D48',
-                        background: 'rgba(254, 226, 226, 0.65)',
-                        border: '1px solid #FECDD3',
-                        height: 36,
-                        paddingInline: 10,
-                        borderRadius: 8,
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <span style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)' }}>{failedCount}</span>
-                    </Button>
-                  </Tooltip>
-                )}
-
-                {/* Theme toggle */}
-                <Button
-                  type="text"
-                  onClick={toggleMode}
-                  icon={mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
-                  aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                  style={{ color: token.colorTextSecondary, height: 40, width: 40 }}
-                />
-
-                {/* User profile dropdown */}
-                <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-                  <Button
-                    type="text"
-                    style={{
-                      height: 40,
-                      padding: `0 ${spacing[2]}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: spacing[2],
-                    }}
-                    aria-label="User menu"
-                  >
-                    <Avatar
-                      size={28}
-                      style={{
-                        background: token.colorPrimary,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {(user?.email?.[0] ?? 'U').toUpperCase()}
-                    </Avatar>
-                    {!isMobile && (
-                      <Typography.Text
-                        style={{
-                          fontSize: 13,
-                          color: token.colorText,
-                          maxWidth: 120,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {user?.email?.split('@')[0]}
-                      </Typography.Text>
-                    )}
-                  </Button>
-                </Dropdown>
-              </Space>
-            </Layout.Header>
-          )}
-          <Layout.Content
-            id="main-content"
-            tabIndex={-1}
-            style={{
-              padding: isEmbedded ? 0 : isMobile ? spacing[4] : spacing[5],
-              minHeight: isEmbedded ? '100vh' : 'calc(100vh - 64px)',
-              background: isEmbedded ? 'transparent' : cssVar.bg.base,
-              outline: 'none',
-            }}
-          >
-            <div className="content-shell">
-              {isImpersonating && (
-                <div style={{ marginBottom: spacing[4] }}>
+        sideNav={hasAppNavigation ? <AppSidebar {...sidebarProps} /> : undefined}
+        topNav={
+          hasAppNavigation ? (
+            <TopNav
+              className="product-top-nav"
+              startContent={
+                <div className="product-top-nav-content">
+                  {/* Left: Hamburger + Tenant Info */}
                   <div
                     style={{
-                      padding: `${spacing[3]} ${spacing[4]}`,
-                      borderRadius: 10,
-                      border: `1px solid ${cssVar.warning.border}`,
-                      background: cssVar.warning.bg,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: spacing[4],
+                      gap: spacing[3],
+                      flex: isMobile ? '1 1 100%' : 1,
+                      minWidth: 0,
                     }}
                   >
-                    <div>
-                      <Typography.Text strong>Impersonation active</Typography.Text>
-                      <Typography.Paragraph style={{ margin: 0 }}>
-                        You are acting as org {user?.orgId ?? 'unknown'} ({user?.role}).
-                      </Typography.Paragraph>
-                    </div>
-                    <Button onClick={exitImpersonation}>Exit impersonation</Button>
-                  </div>
-                </div>
-              )}
-              <div className="content-stack">
-                <ErrorBoundary>
-                  <Suspense fallback={<RouteFallback />}>
-                    <Routes>
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                      <Route path="/dashboard" element={<DashboardRoute />} />
-                      <Route path="/integrations" element={<UnifiedIntegrationsRoute />} />
-                      <Route path="/integrations/:id" element={<IntegrationDetailRoute />} />
-                      <Route
-                        path="/inbound-integrations"
-                        element={<Navigate to="/integrations?tab=inbound" replace />}
+                    {/* Tenant Info — redundant with the org switcher below on mobile for admins, so it's
+                    hidden there to leave room; non-admin mobile users have no switcher, so it stays
+                    as their only org context. */}
+                    {!((isSuperAdmin || isAdmin) && !isImpersonating) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], minWidth: 0 }}>
+                        <Badge status={tenant ? 'success' : 'default'} className="ui-extracted-a9640d5e74" />
+                        <div className="console-min-width-0">
+                          <Typography.Text
+                            strong
+                            style={{
+                              fontSize: 'var(--console-type-control)',
+                              color: token.colorText,
+                              display: 'block',
+                              lineHeight: 1.4,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                            ellipsis
+                          >
+                            {shortTenantName(tenant?.tenantName) ??
+                              (isSuperAdmin || isAdmin ? 'Global Admin View' : 'Tenant')}
+                          </Typography.Text>
+                          <div className="console-flex-center-gap-2">
+                            <Typography.Text
+                              type="secondary"
+                              className="ui-extracted-f83ef7a23d"
+                            >
+                              {tenant?.tenantCode ?? (isSuperAdmin || isAdmin ? 'Select org from dropdown' : '')}
+                            </Typography.Text>
+                            {tenant && (
+                              <Typography.Text
+                                type="secondary"
+                                className="ui-extracted-f83ef7a23d"
+                              >
+                                • {tenant.region ?? 'Global'}
+                              </Typography.Text>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {isPortalSession && <PortalScopeBadge />}
+
+                    {(isSuperAdmin || isAdmin) && !isImpersonating && (
+                      <Select
+                        size="small"
+                        placeholder="Switch org"
+                        value={orgId && orgId > 0 ? orgId : undefined}
+                        style={isMobile ? { flex: 1, minWidth: 0 } : { minWidth: 160 }}
+                        allowClear
+                        options={adminOrgs.map((org) => ({
+                          label: org.name ? `${org.name} (Org ${org.orgId})` : `Org ${org.orgId}`,
+                          value: org.orgId,
+                        }))}
+                        onChange={handleOrgChange}
                       />
-                      <Route path="/inbound-integrations/:id" element={<InboundIntegrationDetailRoute />} />
-                      {isFeatureEnabled('integrationFlowBuilderEnabled') && (
-                        <>
-                          <Route path="/flow-builder" element={<FlowBuilderListRoute />} />
-                          <Route path="/flow-builder/new" element={<FlowBuilderRoute />} />
-                          <Route path="/flow-builder/:integrationId" element={<FlowBuilderRoute />} />
-                        </>
-                      )}
-                      <Route path="/events" element={<EventAuditRoute />} />
-                      <Route path="/events/catalog" element={<EventCatalogRoute />} />
-                      <Route path="/lookups" element={<LookupsRoute />} />
-                      <Route path="/lookups/stats" element={<LookupStatsRoute />} />
-                      <Route path="/lookups/:id" element={<LookupDetailRoute />} />
-                      <Route path="/logs" element={<LogsRoute />} />
-                      <Route path="/logs/:id" element={<LogDetailRoute />} />
-                      <Route path="/dlq" element={<DLQRoute />} />
-                      <Route path="/scheduled" element={<ScheduledIntegrationsRoute />} />
-                      <Route path="/scheduled-jobs" element={<ScheduledJobsRoute />} />
-                      <Route path="/scheduled-jobs/:id" element={<ScheduledJobDetailRoute />} />
-                      <Route path="/alert-center" element={<AlertCenterRoute />} />
-                      <Route path="/system-logs" element={<SystemLogsRoute />} />
-                      <Route path="/templates" element={<TemplatesRoute />} />
-                      <Route path="/templates/new" element={<TemplateDetailRoute />} />
-                      <Route path="/templates/:id" element={<TemplateDetailRoute />} />
-                      <Route path="/bulk" element={<BulkOperationsRoute />} />
-                      <Route path="/versions/:__KEEP_integrationName__" element={<VersionsRoute />} />
-                      <Route path="/settings" element={<SettingsRoute />} />
-                      <Route path="/settings/event-source" element={<EventSourceSettingsRoute />} />
-                      <Route path="/settings/mysql-pool" element={<MysqlPoolSettingsRoute />} />
-                      <Route path="/settings/sender-profiles" element={<SenderProfilesRoute />} />
-                      <Route path="/settings/providers" element={<ProvidersRoute />} />
-                      <Route path="/admin/users" element={<UserManagementRoute />} />
-                      <Route path="/admin/orgs" element={<OrgDirectoryRoute />} />
-                      <Route path="/admin/roles" element={<RoleManagementRoute />} />
-                      <Route path="/admin/api-keys" element={<ApiKeysRoute />} />
-                      <Route path="/admin/permissions" element={<PermissionsDemoRoute />} />
-                      <Route path="/admin/rate-limits" element={<AdminRateLimitsRoute />} />
-                      <Route path="/admin/audit-logs" element={<AuditLogsRoute />} />
-                      <Route path="/admin/user-activity" element={<UserActivityRoute />} />
-                      <Route path="/admin/storage" element={<StorageStatsRoute />} />
-                      <Route path="/admin/system-status" element={<SystemStatusRoute mode="admin" />} />
-                      <Route path="/status/system" element={<SystemStatusRoute mode="standalone" />} />
-                      <Route path="/help" element={<HelpRoute />} />
-                      <Route path="/help/lookup-guide" element={<LookupGuideRoute />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
+                    )}
+                  </div>
+
+                  {/* Right: Actions */}
+                  <Space size={spacingToNumber(spacing[2])}>
+                    <Tooltip title="Search pages (⌘K)">
+                      <Button
+                        className="global-search-trigger"
+                        type="default"
+                        icon={<GatewayIcon name="SearchOutlined" />}
+                        onClick={() => setCmdPaletteOpen(true)}
+                        aria-label="Search pages"
+                      >
+                        <span>Search pages</span>
+                        {!isMobile && <kbd>⌘K</kbd>}
+                      </Button>
+                    </Tooltip>
+
+                    {!isPortalSession && (
+                      <Dropdown trigger={['click']} menu={{ items: createMenuItems }}>
+                        <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} aria-label="Create">
+                          {!isMobile && 'Create'}
+                        </Button>
+                      </Dropdown>
+                    )}
+
+                    {/* Failed deliveries badge — only when there are failures */}
+                    {failedCount > 0 && (
+                      <Tooltip title={`${failedCount} failed deliveries — click to view`}>
+                        <Button
+                          type="text"
+                          icon={<GatewayIcon name="WarningOutlined" className="ui-extracted-4308a8b95b" />}
+                          onClick={() =>
+                            navigate('/logs?status=FAILED&dateRange=all', {
+                              state: { applyFilters: Date.now() },
+                            })
+                          }
+                          aria-label={`${failedCount} failed deliveries`}
+                          className="ui-extracted-6768a4d7c5"
+                        >
+                          <span
+                            className="ui-extracted-9264b62352"
+                          >
+                            {failedCount}
+                          </span>
+                        </Button>
+                      </Tooltip>
+                    )}
+
+                    {/* Theme toggle */}
+                    <Button
+                      type="text"
+                      onClick={toggleMode}
+                      icon={mode === 'dark' ? <GatewayIcon name="SunOutlined" /> : <GatewayIcon name="MoonOutlined" />}
+                      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                      style={{ color: token.colorTextSecondary, height: 40, width: 40 }}
+                    />
+
+                    {/* User profile dropdown */}
+                    <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+                      <Button
+                        type="text"
+                        style={{
+                          height: 40,
+                          padding: `0 ${spacing[2]}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing[2],
+                        }}
+                        aria-label="User menu"
+                      >
+                        <Avatar
+                          size={28}
+                          style={{
+                            background: token.colorPrimary,
+                            fontSize: 'var(--console-type-caption)',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {(user?.email?.[0] ?? 'U').toUpperCase()}
+                        </Avatar>
+                        {!isMobile && (
+                          <Typography.Text
+                            style={{
+                              fontSize: 'var(--console-type-body)',
+                              color: token.colorText,
+                              maxWidth: 120,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {user?.email?.split('@')[0]}
+                          </Typography.Text>
+                        )}
+                      </Button>
+                    </Dropdown>
+                  </Space>
+                </div>
+              }
+              endContent={
+                isMobile ? (
+                  <Space className="mobile-top-actions" size={4}>
+                    {(isSuperAdmin || isAdmin) && !isImpersonating ? (
+                      <Select
+                        className="mobile-org-switcher"
+                        size="small"
+                        aria-label="Switch organization"
+                        placeholder="Select org"
+                        value={orgId > 0 ? orgId : undefined}
+                        allowClear
+                        options={adminOrgs.map((org) => ({
+                          label: org.name ? `${org.name} (Org ${org.orgId})` : `Org ${org.orgId}`,
+                          value: org.orgId,
+                        }))}
+                        onChange={handleOrgChange}
+                      />
+                    ) : tenant?.tenantName ? (
+                      <Typography.Text className="mobile-tenant-name" ellipsis>
+                        {shortTenantName(tenant.tenantName)}
+                      </Typography.Text>
+                    ) : null}
+                    <Tooltip title="Search pages">
+                      <Button
+                        type="text"
+                        icon={<GatewayIcon name="SearchOutlined" />}
+                        aria-label="Search pages"
+                        onClick={() => setCmdPaletteOpen(true)}
+                      />
+                    </Tooltip>
+                    <Dropdown menu={{ items: mobileMoreMenuItems }} trigger={['click']} placement="bottomRight">
+                      <Button type="text" icon={<GatewayIcon name="EllipsisOutlined" />} aria-label="More actions" />
+                    </Dropdown>
+                  </Space>
+                ) : undefined
+              }
+            />
+          ) : undefined
+        }
+      >
+        <div
+          id="main-content"
+          tabIndex={-1}
+          style={{
+            padding: isEmbedded ? 0 : isMobile ? spacing[4] : spacing[5],
+            minHeight: isEmbedded ? '100vh' : 'calc(100vh - 64px)',
+            background: isEmbedded ? 'transparent' : cssVar.bg.base,
+            outline: 'none',
+          }}
+        >
+          <div className="content-shell">
+            {isImpersonating && (
+              <div className="console-margin-bottom-4">
+                <div
+                  style={{
+                    padding: `${spacing[3]} ${spacing[4]}`,
+                    borderRadius: 8,
+                    border: `1px solid ${cssVar.warning.border}`,
+                    background: cssVar.warning.bg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: spacing[4],
+                  }}
+                >
+                  <div>
+                    <Typography.Text strong>Impersonation active</Typography.Text>
+                    <Typography.Paragraph className="console-margin-none">
+                      You are acting as org {user?.orgId ?? 'unknown'} ({user?.role}).
+                    </Typography.Paragraph>
+                  </div>
+                  <Button onClick={exitImpersonation}>Exit impersonation</Button>
+                </div>
               </div>
+            )}
+            <div className="content-stack">
+              <ErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<DashboardRoute />} />
+                    <Route path="/integrations" element={<UnifiedIntegrationsRoute />} />
+                    <Route path="/integrations/:id" element={<IntegrationDetailRoute />} />
+                    <Route path="/inbound-integrations" element={<Navigate to="/integrations?tab=inbound" replace />} />
+                    <Route path="/inbound-integrations/:id" element={<InboundIntegrationDetailRoute />} />
+                    {isFeatureEnabled('integrationFlowBuilderEnabled') && (
+                      <>
+                        <Route path="/flow-builder" element={<FlowBuilderListRoute />} />
+                        <Route path="/flow-builder/new" element={<FlowBuilderRoute />} />
+                        <Route path="/flow-builder/:integrationId" element={<FlowBuilderRoute />} />
+                      </>
+                    )}
+                    <Route path="/events" element={<EventAuditRoute />} />
+                    <Route path="/events/catalog" element={<EventCatalogRoute />} />
+                    <Route path="/lookups" element={<LookupsRoute />} />
+                    <Route path="/lookups/stats" element={<LookupStatsRoute />} />
+                    <Route path="/lookups/:id" element={<LookupDetailRoute />} />
+                    <Route path="/logs" element={<LogsRoute />} />
+                    <Route path="/logs/:id" element={<LogDetailRoute />} />
+                    <Route path="/dlq" element={<DLQRoute />} />
+                    <Route path="/scheduled" element={<ScheduledIntegrationsRoute />} />
+                    <Route path="/scheduled-jobs" element={<ScheduledJobsRoute />} />
+                    <Route path="/scheduled-jobs/:id" element={<ScheduledJobDetailRoute />} />
+                    <Route path="/alert-center" element={<AlertCenterRoute />} />
+                    <Route path="/system-logs" element={<SystemLogsRoute />} />
+                    <Route path="/templates" element={<TemplatesRoute />} />
+                    <Route path="/templates/new" element={<TemplateDetailRoute />} />
+                    <Route path="/templates/:id" element={<TemplateDetailRoute />} />
+                    <Route path="/bulk" element={<BulkOperationsRoute />} />
+                    <Route path="/versions/:__KEEP_integrationName__" element={<VersionsRoute />} />
+                    <Route path="/settings" element={<SettingsRoute />} />
+                    <Route path="/settings/event-source" element={<EventSourceSettingsRoute />} />
+                    <Route path="/settings/mysql-pool" element={<MysqlPoolSettingsRoute />} />
+                    <Route path="/settings/sender-profiles" element={<SenderProfilesRoute />} />
+                    <Route path="/settings/providers" element={<ProvidersRoute />} />
+                    <Route path="/admin/users" element={<UserManagementRoute />} />
+                    <Route path="/admin/orgs" element={<OrgDirectoryRoute />} />
+                    <Route path="/admin/roles" element={<RoleManagementRoute />} />
+                    <Route path="/admin/api-keys" element={<ApiKeysRoute />} />
+                    <Route path="/admin/permissions" element={<PermissionsDemoRoute />} />
+                    <Route path="/admin/rate-limits" element={<AdminRateLimitsRoute />} />
+                    <Route path="/admin/audit-logs" element={<AuditLogsRoute />} />
+                    <Route path="/admin/user-activity" element={<UserActivityRoute />} />
+                    <Route path="/admin/storage" element={<StorageStatsRoute />} />
+                    <Route path="/admin/system-status" element={<SystemStatusRoute mode="admin" />} />
+                    <Route path="/status/system" element={<SystemStatusRoute mode="standalone" />} />
+                    <Route path="/help" element={<HelpRoute />} />
+                    <Route path="/help/lookup-guide" element={<LookupGuideRoute />} />
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  </Routes>
+                </Suspense>
+              </ErrorBoundary>
             </div>
-          </Layout.Content>
-        </Layout>
-      </Layout>
+          </div>
+        </div>
+      </AppShell>
     </div>
   );
 
-  // Public landing page — show before any auth checks
+  // The console opens directly to sign-in; public docs remain separately reachable.
   if (isLandingRoute && !isAuthenticated) {
-    return <LandingPage />;
+    return <LoginRoute />;
   }
 
   // Public docs — no auth required
@@ -1064,11 +1017,11 @@ export const App = () => {
   }
 
   if (isLoginRoute) {
-    return <Navigate to="/" replace />;
+    return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginRoute />;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return (

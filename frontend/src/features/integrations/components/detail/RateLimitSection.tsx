@@ -1,5 +1,6 @@
-import { Form, InputNumber, Row, Col, Space, Typography, Tag } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
+import { Form, InputNumber, Row, Col, Space } from '@/components/common/LegacyAntdControls';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import { spacingToNumber, cssVar } from '../../../../design-system/utils';
 import { InlineHint } from '../../../../components/common/InlineHint';
 import { ToggleSettingRow } from '../../../../components/common/ToggleSettingRow';
@@ -28,7 +29,7 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
     <div>
       <ToggleSettingRow
         name={['rateLimits', 'enabled']}
-        icon={<ThunderboltOutlined />}
+        icon={<GatewayIcon name="ThunderboltOutlined" />}
         title="Per-integration rate limiting"
         description="Limit requests to this integration to prevent abuse or accidental traffic spikes."
       />
@@ -52,7 +53,9 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                 label={
                   <Space size={4}>
                     Maximum Requests
-                    <Tag color="blue" style={{ fontSize: 10 }}>per window</Tag>
+                    <Text type="supporting" color="secondary">
+                      per window
+                    </Text>
                   </Space>
                 }
                 rules={[
@@ -61,8 +64,8 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                     type: 'number',
                     min: 1,
                     max: 10000,
-                    message: 'Must be between 1 and 10,000 requests'
-                  }
+                    message: 'Must be between 1 and 10,000 requests',
+                  },
                 ]}
                 tooltip="Maximum number of requests allowed within the time window"
               >
@@ -70,7 +73,7 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                   min={1}
                   max={10000}
                   step={10}
-                  style={{ width: '100%' }}
+                  className="console-width-full"
                   addonAfter="requests"
                   placeholder="100"
                 />
@@ -83,7 +86,9 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                 label={
                   <Space size={4}>
                     Time Window
-                    <Tag color="purple" style={{ fontSize: 10 }}>duration</Tag>
+                    <Text type="supporting" color="secondary">
+                      duration
+                    </Text>
                   </Space>
                 }
                 rules={[
@@ -92,8 +97,8 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                     type: 'number',
                     min: 1,
                     max: 3600,
-                    message: 'Must be between 1 and 3,600 seconds (1 hour)'
-                  }
+                    message: 'Must be between 1 and 3,600 seconds (1 hour)',
+                  },
                 ]}
                 tooltip="Duration of the rate limit window in seconds. Rate limits are enforced per window."
               >
@@ -101,7 +106,7 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                   min={1}
                   max={3600}
                   step={10}
-                  style={{ width: '100%' }}
+                  className="console-width-full"
                   addonAfter="seconds"
                   placeholder="60"
                 />
@@ -138,9 +143,9 @@ const RateLimitPreview = ({ form, spacing, colors }: any) => {
         padding: spacing[3],
       }}
     >
-      <Space direction="vertical" size={spacing[2]} style={{ width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-          <ThunderboltOutlined style={{ color: colors.primary[600], fontSize: 16 }} />
+      <Space direction="vertical" size={spacing[2]} className="console-width-full">
+        <div className="console-flex-center-gap-2">
+          <GatewayIcon size="sm" name="ThunderboltOutlined" className="console-text-accent" />
           <Text strong style={{ color: colors.primary[700] }}>
             Rate Limit Preview
           </Text>
@@ -148,39 +153,39 @@ const RateLimitPreview = ({ form, spacing, colors }: any) => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: spacing[3] }}>
           <div>
-            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+            <Text type="secondary" className="console-caption-block">
               Per {windowSeconds}s window
             </Text>
-            <Text strong style={{ fontSize: 18, color: colors.primary[600] }}>
+            <Text strong className="console-title-accent">
               {maxRequests} reqs
             </Text>
           </div>
 
           {windowSeconds !== 60 && (
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+              <Text type="secondary" className="console-caption-block">
                 Per Minute
               </Text>
-              <Text strong style={{ fontSize: 18 }}>
+              <Text strong className="console-type-title">
                 ≈ {perMinute.toLocaleString()} reqs
               </Text>
             </div>
           )}
 
           <div>
-            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+            <Text type="secondary" className="console-caption-block">
               Per Hour
             </Text>
-            <Text strong style={{ fontSize: 18 }}>
+            <Text strong className="console-type-title">
               ≈ {perHour.toLocaleString()} reqs
             </Text>
           </div>
 
           <div>
-            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+            <Text type="secondary" className="console-caption-block">
               Per Day
             </Text>
-            <Text strong style={{ fontSize: 18 }}>
+            <Text strong className="console-type-title">
               ≈ {perDay.toLocaleString()} reqs
             </Text>
           </div>

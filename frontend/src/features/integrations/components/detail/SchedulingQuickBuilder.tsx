@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Card, Space, Typography, Segmented, InputNumber, Select, DatePicker, TimePicker, Button, Tag, App } from 'antd';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Card, Space, Segmented, InputNumber, Select, DatePicker, TimePicker, App } from "@/components/common/LegacyAntdControls";
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import {
-  ClockCircleOutlined,
-  CalendarOutlined,
-  ThunderboltOutlined
-} from '@ant-design/icons';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import { useDesignTokens, withAlpha, cssVar } from '../../../../design-system/utils';
+import { Button } from '../../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -16,30 +14,30 @@ type QuickMode = 'IN_NEXT' | 'IN_LAST' | 'ON' | 'BEFORE' | 'AFTER' | 'BETWEEN';
 
 const timezoneOffsets: Record<string, string> = {
   'Asia/Kolkata': '+05:30',
-  'UTC': '+00:00',
+  UTC: '+00:00',
   'America/New_York': '-05:00',
   'Europe/London': '+00:00',
   'America/Los_Angeles': '-08:00',
   'Asia/Tokyo': '+09:00',
-  'Australia/Sydney': '+10:00'
+  'Australia/Sydney': '+10:00',
 };
 
 const unitOptions = [
   { label: 'Minutes', value: 'minutes' },
   { label: 'Hours', value: 'hours' },
-  { label: 'Days', value: 'days' }
+  { label: 'Days', value: 'days' },
 ];
 
 const intervalMsByUnit: Record<string, number> = {
   minutes: 60 * 1000,
   hours: 60 * 60 * 1000,
-  days: 24 * 60 * 60 * 1000
+  days: 24 * 60 * 60 * 1000,
 };
 
 const unitHelpers: Record<string, { add: string; sub: string }> = {
   minutes: { add: 'addMinutes', sub: 'subtractMinutes' },
   hours: { add: 'addHours', sub: 'subtractHours' },
-  days: { add: 'addDays', sub: 'subtractDays' }
+  days: { add: 'addDays', sub: 'subtractDays' },
 };
 
 interface SchedulingQuickBuilderProps {
@@ -53,7 +51,7 @@ export const SchedulingQuickBuilder = ({
   deliveryMode,
   timezone,
   currentScript,
-  onApplyScript
+  onApplyScript,
 }: SchedulingQuickBuilderProps) => {
   const { token, spacing } = useDesignTokens();
   const colors = cssVar.legacy;
@@ -193,48 +191,51 @@ return {
       size="small"
       title={
         <Space>
-          <ThunderboltOutlined style={{ color: colors.primary[500] }} />
+          <GatewayIcon name="ThunderboltOutlined" className="console-text-accent" />
           <span>Quick Scheduler</span>
         </Space>
       }
-      extra={isCustom ? <Tag color="purple">Custom Script</Tag> : null}
+      extra={isCustom ? <Text type="secondary">Custom script</Text> : null}
       style={{
         background: cssVar.bg.subtle,
-        borderColor: cssVar.border.default
+        borderColor: cssVar.border.default,
       }}
       styles={{ body: { padding: spacing[3] } }}
     >
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        <Space wrap size="small" style={{ width: '100%', justifyContent: 'space-between' }}>
+      <Space direction="vertical" size="small" className="console-width-full">
+        <Space wrap size="small" className="console-width-full-between">
           <Segmented
             value={mode}
             onChange={(value) => setMode(value as QuickMode)}
             options={availableModes.map((item) => ({
-              label: item === 'IN_NEXT'
-                ? 'In The Next'
-                : item === 'IN_LAST'
-                ? 'In The Last'
-                : item === 'ON'
-                ? 'On'
-                : item === 'BEFORE'
-                ? 'Before'
-                : item === 'AFTER'
-                ? 'After'
-                : 'Between',
-              value: item
+              label:
+                item === 'IN_NEXT'
+                  ? 'In The Next'
+                  : item === 'IN_LAST'
+                    ? 'In The Last'
+                    : item === 'ON'
+                      ? 'On'
+                      : item === 'BEFORE'
+                        ? 'Before'
+                        : item === 'AFTER'
+                          ? 'After'
+                          : 'Between',
+              value: item,
             }))}
           />
           <Space size={6}>
-            <Text type="secondary" style={{ fontSize: 12 }}>Timezone</Text>
-            <Tag color="blue">{timezone || 'UTC'}</Tag>
+            <Text type="secondary" className="console-type-caption">
+              Timezone
+            </Text>
+            <Text code>{timezone || 'UTC'}</Text>
           </Space>
         </Space>
 
         {deliveryMode === 'DELAYED' && (mode === 'IN_NEXT' || mode === 'IN_LAST') && (
           <Space wrap size="small">
             <InputNumber min={1} value={amount} onChange={(value) => setAmount(Number(value || 1))} />
-            <Select value={unit} onChange={setUnit} options={unitOptions} style={{ minWidth: 120 }} />
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Select value={unit} onChange={setUnit} options={unitOptions} className="ui-extracted-09c64cc592" />
+            <Text type="secondary" className="console-type-caption">
               {mode === 'IN_NEXT' ? 'from now' : 'before now (overdue)'}
             </Text>
           </Space>
@@ -246,34 +247,38 @@ return {
             <TimePicker value={targetTime} onChange={setTargetTime} format="HH:mm" />
             {(mode === 'BEFORE' || mode === 'AFTER') && (
               <Space size={6}>
-                <Text type="secondary" style={{ fontSize: 12 }}>Offset</Text>
+                <Text type="secondary" className="console-type-caption">
+                  Offset
+                </Text>
                 <InputNumber min={1} value={offsetAmount} onChange={(value) => setOffsetAmount(Number(value || 1))} />
-                <Select value={offsetUnit} onChange={setOffsetUnit} options={unitOptions} style={{ minWidth: 120 }} />
+                <Select value={offsetUnit} onChange={setOffsetUnit} options={unitOptions} className="ui-extracted-09c64cc592" />
               </Space>
             )}
           </Space>
         )}
 
         {deliveryMode === 'RECURRING' && mode === 'BETWEEN' && (
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space direction="vertical" size="small" className="console-width-full">
             <Space wrap size="small">
               <DatePicker value={rangeStart} onChange={setRangeStart} placeholder="Start date" />
               <DatePicker value={rangeEnd} onChange={setRangeEnd} placeholder="End date" />
               <TimePicker value={rangeTime} onChange={setRangeTime} format="HH:mm" />
             </Space>
             <Space wrap size="small">
-              <Text type="secondary" style={{ fontSize: 12 }}>Interval</Text>
+              <Text type="secondary" className="console-type-caption">
+                Interval
+              </Text>
               <InputNumber min={1} value={intervalAmount} onChange={(value) => setIntervalAmount(Number(value || 1))} />
-              <Select value={intervalUnit} onChange={setIntervalUnit} options={unitOptions} style={{ minWidth: 120 }} />
+              <Select value={intervalUnit} onChange={setIntervalUnit} options={unitOptions} className="ui-extracted-09c64cc592" />
             </Space>
           </Space>
         )}
 
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <Space className="console-width-full-between">
+          <Text type="secondary" className="console-type-caption">
             Uses standard timezone offsets (DST not applied). Double-check if DST matters.
           </Text>
-          <Button type="primary" icon={<ClockCircleOutlined />} onClick={handleApply}>
+          <Button type="primary" icon={<GatewayIcon name="ClockCircleOutlined" />} onClick={handleApply}>
             Apply to Script
           </Button>
         </Space>
@@ -283,12 +288,12 @@ return {
             borderRadius: token.borderRadius,
             padding: `${spacing[2]} ${spacing[3]}`,
             background: withAlpha(colors.primary[500], 0.08),
-            border: `1px dashed ${withAlpha(colors.primary[500], 0.3)}`
+            border: `1px dashed ${withAlpha(colors.primary[500], 0.3)}`,
           }}
         >
           <Space size={6}>
-            <CalendarOutlined style={{ color: colors.primary[500] }} />
-            <Text style={{ fontSize: 12 }}>
+            <GatewayIcon name="CalendarOutlined" className="console-text-accent" />
+            <Text className="console-type-caption">
               This will generate a scheduling script you can still edit manually.
             </Text>
           </Space>

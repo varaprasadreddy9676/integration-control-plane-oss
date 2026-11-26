@@ -1,7 +1,11 @@
-import { Button, Dropdown, Tooltip, Typography } from 'antd';
-import type { MenuProps } from 'antd';
-import { ArrowRightOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Dropdown, Tooltip } from '@/components/common/LegacyAntdControls';
+import type { MenuProps } from '@/components/common/LegacyAntdControls';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
+import { cssVar } from '../../../design-system/utils';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface DashboardHeaderProps {
   title: string;
@@ -35,24 +39,24 @@ export const DashboardHeader = ({
     <header className="dashboard-header">
       <div className="dashboard-title-wrap">
         <div className="dashboard-title-row">
-          <Typography.Title level={3} className="dashboard-title">
+          <Heading level={1} className="dashboard-title">
             {title}
-          </Typography.Title>
+          </Heading>
           <Button type="link" size="small" className="dashboard-manage-link" onClick={onManage}>
             {manageLabel}
-            <span style={{ fontSize: 11 }}>→</span>
+            <span className="console-type-caption">→</span>
           </Button>
         </div>
         {subtitle && (
-          <Typography.Text type="secondary" className="dashboard-subtitle">
+          <Text type="supporting" color="secondary" className="dashboard-subtitle">
             {subtitle}
-          </Typography.Text>
+          </Text>
         )}
       </div>
       <div className="dashboard-actions">
         {refreshSeconds > 0 ? (
           <div className="dashboard-auto-refresh-pill">
-            <span className="live-pulse-dot" style={{ background: '#10B981' }} />
+            <span className="live-pulse-dot" style={{ background: cssVar.success.text }} />
             <RefreshCountdown
               intervalMs={refreshSeconds * 1000}
               lastRefreshAt={lastRefreshedAt ?? undefined}
@@ -60,60 +64,62 @@ export const DashboardHeader = ({
             />
           </div>
         ) : (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="supporting" color="secondary">
             Auto-refresh off
-          </Typography.Text>
+          </Text>
         )}
         <Button
-          icon={<ArrowRightOutlined style={{ fontSize: 12 }} />}
+          icon={<GatewayIcon size="xsm" name="ArrowRightOutlined" />}
           onClick={onViewLogs}
           aria-label="View delivery logs"
           style={{
             height: 34,
             fontWeight: 600,
-            fontSize: 12.5,
-            borderRadius: 8,
+            fontSize: 'var(--console-type-caption)',
+            borderRadius: 4,
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 6,
-            borderColor: '#CBD5E1',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            gap: 'var(--spacing-2)',
+            borderColor: cssVar.border.default,
+            boxShadow: 'none',
           }}
         >
           View Logs
         </Button>
-        <Tooltip title={refreshSeconds > 0 ? `Refresh now (auto-refreshes every ${refreshSeconds}s)` : 'Refresh now'}>
-          <Button
-            icon={<ReloadOutlined style={{ fontSize: 13 }} />}
-            onClick={onRefresh}
-            loading={refreshing}
-            aria-label="Refresh dashboard data"
-            style={{
-              height: 34,
-              width: 34,
-              borderRadius: 8,
-              borderColor: '#E2E8F0',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          />
-        </Tooltip>
-        <Dropdown menu={{ items: exportMenuItems }} trigger={['click']} placement="bottomRight">
-          <Button
-            icon={<DownloadOutlined style={{ fontSize: 13 }} />}
-            loading={isExporting}
-            aria-label="Export dashboard data"
-            aria-haspopup="true"
-            style={{
-              height: 34,
-              width: 34,
-              borderRadius: 8,
-              borderColor: '#E2E8F0',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          />
-        </Dropdown>
+        <div className="dashboard-icon-actions">
+          <Tooltip title={refreshSeconds > 0 ? `Refresh now (auto-refreshes every ${refreshSeconds}s)` : 'Refresh now'}>
+            <Button
+              icon={<GatewayIcon size="xsm" name="ReloadOutlined" />}
+              onClick={onRefresh}
+              loading={refreshing}
+              aria-label="Refresh dashboard data"
+              style={{
+                height: 34,
+                width: 34,
+                borderRadius: 4,
+                borderColor: cssVar.border.default,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            />
+          </Tooltip>
+          <Dropdown menu={{ items: exportMenuItems }} trigger={['click']} placement="bottomRight">
+            <Button
+              icon={<GatewayIcon size="xsm" name="DownloadOutlined" />}
+              loading={isExporting}
+              aria-label="Export dashboard data"
+              aria-haspopup="true"
+              style={{
+                height: 34,
+                width: 34,
+                borderRadius: 4,
+                borderColor: cssVar.border.default,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            />
+          </Dropdown>
+        </div>
       </div>
     </header>
   );

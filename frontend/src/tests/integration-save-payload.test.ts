@@ -9,7 +9,7 @@ describe('outbound integration form save payload', () => {
         eventType: 'LAB_ORDER_SENT_TO_EXTERNAL',
         scope: 'INCLUDE_CHILDREN',
         excludedOrgUnits: [1451],
-        provider: 'Northwind LIS',
+        provider: 'Pathkind LIS',
         httpMethod: 'POST',
         outgoingAuthType: 'NONE',
         isActive: true,
@@ -36,7 +36,7 @@ describe('outbound integration form save payload', () => {
 
     expect(payload).toMatchObject({
       id: 'integration-1',
-      provider: 'Northwind LIS',
+      provider: 'Pathkind LIS',
       excludedOrgUnits: [1451],
       rateLimits: { enabled: true, maxRequests: 25, windowSeconds: 60 },
       lookups: [

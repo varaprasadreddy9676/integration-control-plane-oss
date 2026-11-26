@@ -10,8 +10,23 @@
  * (same flat pattern as .meta.*, .fcm.*) so the delivery engine normalizes it automatically.
  */
 
-import { Alert, Button, Divider, Form, Input, Select, Space, Tag } from 'antd';
-import { MessageOutlined } from '@ant-design/icons';
+/**
+ * SmsConfigFields — plug-and-play SMS provider configuration
+ *
+ * Adding a new SMS vendor:
+ *   1. Add a <Select.Option value="NEW_VENDOR"> to the provider select below
+ *   2. Add a config block in the switch inside the provider-specific fields section
+ *   3. Register the adapter in backend/src/services/communication/bootstrap.js
+ *
+ * Config is stored at communicationConfig.msg91.*, communicationConfig.twilio.*, etc.
+ * (same flat pattern as .meta.*, .fcm.*) so the delivery engine normalizes it automatically.
+ */
+import { Divider, Form, Input, Select, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { InlineNotice as Notice } from '../../../components/common';
 
 interface SmsConfigFieldsProps {
   spacing: Record<string, string>;
@@ -33,13 +48,7 @@ const SMS_PROVIDERS: Array<{
   { value: 'EXOTEL', label: 'Exotel', badge: 'Coming Soon', disabled: true },
 ];
 
-export function SmsConfigFields({
-  spacing,
-  httpComplete,
-  smsProvider,
-  onBack,
-  onNext,
-}: SmsConfigFieldsProps) {
+export function SmsConfigFields({ spacing, httpComplete, smsProvider, onBack, onNext }: SmsConfigFieldsProps) {
   return (
     <>
       {/* ── Provider selector ───────────────────────────────────────────── */}
@@ -53,13 +62,16 @@ export function SmsConfigFields({
           {SMS_PROVIDERS.map(({ value, label, badge, disabled }) => (
             <Select.Option key={value} value={value} disabled={disabled}>
               <Space>
-                <MessageOutlined />
+                <GatewayIcon name="MessageOutlined" />
                 {label}
-                {badge && (
-                  <Tag color={disabled ? 'default' : 'blue'} style={{ fontSize: 11 }}>
-                    {badge}
-                  </Tag>
-                )}
+                {badge &&
+                  (disabled ? (
+                    <StatusBadge label={badge} variant="neutral" showIcon={false} />
+                  ) : (
+                    <Text type="supporting" color="secondary">
+                      {badge}
+                    </Text>
+                  ))}
               </Space>
             </Select.Option>
           ))}
@@ -71,9 +83,9 @@ export function SmsConfigFields({
 
       {/* Future: {smsProvider === 'TWILIO' && <TwilioFields />} */}
 
-      <Divider style={{ margin: `${spacing[4]} 0` }} />
+      <Divider className="console-margin-y-4" />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div className="console-flex-between">
         <Button size="middle" onClick={onBack}>
           Back to Basic Info
         </Button>
@@ -108,7 +120,7 @@ function Msg91Fields() {
         ]}
         extra="6-character alphanumeric sender name approved in DLT portal (e.g. SENDER)"
       >
-        <Input size="middle" placeholder="SENDER" maxLength={6} style={{ textTransform: 'uppercase' }} />
+        <Input size="middle" placeholder="SENDER" maxLength={6} className="ui-extracted-0103148e25" />
       </Form.Item>
 
       <Form.Item
@@ -129,44 +141,51 @@ function Msg91Fields() {
         initialValue="91"
         extra="Prepended to bare 10-digit numbers. E.g. 91 for India."
       >
-        <Input size="middle" placeholder="91" style={{ maxWidth: 120 }} />
+        <Input size="middle" placeholder="91" className="ui-extracted-ca33716a4d" />
       </Form.Item>
 
-      <Alert
+      <Notice
         type="info"
-        showIcon
-        icon={<MessageOutlined />}
+        icon={<GatewayIcon name="MessageOutlined" />}
         message="MSG91 Setup"
-        style={{ marginTop: 8 }}
+        className="console-margin-top-2"
         description={
           <div>
-            <p style={{ marginBottom: 8 }}>To get your MSG91 credentials:</p>
-            <ol style={{ paddingLeft: 20, marginBottom: 8 }}>
+            <p className="console-margin-bottom-2">To get your MSG91 credentials:</p>
+            <ol className="console-indent-5-margin-bottom-2">
               <li>
                 Log in to{' '}
                 <a href="https://msg91.com" target="_blank" rel="noopener noreferrer">
                   msg91.com
                 </a>
               </li>
-              <li>Go to <strong>API</strong> → copy your <strong>Auth Key</strong></li>
-              <li>Register a <strong>Sender ID</strong> in your DLT portal (TRAI compliance)</li>
-              <li>For template SMS: create a flow in <strong>Campaign → Flow</strong> and copy the <strong>Template ID</strong></li>
+              <li>
+                Go to <strong>API</strong> → copy your <strong>Auth Key</strong>
+              </li>
+              <li>
+                Register a <strong>Sender ID</strong> in your DLT portal (TRAI compliance)
+              </li>
+              <li>
+                For template SMS: create a flow in <strong>Campaign → Flow</strong> and copy the{' '}
+                <strong>Template ID</strong>
+              </li>
             </ol>
-            <p style={{ marginBottom: 4 }}>
+            <p className="console-margin-bottom-1">
               <strong>Payload your app must send (plain text):</strong>
             </p>
-            <code style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+            <code
+              className="ui-extracted-e8bd2112ae"
+            >
               {'{ "to": "919876543210", "message": "Your OTP is 4321. Valid for 10 mins." }'}
             </code>
-            <p style={{ marginBottom: 4 }}>
+            <p className="console-margin-bottom-1">
               <strong>Template-based (DLT-compliant, recommended):</strong>
             </p>
-            <code style={{ fontSize: 11, display: 'block' }}>
+            <code className="console-caption-block">
               {'{ "to": "919876543210", "templateId": "your_flow_id", "variables": { "VAR1": "4321", "VAR2": "10" } }'}
             </code>
-            <p style={{ marginTop: 8, marginBottom: 0 }}>
-              Multiple recipients: pass <code>to</code> as an array:{' '}
-              <code>["919876543210", "918888888888"]</code>
+            <p className="console-margin-top-2-reset-bottom">
+              Multiple recipients: pass <code>to</code> as an array: <code>["919876543210", "918888888888"]</code>
             </p>
           </div>
         }

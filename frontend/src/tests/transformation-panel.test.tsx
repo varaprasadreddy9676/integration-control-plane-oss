@@ -13,7 +13,7 @@ const base = {
   selectedEventType: 'VISIT_COMPLETED',
   scriptValue: '',
   spacing,
-  token: { borderRadius: 6, borderRadiusLG: 8 },
+  token: { borderRadius: 4, borderRadiusLG: 8 },
   colors: {},
   formatScriptForDisplay: (script?: string) => script || '',
 };
@@ -36,7 +36,7 @@ describe('the Transformation tab', () => {
 
   it('asks for an event type first, because the editor previews with that event', () => {
     render(<TransformationPanelContent {...base} isEditMode selectedEventType={undefined} editor={<div>script editor</div>} />);
-    expect(screen.getByText('Select an event type first')).toBeInTheDocument();
+    expect(screen.getByText('Choose an event type first')).toBeInTheDocument();
     expect(screen.queryByText('script editor')).not.toBeInTheDocument();
   });
 });

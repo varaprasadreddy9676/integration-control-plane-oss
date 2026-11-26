@@ -33,7 +33,14 @@ const revisions = [
     changedFields: ['retryCount'],
     createdAt: '2026-10-20T10:00:00Z',
   },
-  { revision: 1, source: 'CREATED', restoredFrom: null, changedBy: null, changedFields: [], createdAt: '2026-10-19T10:00:00Z' },
+  {
+    revision: 1,
+    source: 'CREATED',
+    restoredFrom: null,
+    changedBy: null,
+    changedFields: [],
+    createdAt: '2026-10-19T10:00:00Z',
+  },
 ];
 
 async function renderDrawer(onRestored = vi.fn()) {
@@ -74,6 +81,9 @@ describe('IntegrationHistoryDrawer', () => {
     expect(await screen.findByRole('button', { name: /Revision 3/ })).toBeInTheDocument();
     expect(screen.getByText('dana@example.com')).toBeInTheDocument();
     expect(screen.getByText('Current')).toBeInTheDocument();
+    expect(document.querySelector('.ant-alert')).not.toBeInTheDocument();
+    expect(document.querySelector('.ant-typography')).not.toBeInTheDocument();
+    expect(document.querySelector('.ant-tag')).not.toBeInTheDocument();
   });
 
   it('shows what changed between a revision and the current configuration, hiding secrets', async () => {
@@ -103,6 +113,24 @@ describe('IntegrationHistoryDrawer', () => {
   it('explains when the user may not view history', async () => {
     mockApi.getIntegrationRevisions.mockRejectedValue(Object.assign(new Error('Forbidden'), { statusCode: 403 }));
     await renderDrawer();
-    expect(await screen.findByText(/do not have access to this integration’s history/)).toBeInTheDocument();
+    expect(await screen.findByText('History access required')).toBeInTheDocument();
+    expect(screen.getByText(/Ask an organization admin/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
+  it('renders safely when the revisions response omits integration metadata', async () => {
+    mockApi.getIntegrationRevisions.mockResolvedValueOnce({ integration: undefined, revisions: [] });
+    await renderDrawer();
+
+    expect(await screen.findByText('No revision history yet')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
+  });
+
+  it('offers a retry for non-permission history load failures', async () => {
+    mockApi.getIntegrationRevisions.mockRejectedValue(new Error('Network unavailable'));
+    await renderDrawer();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(mockApi.getIntegrationRevisions).toHaveBeenCalledTimes(2));
   });
 });

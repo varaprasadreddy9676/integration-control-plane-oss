@@ -1513,7 +1513,8 @@ export const getIntegrationVersions = async (
   if (params?.includeInactive) query.set('includeInactive', 'true');
   if (params?.includePrerelease) query.set('includePrerelease', 'true');
   const queryString = query.toString();
-  return request(`/versions/integration/${integrationName}/versions${queryString ? `?${queryString}` : ''}`);
+  const response = await request<any>(`/versions/integration/${integrationName}/versions${queryString ? `?${queryString}` : ''}`);
+  return Array.isArray(response) ? response : Array.isArray(response?.versions) ? response.versions : [];
 };
 
 export const getIntegrationVersion = async (integrationName: string, version: string): Promise<any> =>
@@ -4191,6 +4192,16 @@ export const getAdminAuditStats = async (params: { startDate?: string; endDate?:
   return request(`/admin/audit/stats?${queryParams.toString()}`);
 };
 
+export const getAdminAuditActionTypes = async (): Promise<string[]> => {
+  const response = await request<{ actionTypes: string[] }>('/admin/audit/action-types');
+  return response.actionTypes;
+};
+
+export const getAdminAuditResourceTypes = async (): Promise<string[]> => {
+  const response = await request<{ resourceTypes: string[] }>('/admin/audit/resource-types');
+  return response.resourceTypes;
+};
+
 /**
  * Export audit logs (system audit logs, not admin audit logs)
  */
@@ -4201,6 +4212,7 @@ export const exportAuditLogs = async (params: {
   action?: string;
   resourceType?: string;
   success?: boolean;
+  search?: string;
 }, options?: LogExportOptions): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/admin/audit/export`, {
     method: 'POST',

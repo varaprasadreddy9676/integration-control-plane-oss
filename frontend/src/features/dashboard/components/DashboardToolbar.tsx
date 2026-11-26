@@ -1,4 +1,6 @@
-import { Segmented, Select, Typography } from 'antd';
+import { Segmented, Select } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { cssVar } from '../../../design-system/utils';
 
 interface DashboardToolbarProps {
   days: number;
@@ -25,7 +27,7 @@ export const DashboardToolbar = ({
   integrationId,
   setIntegrationId,
   integrationOptions = [],
-  statusText
+  statusText,
 }: DashboardToolbarProps) => {
   return (
     <section className="dashboard-toolbar">
@@ -37,9 +39,9 @@ export const DashboardToolbar = ({
             { label: 'Today', value: 1 },
             { label: '7 days', value: 7 },
             { label: '30 days', value: 30 },
-            { label: '90 days', value: 90 }
+            { label: '90 days', value: 90 },
           ]}
-          style={{ width: 120 }}
+          className="console-width-compact-control"
         />
         <Segmented
           value={direction}
@@ -48,7 +50,7 @@ export const DashboardToolbar = ({
             { label: 'All', value: 'ALL' },
             { label: 'Outbound', value: 'OUTBOUND' },
             { label: 'Inbound', value: 'INBOUND' },
-            { label: 'Scheduled', value: 'SCHEDULED' }
+            { label: 'Scheduled', value: 'SCHEDULED' },
           ]}
         />
         <Select
@@ -57,7 +59,7 @@ export const DashboardToolbar = ({
           value={provider}
           onChange={setProvider}
           options={providerOptions}
-          style={{ width: 180 }}
+          className="ui-extracted-300b5686fc"
           optionFilterProp="label"
           showSearch
           disabled={providerOptions.length === 0}
@@ -73,24 +75,24 @@ export const DashboardToolbar = ({
             }
           }}
           options={integrationOptions}
-          style={{ width: 220 }}
+          className="ui-extracted-14b4ad96c5"
           optionFilterProp="label"
           showSearch
         />
       </div>
-      <div className="dashboard-status" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="dashboard-status ui-extracted-2c20ba9c18" >
         <span
           style={{
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: '#94A3B8',
+            background: cssVar.text.muted,
             display: 'inline-block',
           }}
         />
-        <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)' }}>
+        <Text type="code" color="secondary">
           {statusText}
-        </Typography.Text>
+        </Text>
       </div>
     </section>
   );

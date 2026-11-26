@@ -1,7 +1,8 @@
-import { Button, Dropdown, Tooltip, Typography, Space, Badge } from 'antd';
-import { ArrowRightOutlined, DownloadOutlined, ReloadOutlined, LoadingOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
-import { useDesignTokens } from '../../design-system/utils';
+import { Dropdown, Tooltip, Space, Badge } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../common/Icon';
+import type { MenuProps } from '@/components/common/LegacyAntdControls';
+import { Button } from '../common/LegacyButton';
+import { Typography } from '../common/LegacyTypography';
 
 interface DashboardHeaderProps {
   title: string;
@@ -47,78 +48,26 @@ export const DashboardHeader = ({
   isExporting,
   lastRefreshTime,
 }: DashboardHeaderProps) => {
-  const { spacing } = useDesignTokens();
-
   return (
-    <header
-      className="dashboard-header"
-      style={{
-        marginBottom: spacing[6],
-      padding: `${spacing[4]} 0`
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: spacing[4],
-          marginBottom: spacing[3]
-        }}
-      >
+    <header className="dashboard-header dashboard-header--spacious">
+      <div className="dashboard-header-main">
         {/* Title Section */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing[3],
-              marginBottom: spacing[2]
-            }}
-          >
-            <Typography.Title
-              level={3}
-              style={{
-                margin: 0,
-                fontSize: 24,
-                fontWeight: 600
-              }}
-            >
+        <div className="console-flex-min-width-0">
+          <div className="dashboard-header-title-row">
+            <Typography.Title level={3} className="dashboard-header-title">
               {title}
             </Typography.Title>
-            <Button
-              type="link"
-              size="small"
-              onClick={onManage}
-              style={{
-                padding: 0,
-                height: 'auto',
-                fontSize: 14
-              }}
-            >
+            <Button type="link" size="small" onClick={onManage} className="dashboard-header-manage">
               {manageLabel}
             </Button>
           </div>
-          <Typography.Text
-            type="secondary"
-            style={{
-              fontSize: 14,
-              display: 'block'
-            }}
-          >
+          <Typography.Text type="secondary" className="console-type-control console-display-block">
             {subtitle}
           </Typography.Text>
         </div>
 
         {/* Actions */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing[2],
-            flexShrink: 0
-          }}
-        >
+        <div className="dashboard-header-refresh">
           <Space size="small">
             {/* Auto-refresh indicator */}
             {refreshSeconds > 0 && (
@@ -129,19 +78,11 @@ export const DashboardHeader = ({
                 <Badge
                   status="processing"
                   text={
-                    <Typography.Text
-                      type="secondary"
-                      style={{ fontSize: 12 }}
-                    >
-                      {refreshCountdown !== null
-                        ? `Refreshing in ${refreshCountdown}s`
-                        : 'Auto-refresh on'
-                      }
+                    <Typography.Text type="secondary" className="console-type-caption">
+                      {refreshCountdown !== null ? `Refreshing in ${refreshCountdown}s` : 'Auto-refresh on'}
                     </Typography.Text>
                   }
-                  style={{
-                    fontSize: 12,
-                  }}
+                  className="console-type-caption"
                 />
               </Tooltip>
             )}
@@ -150,23 +91,14 @@ export const DashboardHeader = ({
       </div>
 
       {/* Action Buttons */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          gap: spacing[2]
-        }}
-      >
+      <div className="dashboard-header-actions">
         <Space size="small">
           {/* View Logs Button */}
           <Button
             type="default"
-            icon={<ArrowRightOutlined />}
+            icon={<GatewayIcon name="ArrowRightOutlined" />}
             onClick={onViewLogs}
-            style={{
-              fontWeight: 500,
-            }}
+            className="console-font-weight-medium"
           >
             View Logs
           </Button>
@@ -181,30 +113,22 @@ export const DashboardHeader = ({
             placement="top"
           >
             <Button
-              icon={refreshing ? <LoadingOutlined spin /> : <ReloadOutlined />}
+              icon={refreshing ? <GatewayIcon name="LoadingOutlined" spin /> : <GatewayIcon name="ReloadOutlined" />}
               onClick={onRefresh}
               loading={refreshing}
               disabled={refreshing}
               aria-label="Refresh dashboard data"
-              style={{
-                height: 32
-              }}
+              className="dashboard-header-icon-action"
             />
           </Tooltip>
 
           {/* Export Button */}
-          <Dropdown
-            menu={{ items: exportMenuItems }}
-            trigger={['click']}
-            placement="bottomRight"
-          >
+          <Dropdown menu={{ items: exportMenuItems }} trigger={['click']} placement="bottomRight">
             <Button
-              icon={isExporting ? <LoadingOutlined spin /> : <DownloadOutlined />}
+              icon={isExporting ? <GatewayIcon name="LoadingOutlined" spin /> : <GatewayIcon name="DownloadOutlined" />}
               loading={isExporting}
               aria-label="Export dashboard data"
-              style={{
-                height: 32
-              }}
+              className="dashboard-header-icon-action"
             />
           </Dropdown>
         </Space>
@@ -227,25 +151,9 @@ export const DashboardHeaderCompact = ({
   refreshing?: boolean;
   onRefresh?: () => void;
 }) => {
-  const { spacing } = useDesignTokens();
-
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing[4],
-      }}
-    >
-      <Typography.Title
-        level={4}
-        style={{
-          margin: 0,
-          fontSize: 18,
-          fontWeight: 600,
-        }}
-      >
+    <div className="dashboard-header-compact">
+      <Typography.Title level={4} className="console-margin-0 console-type-title console-font-weight-semibold">
         {title}
       </Typography.Title>
 
@@ -253,7 +161,7 @@ export const DashboardHeaderCompact = ({
         <Tooltip title="Refresh dashboard" placement="top">
           <Button
             type="text"
-            icon={refreshing ? <LoadingOutlined spin /> : <ReloadOutlined />}
+            icon={refreshing ? <GatewayIcon name="LoadingOutlined" spin /> : <GatewayIcon name="ReloadOutlined" />}
             onClick={onRefresh}
             loading={refreshing}
             aria-label="Refresh dashboard"

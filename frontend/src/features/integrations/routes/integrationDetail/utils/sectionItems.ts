@@ -1,5 +1,5 @@
 import { Children } from 'react';
-import type { CollapseProps } from 'antd';
+import type { CollapseProps } from "@/components/common/LegacyAntdControls";
 
 export const buildSectionItems = (children: React.ReactNode) => {
   return Children.map(children as any, (child: any) =>

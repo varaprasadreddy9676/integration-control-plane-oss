@@ -20,11 +20,11 @@
   margin-bottom: 56px;
 }
 .pl-head h2 {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
   font-size: clamp(32px, 4vw, 52px);
   line-height: 1.04;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: var(--text-primary);
   margin: 0 0 18px;
 }
@@ -49,7 +49,7 @@
 .pl-section summary:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 3px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .pl-mono {
   font-family: 'JetBrains Mono', monospace;
@@ -87,10 +87,10 @@
   border-left-color: var(--accent-color);
 }
 .hiw-tab-name {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--text-secondary);
   transition: color 200ms ease;
 }
@@ -107,7 +107,7 @@
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr;
   border: 1px solid var(--card-border);
-  border-radius: 16px;
+  border-radius: var(--radius-surface);
   background: var(--bg-secondary);
   overflow: hidden;
 }
@@ -245,7 +245,7 @@
 /* ── Product visuals (console recreations) ── */
 .pv-panel {
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: var(--radius-surface);
   background: var(--bg-secondary);
   box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.45);
   overflow: hidden;
@@ -468,7 +468,7 @@
 .pv-role {
   font-size: 12px;
   padding: 3px 9px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--card-border);
   color: var(--text-primary);
 }
@@ -476,7 +476,7 @@
 /* ── MCP transcript ── */
 .mcp-log {
   border: 1px solid var(--card-border);
-  border-radius: 16px;
+  border-radius: var(--radius-surface);
   background: var(--bg-secondary);
   padding: 8px 0;
   min-height: 470px;
@@ -542,17 +542,17 @@
 }
 .num-value {
   display: block;
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
   font-size: clamp(56px, 7vw, 96px);
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 .num-unit {
   font-size: 0.32em;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--text-secondary);
   margin-left: 8px;
 }
@@ -644,7 +644,7 @@
 }
 .qs-step::before {
   content: counter(qs);
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
   font-size: 22px;
   color: var(--accent-color);
@@ -660,7 +660,7 @@
   position: relative;
   margin: 0;
   padding: 14px 52px 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: #0b0d12;
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #e4e4e7;
@@ -677,7 +677,7 @@
   top: 8px;
   right: 8px;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 12px;
   color: #a1a1aa;

@@ -1,37 +1,27 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   App,
-  Button,
   Card,
   DatePicker,
   Input,
   Select,
   Space,
-  Tag,
-  Typography,
-  Grid,
   Dropdown,
   Modal,
   Form,
   InputNumber,
   Switch,
-  Alert,
-} from 'antd';
-import {
-  DownloadOutlined,
-  ReloadOutlined,
-  EyeOutlined,
-  UploadOutlined,
-  DatabaseOutlined,
-  CheckCircleOutlined,
-  MinusCircleOutlined,
-  CloseCircleOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button as AstryxButton } from '@astryxdesign/core/Button';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { MetaTag } from '../../../components/common/MetaTag';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { getStatusLabel, StatusBadge } from '../../../components/common/StatusBadge';
 import { StatPillRow } from '../../../components/common/StatPillRow';
 import {
   getEventAudit,
@@ -44,10 +34,11 @@ import {
 import type { EventAuditRecord } from '../../../mocks/types';
 import { formatDateTimeWithSeconds, formatNumber } from '../../../utils/format';
 import { createExportProgress } from '../../../utils/export-progress';
-import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
+import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import { EventAuditDrawer } from '../components/EventAuditDrawer';
 import { BulkImportModal } from '../components/BulkImportModal';
 import { useTenant } from '../../../app/tenant-context';
+import { Button } from '../../../components/common/LegacyButton';
 
 const { RangePicker } = DatePicker;
 
@@ -70,19 +61,10 @@ const sourceOptions = ['mysql', 'kafka', 'sqs', 'http'];
 
 export const EventAuditRoute = () => {
   const location = useLocation();
-  const { spacing, token, shadows, borderRadius } = useDesignTokens();
+  const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
   const { message: msgApi } = App.useApp();
   const { orgId } = useTenant();
-  const screens = Grid.useBreakpoint();
-  const isNarrow = !screens.md;
-  const tableFullBleedStyle = isNarrow
-    ? {}
-    : {
-        marginLeft: 0,
-        marginRight: `-${spacing[5]}`,
-        paddingRight: spacing[1],
-      };
 
   const [statusFilter, setStatusFilter] = useState<string>();
   const [sourceFilter, setSourceFilter] = useState<string>();
@@ -90,6 +72,7 @@ export const EventAuditRoute = () => {
   const [skipCategoryFilter, setSkipCategoryFilter] = useState<string>();
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [search, setSearch] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [selectedEvent, setSelectedEvent] = useState<EventAuditRecord | null>(null);
@@ -105,6 +88,14 @@ export const EventAuditRoute = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [testForm] = Form.useForm();
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchDraft.trim());
+      setPage(1);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft]);
+
   const hoursBack = useMemo(() => {
     if (!dateRange) return 24;
     const start = new Date(dateRange[0]).getTime();
@@ -117,6 +108,7 @@ export const EventAuditRoute = () => {
   const {
     data: stats,
     isFetching: statsFetching,
+    error: statsError,
     refetch: refetchStats,
   } = useQuery({
     queryKey: ['event-audit-stats', statusFilter, sourceFilter, eventTypeFilter, skipCategoryFilter, dateRange, search],
@@ -137,6 +129,7 @@ export const EventAuditRoute = () => {
   const {
     data: listResult,
     isFetching: eventsFetching,
+    error: eventsError,
     refetch: refetchEvents,
   } = useQuery({
     queryKey: [
@@ -181,34 +174,6 @@ export const EventAuditRoute = () => {
   });
 
   const drawerEvent = selectedEventDetail || selectedEvent;
-
-  const tagTone = (base: string) => ({
-    borderRadius: borderRadius.full,
-    borderColor: withAlpha(base, 0.25),
-    background: withAlpha(base, 0.12),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing[2],
-    paddingBlock: spacing['0.5'],
-    fontSize: token.fontSizeSM,
-  });
-
-  const statusColor = (status?: string) => {
-    switch (status) {
-      case 'DELIVERED':
-        return colors.success[600];
-      case 'FAILED':
-      case 'STUCK':
-        return colors.error[600];
-      case 'SKIPPED':
-        return colors.warning[600];
-      case 'PROCESSING':
-      case 'RECEIVED':
-        return colors.info[600];
-      default:
-        return colors.neutral[500];
-    }
-  };
 
   const eventTypeOptions = useMemo(() => {
     const types = Object.keys(stats?.byEventType || {});
@@ -274,59 +239,62 @@ export const EventAuditRoute = () => {
       {
         key: 'csv',
         label: 'Export CSV',
-        icon: <DownloadOutlined />,
+        icon: <GatewayIcon name="DownloadOutlined" />,
         onClick: handleExportCsv,
       },
     ],
   };
 
   return (
-    <div>
-      <PageHeader
-        title="Event Audit"
-        description="Track every event received, skipped, delivered, or failed."
-        compact
-        actions={
-          <Space size={spacingToNumber(spacing[2])}>
-            <Button type="primary" icon={<UploadOutlined />} onClick={() => setImportModalOpen(true)} size="small">
-              Bulk Import
+    <PageTemplate
+      title="Event Audit"
+      description="Track every event received, skipped, delivered, or failed."
+      compact
+      actions={
+        <Space size={spacingToNumber(spacing[2])} wrap>
+          <Button
+            type="primary"
+            icon={<GatewayIcon name="UploadOutlined" />}
+            onClick={() => setImportModalOpen(true)}
+            size="small"
+          >
+            Bulk Import
+          </Button>
+          <Button
+            onClick={() => {
+              testForm.setFieldsValue({
+                orgId: orgId || undefined,
+                orgUnitRid: orgId || undefined,
+                randomizeDates: false,
+                randomDaysBack: 7,
+                randomDaysForward: 7,
+              });
+              setTestModalOpen(true);
+            }}
+            size="small"
+          >
+            Add Test Events
+          </Button>
+          <Dropdown menu={exportMenu} trigger={['click']}>
+            <Button icon={<GatewayIcon name="DownloadOutlined" />} disabled={exportLoading} size="small">
+              Export CSV
             </Button>
-            <Button
-              onClick={() => {
-                testForm.setFieldsValue({
-                  orgId: orgId || undefined,
-                  orgUnitRid: orgId || undefined,
-                  randomizeDates: false,
-                  randomDaysBack: 7,
-                  randomDaysForward: 7,
-                });
-                setTestModalOpen(true);
-              }}
-              size="small"
-            >
-              Add Test Events
-            </Button>
-            <Dropdown menu={exportMenu} trigger={['click']}>
-              <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
-                Export CSV
-              </Button>
-            </Dropdown>
-            <Button
-              icon={<ReloadOutlined />}
-              loading={eventsFetching || statsFetching}
-              onClick={() => {
-                refetchEvents();
-                refetchStats();
-              }}
-              size="small"
-            >
-              Refresh
-            </Button>
-          </Space>
-        }
-      />
-
-      <div style={{ marginBottom: spacing[3] }}>
+          </Dropdown>
+          <Button
+            icon={<GatewayIcon name="ReloadOutlined" />}
+            loading={eventsFetching || statsFetching}
+            onClick={() => {
+              refetchEvents();
+              refetchStats();
+            }}
+            size="small"
+          >
+            Refresh
+          </Button>
+        </Space>
+      }
+    >
+      <div className="event-audit-stats">
         <StatPillRow
           activeFilter={statusFilter}
           onFilterChange={(value) => {
@@ -337,35 +305,35 @@ export const EventAuditRoute = () => {
             {
               title: 'Total',
               value: total,
-              icon: <DatabaseOutlined />,
+              icon: <GatewayIcon name="DatabaseOutlined" />,
               tone: cssVar.text.secondary,
               filterValue: null,
             },
             {
               title: 'Delivered',
               value: stats?.delivered,
-              icon: <CheckCircleOutlined />,
+              icon: <GatewayIcon name="CheckCircleOutlined" />,
               tone: colors.success[600],
               filterValue: 'DELIVERED',
             },
             {
               title: 'Skipped',
               value: stats?.skipped,
-              icon: <MinusCircleOutlined />,
+              icon: <GatewayIcon name="MinusCircleOutlined" />,
               tone: colors.warning[700],
               filterValue: 'SKIPPED',
             },
             {
               title: 'Failed',
               value: stats?.failed,
-              icon: <CloseCircleOutlined />,
+              icon: <GatewayIcon name="CloseCircleOutlined" />,
               tone: colors.error[600],
               filterValue: 'FAILED',
             },
             {
-              title: 'Stuck',
+              title: 'Failed (stuck)',
               value: stats?.stuck,
-              icon: <WarningOutlined />,
+              icon: <GatewayIcon name="WarningOutlined" />,
               tone: colors.warning[600],
               filterValue: 'STUCK',
             },
@@ -373,36 +341,37 @@ export const EventAuditRoute = () => {
         />
       </div>
 
-      <Card
-        style={{
-          borderRadius: token.borderRadiusLG,
-          border: `1px solid ${cssVar.border.default}`,
-          background: cssVar.bg.surface,
-          boxShadow: shadows.xl,
-          marginBottom: spacing[3],
-        }}
-        styles={{ body: { padding: spacing[3] } }}
-      >
-        <Space wrap size={spacingToNumber(spacing[2])} style={{ width: '100%', alignItems: 'center' }}>
-          <Typography.Text type="secondary" style={{ fontWeight: 600 }}>
+      <Card className="event-audit-filter-panel" styles={{ body: { padding: spacing[3] } }}>
+        <Space wrap size={spacingToNumber(spacing[2])} className="event-audit-filter-row">
+          <Text type="label" size="sm" color="secondary">
             Filters
-          </Typography.Text>
+          </Text>
           <Select
             placeholder="Status"
             allowClear
-            style={{ minWidth: 160, flex: '1 1 180px' }}
+            className="event-audit-filter-select"
             value={statusFilter}
             onChange={(value) => {
               setStatusFilter(value);
               setPage(1);
             }}
-            options={statusOptions.map((status) => ({ value: status, label: status }))}
+            options={statusOptions.map((status) => ({
+              value: status,
+              label:
+                status === 'RECEIVED'
+                  ? 'Pending (received)'
+                  : status === 'PROCESSING'
+                    ? 'Pending (processing)'
+                    : status === 'STUCK'
+                      ? 'Failed (stuck)'
+                      : getStatusLabel(status),
+            }))}
             size="small"
           />
           <Select
             placeholder="Source"
             allowClear
-            style={{ minWidth: 160, flex: '1 1 180px' }}
+            className="event-audit-filter-select"
             value={sourceFilter}
             onChange={(value) => {
               setSourceFilter(value);
@@ -414,7 +383,7 @@ export const EventAuditRoute = () => {
           <Select
             placeholder="Event Type"
             allowClear
-            style={{ minWidth: 200, flex: '1 1 220px' }}
+            className="console-filter-field"
             value={eventTypeFilter}
             onChange={(value) => {
               setEventTypeFilter(value);
@@ -426,7 +395,7 @@ export const EventAuditRoute = () => {
           <Select
             placeholder="Skip Category"
             allowClear
-            style={{ minWidth: 200, flex: '1 1 220px' }}
+            className="console-filter-field"
             value={skipCategoryFilter}
             onChange={(value) => {
               setSkipCategoryFilter(value);
@@ -436,7 +405,7 @@ export const EventAuditRoute = () => {
             size="small"
           />
           <RangePicker
-            style={{ minWidth: 240, flex: '1 1 240px' }}
+            className="event-audit-filter-range"
             onChange={(dates, dateStrings) => {
               if (dateStrings[0] && dateStrings[1]) {
                 setDateRange([dateStrings[0], dateStrings[1]]);
@@ -450,11 +419,9 @@ export const EventAuditRoute = () => {
           <Input.Search
             placeholder="Search event ID, source ID, or summary"
             allowClear
-            style={{ minWidth: 220, flex: '1 1 240px' }}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            className="event-audit-filter-search"
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
             size="small"
           />
         </Space>
@@ -469,11 +436,10 @@ export const EventAuditRoute = () => {
         confirmLoading={testLoading}
         destroyOnClose
       >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: spacing[4] }}
-          message="This writes real, synthetic events into the live audit trail for the org below — not a preview or sandbox."
+        <Banner
+          status="warning"
+          title="This writes real, synthetic events into the live audit trail for the org below — not a preview or sandbox."
+          className="console-margin-bottom-4"
         />
         <Form form={testForm} layout="vertical" onFinish={handleTestSubmit} requiredMark="optional">
           <Form.Item
@@ -481,25 +447,25 @@ export const EventAuditRoute = () => {
             label="Org Unit RID"
             rules={[{ required: true, message: 'Please enter org unit RID' }]}
           >
-            <InputNumber style={{ width: '100%' }} placeholder="e.g., 353" min={1} />
+            <InputNumber className="console-width-full" placeholder="e.g., 353" min={1} />
           </Form.Item>
           <Form.Item name="orgId" label="Org ID" rules={[{ required: true, message: 'Please enter org ID' }]}>
-            <InputNumber style={{ width: '100%' }} placeholder="e.g., 353" min={1} />
+            <InputNumber className="console-width-full" placeholder="e.g., 353" min={1} />
           </Form.Item>
-          <Form.Item name="phone" label="Patient Mobile (optional)">
-            <Input placeholder="e.g., 9876543210" />
+          <Form.Item name="phone" label="Patient Mobile">
+            <Input placeholder="e.g., 9886106330" />
           </Form.Item>
-          <Form.Item name="mrn" label="Patient MRN (optional)">
+          <Form.Item name="mrn" label="Patient MRN">
             <Input placeholder="e.g., 25-26/GGKN/05338" />
           </Form.Item>
-          <Form.Item name="datetime" label="Payload DateTime (optional)">
+          <Form.Item name="datetime" label="Payload DateTime">
             <Input placeholder="e.g., 27/01/2026 02:58 PM" />
           </Form.Item>
-          <Form.Item name="createdAt" label="DB Created At (optional)">
+          <Form.Item name="createdAt" label="DB Created At">
             <Input placeholder="e.g., 2026-02-05 15:44:02" />
           </Form.Item>
-          <Form.Item name="limit" label="Limit Events (optional)">
-            <InputNumber style={{ width: '100%' }} placeholder="Insert first N events" min={1} />
+          <Form.Item name="limit" label="Limit Events">
+            <InputNumber className="console-width-full" placeholder="Insert first N events" min={1} />
           </Form.Item>
           <Form.Item
             name="randomizeDates"
@@ -512,18 +478,18 @@ export const EventAuditRoute = () => {
           <Form.Item noStyle shouldUpdate={(prev, next) => prev.randomizeDates !== next.randomizeDates}>
             {({ getFieldValue }) =>
               getFieldValue('randomizeDates') ? (
-                <Space size="middle" style={{ width: '100%' }}>
-                  <Form.Item name="randomDaysBack" label="Days Back" style={{ flex: 1, marginBottom: 0 }}>
-                    <InputNumber style={{ width: '100%' }} placeholder="e.g., 7" min={0} />
+                <Space size="middle" className="console-width-full">
+                  <Form.Item name="randomDaysBack" label="Days Back" className="event-audit-random-date-field">
+                    <InputNumber className="console-width-full" placeholder="e.g., 7" min={0} />
                   </Form.Item>
-                  <Form.Item name="randomDaysForward" label="Days Forward" style={{ flex: 1, marginBottom: 0 }}>
-                    <InputNumber style={{ width: '100%' }} placeholder="e.g., 7" min={0} />
+                  <Form.Item name="randomDaysForward" label="Days Forward" className="event-audit-random-date-field">
+                    <InputNumber className="console-width-full" placeholder="e.g., 7" min={0} />
                   </Form.Item>
                 </Space>
               ) : null
             }
           </Form.Item>
-          <Form.Item name="eventTypes" label="Event Types (optional)" extra="Leave empty to insert all event types.">
+          <Form.Item name="eventTypes" label="Event Types" extra="Leave empty to insert all event types.">
             <Select
               mode="multiple"
               placeholder="Select event types to insert"
@@ -537,15 +503,34 @@ export const EventAuditRoute = () => {
         </Form>
       </Modal>
 
-      <div className="full-bleed-table" style={tableFullBleedStyle}>
-        <Card
-          style={{
-            borderRadius: token.borderRadiusLG,
-            border: `1px solid ${cssVar.border.default}`,
-            background: cssVar.bg.surface,
-            boxShadow: shadows.xl,
-          }}
-        >
+      {(eventsError || statsError) && (
+        <Banner
+          status="error"
+          title="Could not load event audit data"
+          description={
+            eventsError instanceof Error
+              ? eventsError.message
+              : statsError instanceof Error
+                ? statsError.message
+                : 'An unexpected error occurred.'
+          }
+          endContent={
+            <AstryxButton
+              label="Retry"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                refetchEvents();
+                refetchStats();
+              }}
+            />
+          }
+          className="console-margin-bottom-3"
+        />
+      )}
+
+      <div className="event-audit-table-wrapper">
+        <Card className="event-audit-table-panel">
           <ModernTable<EventAuditRecord>
             dataSource={events}
             rowKey={(record) => record._id || record.eventId || record.id || ''}
@@ -566,7 +551,7 @@ export const EventAuditRoute = () => {
                 title: 'Received At',
                 dataIndex: 'receivedAt',
                 key: 'receivedAt',
-                width: 180,
+                width: 152,
                 render: (value: string) => (value ? formatDateTimeWithSeconds(value) : '—'),
                 sorter: (a: any, b: any) =>
                   new Date(a.receivedAt || 0).getTime() - new Date(b.receivedAt || 0).getTime(),
@@ -575,28 +560,52 @@ export const EventAuditRoute = () => {
                 title: 'Event Type',
                 dataIndex: 'eventType',
                 key: 'eventType',
-                width: 200,
-                render: (value: string) => <Tag style={tagTone(colors.info[600])}>{value || '—'}</Tag>,
+                width: 160,
+                render: (value: string) => <MetaTag variant="event">{value || '—'}</MetaTag>,
               },
               {
                 title: 'Status',
                 dataIndex: 'status',
                 key: 'status',
-                width: 140,
-                render: (value: string) => <Tag style={tagTone(statusColor(value))}>{value || '—'}</Tag>,
+                width: 100,
+                render: (value: string) => (
+                  <StatusBadge
+                    label={value || '—'}
+                    variant={
+                      value === 'DELIVERED'
+                        ? 'success'
+                        : value === 'FAILED' || value === 'STUCK'
+                          ? 'error'
+                          : value === 'SKIPPED'
+                            ? 'warning'
+                            : value === 'PROCESSING' || value === 'RECEIVED'
+                              ? 'info'
+                              : 'neutral'
+                    }
+                    showIcon={false}
+                    size="small"
+                  />
+                ),
               },
               {
                 title: 'Source',
                 dataIndex: 'source',
                 key: 'source',
-                width: 140,
+                width: 130,
                 render: (value: string, record: EventAuditRecord) => (
-                  <Space size={spacingToNumber(spacing[1])}>
-                    <Tag style={tagTone(colors.neutral[500])}>{(value || '—').toUpperCase()}</Tag>
+                  <Space direction="vertical" size={0} className="console-min-width-0">
+                    <MetaTag variant="neutral">{(value || '—').toUpperCase()}</MetaTag>
                     {record.sourceId && (
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text
+                        type="supporting"
+                        size="sm"
+                        color="secondary"
+                        maxLines={1}
+                        hasTruncateTooltip
+                        className="event-audit-source-id"
+                      >
                         {record.sourceId}
-                      </Typography.Text>
+                      </Text>
                     )}
                   </Space>
                 ),
@@ -604,14 +613,14 @@ export const EventAuditRoute = () => {
               {
                 title: 'Delivery',
                 key: 'delivery',
-                width: 180,
+                width: 150,
                 render: (_: any, record: EventAuditRecord) => {
                   const delivery = record.deliveryStatus || {};
                   return (
-                    <Typography.Text>
+                    <Text>
                       {delivery.integrationsMatched ?? 0} matched · {delivery.deliveredCount ?? 0} ok ·{' '}
                       {delivery.failedCount ?? 0} failed
-                    </Typography.Text>
+                    </Text>
                   );
                 },
               },
@@ -619,23 +628,26 @@ export const EventAuditRoute = () => {
                 title: 'Skip / Reason',
                 dataIndex: 'skipReason',
                 key: 'skipReason',
-                width: 240,
-                render: (_: any, record: EventAuditRecord) => (
-                  <Typography.Text type="secondary">
-                    {record.skipCategory ? `${record.skipCategory}: ` : ''}
-                    {record.skipReason || record.errorMessage || '—'}
-                  </Typography.Text>
-                ),
+                width: 210,
+                ellipsis: true,
+                render: (_: any, record: EventAuditRecord) => {
+                  const reason = `${record.skipCategory ? `${record.skipCategory}: ` : ''}${record.skipReason || record.errorMessage || '—'}`;
+                  return (
+                    <Text type="supporting" color="secondary" maxLines={1} hasTruncateTooltip>
+                      {reason}
+                    </Text>
+                  );
+                },
               },
               {
                 title: 'Event ID',
                 dataIndex: 'eventId',
                 key: 'eventId',
-                width: 220,
+                width: 150,
                 render: (value: string) => (
-                  <Typography.Text style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }} ellipsis>
+                  <Text type="code" maxLines={1} hasTruncateTooltip>
                     {value || '—'}
-                  </Typography.Text>
+                  </Text>
                 ),
               },
               {
@@ -645,7 +657,7 @@ export const EventAuditRoute = () => {
                 render: (_: any, record: EventAuditRecord) => (
                   <Button
                     type="text"
-                    icon={<EyeOutlined />}
+                    icon={<GatewayIcon name="EyeOutlined" />}
                     onClick={() => {
                       setSelectedEvent(record);
                       setSelectedEventId(record.eventId);
@@ -684,6 +696,6 @@ export const EventAuditRoute = () => {
           refetchStats();
         }}
       />
-    </div>
+    </PageTemplate>
   );
 };

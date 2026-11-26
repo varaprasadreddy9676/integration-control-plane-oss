@@ -1,4 +1,5 @@
-import { Alert, Space } from 'antd';
+import { Space } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
 import type { CSSProperties } from 'react';
 
 export interface FormAlertsProps {
@@ -82,7 +83,7 @@ export const FormAlerts = ({
   style,
   onDismissDisabled,
   onDismissValidation,
-  onDismissEventType
+  onDismissEventType,
 }: FormAlertsProps) => {
   const alerts = [];
   const spacingValue = typeof spacing === 'object' && spacing[4] ? spacing[4] : spacing || '16px';
@@ -90,14 +91,13 @@ export const FormAlerts = ({
   // Circuit breaker / disabled status banner
   if (isDisabled) {
     alerts.push(
-      <Alert
+      <Banner
         key="disabled-status"
-        type="warning"
-        showIcon
-        message="Integration is paused"
+        status="warning"
+        title="Integration is paused"
         description={disabledReason || 'This integration is currently inactive. Enable it to process events.'}
-        closable={!!onDismissDisabled}
-        onClose={onDismissDisabled}
+        isDismissable={!!onDismissDisabled}
+        onDismiss={onDismissDisabled}
       />
     );
   }
@@ -105,35 +105,32 @@ export const FormAlerts = ({
   // Validation errors banner
   if (validationErrors.length > 0) {
     alerts.push(
-      <Alert
+      <Banner
         key="validation-errors"
-        type="error"
-        showIcon
-        message={`${validationErrors.length} validation error${validationErrors.length > 1 ? 's' : ''} found`}
-        description={
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            {validationErrors.map((error, idx) => (
-              <li key={idx}>{error}</li>
-            ))}
-          </ul>
-        }
-        closable={!!onDismissValidation}
-        onClose={onDismissValidation}
-      />
+        status="error"
+        title={`${validationErrors.length} validation error${validationErrors.length > 1 ? 's' : ''} found`}
+        isDismissable={!!onDismissValidation}
+        onDismiss={onDismissValidation}
+      >
+        <ul className="console-list-reset-indent">
+          {validationErrors.map((error, idx) => (
+            <li key={idx}>{error}</li>
+          ))}
+        </ul>
+      </Banner>
     );
   }
 
   // Event type required banner
   if (requiresEventType) {
     alerts.push(
-      <Alert
+      <Banner
         key="event-type-required"
-        type="info"
-        showIcon
-        message="Select event type first"
+        status="info"
+        title="Select event type first"
         description={eventTypeHelpText}
-        closable={!!onDismissEventType}
-        onClose={onDismissEventType}
+        isDismissable={!!onDismissEventType}
+        onDismiss={onDismissEventType}
       />
     );
   }
@@ -148,7 +145,7 @@ export const FormAlerts = ({
       size={spacingValue}
       style={{
         width: '100%',
-        ...style
+        ...style,
       }}
     >
       {alerts}

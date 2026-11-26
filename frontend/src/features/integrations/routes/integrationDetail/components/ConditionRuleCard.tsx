@@ -1,5 +1,5 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Form, Row, Select, Tooltip } from 'antd';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
+import { Card, Col, Form, Row, Select, Tooltip } from "@/components/common/LegacyAntdControls";
 import { useEffect, useMemo } from 'react';
 import { flattenFields } from '../utils/fieldMapping';
 import { getPrimaryEventType } from '../utils/followUpRule';
@@ -9,6 +9,7 @@ import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { ConditionPredicateEditor } from './ConditionPredicateEditor';
 import { ConditionReleaseTimingFields } from './ConditionReleaseTimingFields';
 import { SingleEventTypeSelectField } from './SingleEventTypeSelectField';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 const ACTION_OPTIONS = [
   { label: 'Release it now', value: 'RELEASE_HELD' },
@@ -165,8 +166,7 @@ export const ConditionRuleCard = ({ field, eventTypeOptions, onRemove, token, co
           <Form.Item
             name={[field.name, 'action']}
             label="Then"
-            rules={[{ required: true, message: 'Action is required' }]}
-            style={{ marginBottom: 0 }}
+            rules={[{ required: true, message: 'Action is required' }]} className="console-margin-bottom-none"
           >
             <Select options={ACTION_OPTIONS} />
           </Form.Item>
@@ -177,7 +177,7 @@ export const ConditionRuleCard = ({ field, eventTypeOptions, onRemove, token, co
               danger
               title="Remove"
               aria-label="Remove condition rule"
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               onClick={() => onRemove(field.name)}
             />
           </Tooltip>

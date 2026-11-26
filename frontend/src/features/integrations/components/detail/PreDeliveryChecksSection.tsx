@@ -1,7 +1,8 @@
-import { Button, Card, Col, Form, Input, InputNumber, Row, Select, Space } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Card, Col, Form, Input, InputNumber, Row, Select, Space } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from "../../../../components/common/Icon";
 import { spacingToNumber } from '../../../../design-system/utils';
 import { InlineHint } from '../../../../components/common/InlineHint';
+import { Button } from '../../../../components/common/LegacyButton';
 
 const MAX_CHECKS = 5;
 
@@ -19,7 +20,7 @@ interface PreDeliveryChecksSectionProps {
 export const PreDeliveryChecksSection = ({ spacing }: PreDeliveryChecksSectionProps) => (
   <Form.List name="preDeliveryChecks">
     {(fields, { add, remove }) => (
-      <Space direction="vertical" size={spacing[3]} style={{ width: '100%' }}>
+      <Space direction="vertical" size={spacing[3]} className="console-width-full">
         {fields.length === 0 && (
           <InlineHint tone="info">
             No checks. Deliveries are sent without fetching any linked URL first.
@@ -35,7 +36,7 @@ export const PreDeliveryChecksSection = ({ spacing }: PreDeliveryChecksSectionPr
               <Button
                 type="text"
                 danger
-                icon={<DeleteOutlined />}
+                icon={<GatewayIcon name="DeleteOutlined" />}
                 aria-label={`Remove check ${index + 1}`}
                 onClick={() => remove(field.name)}
               />
@@ -89,7 +90,7 @@ export const PreDeliveryChecksSection = ({ spacing }: PreDeliveryChecksSectionPr
               </Col>
               <Col xs={24} md={12}>
                 <Form.Item name={[field.name, 'timeoutMs']} label="Timeout" initialValue={30000}>
-                  <InputNumber min={1000} max={120000} step={1000} addonAfter="ms" style={{ width: '100%' }} />
+                  <InputNumber min={1000} max={120000} step={1000} addonAfter="ms" className="console-width-full" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
@@ -121,7 +122,7 @@ export const PreDeliveryChecksSection = ({ spacing }: PreDeliveryChecksSectionPr
                   label="Minimum size"
                   tooltip="Optional. Smaller responses fail the check (GET only)"
                 >
-                  <InputNumber min={0} addonAfter="bytes" style={{ width: '100%' }} />
+                  <InputNumber min={0} addonAfter="bytes" className="console-width-full" />
                 </Form.Item>
               </Col>
             </Row>
@@ -136,7 +137,7 @@ export const PreDeliveryChecksSection = ({ spacing }: PreDeliveryChecksSectionPr
         )}
 
         {fields.length < MAX_CHECKS && (
-          <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>
+          <Button type="dashed" icon={<GatewayIcon name="PlusOutlined" />} onClick={() => add()}>
             Add URL check
           </Button>
         )}

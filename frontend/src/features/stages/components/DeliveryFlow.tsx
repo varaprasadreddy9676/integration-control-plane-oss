@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Empty, Form, Skeleton } from 'antd';
+import { Form } from "@/components/common/LegacyAntdControls";
 import { useQuery } from '@tanstack/react-query';
 import { getIntegrationById } from '../../../services/api';
+import { StatePanel } from '../../../components/common/StatePanel';
 import { WorkflowCanvas } from '../canvas/WorkflowCanvas';
 import { deliveriesOf } from '../deliveryTargets';
 
@@ -18,8 +19,8 @@ export const DeliveryFlow = ({ integrationId, logId }: { integrationId: string; 
     staleTime: 60 * 1000,
   });
 
-  if (integration.isLoading) return <Skeleton active paragraph={{ rows: 6 }} />;
-  if (!integration.data) return <Empty description="This integration can no longer be shown." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+  if (integration.isLoading) return <StatePanel size="regular" glyph="connecting" title="Loading delivery flow" />;
+  if (!integration.data) return <StatePanel size="regular" glyph="disrupted" title="Integration unavailable" />;
 
   const config = integration.data as unknown as Record<string, unknown>;
   return (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Row, Col, Form, InputNumber, Radio, Space, Typography } from 'antd';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Row, Col, Form, InputNumber, Radio, Space } from "@/components/common/LegacyAntdControls";
 import { spacingToNumber, cssVar } from '../../../../design-system/utils';
 
 const { Text } = Typography;
@@ -63,7 +64,7 @@ export const DeliverySettingsSectionEnhanced = ({ uiConfig, spacing }: DeliveryS
   return (
     <div>
       {/* Mode Toggle */}
-      <div style={{ marginBottom: spacing[4] }}>
+      <div className="console-margin-bottom-4">
         <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)} buttonStyle="solid" size="middle">
           <Radio.Button value="basic">Basic</Radio.Button>
           <Radio.Button value="advanced">Advanced</Radio.Button>
@@ -73,16 +74,18 @@ export const DeliverySettingsSectionEnhanced = ({ uiConfig, spacing }: DeliveryS
       {/* Basic Mode - Presets */}
       {mode === 'basic' && (
         <div>
-          <Text type="secondary" style={{ fontSize: 12.5, display: 'block', marginBottom: spacing[2] }}>
+          <Text
+            type="secondary"
+            className="console-type-caption console-display-block console-margin-bottom-2"
+          >
             Choose a preset retry and timeout strategy based on your use case.
           </Text>
 
           <Radio.Group
             value={currentPreset}
-            onChange={(e) => handlePresetChange(e.target.value)}
-            style={{ width: '100%' }}
+            onChange={(e) => handlePresetChange(e.target.value)} className="console-width-full"
           >
-            <Space direction="vertical" size={spacingToNumber(spacing[1])} style={{ width: '100%' }}>
+            <Space direction="vertical" size={spacingToNumber(spacing[1])} className="console-width-full">
               {presets.map((preset) => (
                 <Radio
                   key={preset.value}
@@ -91,18 +94,18 @@ export const DeliverySettingsSectionEnhanced = ({ uiConfig, spacing }: DeliveryS
                     display: 'flex',
                     alignItems: 'center',
                     width: '100%',
-                    margin: 0,
+                    margin: 'var(--spacing-0)',
                     padding: `${spacing[2]} ${spacing[3]}`,
-                    borderRadius: 6,
+                    borderRadius: 4,
                     border: `1px solid ${currentPreset === preset.value ? colors.primary[400] : colors.neutral[200]}`,
                     background: currentPreset === preset.value ? colors.primary[50] : 'transparent',
                   }}
                 >
                   <Space size={6}>
-                    <Text strong style={{ fontSize: 13 }}>
+                    <Text strong className="console-type-body">
                       {preset.label}
                     </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" className="console-type-caption">
                       {preset.description}
                     </Text>
                   </Space>
@@ -112,7 +115,7 @@ export const DeliverySettingsSectionEnhanced = ({ uiConfig, spacing }: DeliveryS
           </Radio.Group>
 
           {/* Hidden fields that actually store the values */}
-          <div style={{ display: 'none' }}>
+          <div className="ui-extracted-23caf1b08e">
             <Form.Item name="timeoutMs">
               <InputNumber />
             </Form.Item>
@@ -143,8 +146,7 @@ export const DeliverySettingsSectionEnhanced = ({ uiConfig, spacing }: DeliveryS
               <InputNumber
                 min={uiConfig?.validationRules.timeout.min ?? 500}
                 max={uiConfig?.validationRules.timeout.max ?? 60000}
-                step={uiConfig?.validationRules.timeout.step ?? 500}
-                style={{ width: '100%' }}
+                step={uiConfig?.validationRules.timeout.step ?? 500} className="console-width-full"
                 addonAfter="ms"
                 size="middle"
                 placeholder={String(uiConfig?.validationRules.timeout.default ?? 30000)}
@@ -167,8 +169,7 @@ export const DeliverySettingsSectionEnhanced = ({ uiConfig, spacing }: DeliveryS
             >
               <InputNumber
                 min={uiConfig?.validationRules.retry.min ?? 0}
-                max={uiConfig?.validationRules.retry.max ?? 10}
-                style={{ width: '100%' }}
+                max={uiConfig?.validationRules.retry.max ?? 10} className="console-width-full"
                 addonAfter="retries"
                 size="middle"
                 placeholder={String(uiConfig?.validationRules.retry.default ?? 3)}

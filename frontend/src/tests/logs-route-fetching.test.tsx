@@ -33,6 +33,7 @@ vi.mock('../components/common/ModernTable', () => ({
 
 vi.mock('../components/common/StatusBadge', () => ({
   StatusBadge: () => <div>StatusBadge</div>,
+  getStatusLabel: (status?: string) => ({ SUCCESS: 'Delivered', FAILED: 'Failed', QUEUED: 'Pending' }[status || ''] || status || 'Unknown'),
 }));
 
 vi.mock('../components/common/MetaTag', () => ({
@@ -170,8 +171,8 @@ describe('LogsRoute fetching', () => {
     mockApi.getIntegrations.mockResolvedValue([
       {
         id: 'integration-1',
-        name: 'Northwind results',
-        provider: 'northwind',
+        name: 'Pathkind results',
+        provider: 'pathkind',
       },
     ]);
 
@@ -186,7 +187,7 @@ describe('LogsRoute fetching', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <App>
-          <MemoryRouter initialEntries={['/logs?provider=northwind']}>
+          <MemoryRouter initialEntries={['/logs?provider=pathkind']}>
             <LogsRoute />
           </MemoryRouter>
         </App>
@@ -194,10 +195,10 @@ describe('LogsRoute fetching', () => {
     );
 
     await waitFor(() => {
-      expect(mockApi.getLogs).toHaveBeenCalledWith(expect.objectContaining({ provider: 'northwind' }));
+      expect(mockApi.getLogs).toHaveBeenCalledWith(expect.objectContaining({ provider: 'pathkind' }));
     });
 
     expect(screen.getByRole('combobox', { name: 'Provider filter' })).toBeInTheDocument();
-    expect(screen.getAllByText('northwind').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('pathkind').length).toBeGreaterThan(0);
   });
 });

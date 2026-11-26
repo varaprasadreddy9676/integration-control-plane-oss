@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { FormInstance } from 'antd';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 
 interface KeyboardShortcutsOptions {
   isCreate: boolean;

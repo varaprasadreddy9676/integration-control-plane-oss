@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Input, Radio, Select, Space, Typography } from 'antd';
+import { Input, Radio, Select, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '../../../../components/common/LegacyTypography';
 import type { CredentialOption, StageConfig } from '../../../../services/stages-api';
 import { KeyValueEditor } from './SchemaForm';
-
-const { Text } = Typography;
 
 type Auth = StageConfig['auth'];
 type Mode = 'bearer' | 'apiKey' | 'custom';
@@ -54,19 +53,29 @@ interface StepSignInProps {
   errors?: { credentialRef?: string; headers?: string; allowedOrigins?: string };
 }
 
-const Block = ({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) => (
+const Block = ({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+}) => (
   <div>
-    <Text strong style={{ display: 'block', marginBottom: 4 }}>
+    <Text as="div" display="block" weight="semibold" className="console-margin-bottom-1">
       {label}
     </Text>
     {children}
     {hint && !error && (
-      <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+      <Text as="div" display="block" type="supporting" color="secondary">
         {hint}
       </Text>
     )}
     {error && (
-      <Text type="danger" role="alert" style={{ display: 'block', fontSize: 12 }}>
+      <Text as="div" display="block" color="danger" role="alert">
         {error}
       </Text>
     )}
@@ -80,7 +89,11 @@ const Block = ({ label, hint, error, children }: { label: string; hint?: string;
  */
 export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: StepSignInProps) => {
   const origin = originOf(url);
-  const mode: 'none' | 'integration' | 'credential' = auth ? (auth.source === 'integration' ? 'integration' : 'credential') : 'none';
+  const mode: 'none' | 'integration' | 'credential' = auth
+    ? auth.source === 'integration'
+      ? 'integration'
+      : 'credential'
+    : 'none';
   const origins = auth?.allowedOrigins || [];
   const [moreAddresses, setMoreAddresses] = useState(false);
 
@@ -110,7 +123,10 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
 
   const send = (nextMode: Mode, nextField = field, nextName = headerName) => {
     if (!auth) return;
-    onChange({ ...auth, headers: nextMode === 'custom' ? auth.headers || {} : buildHeaders(nextMode, nextField, nextName) });
+    onChange({
+      ...auth,
+      headers: nextMode === 'custom' ? auth.headers || {} : buildHeaders(nextMode, nextField, nextName),
+    });
   };
 
   const pickCredential = (credentialRef: string) => {
@@ -128,34 +144,35 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
     <Select
       aria-label="Addresses it may be sent to"
       mode="tags"
-      style={{ width: '100%' }}
+      className="console-width-full"
       placeholder="https://api.example.com"
       tokenSeparators={[',', ' ']}
       value={origins}
       onChange={(allowedOrigins: string[]) => auth && onChange({ ...auth, allowedOrigins })}
     />
   );
-  const showAddresses = !origin || moreAddresses || origins.length > 1 || (origins.length === 1 && origins[0] !== origin);
+  const showAddresses =
+    !origin || moreAddresses || origins.length > 1 || (origins.length === 1 && origins[0] !== origin);
 
   return (
-    <Space direction="vertical" size={14} style={{ width: '100%' }}>
-      <Radio.Group value={mode} onChange={(event) => choose(event.target.value)} style={{ width: '100%' }}>
+    <Space direction="vertical" size={14} className="console-width-full">
+      <Radio.Group value={mode} onChange={(event) => choose(event.target.value)} className="console-width-full">
         <Space direction="vertical" size={10}>
           <Radio value="none">
-            <span style={{ fontWeight: 500 }}>None</span>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            <span className="console-font-weight-medium">None</span>
+            <Text as="div" display="block" type="supporting" color="secondary">
               The call goes out without signing in.
             </Text>
           </Radio>
           <Radio value="integration">
-            <span style={{ fontWeight: 500 }}>Same as this integration</span>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            <span className="console-font-weight-medium">Same as this integration</span>
+            <Text as="div" display="block" type="supporting" color="secondary">
               Use the sign-in set on the Authentication tab.
             </Text>
           </Radio>
           <Radio value="credential">
-            <span style={{ fontWeight: 500 }}>A saved credential</span>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            <span className="console-font-weight-medium">A saved credential</span>
+            <Text as="div" display="block" type="supporting" color="secondary">
               Pick one of your organization&apos;s credentials.
             </Text>
           </Radio>
@@ -163,19 +180,29 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
       </Radio.Group>
 
       {mode === 'credential' && (
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space direction="vertical" size={12} className="console-width-full">
           <Block label="Credential" error={errors.credentialRef}>
             {credentials === undefined ? (
-              <Input aria-label="Credential ID" value={auth?.credentialRef} placeholder="cred_..." onChange={(e) => onChange({ ...(auth as NonNullable<Auth>), credentialRef: e.target.value })} />
+              <Input
+                aria-label="Credential ID"
+                value={auth?.credentialRef}
+                placeholder="cred_..."
+                onChange={(e) => onChange({ ...(auth as NonNullable<Auth>), credentialRef: e.target.value })}
+              />
             ) : credentials.length === 0 ? (
-              <Text type="secondary">You have no saved credentials yet. Add one under Credentials, then pick it here.</Text>
+              <Text type="supporting" color="secondary">
+                You have no saved credentials yet. Add one under Credentials, then pick it here.
+              </Text>
             ) : (
               <Select
                 aria-label="Credential"
-                style={{ width: '100%' }}
+                className="console-width-full"
                 placeholder="Choose a credential"
                 value={auth?.credentialRef || undefined}
-                options={credentials.map((option) => ({ value: option.placeholderId, label: `${option.name} · ${option.provider}` }))}
+                options={credentials.map((option) => ({
+                  value: option.placeholderId,
+                  label: `${option.name} · ${option.provider}`,
+                }))}
                 onChange={pickCredential}
               />
             )}
@@ -186,7 +213,7 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
               <Block label="How to send it" error={errors.headers}>
                 <Select
                   aria-label="How to send it"
-                  style={{ width: '100%' }}
+                  className="console-width-full"
                   value={sent.mode}
                   options={[
                     { value: 'bearer', label: 'Bearer token' },
@@ -200,7 +227,7 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
                 <Block label="Value to send">
                   <Select
                     aria-label="Value to send"
-                    style={{ width: '100%' }}
+                    className="console-width-full"
                     value={field}
                     options={fields.map((entry) => ({ value: entry.key, label: entry.label || entry.key }))}
                     onChange={(next: string) => send(sent.mode, next)}
@@ -209,12 +236,20 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
               )}
               {sent.mode === 'apiKey' && (
                 <Block label="Header name">
-                  <Input aria-label="Header name" value={headerName} onChange={(e) => send('apiKey', field, e.target.value)} />
+                  <Input
+                    aria-label="Header name"
+                    value={headerName}
+                    onChange={(e) => send('apiKey', field, e.target.value)}
+                  />
                 </Block>
               )}
               {sent.mode === 'custom' && (
                 <Block label="Headers" hint="Use {{ credential.<value> }} where the secret goes.">
-                  <KeyValueEditor label="Credential header" value={auth?.headers} onChange={(headers) => auth && onChange({ ...auth, headers })} />
+                  <KeyValueEditor
+                    label="Credential header"
+                    value={auth?.headers}
+                    onChange={(headers) => auth && onChange({ ...auth, headers })}
+                  />
                 </Block>
               )}
             </>
@@ -223,11 +258,7 @@ export const StepSignIn = ({ auth, onChange, credentials, url, errors = {} }: St
       )}
 
       {mode !== 'none' && (
-        <Block
-          label="Sent only to"
-          error={errors.allowedOrigins}
-          hint="Calls to any other address go out without it."
-        >
+        <Block label="Sent only to" error={errors.allowedOrigins} hint="Calls to any other address go out without it.">
           {origin && !showAddresses ? (
             <Space size={8} wrap>
               <Text>

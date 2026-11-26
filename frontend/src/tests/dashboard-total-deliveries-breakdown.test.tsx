@@ -27,7 +27,7 @@ vi.mock('../components/common/PageHeader', () => ({
 }));
 
 const mockApi = {
-  getDashboardSummary: vi.fn(),
+  getAllIntegrations: vi.fn(),
   getAnalyticsOverview: vi.fn(),
   getAnalyticsTimeseries: vi.fn(),
   getAnalyticsErrors: vi.fn(),
@@ -46,7 +46,7 @@ vi.mock('../services/api', () => mockApi);
 describe('Dashboard "Total Deliveries" breakdown includes pending/retrying when present', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockApi.getDashboardSummary.mockResolvedValue({});
+    mockApi.getAllIntegrations.mockResolvedValue([{ id: 'out-1', name: 'Outbound Rule', direction: 'OUTBOUND' }]);
     mockApi.getUIConfig.mockResolvedValue({});
     mockApi.getUIConfigOverride.mockResolvedValue({});
     mockApi.getIntegrations.mockResolvedValue([]);

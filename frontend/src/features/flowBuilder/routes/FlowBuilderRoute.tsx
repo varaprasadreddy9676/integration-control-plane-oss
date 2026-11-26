@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { message, Modal } from 'antd';
+import { Drawer, message, Modal } from '@/components/common/LegacyAntdControls';
 import { ReactFlowProvider } from 'reactflow';
 import { cssVar } from '../../../design-system/utils';
 
@@ -37,10 +37,11 @@ import {
   createOutboundIntegrationRaw,
   updateOutboundIntegrationRaw,
   testIntegration,
-  testOutboundSchedule
+  testOutboundSchedule,
 } from '../../../services/api';
 import { useTenant } from '../../../app/tenant-context';
 import { useNavigateWithParams } from '../../../utils/navigation';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 
 export const FlowBuilderRoute: React.FC = () => {
   const navigate = useNavigateWithParams();
@@ -78,12 +79,11 @@ export const FlowBuilderRoute: React.FC = () => {
   const [isTesting, setIsTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState<FlowExecutionResult | null>(null);
   const [showTestPanel, setShowTestPanel] = React.useState(false);
+  const [showNodePalette, setShowNodePalette] = React.useState(false);
+  const [showNodeInspector, setShowNodeInspector] = React.useState(false);
 
   // Load existing integration if editing
-  const { data: existingIntegration, isLoading } = useIntegrationConfig(
-    integrationId,
-    mode
-  );
+  const { data: existingIntegration, isLoading } = useIntegrationConfig(integrationId, mode);
 
   React.useEffect(() => {
     if (existingIntegration && !isLoading) {
@@ -100,12 +100,22 @@ export const FlowBuilderRoute: React.FC = () => {
 
   // Update flow state isValid based on validation
   React.useEffect(() => {
-    setFlowState((prev) => ({
-      ...prev,
-      isValid: validation.isValid,
-      errors: validation.errors.map((e) => e.message),
-      warnings: validation.warnings.map((w) => w.message),
-    }));
+    const errors = validation.errors.map((error) => error.message);
+    const warnings = validation.warnings.map((warning) => warning.message);
+    setFlowState((prev) => {
+      const sameMessages = (current: string[], next: string[]) =>
+        current.length === next.length && current.every((message, index) => message === next[index]);
+
+      if (
+        prev.isValid === validation.isValid &&
+        sameMessages(prev.errors, errors) &&
+        sameMessages(prev.warnings, warnings)
+      ) {
+        return prev;
+      }
+
+      return { ...prev, isValid: validation.isValid, errors, warnings };
+    });
   }, [validation]);
 
   // Get selected node
@@ -150,7 +160,13 @@ export const FlowBuilderRoute: React.FC = () => {
         case 'delay':
           return { ...common, nodeType: 'delay', delayType: 'FIXED', delayMs: 1000 } as any;
         case 'multiAction':
-          return { ...common, nodeType: 'multiAction', executeInParallel: true, continueOnError: true, actions: [] } as any;
+          return {
+            ...common,
+            nodeType: 'multiAction',
+            executeInParallel: true,
+            continueOnError: true,
+            actions: [],
+          } as any;
         case 'response':
           return { ...common, nodeType: 'response', statusCode: 200, bodyType: 'json' } as any;
         case 'scheduleScript':
@@ -206,14 +222,14 @@ export const FlowBuilderRoute: React.FC = () => {
       nodes: prev.nodes.map((node) =>
         node.id === nodeId
           ? {
-            ...node,
-            data: ({
-              ...node.data,
-              ...updates,
-              // Prevent accidentally changing the discriminant for a union type.
-              nodeType: node.data.nodeType
-            } as FlowNodeData)
-          }
+              ...node,
+              data: {
+                ...node.data,
+                ...updates,
+                // Prevent accidentally changing the discriminant for a union type.
+                nodeType: node.data.nodeType,
+              } as FlowNodeData,
+            }
           : node
       ),
       isDirty: true,
@@ -340,10 +356,10 @@ export const FlowBuilderRoute: React.FC = () => {
               nodeType: 'http',
               status: success ? 'success' : 'failed',
               durationMs: duration,
-              output: result?.response
-            }
+              output: result?.response,
+            },
           ],
-          output: result?.response
+          output: result?.response,
         });
         if (success) {
           message.success('Test completed successfully');
@@ -360,7 +376,7 @@ export const FlowBuilderRoute: React.FC = () => {
           script: scheduleScript,
           deliveryMode,
           eventType: payload.type || payload.eventType,
-          payload: { sample: true, testMode: true, timestamp: new Date().toISOString() }
+          payload: { sample: true, testMode: true, timestamp: new Date().toISOString() },
         });
         setTestResult({
           success: true,
@@ -371,10 +387,10 @@ export const FlowBuilderRoute: React.FC = () => {
               nodeType: 'scheduleScript',
               status: 'success',
               durationMs: 0,
-              output: result
-            }
+              output: result,
+            },
           ],
-          output: result
+          output: result,
         });
         message.success('Test completed successfully');
       } else {
@@ -390,10 +406,10 @@ export const FlowBuilderRoute: React.FC = () => {
               nodeType: 'integration',
               status: success ? 'success' : 'failed',
               durationMs: duration,
-              output: result?.responseBody
-            }
+              output: result?.responseBody,
+            },
           ],
-          output: result
+          output: result,
         });
         if (success) {
           message.success('Test completed successfully');
@@ -431,11 +447,11 @@ export const FlowBuilderRoute: React.FC = () => {
         <pre
           style={{
             background: cssVar.bg.base,
-            padding: '12px',
+            padding: 'var(--spacing-3)',
             borderRadius: '4px',
             overflow: 'auto',
             maxHeight: '60vh',
-            fontSize: '12px',
+            fontSize: 'var(--console-type-caption)',
             fontFamily: 'monospace',
           }}
         >
@@ -479,62 +495,104 @@ export const FlowBuilderRoute: React.FC = () => {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top bar */}
-      <FlowTopBar
-        flowState={flowState}
-        validation={validation}
-        isDirty={flowState.isDirty}
-        isSaving={isSaving}
-        isTesting={isTesting}
-        onSave={handleSave}
-        onTest={handleTest}
-        onPreview={handlePreview}
-        onBack={handleBack}
-        onNameChange={handleNameChange}
-        onActiveToggle={handleActiveToggle}
-      />
-
-      {/* Main content area */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Node palette (left sidebar) */}
-        <NodePalette
-          mode={mode}
-          onAddNode={handleAddNode}
-          existingNodeTypes={flowState.nodes.map((n) => n.type as FlowNodeType)}
+    <PageTemplate as="main" className="flow-builder-template" contentClassName="flow-builder-template__content">
+      <div className="flow-builder-editor">
+        {/* Top bar */}
+        <FlowTopBar
+          flowState={flowState}
+          validation={validation}
+          isDirty={flowState.isDirty}
+          isSaving={isSaving}
+          isTesting={isTesting}
+          onSave={handleSave}
+          onTest={handleTest}
+          onPreview={handlePreview}
+          onBack={handleBack}
+          onNameChange={handleNameChange}
+          onActiveToggle={handleActiveToggle}
+          onOpenNodePalette={() => setShowNodePalette(true)}
         />
 
-        {/* Canvas (center) */}
-        <div style={{ flex: 1, position: 'relative' }}>
-          <ReactFlowProvider>
-            <FlowCanvas
-              nodes={flowState.nodes}
-              edges={flowState.edges}
+        {/* Main content area */}
+        <div className="flow-builder-editor-workspace ui-extracted-27e18e9a31" >
+          {/* Node palette (left sidebar) */}
+          <div className="flow-builder-desktop-palette">
+            <NodePalette
               mode={mode}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onNodeSelect={setSelectedNodeId}
-              onEdgeSelect={setSelectedEdgeId}
+              onAddNode={handleAddNode}
+              existingNodeTypes={flowState.nodes.map((n) => n.type as FlowNodeType)}
             />
-          </ReactFlowProvider>
+          </div>
+
+          {/* Canvas (center) */}
+          <div className="ui-extracted-0d8a77cd05">
+            <ReactFlowProvider>
+              <FlowCanvas
+                nodes={flowState.nodes}
+                edges={flowState.edges}
+                mode={mode}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onNodeSelect={(nodeId) => {
+                  setSelectedNodeId(nodeId);
+                  if (nodeId) setShowNodeInspector(true);
+                }}
+                onEdgeSelect={setSelectedEdgeId}
+              />
+            </ReactFlowProvider>
+          </div>
+
+          {/* Inspector panel (right sidebar) */}
+          <div className="flow-builder-desktop-inspector">
+            <InspectorPanel
+              selectedNode={selectedNode}
+              onUpdateNode={handleUpdateNode}
+              onDeleteNode={handleDeleteNode}
+              onDuplicateNode={handleDuplicateNode}
+            />
+          </div>
         </div>
 
-        {/* Inspector panel (right sidebar) */}
-        <InspectorPanel
-          selectedNode={selectedNode}
-          onUpdateNode={handleUpdateNode}
-          onDeleteNode={handleDeleteNode}
-          onDuplicateNode={handleDuplicateNode}
-        />
-      </div>
+        <Drawer
+          title="Add node"
+          placement="left"
+          open={showNodePalette}
+          onClose={() => setShowNodePalette(false)}
+          width="min(320px, calc(100vw - 24px))"
+          className="flow-builder-mobile-drawer"
+        >
+          <NodePalette
+            mode={mode}
+            onAddNode={(nodeType) => {
+              handleAddNode(nodeType);
+              setShowNodePalette(false);
+            }}
+            existingNodeTypes={flowState.nodes.map((n) => n.type as FlowNodeType)}
+          />
+        </Drawer>
+        <Drawer
+          title={selectedNode?.data.label || 'Step settings'}
+          placement="right"
+          open={showNodeInspector && Boolean(selectedNode)}
+          onClose={() => setShowNodeInspector(false)}
+          width="min(380px, calc(100vw - 24px))"
+          className="flow-builder-mobile-drawer"
+        >
+          <InspectorPanel
+            selectedNode={selectedNode}
+            onUpdateNode={handleUpdateNode}
+            onDeleteNode={(nodeId) => {
+              handleDeleteNode(nodeId);
+              setShowNodeInspector(false);
+            }}
+            onDuplicateNode={handleDuplicateNode}
+          />
+        </Drawer>
 
-      {/* Test run panel (bottom drawer) */}
-      <FlowRunPanel
-        visible={showTestPanel}
-        executionResult={testResult}
-        onClose={() => setShowTestPanel(false)}
-      />
-    </div>
+        {/* Test run panel (bottom drawer) */}
+        <FlowRunPanel visible={showTestPanel} executionResult={testResult} onClose={() => setShowTestPanel(false)} />
+      </div>
+    </PageTemplate>
   );
 };
 

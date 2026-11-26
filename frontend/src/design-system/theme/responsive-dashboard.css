@@ -310,12 +310,21 @@
     padding: var(--space-2) var(--space-3);
   }
 
+  .ant-card-head .ant-card-head-wrapper {
+    flex-wrap: wrap;
+  }
+
+  .ant-card-head .ant-card-head-title {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
   .ant-card-body {
     padding: var(--space-2) !important;
   }
 
   /* Card extra - Stack vertically */
-  .ant-card-extra {
+  .ant-card-head .ant-card-extra {
     width: 100%;
     margin-top: var(--space-2);
   }

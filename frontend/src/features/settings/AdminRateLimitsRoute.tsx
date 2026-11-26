@@ -1,10 +1,26 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Progress, Select, Space, Switch, Tag, Typography, message } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
+import {
+  Card,
+  Dropdown,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Progress,
+  Select,
+  Space,
+  Switch,
+  message,
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button as AstryxButton } from '@astryxdesign/core/Button';
+import { Text } from '@astryxdesign/core/Text';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../utils/navigation';
 import { useAuth } from '../../app/auth-context';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
 import {
   bulkApplyAdminRateLimits,
@@ -19,6 +35,29 @@ import {
 import { RequestPolicySection } from '../integrations/components/detail/RequestPolicySection';
 import { RequestPolicySummary } from '../integrations/components/detail/shared/RequestPolicySummary';
 import { ModernTable } from '../../components/common/ModernTable';
+import { StatePanel } from '../../components/common/StatePanel';
+import { StatusBadge } from '../../components/common/StatusBadge';
+
+export const RateLimitIntegrationMetadata = ({ record }: { record: AdminRateLimitItem }) => (
+  <Space direction="vertical" size={2}>
+    <Text weight="semibold">{record.name}</Text>
+    <Space size="small" wrap>
+      <Text color="secondary">{record.type}</Text>
+      <Text color="secondary">{record.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}</Text>
+      {!record.isActive && <StatusBadge label="Inactive" variant="neutral" size="small" />}
+    </Space>
+    {record.direction === 'INBOUND' && <RequestPolicySummary policy={record.requestPolicy || null} compact />}
+  </Space>
+);
+
+export const RateLimitRefreshNotice = ({ onRetry }: { onRetry: () => void }) => (
+  <Banner
+    status="warning"
+    title="Refresh failed"
+    description="Showing the most recently loaded values."
+    endContent={<AstryxButton label="Retry" variant="secondary" size="sm" onClick={onRetry} />}
+  />
+);
 
 const formatResetAt = (value?: string | null) => {
   if (!value) return '—';
@@ -96,7 +135,7 @@ export const AdminRateLimitsRoute = () => {
     [filterOrgId, filterDirection, filterEnabled, search]
   );
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['adminRateLimits', filterPayload],
     queryFn: () => listAdminRateLimits(filterPayload),
     enabled: isAdmin,
@@ -110,17 +149,7 @@ export const AdminRateLimitsRoute = () => {
     {
       title: 'Integration',
       key: 'integration',
-      render: (_: any, record: AdminRateLimitItem) => (
-        <Space direction="vertical" size={2}>
-          <Typography.Text strong>{record.name}</Typography.Text>
-          <Space size="small" wrap>
-            <Tag>{record.type}</Tag>
-            <Tag color={record.direction === 'INBOUND' ? 'blue' : 'green'}>{record.direction}</Tag>
-            {!record.isActive && <Tag color="red">Inactive</Tag>}
-          </Space>
-          {record.direction === 'INBOUND' && <RequestPolicySummary policy={record.requestPolicy || null} compact />}
-        </Space>
-      ),
+      render: (_: any, record: AdminRateLimitItem) => <RateLimitIntegrationMetadata record={record} />,
     },
     {
       title: 'Org ID',
@@ -150,7 +179,7 @@ export const AdminRateLimitsRoute = () => {
         const percent = limit ? Math.min(100, Math.round((current / limit) * 100)) : 0;
         return (
           <Space direction="vertical" size={2}>
-            <Typography.Text>{`${current} / ${limit}`}</Typography.Text>
+            <Text>{`${current} / ${limit}`}</Text>
             <Progress percent={percent} size="small" />
           </Space>
         );
@@ -166,18 +195,20 @@ export const AdminRateLimitsRoute = () => {
       key: 'actions',
       render: (_: any, record: AdminRateLimitItem) => (
         <Space size="small">
-          <Button
-            size="small"
+          <AstryxButton
+            label="Open"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               const path =
                 record.direction === 'INBOUND' ? `/inbound-integrations/${record.id}` : `/integrations/${record.id}`;
               navigate(path);
             }}
-          >
-            Open
-          </Button>
-          <Button
-            size="small"
+          />
+          <AstryxButton
+            label="Edit"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setEditTarget(record);
               editForm.setFieldsValue({
@@ -186,13 +217,12 @@ export const AdminRateLimitsRoute = () => {
                 windowSeconds: record.rateLimits?.windowSeconds ?? 60,
               });
             }}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!record.rateLimits?.enabled}
+          />
+          <AstryxButton
+            label="Reset"
+            variant="destructive"
+            size="sm"
+            isDisabled={!record.rateLimits?.enabled}
             onClick={() => {
               Modal.confirm({
                 title: 'Reset rate limit window?',
@@ -211,9 +241,7 @@ export const AdminRateLimitsRoute = () => {
                 },
               });
             }}
-          >
-            Reset
-          </Button>
+          />
         </Space>
       ),
     },
@@ -334,21 +362,23 @@ export const AdminRateLimitsRoute = () => {
   ];
 
   return (
-    <div>
+    <PageTemplate
+      header={
+        <PageHeader title="Rate Limits" description="Monitor and manage per-integration rate limits across all orgs." />
+      }
+    >
       {contextHolder}
-      <PageHeader title="Rate Limits" description="Monitor and manage per-integration rate limits across all orgs." />
 
       {!isAdmin ? (
-        <Alert
-          type="error"
-          message="Admin access only"
+        <StatePanel
+          title="Admin access required"
           description="You need an admin account to manage rate limits."
-          showIcon
+          size="compact"
         />
       ) : (
         <>
-          <Card className="panel" style={{ borderRadius: token.borderRadiusLG }}>
-            <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+          <Card className="panel console-card-radius">
+            <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
               <Space wrap>
                 <Input.Search
                   placeholder="Search by name or type"
@@ -359,7 +389,7 @@ export const AdminRateLimitsRoute = () => {
                     setPage(1);
                     refetch();
                   }}
-                  style={{ width: 260 }}
+                  className="ui-extracted-1ee9b71670"
                 />
                 <InputNumber
                   placeholder="Filter orgId"
@@ -369,7 +399,7 @@ export const AdminRateLimitsRoute = () => {
                     setFilterOrgId(value ? Number(value) : undefined);
                     setPage(1);
                   }}
-                  style={{ width: 140 }}
+                  className="ui-extracted-cc9de6e32c"
                 />
                 <Select
                   placeholder="Direction"
@@ -383,7 +413,7 @@ export const AdminRateLimitsRoute = () => {
                     { label: 'OUTBOUND', value: 'OUTBOUND' },
                     { label: 'INBOUND', value: 'INBOUND' },
                   ]}
-                  style={{ minWidth: 140 }}
+                  className="ui-extracted-3292a37181"
                 />
                 <Select
                   value={filterEnabled}
@@ -396,30 +426,48 @@ export const AdminRateLimitsRoute = () => {
                     { label: 'Disabled', value: 'disabled' },
                     { label: 'All', value: 'all' },
                   ]}
-                  style={{ minWidth: 120 }}
+                  className="ui-extracted-09c64cc592"
                 />
-                <Button onClick={() => refetch()}>Refresh</Button>
+                <AstryxButton label="Refresh" variant="secondary" onClick={() => void refetch()} />
                 <Dropdown menu={{ items: bulkActionItems }}>
-                  <Button icon={<MoreOutlined />}>Bulk Actions</Button>
+                  <AstryxButton label="Bulk Actions" variant="secondary" icon={<GatewayIcon name="MoreOutlined" />} />
                 </Dropdown>
               </Space>
 
-              <ModernTable
-                rowKey="id"
-                columns={columns}
-                dataSource={items}
-                loading={isLoading}
-                pagination={{
-                  current: page,
-                  pageSize,
-                  total,
-                  showSizeChanger: true,
-                  onChange: (nextPage, nextPageSize) => {
-                    setPage(nextPage);
-                    setPageSize(nextPageSize || pageSize);
-                  },
-                }}
-              />
+              {isError && !data ? (
+                <StatePanel
+                  glyph="disrupted"
+                  tone="critical"
+                  size="compact"
+                  title="Could not load rate limits"
+                  description="The request failed."
+                  actions={<AstryxButton label="Retry" variant="secondary" size="sm" onClick={() => void refetch()} />}
+                />
+              ) : (
+                <>
+                  {isError && <RateLimitRefreshNotice onRetry={() => void refetch()} />}
+                  <ModernTable
+                    rowKey="id"
+                    columns={columns}
+                    dataSource={items}
+                    loading={isLoading}
+                    emptyState={{
+                      title: 'No rate limits found',
+                      description: 'Adjust filters or clear them.',
+                    }}
+                    pagination={{
+                      current: page,
+                      pageSize,
+                      total,
+                      showSizeChanger: true,
+                      onChange: (nextPage, nextPageSize) => {
+                        setPage(nextPage);
+                        setPageSize(nextPageSize || pageSize);
+                      },
+                    }}
+                  />
+                </>
+              )}
             </Space>
           </Card>
 
@@ -454,14 +502,14 @@ export const AdminRateLimitsRoute = () => {
                 label="Max Requests"
                 rules={[{ required: true, message: 'Max requests required' }]}
               >
-                <InputNumber min={1} style={{ width: '100%' }} />
+                <InputNumber min={1} className="console-width-full" />
               </Form.Item>
               <Form.Item
                 name="windowSeconds"
                 label="Window (seconds)"
                 rules={[{ required: true, message: 'Window duration required' }]}
               >
-                <InputNumber min={1} style={{ width: '100%' }} />
+                <InputNumber min={1} className="console-width-full" />
               </Form.Item>
             </Form>
           </Modal>
@@ -509,9 +557,9 @@ export const AdminRateLimitsRoute = () => {
             }}
             okText="Apply"
           >
-            <Typography.Paragraph type="secondary" style={{ marginBottom: spacingToNumber(spacing[2]) }}>
+            <Text as="p" display="block" color="secondary" className="console-margin-bottom-2">
               Applies the default rate limits to all integrations matching the current filters.
-            </Typography.Paragraph>
+            </Text>
             <Form layout="vertical" form={bulkForm}>
               <Form.Item name="enabled" label="Enabled" valuePropName="checked">
                 <Switch />
@@ -521,14 +569,14 @@ export const AdminRateLimitsRoute = () => {
                 label="Max Requests"
                 rules={[{ required: true, message: 'Max requests required' }]}
               >
-                <InputNumber min={1} style={{ width: '100%' }} />
+                <InputNumber min={1} className="console-width-full" />
               </Form.Item>
               <Form.Item
                 name="windowSeconds"
                 label="Window (seconds)"
                 rules={[{ required: true, message: 'Window duration required' }]}
               >
-                <InputNumber min={1} style={{ width: '100%' }} />
+                <InputNumber min={1} className="console-width-full" />
               </Form.Item>
             </Form>
           </Modal>
@@ -584,16 +632,16 @@ export const AdminRateLimitsRoute = () => {
             }}
             okText="Apply"
           >
-            <Typography.Paragraph type="secondary" style={{ marginBottom: spacingToNumber(spacing[2]) }}>
+            <Text as="p" display="block" color="secondary" className="console-margin-bottom-2">
               Applies the inbound request guardrails to all matching inbound integrations. Outbound integrations are
               never affected.
-            </Typography.Paragraph>
+            </Text>
             <Form layout="vertical" form={policyBulkForm}>
               <RequestPolicySection form={policyBulkForm} spacing={spacing} />
             </Form>
           </Modal>
         </>
       )}
-    </div>
+    </PageTemplate>
   );
 };

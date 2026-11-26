@@ -1,16 +1,59 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Skeleton, Table } from 'antd';
+import { Skeleton, Table } from '@/components/common/LegacyAntdControls';
 import { StatePanel } from './StatePanel';
-import type { TableProps, ColumnType } from 'antd/es/table';
+import type { TableProps, ColumnType } from '@/components/common/LegacyAntdControls';
 import { Resizable } from 'react-resizable';
 import type { ResizeCallbackData } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 import { useIsMobile } from '../../hooks/use-mobile';
+import './ModernTable.css';
 
 interface ResizableColumnType<T> extends ColumnType<T> {
   resizable?: boolean;
+  mobileLabel?: string;
+}
+
+function formatColumnLabel(value: string | number): string {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\w/, (first) => first.toUpperCase());
+}
+
+export function getMobileColumnLabel<T>(column: ResizableColumnType<T>): string {
+  if (column.mobileLabel?.trim()) return column.mobileLabel.trim();
+  if (typeof column.title === 'string' && column.title.trim()) return column.title.trim();
+
+  const dataIndex = Array.isArray(column.dataIndex) ? column.dataIndex[column.dataIndex.length - 1] : column.dataIndex;
+  const label = dataIndex ?? column.key;
+  return typeof label === 'string' || typeof label === 'number' ? formatColumnLabel(label) : '';
+}
+
+function getColumnIdentity<T>(column: ResizableColumnType<T>, index: number): string {
+  if (column.key !== undefined) return `key:${typeof column.key}:${String(column.key)}`;
+  if (column.dataIndex !== undefined) return `data:${JSON.stringify(column.dataIndex)}`;
+  return `index:${index}`;
+}
+
+export function preserveResizedColumnWidths<T>(
+  current: ResizableColumnType<T>[],
+  incoming: ResizableColumnType<T>[]
+): ResizableColumnType<T>[] {
+  const widths = new Map<string, number>();
+  current.forEach((column, index) => {
+    if (typeof column.width === 'number') {
+      widths.set(getColumnIdentity(column, index), column.width);
+    }
+  });
+
+  return incoming.map((column, index) => {
+    const width = widths.get(getColumnIdentity(column, index));
+    return width === undefined ? column : { ...column, width };
+  });
 }
 
 const ResizableTitle = (props: any) => {
@@ -28,16 +71,6 @@ const ResizableTitle = (props: any) => {
         <span
           className="react-resizable-handle"
           onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute',
-            right: -5,
-            bottom: 0,
-            zIndex: 1,
-            width: 10,
-            height: '100%',
-            cursor: 'col-resize',
-            background: 'transparent',
-          }}
         />
       }
       onResize={onResize}
@@ -71,9 +104,10 @@ export function ModernTable<T extends object>({
   const isMobile = useIsMobile();
   const [columns, setColumns] = useState(initialColumns);
 
-  // Add a useEffect to update columns when initialColumns changes
   useEffect(() => {
-    setColumns(initialColumns);
+    setColumns((current) =>
+      current === initialColumns ? current : preserveResizedColumnWidths(current, initialColumns)
+    );
   }, [initialColumns]);
 
   const isLoading =
@@ -109,7 +143,7 @@ export function ModernTable<T extends object>({
     const skeletonWidth =
       typeof col.width === 'number' ? Math.max(80, Math.min(160, Math.round(col.width * 0.6))) : 120;
 
-    const label = typeof col.title === 'string' ? col.title : '';
+    const label = getMobileColumnLabel(col);
 
     return {
       ...col,
@@ -128,7 +162,10 @@ export function ModernTable<T extends object>({
         width: column.width,
         onResize: enableResize && col.resizable !== false ? handleResize(index) : undefined,
       }),
-      onCell: isMobile ? () => ({ 'data-label': label }) : col.onCell,
+      onCell: (record: T, rowIndex?: number) => {
+        const cellProps = col.onCell?.(record, rowIndex) || {};
+        return isMobile ? { ...cellProps, 'data-label': label } : cellProps;
+      },
     };
   });
 
@@ -150,35 +187,28 @@ export function ModernTable<T extends object>({
   })();
 
   const mergedLocale = (() => {
-    if (!emptyState || isLoading) return tableProps.locale;
+    if (isLoading) return tableProps.locale;
 
-    // Every list in the console empties out through here, so this is the one
-    // place worth spending a real illustration on — it keeps "no rows" looking
-    // like a designed state on every screen rather than AntD's default grey box.
+    // Keep AntD's default empty illustration out of every table, including
+    // callers that have not supplied route-specific copy yet.
     const emptyText = (
       <StatePanel
         glyph="searching"
         size="compact"
-        title={emptyState.title}
-        description={emptyState.description}
-        actions={emptyState.action}
+        title={emptyState?.title || 'No records found'}
+        description={emptyState?.description}
+        actions={emptyState?.action}
       />
     );
 
     return {
       ...(tableProps.locale || {}),
-      emptyText,
+      emptyText: tableProps.locale?.emptyText ?? emptyText,
     };
   })();
 
   return (
-    <div
-      style={{
-        width: '100%',
-        position: 'relative',
-        overflow: 'auto',
-      }}
-    >
+    <div className="modern-table-container">
       <style>
         {`
           .modern-table-wrapper {
@@ -196,7 +226,7 @@ export function ModernTable<T extends object>({
             font-size: 12px;
             color: var(--color-text-muted);
             text-transform: none;
-            letter-spacing: 0.01em;
+            letter-spacing: 0;
             border-bottom: 1px solid var(--color-border-subtle);
             padding: 10px 12px;
             position: ${stickyHeader ? 'sticky' : 'relative'};
@@ -288,7 +318,7 @@ export function ModernTable<T extends object>({
             width: 2px;
             height: 60%;
             background: var(--color-primary-600);
-            border-radius: 2px;
+            border-radius: 4px;
             box-shadow: 0 0 4px var(--color-primary-400);
           }
 
@@ -377,6 +407,27 @@ export function ModernTable<T extends object>({
             transform: none;
           }
 
+          .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:hover {
+            background: var(--color-bg-surface) !important;
+            transition: none;
+          }
+
+          .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover > td {
+            background: var(--color-bg-surface) !important;
+            color: var(--color-text-primary) !important;
+            transition: none;
+          }
+
+          .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row-selected:hover > td {
+            background: var(--color-row-active) !important;
+            color: var(--color-text-primary) !important;
+            transition: none;
+          }
+
+          .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover > td:first-child {
+            box-shadow: none !important;
+          }
+
           .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr > td {
             display: block;
             width: 100% !important;
@@ -411,8 +462,7 @@ export function ModernTable<T extends object>({
             margin-bottom: 4px;
             font-weight: 600;
             font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0;
             color: var(--color-text-secondary);
             text-align: left;
           }

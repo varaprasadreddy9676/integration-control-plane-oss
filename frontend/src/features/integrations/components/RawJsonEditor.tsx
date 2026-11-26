@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Alert, Button, Space, Typography } from 'antd';
-import { CheckCircleOutlined, WarningOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Space } from '@/components/common/LegacyAntdControls';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import Editor from '@monaco-editor/react';
-import { cssVar } from '../../../design-system/utils';
+import { cssVar, editorFontSize } from '../../../design-system/utils';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { Button } from '../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -103,18 +106,18 @@ export const RawJsonEditor = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing?.[3] || '12px' }}>
       {/* Validation Status */}
       {validationError ? (
-        <Alert type="error" message="Invalid JSON" description={validationError} icon={<WarningOutlined />} showIcon />
+        <Banner status="error" title="Invalid JSON" description={validationError} collapsible={false} />
       ) : (
-        <Alert
-          type="success"
-          message="Valid JSON"
+        <Banner
+          status="success"
+          title="Valid JSON"
           description={
             hasChanges
               ? 'JSON is valid. Click "Apply Changes" to update the form.'
               : 'JSON structure is valid and synced with the form.'
           }
-          icon={<CheckCircleOutlined />}
-          showIcon
+          icon={<GatewayIcon name="CheckCircleOutlined" />}
+          collapsible={false}
         />
       )}
 
@@ -130,15 +133,20 @@ export const RawJsonEditor = ({
         }}
       >
         <Space>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" className="console-type-caption">
             {readOnly ? 'Read-only mode' : 'Edit the JSON directly or paste from a file'}
           </Text>
         </Space>
         <Space>
-          <Button size="small" icon={<CopyOutlined />} onClick={handleCopyToClipboard}>
+          <Button size="small" icon={<GatewayIcon name="CopyOutlined" />} onClick={handleCopyToClipboard}>
             Copy
           </Button>
-          <Button size="small" icon={<DownloadOutlined />} onClick={handleDownload} disabled={!!validationError}>
+          <Button
+            size="small"
+            icon={<GatewayIcon name="DownloadOutlined" />}
+            onClick={handleDownload}
+            disabled={!!validationError}
+          >
             Download
           </Button>
           {hasChanges && !readOnly && (
@@ -172,7 +180,7 @@ export const RawJsonEditor = ({
             readOnly,
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
-            fontSize: 13,
+            fontSize: editorFontSize('body'),
             lineNumbers: 'on',
             folding: true,
             formatOnPaste: true,
@@ -188,19 +196,14 @@ export const RawJsonEditor = ({
 
       {/* Help Text */}
       {!readOnly && (
-        <Alert
-          type="info"
-          message="How to use"
-          description={
-            <ul style={{ margin: 0, paddingLeft: spacing?.[3] || '12px' }}>
-              <li>Edit JSON directly in the editor above</li>
-              <li>Copy/paste from external files (like clevertap-integration-config-updated.json)</li>
-              <li>Click "Apply Changes" to update the form fields</li>
-              <li>Use "Download" to save the current configuration to a file</li>
-            </ul>
-          }
-          showIcon
-        />
+        <Banner status="info" title="How to use" collapsible={false}>
+          <ul style={{ margin: 'var(--spacing-0)', paddingLeft: spacing?.[3] || '12px' }}>
+            <li>Edit JSON directly in the editor above</li>
+            <li>Copy/paste from external files (like clevertap-integration-config-updated.json)</li>
+            <li>Click "Apply Changes" to update the form fields</li>
+            <li>Use "Download" to save the current configuration to a file</li>
+          </ul>
+        </Banner>
       )}
     </div>
   );

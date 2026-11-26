@@ -1,5 +1,5 @@
-import { Typography } from 'antd';
-import { BranchesOutlined } from '@ant-design/icons';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { spacingToNumber } from '../../../../../design-system/utils';
 
 interface MultiActionHeaderProps {
@@ -9,10 +9,13 @@ interface MultiActionHeaderProps {
 }
 
 export const MultiActionHeader = ({ actionsCount, spacing, colors }: MultiActionHeaderProps) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: spacingToNumber(spacing[2]) }}>
-    <BranchesOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+  <div className="console-flex-center-gap-2">
+    <GatewayIcon
+      name="BranchesOutlined"
+      className="console-title-accent"
+    />
     <div>
-      <Typography.Text strong style={{ fontSize: 15 }}>Actions</Typography.Text>
+      <Text weight="semibold">Actions</Text>
     </div>
   </div>
 );

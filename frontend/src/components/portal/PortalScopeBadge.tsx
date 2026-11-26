@@ -1,6 +1,7 @@
-import { Tag, Tooltip } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
+import { Tooltip } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../common/Icon';
 import { useAuth } from '../../app/auth-context';
+import { StatusBadge } from '../common/StatusBadge';
 
 interface StoredUser {
   isPortalSession?: boolean;
@@ -18,7 +19,7 @@ interface StoredUser {
  * a limited subset of integrations.
  *
  * Accessibility:
- * - Uses semantic Tag component with proper role
+ * - Uses the shared Astryx status-badge component
  * - Tooltip provides additional context for screen readers
  * - Icon has aria-hidden (decorative)
  */
@@ -55,15 +56,16 @@ export const PortalScopeBadge = () => {
 
   return (
     <Tooltip title={tooltipContent} placement="bottomLeft">
-      <Tag
-        icon={<EyeOutlined aria-hidden="true" />}
-        color={isScoped ? 'blue' : 'default'}
-        style={{ cursor: 'default', userSelect: 'none' }}
-        role="status"
-        aria-label={isScoped ? `Portal scoped to ${tooltipParts.join(' and ')}` : 'Portal session'}
-      >
-        {isScoped ? 'Scoped View' : 'Portal Session'}
-      </Tag>
+      <span role="status" aria-label={isScoped ? `Portal scoped to ${tooltipParts.join(' and ')}` : 'Portal session'}>
+        <StatusBadge
+          label={
+            <>
+              <GatewayIcon name="EyeOutlined" aria-hidden="true" /> {isScoped ? 'Scoped view' : 'Portal session'}
+            </>
+          }
+          variant={isScoped ? 'info' : 'neutral'}
+        />
+      </span>
     </Tooltip>
   );
 };

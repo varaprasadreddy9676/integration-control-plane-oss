@@ -1,10 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
-import { Timeline, Typography, Skeleton, Button, Tag } from 'antd';
+import { App, Timeline, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
 import { getExecutionLogTimeline } from '../../../services/api';
-import { cssVar, useDesignTokens } from '../../../design-system/utils';
+import { useDesignTokens } from '../../../design-system/utils';
 import { StatePanel } from '../../../components/common/StatePanel';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { copyTextToClipboard } from '../../../utils/clipboard';
 import type { StageRun } from '../../../services/stages-api';
 import { OUTCOME_TAG, runTitle, stageStatusColor, stageStatusLabel } from '../../stages/stageLabels';
+import { Button } from '../../../components/common/LegacyButton';
+
+const statusVariant = (color: string) => {
+  if (color === 'red') return 'error' as const;
+  if (color === 'orange') return 'warning' as const;
+  if (color === 'green') return 'success' as const;
+  if (color === 'blue') return 'info' as const;
+  return 'neutral' as const;
+};
 
 /**
  * The gateway already records an execution trace per delivery — the steps a
@@ -17,6 +30,13 @@ import { OUTCOME_TAG, runTitle, stageStatusColor, stageStatusLabel } from '../..
  */
 export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: string; stageRuns?: StageRun[] }) => {
   const { spacing } = useDesignTokens();
+  const { message } = App.useApp();
+
+  const copyTraceId = async () => {
+    const copied = await copyTextToClipboard(traceId);
+    if (copied) message.success('Trace ID copied');
+    else message.error('Failed to copy trace ID');
+  };
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['execution-log-timeline', traceId],
@@ -29,20 +49,20 @@ export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: st
   });
 
   if (isLoading) {
-    return <Skeleton active paragraph={{ rows: 4 }} />;
+    return <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading delivery trace" />;
   }
 
   if (isError || !data) {
     return (
       <StatePanel
         glyph="disrupted"
-        tone="neutral"
+        tone="critical"
         size="compact"
         title="Trace unavailable"
-        description="This delivery has a trace id, but its execution trace could not be loaded. Traces are retained for a shorter window than delivery logs."
+        description="Trace retention may have expired."
         actions={
           <Button size="small" onClick={() => void refetch()}>
-            Try again
+            Retry
           </Button>
         }
       />
@@ -57,7 +77,7 @@ export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: st
         tone="neutral"
         size="compact"
         title="No steps recorded"
-        description="The trace exists but has no steps — usually a delivery that failed before the pipeline started."
+        description="The pipeline recorded no steps."
       />
     );
   }
@@ -66,19 +86,23 @@ export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: st
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: spacing[4], flexWrap: 'wrap', marginBottom: spacing[3], fontSize: 12 }}>
-        <span style={{ color: cssVar.text.secondary }}>
+      <div style={{ display: 'flex', gap: spacing[3], flexWrap: 'wrap', alignItems: 'center', marginBottom: spacing[3] }}>
+        <Text type="supporting" color="secondary">
           {data.summary?.stepCount ?? steps.length} steps
-        </span>
+        </Text>
         {data.summary?.totalDuration != null && (
-          <span style={{ color: cssVar.text.secondary }}>{data.summary.totalDuration} ms total</span>
+          <Text type="supporting" color="secondary">{data.summary.totalDuration} ms total</Text>
         )}
-        <Typography.Text
-          copyable={{ text: traceId }}
-          style={{ fontSize: 12, color: cssVar.text.secondary, fontFamily: 'ui-monospace, monospace' }}
-        >
-          {traceId}
-        </Typography.Text>
+        <Text type="code" color="secondary">{traceId}</Text>
+        <Tooltip title="Copy trace ID">
+          <Button
+            type="text"
+            size="small"
+            aria-label="Copy trace ID"
+            icon={<GatewayIcon name="CopyOutlined" />}
+            onClick={() => void copyTraceId()}
+          />
+        </Tooltip>
       </div>
 
       <Timeline
@@ -91,28 +115,25 @@ export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: st
           .map(({ step: maybeStep, run }) => {
           if (run) {
             const outcome = OUTCOME_TAG[run.outcome] ?? OUTCOME_TAG.error;
+            const runColor = run.status ? stageStatusColor(run.status, run.done) : outcome.color;
             return {
-              color: run.outcome === 'ok' ? 'blue' : run.outcome === 'skipped' ? 'gray' : 'red',
               children: (
                 <div>
                   <div style={{ display: 'flex', gap: spacing[2], alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    <Typography.Text strong style={{ fontSize: 13 }}>
+                    <Text weight="semibold">
                       {run.stage.name}
-                    </Typography.Text>
-                    <span style={{ fontSize: 12, color: cssVar.text.secondary }}>
+                    </Text>
+                    <Text type="supporting" color="secondary">
                       {runTitle(run)} · {run.durationMs} ms
-                    </span>
-                    {run.status ? (
-                      <Tag color={stageStatusColor(run.status, run.done)} style={{ margin: 0 }}>
-                        {stageStatusLabel(run.status)}
-                      </Tag>
-                    ) : (
-                      <Tag color={outcome.color} style={{ margin: 0 }}>
-                        {outcome.label}
-                      </Tag>
-                    )}
+                    </Text>
+                    <StatusBadge
+                      status={run.status || run.outcome}
+                      label={run.status ? stageStatusLabel(run.status) : outcome.label}
+                      variant={statusVariant(runColor)}
+                      size="small"
+                    />
                   </div>
-                  {run.error && <div style={{ fontSize: 12, color: cssVar.error.text, marginTop: 2, overflowWrap: 'anywhere' }}>{run.error}</div>}
+                  {run.error && <Text type="supporting" color="secondary" as="div" style={{ marginTop: spacing[1], overflowWrap: 'anywhere' }}>{run.error}</Text>}
                 </div>
               ),
             };
@@ -122,36 +143,52 @@ export const DeliveryTraceTimeline = ({ traceId, stageRuns = [] }: { traceId: st
             step.status?.toUpperCase() === 'FAILED' ||
             Boolean(step.error) ||
             (failedStep && step.name === failedStep);
+          const normalizedStatus = step.status?.toUpperCase();
+          const label = isFailure
+            ? 'Failed'
+            : normalizedStatus === 'SKIPPED'
+              ? 'Skipped'
+              : normalizedStatus === 'SUCCESS'
+                ? 'Completed'
+                : stageStatusLabel(step.status);
+          const color = isFailure ? 'red' : stageStatusColor(step.status, normalizedStatus === 'SUCCESS');
 
           return {
-            color: isFailure ? 'red' : step.status?.toUpperCase() === 'SKIPPED' ? 'gray' : 'green',
             children: (
               <div>
                 <div style={{ display: 'flex', gap: spacing[2], alignItems: 'baseline', flexWrap: 'wrap' }}>
-                  <Typography.Text strong style={{ fontSize: 13 }}>
+                  <Text weight="semibold">
                     {step.name}
-                  </Typography.Text>
+                  </Text>
                   {step.durationMs != null && (
-                    <span style={{ fontSize: 12, color: cssVar.text.secondary }}>{step.durationMs} ms</span>
+                    <Text type="supporting" color="secondary">{step.durationMs} ms</Text>
                   )}
                   {/* Gap since the previous step — where a delivery sat waiting
                       is often more useful than how long a step itself ran. */}
                   {step.gapMs != null && step.gapMs > 0 && (
-                    <span style={{ fontSize: 12, color: cssVar.text.muted }}>+{step.gapMs} ms after previous</span>
+                    <Text type="supporting" color="secondary">+{step.gapMs} ms after previous</Text>
+                  )}
+                  {step.status && (
+                    <StatusBadge
+                      status={normalizedStatus}
+                      label={label}
+                      variant={statusVariant(normalizedStatus === 'SKIPPED' ? 'default' : color)}
+                      size="small"
+                    />
                   )}
                 </div>
                 {step.error?.message && (
-                  <div
+                  <Text
+                    as="div"
+                    type="code"
+                    color="secondary"
                     style={{
-                      fontSize: 12,
-                      color: cssVar.error.text,
-                      fontFamily: 'ui-monospace, monospace',
-                      marginTop: 2,
+                      marginTop: spacing[1],
                       overflowWrap: 'anywhere',
                     }}
                   >
                     {step.error.message}
-                  </div>
+                  </Text>
                 )}
               </div>
             ),

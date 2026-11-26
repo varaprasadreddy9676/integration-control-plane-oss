@@ -1,9 +1,19 @@
 import type { ReactNode } from 'react';
-import { Space, Tag } from 'antd';
+import { Space } from "@/components/common/LegacyAntdControls";
 import type { StageRun, StageState } from '../../../services/stages-api';
 import type { DeliveryLog } from '../../../mocks/types';
 import { StageRunsList } from './StageRunView';
 import { OUTCOME_TAG, stageStatusColor, stageStatusLabel } from '../stageLabels';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import type { StatusBadgeVariant } from '../../../components/common/StatusBadge';
+
+const statusVariant = (color: string): StatusBadgeVariant => {
+  if (color === 'green') return 'success';
+  if (color === 'red') return 'error';
+  if (color === 'orange') return 'warning';
+  if (color === 'blue') return 'info';
+  return 'neutral';
+};
 
 /**
  * One delivery-popup tab per stage that ran, titled with the stage's own name and
@@ -11,31 +21,32 @@ import { OUTCOME_TAG, stageStatusColor, stageStatusLabel } from '../stageLabels'
  */
 export const buildStageTabItems = (
   data?: { states: StageState[]; runs: StageRun[] } | null
-): Array<{ key: string; label: ReactNode; children: ReactNode }> => {
-  if (!data || data.runs.length === 0) return [];
+): Array<{ key: string; label: string; endContent: ReactNode; children: ReactNode }> => {
+  if (!data || !Array.isArray(data.runs) || data.runs.length === 0) return [];
+  const states = Array.isArray(data.states) ? data.states : [];
   const byStage = new Map<string, StageRun[]>();
-  for (const run of data.runs) byStage.set(run.stage.id, [...(byStage.get(run.stage.id) || []), run]);
+  for (const run of data.runs) {
+    if (!run?.stage?.id || !run.stage.name) continue;
+    byStage.set(run.stage.id, [...(byStage.get(run.stage.id) || []), run]);
+  }
   return [...byStage.entries()].map(([stageId, runs]) => {
     const latest = runs[runs.length - 1];
-    const state = data.states.find((candidate) => candidate.stageId === stageId);
+    const state = states.find((candidate) => candidate?.stageId === stageId);
     const status = state?.status ?? latest.status;
+    const outcomeTag = OUTCOME_TAG[latest.outcome];
     return {
       key: `stage-${stageId}`,
-      label: (
+      label: latest.stage.name,
+      endContent: (
         <Space size={6}>
-          {latest.stage.name}
           {status ? (
-            <Tag color={stageStatusColor(status, state?.done)} style={{ margin: 0 }}>
-              {stageStatusLabel(status)}
-            </Tag>
+            <StatusBadge label={stageStatusLabel(status)} variant={statusVariant(stageStatusColor(status, state?.done))} />
           ) : (
-            latest.outcome !== 'ok' && (
-              <Tag color={OUTCOME_TAG[latest.outcome].color} style={{ margin: 0 }}>
-                {OUTCOME_TAG[latest.outcome].label}
-              </Tag>
+            outcomeTag && latest.outcome !== 'ok' && (
+              <StatusBadge label={outcomeTag.label} variant={statusVariant(outcomeTag.color)} />
             )
           )}
-          {latest.shadow && <Tag color="purple" style={{ margin: 0 }}>Shadow</Tag>}
+          {latest.shadow && <StatusBadge label="Shadow" variant="neutral" showIcon={false} />}
         </Space>
       ),
       children: <StageRunsList runs={runs} />,
@@ -58,19 +69,14 @@ export const StageSummaryTags = ({ summary }: { summary?: DeliveryLog['stageSumm
   return (
     <>
       {shown.map(([stageId, value]) => (
-        <Tag
-          key={stageId}
-          color={stageStatusColor(value.status, value.done)}
-          title={value.name ? `${value.name}: ${stageStatusLabel(value.status)}` : undefined}
-          style={{ margin: 0 }}
-        >
-          {stageStatusLabel(value.status)}
-        </Tag>
+        <span key={stageId} title={value.name ? `${value.name}: ${stageStatusLabel(value.status)}` : undefined}>
+          <StatusBadge label={stageStatusLabel(value.status)} variant={statusVariant(stageStatusColor(value.status, value.done))} />
+        </span>
       ))}
       {rest.length > 0 && (
-        <Tag style={{ margin: 0 }} title={rest.map(([, value]) => `${value.name}: ${stageStatusLabel(value.status)}`).join('\n')}>
-          +{rest.length}
-        </Tag>
+        <span title={rest.map(([, value]) => `${value.name}: ${stageStatusLabel(value.status)}`).join('\n')}>
+          <StatusBadge label={`+${rest.length}`} variant="neutral" showIcon={false} />
+        </span>
       )}
     </>
   );

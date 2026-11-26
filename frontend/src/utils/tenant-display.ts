@@ -1,5 +1,5 @@
 /**
- * Legal entity names in this product run long — "Acme Health (Harmony Institute
+ * Legal entity names in this product run long — "HER Health (Harmony Institute
  * of Excellence in Reproductive Health)" — and the header rendered the whole
  * thing ellipsised directly beside a selector showing the same name ellipsised
  * at a different point. Two truncations of one string is noise, so the identity

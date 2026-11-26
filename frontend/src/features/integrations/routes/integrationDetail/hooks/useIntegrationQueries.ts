@@ -12,7 +12,13 @@ import { useTenant } from '../../../../../app/tenant-context';
 export const useIntegrationQueries = (id: string | undefined, selectedEventType?: string) => {
   const { orgId } = useTenant();
 
-  const { data: existingIntegration, isLoading: integrationLoading } = useQuery({
+  const {
+    data: existingIntegration,
+    isLoading: integrationLoading,
+    isError: integrationLoadFailed,
+    error: integrationLoadError,
+    refetch: refetchIntegration,
+  } = useQuery({
     queryKey: ['integration', id],
     queryFn: () => (id ? getIntegrationById(id) : Promise.resolve(undefined)),
     enabled: Boolean(id && id !== 'new'),
@@ -51,6 +57,9 @@ export const useIntegrationQueries = (id: string | undefined, selectedEventType?
   return {
     existingIntegration,
     integrationLoading,
+    integrationLoadFailed,
+    integrationLoadError,
+    refetchIntegration,
     allIntegrations,
     eventTypes,
     eventTypesLoading,

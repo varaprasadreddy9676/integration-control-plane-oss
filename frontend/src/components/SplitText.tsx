@@ -124,7 +124,7 @@ export const SplitText = ({
 
         if (isSpace) {
           return (
-            <span key={`space-${index}`} style={{ whiteSpace: 'pre' }}>
+            <span key={`space-${index}`} className="ui-extracted-6fe7cac9b3">
               {part}
             </span>
           );

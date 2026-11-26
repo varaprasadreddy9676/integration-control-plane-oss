@@ -1,4 +1,4 @@
-import { theme } from 'antd';
+import { theme } from "@/components/common/LegacyAntdControls";
 import { borderRadius, container, spacing } from '../tokens/spacing';
 import { borderWidth, borders } from '../tokens/borders';
 import { breakpoints } from '../tokens/breakpoints';

@@ -1,8 +1,8 @@
-import { Skeleton } from 'antd';
-import type { FormInstance } from 'antd';
-import { ApiOutlined } from '@ant-design/icons';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { ConfigurationSection } from '../../../components/detail/ConfigurationSection';
 import { SectionHeader } from './SectionHeader';
+import { StatePanel } from '../../../../../components/common/StatePanel';
 
 interface ConfigurationPanelProps {
   form: FormInstance;
@@ -21,7 +21,9 @@ interface ConfigurationPanelProps {
 
 export const ConfigurationPanelHeader = ({ spacing, colors }: Pick<ConfigurationPanelProps, 'spacing' | 'colors'>) => (
   <SectionHeader
-    icon={<ApiOutlined style={{ fontSize: 18, color: colors.primary[600] }} />}
+    icon={
+      <GatewayIcon name="ApiOutlined" className="console-title-accent" />
+    }
     title="Configuration"
     spacing={spacing}
   />
@@ -42,9 +44,7 @@ export const ConfigurationPanelContent = ({
   isLoading = false,
 }: ConfigurationPanelProps) =>
   isLoading ? (
-    <div style={{ padding: spacing[3] }}>
-      <Skeleton active paragraph={{ rows: 6 }} />
-    </div>
+    <StatePanel glyph="connecting" tone="busy" title="Loading configuration" size="compact" />
   ) : (
     <ConfigurationSection
       form={form}

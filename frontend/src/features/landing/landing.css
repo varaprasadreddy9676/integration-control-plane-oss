@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-
 /* Full Tailwind import (including preflight/reset + utilities).
    Safe because the landing page and the Ant Design app shell are never
    rendered at the same time — unauthenticated users only see this. */
@@ -193,8 +191,8 @@ html.lenis body {
 
 /* ─── Typography helpers ──────────────────────────────────────────────────── */
 .font-heading {
-  font-family: 'Syne', system-ui, sans-serif;
-  letter-spacing: -0.03em;
+  font-family: var(--font-sans);
+  letter-spacing: 0;
 }
 
 .font-mono {
@@ -209,11 +207,9 @@ html.lenis body {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   opacity: 0.85;
   color: var(--accent-color);
-  /* Switch to accent color for premium technical feel */
 }
 
 /* ─── Grid background ─────────────────────────────────────────────────────── */
@@ -255,7 +251,7 @@ html.lenis body {
   background-color: var(--accent-color);
   color: white;
   padding: 12px 24px;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   font-weight: 600;
   font-size: 14px;
   transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
@@ -272,7 +268,7 @@ html.lenis body {
   background: transparent;
   color: var(--text-secondary);
   padding: 12px 24px;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   font-weight: 500;
   font-size: 14px;
   transition: all 0.2s ease;
@@ -308,7 +304,7 @@ html.lenis body {
 .code-block {
   background: var(--bg-secondary);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   padding: 20px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
@@ -333,7 +329,7 @@ html.lenis body {
 .theme-toggle {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -374,15 +370,39 @@ html.lenis body {
   min-height: 100vh;
 }
 
+.docs-page {
+  --bg-primary: var(--color-bg-base);
+  --bg-secondary: var(--color-bg-surface);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --accent-color: var(--color-accent);
+  --card-bg: var(--color-bg-surface);
+  --card-border: var(--color-border-subtle);
+  min-height: 100vh;
+  overflow-x: visible;
+}
+
 /* ─── Docs page markdown content ──────────────────────────────────────────── */
+.landing-page .docs-main {
+  box-sizing: border-box;
+  max-width: calc(240px + 820px);
+  padding: 3.5rem 4vw 2.5rem max(2rem, calc(240px + 3vw));
+}
+
+.landing-page .docs-main-content {
+  max-width: 780px;
+  min-width: 0;
+}
+
 .landing-page .docs-content {
   color: var(--text-primary);
   font-size: 0.9375rem;
   line-height: 1.75;
+  min-width: 0;
 }
 
 .landing-page .docs-content h1 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-size: 1.875rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -392,7 +412,7 @@ html.lenis body {
 }
 
 .landing-page .docs-content h2 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -432,10 +452,18 @@ html.lenis body {
 }
 
 .landing-page .docs-content table {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
+}
+
+.landing-page .docs-content th,
+.landing-page .docs-content td {
+  overflow-wrap: anywhere;
 }
 
 .landing-page .docs-content th {
@@ -465,6 +493,13 @@ html.lenis body {
   color: var(--accent-color);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
+}
+
+.landing-page .docs-content p code,
+.landing-page .docs-content li code,
+.landing-page .docs-content td code,
+.landing-page .docs-content th code {
+  overflow-wrap: anywhere;
 }
 
 .landing-page .docs-content pre {
@@ -501,6 +536,14 @@ html.lenis body {
   font-weight: 600;
   color: var(--text-primary);
 }
+
+@media (max-width: 1023px) {
+  .landing-page .docs-main {
+    max-width: 100%;
+    padding: 3.5rem 1rem 2rem;
+  }
+}
+
 /* ─── Hero delivery trace ─────────────────────────────────────────────────── */
 .ht-root {
   --ht-ok: #059669;
@@ -524,7 +567,7 @@ html.lenis body {
 .ht-panel {
   background: var(--bg-secondary);
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: var(--radius-surface);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -32px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }

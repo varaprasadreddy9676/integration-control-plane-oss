@@ -1,16 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Card, Row, Col, Button, Typography, Tag, Space, Tooltip } from 'antd';
-import {
-  ClockCircleOutlined,
-  CalendarOutlined,
-  ThunderboltOutlined,
-  BellOutlined,
-  SyncOutlined,
-  CopyOutlined,
-  DownOutlined,
-  RightOutlined
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Card, Row, Col, Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import { useDesignTokens, withAlpha, cssVar } from '../../../../design-system/utils';
+import { Button } from '../../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -31,7 +24,7 @@ const TEMPLATES: SchedulingTemplate[] = [
     name: 'D-24hrs Before Visit',
     description: 'Send 24 hours before visit/appointment',
     mode: 'DELAYED',
-    icon: <ClockCircleOutlined />,
+    icon: <GatewayIcon name="ClockCircleOutlined" />,
     color: 'blue',
     script: `// Send 24 hours before visit/appointment
 // Works with: OP_VISIT_CREATED, APPOINTMENT_SCHEDULED
@@ -67,14 +60,14 @@ const visitAt = parseDate(visitDateTime);
 // Schedule 24 hours before
 const reminderAt = subtractHours(visitAt, 24);
 return toTimestamp(reminderAt);`,
-    usageNote: 'Works with OP_VISIT_CREATED (visit.date/time) and APPOINTMENT events (appt.apptDate/time)'
+    usageNote: 'Works with OP_VISIT_CREATED (visit.date/time) and APPOINTMENT events (appt.apptDate/time)',
   },
   {
     id: 't-3hrs',
     name: 'T-3hrs Before Visit',
     description: 'Send 3 hours before visit/appointment',
     mode: 'DELAYED',
-    icon: <BellOutlined />,
+    icon: <GatewayIcon name="BellOutlined" />,
     color: 'orange',
     script: `// Send 3 hours before visit/appointment
 // Works with: OP_VISIT_CREATED, APPOINTMENT_SCHEDULED
@@ -110,14 +103,14 @@ const visitAt = parseDate(visitDateTime);
 // Schedule 3 hours before
 const reminderAt = subtractHours(visitAt, 3);
 return toTimestamp(reminderAt);`,
-    usageNote: 'Works with OP_VISIT_CREATED (visit.date/time) and APPOINTMENT events (appt.apptDate/time)'
+    usageNote: 'Works with OP_VISIT_CREATED (visit.date/time) and APPOINTMENT events (appt.apptDate/time)',
   },
   {
     id: 'd-plus-5hrs',
     name: 'D+5hrs After Event',
     description: 'Send 5 hours after event occurred',
     mode: 'DELAYED',
-    icon: <ThunderboltOutlined />,
+    icon: <GatewayIcon name="ThunderboltOutlined" />,
     color: 'green',
     script: `// Send 5 hours after event timestamp
 // Works with most events that have datetime or timestamp
@@ -148,14 +141,14 @@ if (eventTime.includes('/')) {
 const eventDate = parseDate(isoDateTime);
 const sendAt = addHours(eventDate, 5);
 return toTimestamp(sendAt);`,
-    usageNote: 'Works with most events - uses datetime, arrivedAt, createdAt, or timestamp field'
+    usageNote: 'Works with most events - uses datetime, arrivedAt, createdAt, or timestamp field',
   },
   {
     id: 'daily-9am',
     name: 'Daily at 9 AM',
     description: 'Send every day at 9:00 AM IST',
     mode: 'RECURRING',
-    icon: <CalendarOutlined />,
+    icon: <GatewayIcon name="CalendarOutlined" />,
     color: 'purple',
     script: `// Send daily at 9:00 AM IST
 const tomorrow = addDays(now(), 1);
@@ -167,14 +160,14 @@ return {
   intervalMs: 24 * 60 * 60 * 1000, // 24 hours
   maxOccurrences: 30 // Run for 30 days
 };`,
-    usageNote: 'Sends at 9 AM IST every day for 30 days'
+    usageNote: 'Sends at 9 AM IST every day for 30 days',
   },
   {
     id: 'every-6hrs',
     name: 'Every 6 Hours',
     description: 'Send every 6 hours, max 10 times',
     mode: 'RECURRING',
-    icon: <SyncOutlined />,
+    icon: <GatewayIcon name="SyncOutlined" />,
     color: 'cyan',
     script: `// Send every 6 hours
 const firstTime = addHours(now(), 1); // Start in 1 hour
@@ -184,14 +177,14 @@ return {
   intervalMs: 6 * 60 * 60 * 1000, // 6 hours
   maxOccurrences: 10
 };`,
-    usageNote: 'Starts in 1 hour, repeats every 6 hours for 10 occurrences'
+    usageNote: 'Starts in 1 hour, repeats every 6 hours for 10 occurrences',
   },
   {
     id: 'weekly-monday',
     name: 'Weekly on Monday',
     description: 'Send every Monday at 10 AM IST',
     mode: 'RECURRING',
-    icon: <CalendarOutlined />,
+    icon: <GatewayIcon name="CalendarOutlined" />,
     color: 'magenta',
     script: `// Send every Monday at 10:00 AM IST
 const today = now();
@@ -206,8 +199,8 @@ return {
   intervalMs: 7 * 24 * 60 * 60 * 1000, // 7 days
   maxOccurrences: 12 // Run for ~3 months
 };`,
-    usageNote: 'Sends every Monday at 10 AM for 12 weeks'
-  }
+    usageNote: 'Sends every Monday at 10 AM for 12 weeks',
+  },
 ];
 
 interface SchedulingTemplatesProps {
@@ -230,10 +223,10 @@ export const SchedulingTemplates = ({ deliveryMode, onSelectTemplate }: Scheduli
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filter templates by delivery mode
-  const templates = useMemo(() => TEMPLATES.filter(t => t.mode === deliveryMode), [deliveryMode]);
+  const templates = useMemo(() => TEMPLATES.filter((t) => t.mode === deliveryMode), [deliveryMode]);
 
   useEffect(() => {
-    if (selectedId && !templates.find(t => t.id === selectedId)) {
+    if (selectedId && !templates.find((t) => t.id === selectedId)) {
       setSelectedId(null);
     }
   }, [templates, selectedId]);
@@ -249,72 +242,75 @@ export const SchedulingTemplates = ({ deliveryMode, onSelectTemplate }: Scheduli
       size="small"
       title={
         <Space>
-          <CopyOutlined style={{ color: colors.info[500] }} />
+          <GatewayIcon name="CopyOutlined" className="console-text-info" />
           <span>Quick Templates</span>
         </Space>
       }
-      extra={(
+      extra={
         <Button
           type="text"
           size="small"
-          icon={collapsed ? <RightOutlined /> : <DownOutlined />}
+          icon={collapsed ? <GatewayIcon name="RightOutlined" /> : <GatewayIcon name="DownOutlined" />}
           onClick={() => setCollapsed((prev) => !prev)}
         >
           {collapsed ? 'Show' : 'Hide'}
         </Button>
-      )}
+      }
       style={{
         background: cssVar.bg.subtle,
-        borderColor: cssVar.border.default
+        borderColor: cssVar.border.default,
       }}
     >
       {collapsed ? (
-        <Text type="secondary" style={{ fontSize: 12 }}>
+        <Text type="secondary" className="console-type-caption">
           {templates.length} templates hidden. Click "Show" to expand.
         </Text>
       ) : (
         <>
-      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-        Click a template to use it as a starting point. You can customize it after insertion.
-      </Text>
+          <Text
+            type="secondary"
+            className="ui-extracted-7a56940c3d"
+          >
+            Click a template to use it as a starting point. You can customize it after insertion.
+          </Text>
 
-      <Row gutter={[12, 12]}>
-        {templates.map(template => (
-          <Col xs={24} sm={12} md={8} key={template.id}>
-            <Tooltip title={template.usageNote}>
-              <Card
-                size="small"
-                hoverable
-                onClick={() => handleSelect(template)}
-                style={{
-                  cursor: 'pointer',
-                  borderColor: selectedId === template.id ? colors.primary[500] : colors.neutral[700],
-                  transition: transitions.all,
-                  boxShadow: selectedId === template.id ? `0 0 0 1px ${withAlpha(colors.primary[500], 0.2)}` : 'none',
-                  background: selectedId === template.id ? withAlpha(colors.primary[500], 0.06) : cssVar.bg.surface
-                }}
-                styles={{
-                  body: { padding: 12 }
-                }}
-              >
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                  <Space>
-                    <Tag color={template.color} icon={template.icon}>
-                      {template.mode}
-                    </Tag>
-                  </Space>
-                  <Text strong style={{ fontSize: 13 }}>
-                    {template.name}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    {template.description}
-                  </Text>
-                </Space>
-              </Card>
-            </Tooltip>
-          </Col>
-        ))}
-      </Row>
+          <Row gutter={[12, 12]}>
+            {templates.map((template) => (
+              <Col xs={24} sm={12} md={8} key={template.id}>
+                <Tooltip title={template.usageNote}>
+                  <Card
+                    size="small"
+                    hoverable
+                    onClick={() => handleSelect(template)}
+                    style={{
+                      cursor: 'pointer',
+                      borderColor: selectedId === template.id ? colors.primary[500] : colors.neutral[700],
+                      transition: transitions.all,
+                      boxShadow:
+                        selectedId === template.id ? `0 0 0 1px ${withAlpha(colors.primary[500], 0.2)}` : 'none',
+                      background: selectedId === template.id ? withAlpha(colors.primary[500], 0.06) : cssVar.bg.surface,
+                    }}
+                    styles={{
+                      body: { padding: 'var(--spacing-3)' },
+                    }}
+                  >
+                    <Space direction="vertical" size={4} className="console-width-full">
+                      <Space>
+                        {template.icon}
+                        <Text type="secondary">{template.mode === 'DELAYED' ? 'Delayed' : 'Recurring'}</Text>
+                      </Space>
+                      <Text strong className="console-type-body">
+                        {template.name}
+                      </Text>
+                      <Text type="secondary" className="console-type-caption">
+                        {template.description}
+                      </Text>
+                    </Space>
+                  </Card>
+                </Tooltip>
+              </Col>
+            ))}
+          </Row>
         </>
       )}
     </Card>

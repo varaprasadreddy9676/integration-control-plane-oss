@@ -1,15 +1,36 @@
 import { useState, useMemo } from 'react';
-import { Card, Button, Modal, Form, Input, Select, Checkbox, Space, Typography, Tag, Alert, Tooltip, Popconfirm, message, Row, Col, Divider } from 'antd';
-import { PlusOutlined, SafetyOutlined, DeleteOutlined, InfoCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
+import {
+  Card,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Checkbox,
+  Space,
+  Tooltip,
+  Popconfirm,
+  message,
+  Row,
+  Col,
+  Divider,
+} from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { FilterBar } from '../../components/common/FilterBar';
+import { MetaTag } from '../../components/common/MetaTag';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
 import { FEATURES, OPERATIONS } from '../../utils/permissions';
 import { getRoles, createRole, updateRole, deleteRole, type RoleConfig } from '../../services/api';
 import { ModernTable } from '../../components/common/ModernTable';
+import { Button } from '../../components/common/LegacyButton';
+import { InlineHint } from '../../components/common/InlineHint';
+import { StatePanel } from '../../components/common/StatePanel';
 
-const { Title, Text } = Typography;
-const { TextArea, Search } = Input;
+const { TextArea } = Input;
 
 interface PermissionMatrixRow {
   feature: string;
@@ -30,12 +51,17 @@ export const RoleManagementRoute = () => {
 
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: getRoles
+    queryFn: getRoles,
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ role, payload }: { role: string; payload: { name?: string; description?: string; features?: Record<string, string[]> } }) =>
-      updateRole(role, payload),
+    mutationFn: ({
+      role,
+      payload,
+    }: {
+      role: string;
+      payload: { name?: string; description?: string; features?: Record<string, string[]> };
+    }) => updateRole(role, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       setIsEditModalVisible(false);
@@ -44,7 +70,7 @@ export const RoleManagementRoute = () => {
     },
     onError: (error: any) => {
       message.error(error.message || 'Failed to update role');
-    }
+    },
   });
 
   const createMutation = useMutation({
@@ -57,7 +83,7 @@ export const RoleManagementRoute = () => {
     },
     onError: (error: any) => {
       message.error(error.message || 'Failed to create role');
-    }
+    },
   });
 
   const deleteMutation = useMutation({
@@ -68,13 +94,13 @@ export const RoleManagementRoute = () => {
     },
     onError: (error: any) => {
       message.error(error.message || 'Failed to delete role');
-    }
+    },
   });
 
   const handleCreate = () => {
     form.resetFields();
     form.setFieldsValue({
-      scope: 'organization'
+      scope: 'organization',
     });
     setIsCreateModalVisible(true);
   };
@@ -85,7 +111,7 @@ export const RoleManagementRoute = () => {
       name: values.name,
       description: values.description,
       scope: values.scope,
-      features: {}
+      features: {},
     });
   };
 
@@ -115,14 +141,15 @@ export const RoleManagementRoute = () => {
 
     updateMutation.mutate({
       role: editingRole.role,
-      payload: { features }
+      payload: { features },
     });
   };
 
   // Filter roles
   const filteredRoles = useMemo(() => {
     return roles.filter((role) => {
-      const matchesSearch = !searchText ||
+      const matchesSearch =
+        !searchText ||
         role.name.toLowerCase().includes(searchText.toLowerCase()) ||
         role.role.toLowerCase().includes(searchText.toLowerCase()) ||
         role.description.toLowerCase().includes(searchText.toLowerCase());
@@ -138,7 +165,7 @@ export const RoleManagementRoute = () => {
     return Object.entries(FEATURES).map(([key, value]) => {
       const row: PermissionMatrixRow = {
         feature: value,
-        featureName: key.replace(/_/g, ' ')
+        featureName: key.replace(/_/g, ' '),
       };
 
       filteredRoles.forEach((role) => {
@@ -150,155 +177,159 @@ export const RoleManagementRoute = () => {
   }, [filteredRoles]);
 
   // Build table columns
-  const columns = useMemo(() => [
-    {
-      title: 'Feature',
-      dataIndex: 'featureName',
-      key: 'feature',
-      fixed: 'left' as const,
-      width: 200,
-      render: (text: string) => (
-        <Text strong style={{ textTransform: 'capitalize', fontSize: '12px' }}>
-          {text}
-        </Text>
-      )
-    },
-    ...filteredRoles.map((role) => ({
-      title: (
-        <Space direction="vertical" size={0} align="center" style={{ width: '100%' }}>
-          <Space size={4}>
-            <Text strong style={{ fontSize: '12px' }}>{role.name}</Text>
-            {role.isCustom && <Tag color="purple" style={{ margin: 0, fontSize: '10px' }}>CUSTOM</Tag>}
+  const columns = useMemo(
+    () => [
+      {
+        title: 'Feature',
+        dataIndex: 'featureName',
+        key: 'feature',
+        fixed: 'left' as const,
+        width: 200,
+        render: (text: string) => (
+          <Text as="span" weight="semibold" className="ui-extracted-058475f4e6">
+            {text}
+          </Text>
+        ),
+      },
+      ...filteredRoles.map((role) => ({
+        title: (
+          <Space direction="vertical" size={0} align="center" className="console-width-full">
+            <Space size={4}>
+              <Text as="span" weight="semibold">
+                {role.name}
+              </Text>
+              {role.isCustom && (
+                <MetaTag variant="category" size="small">
+                  CUSTOM
+                </MetaTag>
+              )}
+            </Space>
+            <MetaTag size="small">{role.scope}</MetaTag>
           </Space>
-          <Tag
-            color={role.scope === 'global' ? 'red' : role.scope === 'organization' ? 'blue' : 'default'}
-            style={{ margin: 0, fontSize: '10px' }}
-          >
-            {role.scope}
-          </Tag>
-        </Space>
-      ),
-      dataIndex: role.role,
-      key: role.role,
-      width: 150,
-      align: 'center' as const,
-      render: (operations: string[]) => {
-        const allOps = Object.values(OPERATIONS);
-        const hasAll = allOps.every(op => operations.includes(op));
+        ),
+        dataIndex: role.role,
+        key: role.role,
+        width: 150,
+        align: 'center' as const,
+        render: (operations: string[] = []) => {
+          const allOps = Object.values(OPERATIONS);
+          const hasAll = allOps.length > 0 && allOps.every((op) => operations.includes(op));
 
-        if (hasAll) {
+          if (hasAll) {
+            return (
+              <Tooltip title="Has all operations">
+                <StatusBadge label="Full access" variant="success" size="small" />
+              </Tooltip>
+            );
+          }
+
+          if (operations.length === 0) {
+            return <StatusBadge label="No access" variant="neutral" showIcon={false} size="small" />;
+          }
+
           return (
-            <Tooltip title="Has all operations">
-              <Tag color="green" style={{ margin: 0, fontSize: '10px' }}>
-                <CheckCircleOutlined /> FULL ACCESS
-              </Tag>
+            <Tooltip title={operations.map((op) => op.toUpperCase()).join(', ')}>
+              <Space wrap size={2}>
+                {operations.map((op) => (
+                  <MetaTag key={op} variant="method" size="small">
+                    {op.charAt(0).toUpperCase()}
+                  </MetaTag>
+                ))}
+              </Space>
             </Tooltip>
           );
-        }
-
-        if (operations.length === 0) {
-          return (
-            <Tag color="default" style={{ margin: 0, opacity: 0.4, fontSize: '10px' }}>
-              NO ACCESS
-            </Tag>
-          );
-        }
-
-        return (
-          <Tooltip title={operations.map(op => op.toUpperCase()).join(', ')}>
-            <Space wrap size={2}>
-              {operations.map((op) => (
-                <Tag key={op} color="blue" style={{ margin: '1px', fontSize: '10px', padding: '0 4px' }}>
-                  {op.charAt(0).toUpperCase()}
-                </Tag>
-              ))}
-            </Space>
-          </Tooltip>
-        );
-      }
-    }))
-  ], [filteredRoles]);
+        },
+      })),
+    ],
+    [filteredRoles]
+  );
 
   return (
-    <div>
-      <PageHeader
-        title="Role & Permission Management"
-        description="Define roles and assign feature permissions"
-        actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            Create Role
-          </Button>
-        }
-      />
-
-      <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
-        {/* Filters */}
-        <Card style={{ borderRadius: token.borderRadiusLG }}>
-          <Row gutter={16}>
-            <Col span={16}>
-              <Search
-                placeholder="Search by role name, description, or scope..."
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-                size="large"
-              />
-            </Col>
-            <Col span={8}>
-              <Select
-                placeholder="Filter by scope"
-                value={scopeFilter}
-                onChange={setScopeFilter}
-                style={{ width: '100%' }}
-                size="large"
-                suffixIcon={<FilterOutlined />}
+    <PageTemplate
+      header={
+        <PageHeader
+          title="Role & Permission Management"
+          description="Define roles and assign feature permissions"
+          actions={
+            <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} onClick={handleCreate}>
+              Create Role
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="role-workspace">
+        <FilterBar
+          rightSlot={
+            searchText || scopeFilter !== 'all' ? (
+              <Button
+                size="small"
+                onClick={() => {
+                  setSearchText('');
+                  setScopeFilter('all');
+                }}
               >
-                <Select.Option value="all">All Scopes</Select.Option>
-                <Select.Option value="global">Global Only</Select.Option>
-                <Select.Option value="organization">Organization Only</Select.Option>
-                <Select.Option value="api">API Only</Select.Option>
+                Clear filters
+              </Button>
+            ) : null
+          }
+        >
+          <div className="role-filter-grid">
+            <label className="role-filter-field">
+              <span>Search roles</span>
+              <Input
+                aria-label="Search roles"
+                placeholder="Name, description, or role key"
+                prefix={<GatewayIcon name="SearchOutlined" />}
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                allowClear
+              />
+            </label>
+            <label className="role-filter-field">
+              <span>Scope</span>
+              <Select aria-label="Filter roles by scope" value={scopeFilter} onChange={setScopeFilter}>
+                <Select.Option value="all">All scopes</Select.Option>
+                <Select.Option value="global">Global</Select.Option>
+                <Select.Option value="organization">Organization</Select.Option>
+                <Select.Option value="api">API</Select.Option>
               </Select>
-            </Col>
-          </Row>
+            </label>
+          </div>
+        </FilterBar>
 
-          <Divider style={{ margin: `${spacing[3]} 0` }} />
-
-          <Space size={spacingToNumber(spacing[2])}>
-            <Text type="secondary">
-              Showing <Text strong>{filteredRoles.length}</Text> of <Text strong>{roles.length}</Text> roles
+        <section className="role-section" aria-label="Roles">
+          <div className="role-section-heading">
+            <Text as="span" weight="semibold">
+              Roles
             </Text>
-            {searchText && (
-              <Tag closable onClose={() => setSearchText('')}>
-                Search: "{searchText}"
-              </Tag>
-            )}
-            {scopeFilter !== 'all' && (
-              <Tag closable onClose={() => setScopeFilter('all')}>
-                Scope: {scopeFilter}
-              </Tag>
-            )}
-          </Space>
-        </Card>
-
-        {/* Role Cards */}
-        <Card title="Roles" style={{ borderRadius: token.borderRadiusLG }}>
+            <Text as="span" color="secondary">
+              Showing {filteredRoles.length} of {roles.length}
+            </Text>
+          </div>
           {filteredRoles.length === 0 ? (
-            <Alert
-              type="info"
-              message="No roles found"
+            <StatePanel
+              title="No roles found"
               description={
                 searchText || scopeFilter !== 'all'
                   ? 'Try adjusting your filters'
                   : 'No roles available. Create a new role to get started.'
               }
-              showIcon
+              size="compact"
+              actions={
+                !searchText && scopeFilter === 'all' ? (
+                  <Button type="primary" onClick={handleCreate}>
+                    Create Role
+                  </Button>
+                ) : undefined
+              }
             />
           ) : (
-            <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+            <div className="role-card-list">
               {filteredRoles.map((role) => (
                 <Card
                   key={role.role}
+                  className="role-item-card"
                   size="small"
                   style={{
                     borderRadius: token.borderRadius,
@@ -306,36 +337,35 @@ export const RoleManagementRoute = () => {
                       role.scope === 'global'
                         ? token.colorError
                         : role.scope === 'organization'
-                        ? token.colorPrimary
-                        : token.colorTextSecondary
-                    }`
+                          ? token.colorPrimary
+                          : token.colorTextSecondary
+                    }`,
                   }}
                   hoverable
                 >
-                  <Row justify="space-between" align="middle">
+                  <Row justify="space-between" align="top" gutter={[12, 12]}>
                     <Col flex="auto">
                       <Space direction="vertical" size={2}>
                         <Space size={8}>
-                          <Text strong style={{ fontSize: '15px' }}>{role.name}</Text>
-                          {role.isCustom && <Tag color="purple">Custom</Tag>}
-                          <Tag color={
-                            role.scope === 'global' ? 'red' :
-                            role.scope === 'organization' ? 'blue' :
-                            'default'
-                          }>
-                            {role.scope.toUpperCase()}
-                          </Tag>
+                          <Text as="span" weight="semibold">
+                            {role.name}
+                          </Text>
+                          {role.isCustom && (
+                            <MetaTag variant="category" size="small">
+                              Custom
+                            </MetaTag>
+                          )}
+                          <MetaTag size="small">{role.scope.toUpperCase()}</MetaTag>
                         </Space>
-                        <Text type="secondary" style={{ fontSize: '13px' }}>
-                          {role.description}
-                        </Text>
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          <InfoCircleOutlined /> {Object.keys(role.features).length} features configured
+                        <Text color="secondary">{role.description}</Text>
+                        <Text as="span" color="secondary">
+                          <GatewayIcon name="InfoCircleOutlined" /> {Object.keys(role.features).length} features
+                          configured
                         </Text>
                       </Space>
                     </Col>
                     <Col>
-                      <Space>
+                      <Space wrap>
                         <Button
                           type="primary"
                           size="small"
@@ -356,7 +386,7 @@ export const RoleManagementRoute = () => {
                             <Button
                               danger
                               size="small"
-                              icon={<DeleteOutlined />}
+                              icon={<GatewayIcon name="DeleteOutlined" />}
                               loading={deleteMutation.isPending}
                             >
                               Delete
@@ -368,9 +398,9 @@ export const RoleManagementRoute = () => {
                   </Row>
                 </Card>
               ))}
-            </Space>
+            </div>
           )}
-        </Card>
+        </section>
 
         {/* Permission Matrix */}
         {filteredRoles.length > 0 && (
@@ -379,11 +409,11 @@ export const RoleManagementRoute = () => {
               <Space>
                 <span>Permission Matrix</span>
                 <Tooltip title="Each cell shows which operations a role has for that feature. First letter of each operation is shown.">
-                  <InfoCircleOutlined style={{ color: token.colorTextSecondary }} />
+                  <GatewayIcon name="InfoCircleOutlined" className="console-text-secondary" />
                 </Tooltip>
               </Space>
             }
-            style={{ borderRadius: token.borderRadiusLG }}
+            className="console-card-radius"
           >
             <ModernTable
               columns={columns}
@@ -397,7 +427,7 @@ export const RoleManagementRoute = () => {
             />
           </Card>
         )}
-      </Space>
+      </div>
 
       {/* Create Role Modal */}
       <Modal
@@ -408,11 +438,7 @@ export const RoleManagementRoute = () => {
         confirmLoading={createMutation.isPending}
       >
         <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label="Role Name"
-            rules={[{ required: true, message: 'Please enter a role name' }]}
-          >
+          <Form.Item name="name" label="Role Name" rules={[{ required: true, message: 'Please enter a role name' }]}>
             <Input placeholder="e.g., Content Editor" />
           </Form.Item>
 
@@ -424,11 +450,7 @@ export const RoleManagementRoute = () => {
             <TextArea rows={2} placeholder="Describe what this role can do" />
           </Form.Item>
 
-          <Form.Item
-            name="scope"
-            label="Scope"
-            rules={[{ required: true, message: 'Please select a scope' }]}
-          >
+          <Form.Item name="scope" label="Scope" rules={[{ required: true, message: 'Please select a scope' }]}>
             <Select>
               <Select.Option value="global">Global - Access all organizations</Select.Option>
               <Select.Option value="organization">Organization - Scoped to user's org</Select.Option>
@@ -436,11 +458,7 @@ export const RoleManagementRoute = () => {
             </Select>
           </Form.Item>
 
-          <Alert
-            type="info"
-            message="Permissions can be assigned after creating the role"
-            showIcon
-          />
+          <InlineHint>Permissions can be assigned after creating the role.</InlineHint>
         </Form>
       </Modal>
 
@@ -449,7 +467,11 @@ export const RoleManagementRoute = () => {
         title={
           <Space>
             <span>Edit Permissions: {editingRole?.name}</span>
-            {editingRole?.isCustom && <Tag color="purple">Custom</Tag>}
+            {editingRole?.isCustom && (
+              <MetaTag variant="category" size="small">
+                Custom
+              </MetaTag>
+            )}
           </Space>
         }
         open={isEditModalVisible}
@@ -461,47 +483,50 @@ export const RoleManagementRoute = () => {
         confirmLoading={updateMutation.isPending}
         width={800}
       >
-        <Alert
-          type="info"
-          message={
-            <Space split={<Divider type="vertical" />}>
-              <span><Text strong>Role:</Text> {editingRole?.role}</span>
-              <span><Text strong>Scope:</Text> {editingRole?.scope?.toUpperCase()}</span>
-            </Space>
-          }
-          description={editingRole?.description}
-          showIcon
-          style={{ marginBottom: spacing[3] }}
-        />
+        <div className="role-edit-summary" style={{ marginBottom: spacing[3] }}>
+          <Space split={<Divider type="vertical" />}>
+            <Text as="span" color="secondary">
+              Role:{' '}
+              <Text as="span" weight="semibold">
+                {editingRole?.role}
+              </Text>
+            </Text>
+            <Text as="span" color="secondary">
+              Scope:{' '}
+              <Text as="span" weight="semibold">
+                {editingRole?.scope?.toUpperCase()}
+              </Text>
+            </Text>
+          </Space>
+          {editingRole?.description && <Text color="secondary">{editingRole.description}</Text>}
+        </div>
 
         <Form form={editForm} layout="vertical">
-          <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-            <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
+          <div className="ui-extracted-c2c34aac68">
+            <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
               {Object.entries(FEATURES).map(([key, value]) => (
                 <Card
                   key={value}
                   size="small"
                   style={{
                     borderRadius: token.borderRadius,
-                    backgroundColor: token.colorBgContainer
+                    backgroundColor: token.colorBgContainer,
                   }}
                 >
                   <Form.Item
                     name={value}
                     label={
-                      <Text strong style={{ textTransform: 'capitalize', fontSize: '13px' }}>
+                      <Text as="span" weight="semibold" className="ui-extracted-058475f4e6">
                         {key.replace(/_/g, ' ')}
                       </Text>
                     }
-                    style={{ marginBottom: 0 }}
+                    className="console-margin-bottom-none"
                   >
-                    <Checkbox.Group style={{ width: '100%' }}>
+                    <Checkbox.Group className="console-width-full">
                       <Row gutter={[8, 8]}>
                         {Object.entries(OPERATIONS).map(([opKey, opValue]) => (
                           <Col span={8} key={opValue}>
-                            <Checkbox value={opValue}>
-                              {opKey.replace(/_/g, ' ')}
-                            </Checkbox>
+                            <Checkbox value={opValue}>{opKey.replace(/_/g, ' ')}</Checkbox>
                           </Col>
                         ))}
                       </Row>
@@ -513,6 +538,6 @@ export const RoleManagementRoute = () => {
           </div>
         </Form>
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

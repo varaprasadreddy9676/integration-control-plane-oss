@@ -1,15 +1,19 @@
 import { useMemo } from 'react';
-import { Card, Tag, Typography, Skeleton, List, Space } from 'antd';
-import { WarningOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Card, List, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Button } from '../../../components/common/LegacyButton';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { BarChart, PieChart } from '../../../components/charts';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { formatNumber, formatDateTime } from '../../../utils/format';
-import { cssVar, useDesignTokens, spacingToNumber, withAlpha } from '../../../design-system/utils';
+import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import {
   DashboardEmptyState,
+  DashboardLoadingState,
   DashboardSectionTitle,
-  useDashboardPanelStyle,
-  useDashboardTagTone,
+  getDashboardIntegrationRowKey,
+  getDashboardRateTone,
+  DASHBOARD_PANEL_CLASS,
 } from './DashboardPrimitives';
 
 interface DashboardOutboundTabProps {
@@ -47,9 +51,7 @@ export const DashboardOutboundTab = ({
   hiddenLegends,
   onLegendClick,
 }: DashboardOutboundTabProps) => {
-  const { themeColors, spacing, token, borderRadius } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-  const tagTone = useDashboardTagTone();
+  const { themeColors, spacing, token } = useDesignTokens();
 
   // Event Type Performance Metrics
   const eventTypeMetrics = useMemo(() => {
@@ -155,16 +157,17 @@ export const DashboardOutboundTab = ({
   return (
     <>
       {/* Event Type Performance Table */}
-      <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+      <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
         <Card
           title={
             <DashboardSectionTitle title="Event Type Performance" subtitle="Success rates and latency by event type" />
           }
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 'var(--spacing-0)' } }}
           variant="borderless"
-          loading={analyticsLoading}
         >
-          {eventTypeMetrics.length > 0 ? (
+          {analyticsLoading ? (
+            <DashboardLoadingState title="Loading event type performance" />
+          ) : eventTypeMetrics.length > 0 ? (
             <ModernTable<any>
               size="middle"
               dataSource={eventTypeMetrics}
@@ -190,9 +193,7 @@ export const DashboardOutboundTab = ({
                   width: 280,
                   ellipsis: true,
                   sorter: (a: any, b: any) => a.eventType.localeCompare(b.eventType),
-                  render: (name: string) => (
-                    <Typography.Text style={{ fontWeight: 600, fontSize: 14 }}>{name}</Typography.Text>
-                  ),
+                  render: (name: string) => <Text weight="semibold">{name}</Text>,
                 },
                 {
                   title: 'Total Deliveries',
@@ -202,9 +203,9 @@ export const DashboardOutboundTab = ({
                   width: 150,
                   sorter: (a: any, b: any) => a.total - b.total,
                   render: (value: number) => (
-                    <Typography.Text strong style={{ fontSize: 13, color: token.colorText }}>
+                    <Text weight="semibold" hasTabularNumbers>
                       {formatNumber(value)}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -215,23 +216,13 @@ export const DashboardOutboundTab = ({
                   width: 150,
                   sorter: (a: any, b: any) => a.successRate - b.successRate,
                   render: (rate: number) => {
-                    const color =
-                      rate >= 95 ? themeColors.success : rate >= 85 ? themeColors.warning : themeColors.error;
                     return (
-                      <Tag
-                        style={{
-                          borderRadius: borderRadius.full,
-                          fontSize: 12,
-                          padding: `${spacing['1']} ${spacing[2]}`,
-                          borderColor: color.border,
-                          background: color.bg,
-                          color: color.text,
-                          fontWeight: 700,
-                          margin: 0,
-                        }}
+                      <Text
+                        hasTabularNumbers
+                        className={`dashboard-metric-tone dashboard-metric-tone--${getDashboardRateTone(rate)}`}
                       >
                         {rate}%
-                      </Tag>
+                      </Text>
                     );
                   },
                 },
@@ -243,11 +234,9 @@ export const DashboardOutboundTab = ({
                   width: 140,
                   sorter: (a: any, b: any) => a.avgLatency - b.avgLatency,
                   render: (latency: number) => (
-                    <Typography.Text
-                      style={{ fontSize: 13, color: token.colorText, fontFamily: 'ui-monospace, monospace' }}
-                    >
+                    <Text type="code" hasTabularNumbers>
                       {latency} ms
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -259,11 +248,11 @@ export const DashboardOutboundTab = ({
                   sorter: (a: any, b: any) => a.failed - b.failed,
                   render: (count: number) =>
                     count > 0 ? (
-                      <Tag style={tagTone(themeColors.error.text)}>{formatNumber(count)}</Tag>
+                      <Text className="dashboard-metric-tone dashboard-metric-tone--error">{formatNumber(count)}</Text>
                     ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      <Text type="supporting" color="secondary">
                         —
-                      </Typography.Text>
+                      </Text>
                     ),
                 },
                 {
@@ -275,12 +264,12 @@ export const DashboardOutboundTab = ({
                   render: (trend: number) => {
                     if (Math.abs(trend) < 0.5) {
                       return (
-                        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                        <Text type="supporting" color="secondary">
                           —
-                        </Typography.Text>
+                        </Text>
                       );
                     }
-                    const color = trend > 0 ? themeColors.success.text : themeColors.error.text;
+                    const trendClassName = trend > 0 ? 'console-text-success' : 'console-text-error';
                     return (
                       <div
                         style={{
@@ -291,13 +280,13 @@ export const DashboardOutboundTab = ({
                         }}
                       >
                         {trend > 0 ? (
-                          <ArrowUpOutlined style={{ color, fontSize: 12 }} />
+                          <GatewayIcon size="xsm" name="ArrowUpOutlined" className={trendClassName} />
                         ) : (
-                          <ArrowDownOutlined style={{ color, fontSize: 12 }} />
+                          <GatewayIcon size="xsm" name="ArrowDownOutlined" className={trendClassName} />
                         )}
-                        <Typography.Text style={{ color, fontSize: 12, fontWeight: 600 }}>
+                        <Text weight="semibold" hasTabularNumbers className={trendClassName}>
                           {Math.abs(trend).toFixed(1)}%
-                        </Typography.Text>
+                        </Text>
                       </div>
                     );
                   },
@@ -306,26 +295,27 @@ export const DashboardOutboundTab = ({
             />
           ) : (
             <div style={{ textAlign: 'center', padding: `${spacing[9]} 0` }}>
-              <WarningOutlined style={{ fontSize: spacing[10], color: cssVar.text.disabled }} />
-              <Typography.Text type="secondary" style={{ display: 'block', marginTop: spacing[2] }}>
+              <GatewayIcon name="WarningOutlined" className="console-empty-state-icon" />
+              <Text type="supporting" color="secondary" display="block" className="console-margin-top-2">
                 {noDataHint}
-              </Typography.Text>
+              </Text>
             </div>
           )}
         </Card>
       </section>
 
       {/* Per-Integration Health Table */}
-      <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+      <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
         <Card
           title={
             <DashboardSectionTitle title="Integration Health" subtitle="Health status and performance by integration" />
           }
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 'var(--spacing-0)' } }}
           variant="borderless"
-          loading={analyticsLoading}
         >
-          {integrationHealth.length > 0 ? (
+          {analyticsLoading ? (
+            <DashboardLoadingState title="Loading integration health" />
+          ) : integrationHealth.length > 0 ? (
             <ModernTable<any>
               size="middle"
               dataSource={integrationHealth}
@@ -338,7 +328,7 @@ export const DashboardOutboundTab = ({
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} integrations`,
                 position: ['bottomCenter'],
               }}
-              rowKey="__KEEP___KEEP_integrationConfig__Id__"
+              rowKey={getDashboardIntegrationRowKey}
               columns={[
                 {
                   title: 'Integration Name',
@@ -348,13 +338,9 @@ export const DashboardOutboundTab = ({
                   ellipsis: true,
                   sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
                   render: (name: string, record: any) => (
-                    <Typography.Link
-                      onClick={() => onNavigate(getIntegrationPath(record))}
-                      style={{ fontWeight: 600, fontSize: 14 }}
-                      ellipsis
-                    >
+                    <Button type="link" onClick={() => onNavigate(getIntegrationPath(record))}>
                       {name || 'Unknown'}
-                    </Typography.Link>
+                    </Button>
                   ),
                 },
                 {
@@ -365,20 +351,12 @@ export const DashboardOutboundTab = ({
                   width: 120,
                   sorter: (a: any, b: any) => a.health.status.localeCompare(b.health.status),
                   render: (health: any) => (
-                    <Tag
-                      style={{
-                        borderRadius: borderRadius.full,
-                        fontSize: 12,
-                        padding: `${spacing['0.5']} ${spacing[2]}`,
-                        borderColor: withAlpha(health.color, 0.25),
-                        background: withAlpha(health.color, 0.1),
-                        color: health.color,
-                        fontWeight: 700,
-                        margin: 0,
-                      }}
+                    <Text
+                      hasTabularNumbers
+                      className={`dashboard-metric-tone dashboard-metric-tone--${health.status.toLowerCase()}`}
                     >
                       {health.status}
-                    </Tag>
+                    </Text>
                   ),
                 },
                 {
@@ -390,13 +368,14 @@ export const DashboardOutboundTab = ({
                   sorter: (a: any, b: any) => parseFloat(a.successRate) - parseFloat(b.successRate),
                   render: (rate: string) => {
                     const numRate = parseFloat(rate);
-                    const color =
-                      numRate >= 95
-                        ? themeColors.success.text
-                        : numRate >= 85
-                          ? themeColors.warning.text
-                          : themeColors.error.text;
-                    return <Tag style={tagTone(color)}>{rate}%</Tag>;
+                    return (
+                      <Text
+                        hasTabularNumbers
+                        className={`dashboard-metric-tone dashboard-metric-tone--${getDashboardRateTone(numRate)}`}
+                      >
+                        {rate}%
+                      </Text>
+                    );
                   },
                 },
                 {
@@ -407,9 +386,9 @@ export const DashboardOutboundTab = ({
                   width: 130,
                   sorter: (a: any, b: any) => a.avgResponseTime - b.avgResponseTime,
                   render: (latency: number) => (
-                    <Typography.Text style={{ fontSize: 13, fontFamily: 'ui-monospace, monospace' }}>
+                    <Text type="code" hasTabularNumbers>
                       {Math.round(latency)} ms
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -420,13 +399,13 @@ export const DashboardOutboundTab = ({
                   width: 140,
                   render: (timestamp: string | null) =>
                     timestamp ? (
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="supporting" color="secondary">
                         {formatDateTime(timestamp)}
-                      </Typography.Text>
+                      </Text>
                     ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      <Text type="supporting" color="secondary">
                         —
-                      </Typography.Text>
+                      </Text>
                     ),
                 },
                 {
@@ -437,7 +416,9 @@ export const DashboardOutboundTab = ({
                   width: 100,
                   sorter: (a: any, b: any) => a.total - b.total,
                   render: (value: number) => (
-                    <Typography.Text style={{ fontSize: 13 }}>{formatNumber(value)}</Typography.Text>
+                    <Text type="code" hasTabularNumbers>
+                      {formatNumber(value)}
+                    </Text>
                   ),
                 },
                 {
@@ -449,11 +430,11 @@ export const DashboardOutboundTab = ({
                   sorter: (a: any, b: any) => a.failed - b.failed,
                   render: (count: number) =>
                     count > 0 ? (
-                      <Tag style={tagTone(themeColors.error.text)}>{formatNumber(count)}</Tag>
+                      <Text className="dashboard-metric-tone dashboard-metric-tone--error">{formatNumber(count)}</Text>
                     ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      <Text type="supporting" color="secondary">
                         —
-                      </Typography.Text>
+                      </Text>
                     ),
                 },
                 {
@@ -463,9 +444,9 @@ export const DashboardOutboundTab = ({
                   width: 280,
                   ellipsis: true,
                   render: (reason: string) => (
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }} ellipsis={{ tooltip: reason }}>
+                    <Text type="supporting" color="secondary" maxLines={1}>
                       {reason}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
               ]}
@@ -479,7 +460,7 @@ export const DashboardOutboundTab = ({
       {/* Response Time Distribution & Top Failures */}
       <section className="dashboard-tab-grid">
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -490,7 +471,7 @@ export const DashboardOutboundTab = ({
           styles={{ body: { padding: spacing[4] } }}
         >
           {performanceLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading outbound response times" />
           ) : responseTimeDistribution.length > 0 ? (
             <BarChart
               data={responseTimeDistribution}
@@ -509,7 +490,7 @@ export const DashboardOutboundTab = ({
         </Card>
 
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -520,7 +501,7 @@ export const DashboardOutboundTab = ({
           styles={{ body: { padding: spacing[4] } }}
         >
           {errorsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading failure categories" />
           ) : failuresByCategory.length > 0 ? (
             <>
               <PieChart
@@ -538,18 +519,15 @@ export const DashboardOutboundTab = ({
                 onLegendClick={onLegendClick}
               />
               <div style={{ marginTop: spacing[3], maxHeight: 180, overflowY: 'auto' }}>
-                <Typography.Text
-                  type="secondary"
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    marginBottom: spacing[2],
-                  }}
+                <Text
+                  type="label"
+                  color="secondary"
+                  weight="semibold"
+                  display="block"
+                  className="console-margin-bottom-2"
                 >
                   Most Affected Integrations
-                </Typography.Text>
+                </Text>
                 <List
                   size="small"
                   dataSource={affectedIntegrations}
@@ -562,11 +540,13 @@ export const DashboardOutboundTab = ({
                       }}
                       onClick={() => onNavigate(getIntegrationPath(integration))}
                     >
-                      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                        <Typography.Text ellipsis style={{ fontSize: 13, fontWeight: 500, maxWidth: 200 }}>
+                      <Space className="console-width-full-between">
+                        <Text weight="medium" maxLines={1} className="ui-extracted-888b85c032">
                           {integration.__KEEP_integrationName__}
-                        </Typography.Text>
-                        <Tag style={tagTone(themeColors.error.text)}>{formatNumber(integration.failed)} failures</Tag>
+                        </Text>
+                        <Text className="dashboard-metric-tone dashboard-metric-tone--error">
+                          {formatNumber(integration.failed)} failures
+                        </Text>
                       </Space>
                     </List.Item>
                   )}

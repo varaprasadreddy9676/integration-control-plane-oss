@@ -1,14 +1,15 @@
-import { Button, Card, List, Skeleton, Space, Tag, Typography } from 'antd';
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { Card, List, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
 import { PieChart } from '../../../components/charts';
 import { formatDateTime } from '../../../utils/format';
 import { cssVar, spacingToNumber, useDesignTokens } from '../../../design-system/utils';
 import {
   DashboardEmptyState,
+  DashboardLoadingState,
   DashboardSectionTitle,
-  useDashboardPanelStyle,
-  useDashboardTagTone,
+  DASHBOARD_PANEL_CLASS,
 } from './DashboardPrimitives';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface DashboardErrorsTabProps {
   errorsLoading: boolean;
@@ -32,19 +33,17 @@ export const DashboardErrorsTab = ({
   onLegendClick,
 }: DashboardErrorsTabProps) => {
   const { themeColors, spacing, token } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-  const tagTone = useDashboardTagTone();
 
   return (
     <section className="dashboard-tab-grid">
       <Card
-        style={panelStyle}
+        className={DASHBOARD_PANEL_CLASS}
         variant="borderless"
         title={<DashboardSectionTitle title="Failure Categories" subtitle="Breakdown of error types" />}
         styles={{ body: { padding: spacing[4] } }}
       >
         {errorsLoading ? (
-          <Skeleton active paragraph={{ rows: 6 }} />
+          <DashboardLoadingState title="Loading failure categories" />
         ) : errorCategoryData.length > 0 ? (
           <PieChart
             data={errorCategoryData}
@@ -71,7 +70,7 @@ export const DashboardErrorsTab = ({
       </Card>
 
       <Card
-        style={panelStyle}
+        className={DASHBOARD_PANEL_CLASS}
         variant="borderless"
         title={<DashboardSectionTitle title="Top Errors" subtitle="Most frequent delivery issues" />}
         extra={
@@ -82,13 +81,13 @@ export const DashboardErrorsTab = ({
         styles={{ body: { padding: spacing[4], display: 'flex', flexDirection: 'column', gap: spacing[1] } }}
       >
         {errorsLoading ? (
-          <Skeleton active paragraph={{ rows: 6 }} />
+          <DashboardLoadingState title="Loading recent failures" />
         ) : topErrors.length > 0 ? (
           <List
             dataSource={topErrors}
             renderItem={(error) => (
               <List.Item style={{ padding: `${spacing[3]} 0`, borderBlockEnd: `1px solid ${cssVar.border.default}` }}>
-                <Space direction="vertical" size={spacingToNumber(spacing[1])} style={{ width: '100%' }}>
+                <Space direction="vertical" size={spacingToNumber(spacing[1])} className="console-width-full">
                   <Space
                     style={{
                       width: '100%',
@@ -97,23 +96,22 @@ export const DashboardErrorsTab = ({
                       gap: spacing[3],
                     }}
                   >
-                    <Typography.Text strong style={{ maxWidth: 320, wordBreak: 'break-word', fontSize: 13 }}>
+                    <Text weight="semibold" className="ui-extracted-315b668bf0">
                       {error.message}
-                    </Typography.Text>
-                    <Tag style={tagTone(themeColors.error.text)}>{error.count} occurrences</Tag>
+                    </Text>
+                    <Text type="supporting" color="secondary" hasTabularNumbers>
+                      {error.count} occurrences
+                    </Text>
                   </Space>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="supporting" color="secondary">
                     Last seen {formatDateTime(error.lastSeen)}
-                  </Typography.Text>
+                  </Text>
                 </Space>
               </List.Item>
             )}
           />
         ) : (
-          <DashboardEmptyState
-            message="No errors in the selected period"
-            icon={<CheckCircleOutlined style={{ fontSize: spacing[10], color: cssVar.success.text }} />}
-          />
+          <DashboardEmptyState message="No errors in the selected period" />
         )}
       </Card>
     </section>

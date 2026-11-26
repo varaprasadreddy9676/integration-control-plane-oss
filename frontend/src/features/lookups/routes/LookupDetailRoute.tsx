@@ -1,37 +1,38 @@
-import { useEffect, useMemo, useState } from 'react';
-import { App, Button, Card, Form, Input, Select, Space, Switch, Typography, Divider, Grid } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, DatabaseOutlined } from '@ant-design/icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { App, Form, Input, Select, Space, Switch } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from "../../../components/common/Icon";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { getLookup, createLookup, updateLookup, getLookupTypes } from '../../../services/api';
 import { useTenant } from '../../../app/tenant-context';
 import type { Lookup } from '../../../mocks/types';
-import { useDesignTokens, spacingToNumber, cssVar } from '../../../design-system/utils';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { ConfigSection } from '../../../components/common/ConfigSection';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
 
 export const LookupDetailRoute = () => {
   const { id } = useParams<{ id: string }>();
   const isEditMode = id !== 'new';
   const navigate = useNavigateWithParams();
   const queryClient = useQueryClient();
-  const { spacing, token, shadows } = useDesignTokens();
-  const colors = cssVar.legacy;
   const { message: msgApi } = App.useApp();
-  const { tenant } = useTenant();
-  const screens = Grid.useBreakpoint();
-  const isNarrow = !screens.md;
+  const { tenant, orgId } = useTenant();
   const [form] = Form.useForm();
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: lookup, isLoading } = useQuery({
-    queryKey: ['lookup', id],
+  const { data: lookup, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['lookup', orgId, id],
     queryFn: () => getLookup(id!),
-    enabled: isEditMode,
+    enabled: isEditMode && orgId > 0,
     staleTime: 30_000,
   });
 
   const { data: typesData } = useQuery({
-    queryKey: ['lookup-types'],
+    queryKey: ['lookup-types', orgId],
     queryFn: getLookupTypes,
     staleTime: 5 * 60 * 1000,
   });
@@ -46,14 +47,14 @@ export const LookupDetailRoute = () => {
         sourceLabel: lookup.source.label,
         targetId: lookup.target.id,
         targetLabel: lookup.target.label,
-        orgUnitRid: lookup.orgUnitRid,
+        orgUnitRid: lookup.orgUnitRid ?? 'parent',
         isActive: lookup.isActive,
       });
     } else if (!isEditMode) {
       // Set defaults for new lookup
       form.setFieldsValue({
         isActive: true,
-        orgUnitRid: null,
+        orgUnitRid: 'parent',
       });
     }
   }, [lookup, isEditMode, form]);
@@ -75,7 +76,7 @@ export const LookupDetailRoute = () => {
           id: values.targetId,
           label: values.targetLabel || undefined,
         },
-        orgUnitRid: values.orgUnitRid || null,
+      orgUnitRid: values.orgUnitRid === 'parent' || values.orgUnitRid === undefined ? null : Number(values.orgUnitRid),
         isActive: values.isActive,
       };
 
@@ -99,153 +100,164 @@ export const LookupDetailRoute = () => {
   };
 
   return (
-    <div style={{ padding: isNarrow ? spacing[4] : spacing[6] }}>
-      <Card
-        bordered={false}
-        style={{
-          background: cssVar.bg.surface,
-          borderRadius: token.borderRadiusLG,
-          boxShadow: shadows.sm,
-          maxWidth: 800,
-          margin: '0 auto',
-        }}
-      >
-        {/* Header */}
-        <div style={{ marginBottom: spacingToNumber(spacing[6]) }}>
-          <Button
-            type="link"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/lookups')}
-            style={{ paddingLeft: 0, marginBottom: spacing[3] }}
-          >
-            Back to Lookups
-          </Button>
-          <Typography.Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-            <DatabaseOutlined style={{ color: colors.primary[600] }} />
-            {isEditMode ? 'Edit Lookup Mapping' : 'New Lookup Mapping'}
-          </Typography.Title>
-          <Typography.Text type="secondary">
-            {isEditMode ? 'Update an existing code mapping' : 'Create a new code mapping between systems'}
-          </Typography.Text>
-        </div>
+    <PageTemplate
+      className="lookup-editor-workspace"
+      header={
+        <PageHeader
+          title={isEditMode ? 'Edit mapping' : 'New mapping'}
+          description={isEditMode ? 'Update the source-to-target code mapping.' : 'Add a source-to-target code mapping.'}
+          breadcrumb={[{ label: 'Lookup tables', path: '/lookups' }, { label: isEditMode ? 'Edit mapping' : 'New mapping' }]}
+          actions={
+            <Space size={8}>
+              <Button onClick={() => navigate('/lookups')}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                form="lookup-editor-form"
+                icon={<GatewayIcon name="SaveOutlined" />}
+                loading={isSaving}
+                disabled={isEditMode && (!lookup || isLoading || isError)}
+              >
+                {isEditMode ? 'Save changes' : 'Create mapping'}
+              </Button>
+            </Space>
+          }
+          compact
+        />
+      }
+    >
 
-        {/* Form */}
+      {isEditMode && orgId <= 0 ? (
+        <StatePanel
+          glyph="searching"
+          title="Select an organization to edit this mapping"
+          actions={<Button onClick={() => navigate('/lookups')}>Back to lookup tables</Button>}
+        />
+      ) : isEditMode && isLoading ? (
+        <StatePanel glyph="connecting" title="Loading mapping" size="compact" />
+      ) : isEditMode && isError ? (
+        <StatePanel
+          glyph="disrupted"
+          tone="critical"
+          title="Mapping could not be loaded"
+          description={error instanceof Error ? error.message : 'The request failed. Try again.'}
+          actions={<Button onClick={() => refetch()}>Retry</Button>}
+        />
+      ) : isEditMode && !lookup ? (
+        <StatePanel
+          glyph="searching"
+          title="Mapping not found"
+          description="It may have been removed or may not belong to the selected organization."
+          actions={<Button onClick={() => navigate('/lookups')}>Back to lookup tables</Button>}
+        />
+      ) : (
         <Form
+          id="lookup-editor-form"
+          className="lookup-editor-form"
           form={form}
           layout="vertical"
           onFinish={onFinish}
           disabled={isSaving || (isEditMode && isLoading)}
           requiredMark="optional"
         >
-          {/* Mapping Type */}
-          <Form.Item
-            name="type"
-            label="Mapping Type"
-            rules={[{ required: true, message: 'Please enter a mapping type' }]}
-            extra="The category of this code mapping (e.g., SERVICE_CODE, DIAGNOSIS_CODE, PROVIDER_ID)"
-          >
-            <Select
-              placeholder="Select or type to create new"
-              showSearch
-              mode="tags"
-              maxCount={1}
-              options={types.map((t) => ({ label: t, value: t }))}
-              tokenSeparators={[',']}
-            />
-          </Form.Item>
+          <ConfigSection title="Mapping type" description="Group related codes under a reusable category.">
+            <Form.Item
+              name="type"
+              label="Type"
+              rules={[{ required: true, message: 'Enter a mapping type' }]}
+            >
+              <Select
+                placeholder="Select or enter a type"
+                showSearch
+                mode="tags"
+                maxCount={1}
+                options={types.map((type) => ({ label: type, value: type }))}
+                tokenSeparators={[',']}
+              />
+            </Form.Item>
+          </ConfigSection>
 
-          <Divider orientation="left">Source Code</Divider>
+          <div className="lookup-editor-columns">
+            <ConfigSection title="Source system">
+              <Form.Item
+                name="sourceId"
+                label="Source code"
+                rules={[
+                  { required: true, whitespace: true, message: 'Enter a source code' },
+                  { max: 255, message: 'Source code must be 255 characters or fewer' },
+                ]}
+              >
+                <Input placeholder="e.g. OP, DX12345" maxLength={255} />
+              </Form.Item>
+              <Form.Item
+                name="sourceLabel"
+                label="Source label"
+                rules={[{ max: 500, message: 'Source label must be 500 characters or fewer' }]}
+              >
+                <Input placeholder="Optional display name" maxLength={500} />
+              </Form.Item>
+            </ConfigSection>
 
-          {/* Source ID */}
-          <Form.Item
-            name="sourceId"
-            label="Source Code ID"
-            rules={[
-              { required: true, message: 'Please enter source code ID' },
-              { max: 255, message: 'Source ID must be less than 255 characters' },
-            ]}
-            extra="The code from the source system (e.g., your core app)"
-          >
-            <Input placeholder="e.g., SVC001, DX12345" />
-          </Form.Item>
+            <ConfigSection title="Target system">
+              <Form.Item
+                name="targetId"
+                label="Target code"
+                rules={[
+                  { required: true, whitespace: true, message: 'Enter a target code' },
+                  { max: 255, message: 'Target code must be 255 characters or fewer' },
+                ]}
+              >
+                <Input placeholder="e.g. AMB, EXT_001" maxLength={255} />
+              </Form.Item>
+              <Form.Item
+                name="targetLabel"
+                label="Target label"
+                rules={[{ max: 500, message: 'Target label must be 500 characters or fewer' }]}
+              >
+                <Input placeholder="Optional display name" maxLength={500} />
+              </Form.Item>
+            </ConfigSection>
+          </div>
 
-          {/* Source Label */}
-          <Form.Item
-            name="sourceLabel"
-            label="Source Label (Optional)"
-            rules={[{ max: 500, message: 'Source label must be less than 500 characters' }]}
-            extra="Human-readable description of the source code"
-          >
-            <Input placeholder="e.g., General Consultation" />
-          </Form.Item>
+          <ConfigSection title="Scope and status" description="Entity-specific mappings override the parent mapping.">
+            <div className="lookup-editor-columns lookup-editor-columns--settings">
+              <Form.Item
+                name="orgUnitRid"
+                label="Applies to"
+                rules={[{ required: true, message: 'Choose where this mapping applies' }]}
+              >
+                <Select
+                  options={[
+                    { label: 'Parent organization (default)', value: 'parent' },
+                    ...(tenant?.childEntities || []).map((entity) => ({
+                      label: `${entity.name} (RID ${entity.rid})`,
+                      value: entity.rid,
+                    })),
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item
+                name="isActive"
+                label="Status"
+                valuePropName="checked"
+                extra="Inactive mappings remain saved but are excluded from transformations."
+              >
+                <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+              </Form.Item>
+            </div>
+          </ConfigSection>
 
-          <Divider orientation="left">Target Code</Divider>
-
-          {/* Target ID */}
-          <Form.Item
-            name="targetId"
-            label="Target Code ID"
-            rules={[
-              { required: true, message: 'Please enter target code ID' },
-              { max: 255, message: 'Target ID must be less than 255 characters' },
-            ]}
-            extra="The code in the target system (e.g., external CRM/ERP)"
-          >
-            <Input placeholder="e.g., EXT_001, TARGET_XYZ" />
-          </Form.Item>
-
-          {/* Target Label */}
-          <Form.Item
-            name="targetLabel"
-            label="Target Label (Optional)"
-            rules={[{ max: 500, message: 'Target label must be less than 500 characters' }]}
-            extra="Human-readable description of the target code"
-          >
-            <Input placeholder="e.g., Standard Consultation" />
-          </Form.Item>
-
-          <Divider orientation="left">Configuration</Divider>
-
-          {/* Org Unit RID */}
-          <Form.Item
-            name="orgUnitRid"
-            label="Org Unit Override"
-            extra="Leave empty for parent-level mapping, or specify an org unit RID for unit-specific override"
-          >
-            <Select
-              placeholder="Parent Level (applies to all org units)"
-              allowClear
-              options={[
-                { label: 'Parent Level (default)', value: null },
-                ...(tenant?.childEntities || []).map((e) => ({
-                  label: `${e.name} (RID: ${e.rid})`,
-                  value: e.rid,
-                })),
-              ]}
-            />
-          </Form.Item>
-
-          {/* Active Status */}
-          <Form.Item
-            name="isActive"
-            label="Status"
-            valuePropName="checked"
-            extra="Inactive mappings are preserved for audit but not used in transformations"
-          >
-            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-          </Form.Item>
-
-          {/* Actions */}
-          <Form.Item style={{ marginTop: spacingToNumber(spacing[6]), marginBottom: 0 }}>
+          <div className="lookup-editor-footer">
+            <Text color="secondary">Fields marked optional may be left blank.</Text>
             <Space>
-              <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={isSaving}>
-                {isEditMode ? 'Update Mapping' : 'Create Mapping'}
-              </Button>
               <Button onClick={() => navigate('/lookups')}>Cancel</Button>
+              <Button type="primary" htmlType="submit" icon={<GatewayIcon name="SaveOutlined" />} loading={isSaving}>
+                {isEditMode ? 'Save changes' : 'Create mapping'}
+              </Button>
             </Space>
-          </Form.Item>
+          </div>
         </Form>
-      </Card>
-    </div>
+      )}
+    </PageTemplate>
   );
 };

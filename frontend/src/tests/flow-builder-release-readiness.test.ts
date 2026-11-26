@@ -3,7 +3,8 @@ import { resolve } from 'path';
 import { describe, expect, it } from 'vitest';
 import { flowToPayload } from '../features/flowBuilder/state/flowToPayload';
 import { payloadToFlow } from '../features/flowBuilder/state/payloadToFlow';
-import { createDefaultOutboundEventFlow } from '../features/flowBuilder/state/flowSchema';
+import { createDefaultFlow, createDefaultOutboundEventFlow } from '../features/flowBuilder/state/flowSchema';
+import { layoutFlowGraph } from '../features/flowBuilder/state/flowLayout';
 import type { BackendIntegrationPayload, FlowState } from '../features/flowBuilder/state/flowTypes';
 
 const buildMultiActionFlow = (): FlowState =>
@@ -108,18 +109,18 @@ describe('Flow Builder production contracts', () => {
       resolve(__dirname, '../features/flowBuilder/routes/FlowBuilderListRoute.tsx'),
       'utf8'
     );
-    const detailRoute = readFileSync(
-      resolve(__dirname, '../features/flowBuilder/routes/FlowBuilderRoute.tsx'),
-      'utf8'
-    );
-    const inspector = readFileSync(
-      resolve(__dirname, '../features/flowBuilder/components/InspectorPanel.tsx'),
-      'utf8'
-    );
+    const detailRoute = readFileSync(resolve(__dirname, '../features/flowBuilder/routes/FlowBuilderRoute.tsx'), 'utf8');
+    const canvas = readFileSync(resolve(__dirname, '../features/flowBuilder/components/FlowCanvas.tsx'), 'utf8');
+    const baseNode = readFileSync(resolve(__dirname, '../features/flowBuilder/components/nodes/BaseNode.tsx'), 'utf8');
+    const inspector = readFileSync(resolve(__dirname, '../features/flowBuilder/components/InspectorPanel.tsx'), 'utf8');
 
     expect(listRoute).not.toContain('orgId=100');
     expect(detailRoute).not.toContain("|| '100'");
     expect(inspector.toLowerCase()).not.toContain('coming soon');
+    expect(inspector).not.toContain('Typography');
+    expect(inspector).toContain('@astryxdesign/core/Banner');
+    expect(canvas).toContain('window.innerWidth <= 767 ? 0.75 : 0.8');
+    expect(baseNode).toContain('flow-builder-node-label console-type-section');
   });
 
   it('does not place a non-executable filter node in new outbound flows', () => {
@@ -127,5 +128,34 @@ describe('Flow Builder production contracts', () => {
 
     expect(flow.nodes.some((node) => node.type === 'filter')).toBe(false);
     expect(flow.edges).toContainEqual(expect.objectContaining({ source: 'trigger-1', target: 'transform-1' }));
+  });
+
+  it.each([
+    'INBOUND',
+    'OUTBOUND_EVENT',
+    'OUTBOUND_SCHEDULED',
+  ] as const)('lays out %s flows vertically without changing their graph connections', (mode) => {
+    const flow = createDefaultFlow(mode, 33);
+
+    expect(flow.nodes.every((node) => node.data.layoutDirection === 'vertical')).toBe(true);
+    expect(flow.nodes.map((node) => node.position.y)).toEqual(
+      [...new Set(flow.nodes.map((node) => node.position.y))].sort((a, b) => a - b)
+    );
+    expect(flow.edges).toHaveLength(flow.nodes.length - 1);
+    flow.edges.forEach((edge) => {
+      const source = flow.nodes.findIndex((node) => node.id === edge.source);
+      const target = flow.nodes.findIndex((node) => node.id === edge.target);
+      expect(source).toBeGreaterThanOrEqual(0);
+      expect(target).toBeGreaterThan(source);
+    });
+  });
+
+  it('preserves imported positions when a graph contains a cycle', () => {
+    const flow = createDefaultFlow('OUTBOUND_EVENT', 33);
+    const nodes = flow.nodes.map((node, index) => ({ ...node, position: { x: index * 100, y: 50 } }));
+    const cycle = [...flow.edges, { id: 'cycle-edge', source: 'transform-1', target: 'trigger-1' }];
+
+    expect(layoutFlowGraph(nodes, cycle)).toBe(nodes);
+    expect(nodes.map((node) => node.position.y)).toEqual(nodes.map(() => 50));
   });
 });

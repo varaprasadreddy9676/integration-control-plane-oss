@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Form, Input, InputNumber, Modal, Select, Space, Switch, Tag, Typography, message } from 'antd';
-import { MailOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Form, Input, InputNumber, Modal, Select, Space, Switch, message } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from "../../components/common/Icon";
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import { InlineHint } from '../../components/common/InlineHint';
 import {
   createSenderProfile,
@@ -14,6 +16,8 @@ import {
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
 import { useTenant } from '../../app/tenant-context';
 import { ModernTable } from '../../components/common/ModernTable';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { Button } from '../../components/common/LegacyButton';
 
 const splitLines = (value?: string) =>
   String(value || '')
@@ -22,7 +26,7 @@ const splitLines = (value?: string) =>
     .filter(Boolean);
 
 export const SenderProfilesRoute = () => {
-  const { spacing, token } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const { orgId } = useTenant();
   const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
@@ -91,14 +95,10 @@ export const SenderProfilesRoute = () => {
         key: 'sender',
         render: (_: unknown, record: SenderProfile) => (
           <Space direction="vertical" size={2}>
-            <Typography.Text strong>{record.name}</Typography.Text>
-            <Typography.Text type="secondary">{record.fromEmail}</Typography.Text>
+            <Text weight="semibold">{record.name}</Text>
+            <Text color="secondary">{record.fromEmail}</Text>
             {!!record.aliases?.length && (
-              <Space size={4} wrap>
-                {record.aliases.map((alias) => (
-                  <Tag key={alias}>{alias}</Tag>
-                ))}
-              </Space>
+              <Text color="secondary" as="span">{record.aliases.join(' · ')}</Text>
             )}
           </Space>
         ),
@@ -108,9 +108,9 @@ export const SenderProfilesRoute = () => {
         key: 'provider',
         render: (_: unknown, record: SenderProfile) => (
           <Space size={6} wrap>
-            <Tag color="blue">{record.provider}</Tag>
-            {record.isDefault && <Tag color="green">Default</Tag>}
-            {!record.isActive && <Tag color="red">Inactive</Tag>}
+            <StatusBadge label={record.provider} variant="info" size="small" showIcon={false} />
+            {record.isDefault && <StatusBadge label="Default" variant="success" size="small" showIcon={false} />}
+            {!record.isActive && <StatusBadge label="Inactive" variant="neutral" size="small" showIcon={false} />}
           </Space>
         ),
       },
@@ -155,33 +155,37 @@ export const SenderProfilesRoute = () => {
   );
 
   return (
-    <div>
-      {contextHolder}
-      <PageHeader
+    <PageTemplate
+      as="main"
+      className="sender-profile-workspace"
+      contentClassName="sender-profile-workspace__content"
+      header={<PageHeader
         title="Sender Profiles"
         description="Manage reusable email sender credentials per organization. Generic inbound email routing resolves one of these profiles at runtime."
-      />
+      />}
+    >
+      {contextHolder}
 
-      <Card style={{ borderRadius: token.borderRadiusLG }}>
-        <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
-          <InlineHint icon={<MailOutlined />}>
+      <section className="sender-profile-surface" aria-label="Sender profiles">
+        <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
+          <InlineHint icon={<GatewayIcon name="MailOutlined" />}>
             Use one generic email integration, many sender profiles — create reusable mailbox profiles once, then let
             the generic inbound email integration resolve the correct sender from the request's from field. If the
             request omits from, the configured default profile can be used safely.
           </InlineHint>
 
           <Space wrap>
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+            <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} onClick={handleOpenCreate}>
               Add Sender Profile
             </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+            <Button icon={<GatewayIcon name="ReloadOutlined" />} onClick={() => refetch()}>
               Refresh
             </Button>
           </Space>
 
           <ModernTable rowKey="id" columns={columns} dataSource={profiles} loading={isLoading} pagination={false} />
         </Space>
-      </Card>
+      </section>
 
       <Modal
         open={open}
@@ -261,7 +265,7 @@ export const SenderProfilesRoute = () => {
             label="Port"
             rules={[{ required: provider === 'SMTP', message: 'Port is required' }]}
           >
-            <InputNumber min={1} max={65535} style={{ width: '100%' }} />
+            <InputNumber min={1} max={65535} className="console-width-full" />
           </Form.Item>
           <Form.Item
             name={['providerConfig', 'username']}
@@ -288,6 +292,6 @@ export const SenderProfilesRoute = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

@@ -1,7 +1,9 @@
-import { Space, Tag, Typography } from 'antd';
+import { Space } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
 import { ConfigSection } from '../../../../../components/common/ConfigSection';
-import { ThunderboltOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import type { DeliveryPanelProps } from './DeliveryPanel.types';
+import { StatusBadge } from '../../../../../components/common/StatusBadge';
 
 const { Text } = Typography;
 
@@ -28,17 +30,17 @@ export const DeliveryReliabilitySummary = ({
   const windowSeconds = form?.getFieldValue(['rateLimits', 'windowSeconds']);
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <ConfigSection icon={<ClockCircleOutlined />} title="Retries and timeout">
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
+    <Space direction="vertical" size={16} className="console-width-full">
+      <ConfigSection icon={<GatewayIcon name="ClockCircleOutlined" />} title="Retries and timeout">
+        <Space direction="vertical" size="small" className="console-width-full">
+          <div className="console-flex-gap-2">
+            <Text type="secondary" className="console-label-min-width">
               Request Timeout:
             </Text>
             <Text strong>{timeoutMs} ms</Text>
           </div>
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
+          <div className="console-flex-gap-2">
+            <Text type="secondary" className="console-label-min-width">
               Retry Attempts:
             </Text>
             <Text strong>{retryCount}</Text>
@@ -46,24 +48,27 @@ export const DeliveryReliabilitySummary = ({
         </Space>
       </ConfigSection>
 
-      <ConfigSection icon={<ThunderboltOutlined />} title="Rate limiting">
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
+      <ConfigSection icon={<GatewayIcon name="ThunderboltOutlined" />} title="Rate limiting">
+        <Space direction="vertical" size="small" className="console-width-full">
+          <div className="console-flex-gap-2">
+            <Text type="secondary" className="console-label-min-width">
               Status:
             </Text>
-            <Tag color={rateLimitEnabled ? 'green' : 'default'}>{rateLimitEnabled ? 'Enabled' : 'Disabled'}</Tag>
+            <StatusBadge
+              label={rateLimitEnabled ? 'Enabled' : 'Disabled'}
+              variant={rateLimitEnabled ? 'success' : 'neutral'}
+            />
           </div>
           {rateLimitEnabled && (
             <>
-              <div style={{ display: 'flex', gap: spacing[2] }}>
-                <Text type="secondary" style={{ minWidth: 150 }}>
+              <div className="console-flex-gap-2">
+                <Text type="secondary" className="console-label-min-width">
                   Max Requests:
                 </Text>
                 <Text strong>{maxRequests || 100}</Text>
               </div>
-              <div style={{ display: 'flex', gap: spacing[2] }}>
-                <Text type="secondary" style={{ minWidth: 150 }}>
+              <div className="console-flex-gap-2">
+                <Text type="secondary" className="console-label-min-width">
                   Window (seconds):
                 </Text>
                 <Text strong>{windowSeconds || 60}</Text>

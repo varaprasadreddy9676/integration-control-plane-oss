@@ -1,11 +1,14 @@
 import React from 'react';
+import { App } from 'antd';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../app/theme-provider';
 
 const getExecutionLogTimeline = vi.fn();
+const copyText = vi.hoisted(() => vi.fn());
 vi.mock('../services/api', () => ({ getExecutionLogTimeline: (...a: unknown[]) => getExecutionLogTimeline(...a) }));
+vi.mock('../utils/clipboard', () => ({ copyTextToClipboard: copyText }));
 
 import { DeliveryTraceTimeline } from '../features/logs/components/DeliveryTraceTimeline';
 
@@ -14,14 +17,19 @@ const renderTimeline = () => {
   return render(
     <QueryClientProvider client={client}>
       <ThemeProvider>
-        <DeliveryTraceTimeline traceId="trace-abc" />
+        <App>
+          <DeliveryTraceTimeline traceId="trace-abc" />
+        </App>
       </ThemeProvider>
     </QueryClientProvider>
   );
 };
 
 describe('delivery trace timeline', () => {
-  beforeEach(() => getExecutionLogTimeline.mockReset());
+  beforeEach(() => {
+    getExecutionLogTimeline.mockReset();
+    copyText.mockReset();
+  });
 
 
   it('names the step that failed and why, which is the reason to open it', async () => {
@@ -30,15 +38,20 @@ describe('delivery trace timeline', () => {
       timeline: [
         { name: 'receive', status: 'SUCCESS', durationMs: 10, gapMs: null },
         { name: 'transform', status: 'SUCCESS', durationMs: 30, gapMs: 5 },
-        { name: 'deliver', status: 'FAILED', durationMs: 200, gapMs: 2, error: { message: 'HTTP 500 from Alex LIS' } },
+        { name: 'deliver', status: 'FAILED', durationMs: 200, gapMs: 2, error: { message: 'HTTP 500 from Akhil LIS' } },
       ],
     });
 
     renderTimeline();
 
     expect(await screen.findByText('deliver')).toBeInTheDocument();
-    expect(screen.getByText('HTTP 500 from Alex LIS')).toBeInTheDocument();
+    expect(screen.getByText('HTTP 500 from Akhil LIS')).toBeInTheDocument();
     expect(screen.getByText('3 steps')).toBeInTheDocument();
+    expect(await screen.findAllByText('Completed')).toHaveLength(2);
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(document.querySelector('.ant-tag')).not.toBeInTheDocument();
+    expect(document.querySelector('.ant-typography')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy trace ID' })).toBeInTheDocument();
   });
 
   it('surfaces the wait between steps, not just each step duration', async () => {
@@ -55,6 +68,20 @@ describe('delivery trace timeline', () => {
     // A delivery that sat in a queue for 5s looks instant if you only read
     // step durations.
     expect(await screen.findByText('+4990 ms after previous')).toBeInTheDocument();
+  });
+
+  it('copies the trace ID from its labeled action', async () => {
+    getExecutionLogTimeline.mockResolvedValue({
+      summary: { traceId: 'trace-abc', stepCount: 1, totalDuration: 10 },
+      timeline: [{ name: 'receive', status: 'SUCCESS', durationMs: 10 }],
+    });
+    copyText.mockResolvedValue(true);
+
+    renderTimeline();
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy trace ID' }));
+
+    expect(await screen.findByText('Completed')).toBeInTheDocument();
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('trace-abc'));
   });
 
   // The "trace unavailable" error state is deliberately not covered here. It

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { App, Button, Tooltip } from 'antd';
-import type { FormInstance } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
+import { App, Tooltip } from "@/components/common/LegacyAntdControls";
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from "./Icon";
 import { useAuth } from '../../app/auth-context';
 import { fillMaskedValues, hasMaskedValues } from '../../utils/credentials';
+import { Button } from './LegacyButton';
 
 interface RevealCredentialsButtonProps {
   integrationId?: string;
@@ -50,7 +51,7 @@ export const RevealCredentialsButton = ({
 
   return (
     <Tooltip title="Show the stored passwords, keys and tokens (super admin only, audited)">
-      <Button icon={<EyeOutlined />} onClick={reveal} loading={loading}>
+      <Button icon={<GatewayIcon name="EyeOutlined" />} onClick={reveal} loading={loading}>
         Reveal credentials
       </Button>
     </Tooltip>

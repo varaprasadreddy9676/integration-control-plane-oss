@@ -1,3 +1,4 @@
+import '@ant-design/v5-patch-for-react-19';
 import '@testing-library/jest-dom';
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';

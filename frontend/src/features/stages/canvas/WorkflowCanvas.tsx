@@ -1,7 +1,7 @@
 import './canvas.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Dropdown, Form, message } from 'antd';
+import { Dropdown, Form, message } from "@/components/common/LegacyAntdControls";
 import { useThemeMode } from '../../../app/theme-provider';
 import type { SendBindings, StageConfig, StageHook } from '../../../services/stages-api';
 import { stageFromTemplate } from '../../../services/stages-api';
@@ -109,7 +109,9 @@ export const WorkflowCanvas = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   // A flow with many deliveries starts with all but the first folded into one step each.
-  const [folded, setFolded] = useState<number[]>(() => (targets.length > 3 ? targets.slice(1).map((_, index) => index + 1) : []));
+  const [folded, setFolded] = useState<number[]>(() =>
+    targets.length > 3 ? targets.slice(1).map((_, index) => index + 1) : []
+  );
   const [query, setQuery] = useState('');
   const history = useRef<{ past: Snapshot[]; future: Snapshot[] }>({ past: [], future: [] });
   const [, bump] = useState(0);
@@ -130,7 +132,10 @@ export const WorkflowCanvas = ({
     0
   );
   const collapsed = folded.filter((index) => !(mode === 'executions' && index === loggedGroup));
-  const toggleGroup = (index: number) => setFolded((current) => (current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]));
+  const toggleGroup = (index: number) =>
+    setFolded((current) =>
+      current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]
+    );
 
   // The flow is built twice at most: full size, and compact once the zoom is low (spec 10).
   const baseFlow = useMemo(
@@ -185,7 +190,9 @@ export const WorkflowCanvas = ({
     Object.fromEntries(targets.map((target) => [target.key, stagesOf(form.getFieldsValue(true), target)]));
   // A change made here counts as a change to the form, so the page warns before it is thrown away.
   const writeToForm = (changes: { target: DeliveryTarget; stages: StageConfig[] }[]) =>
-    form.setFields(changes.map(({ target, stages }) => ({ name: [...target.namePath, 'stages'], value: stages, touched: true })));
+    form.setFields(
+      changes.map(({ target, stages }) => ({ name: [...target.namePath, 'stages'], value: stages, touched: true }))
+    );
   const apply = (state: Snapshot) => {
     writeToForm(targets.map((target) => ({ target, stages: state[target.key] || [] })));
     bump((n) => n + 1);
@@ -255,7 +262,9 @@ export const WorkflowCanvas = ({
   const shownLog = useRef<string | null>(null);
   useEffect(() => {
     if (!deliveryLogId || !trace || shownLog.current === deliveryLogId || viewport.size.width <= 0) return;
-    const taken = flow.nodes.filter((node) => trace.nodes[node.id] && trace.nodes[node.id].state !== 'unvisited').map((node) => boxOf(node, flow.compact));
+    const taken = flow.nodes
+      .filter((node) => trace.nodes[node.id] && trace.nodes[node.id].state !== 'unvisited')
+      .map((node) => boxOf(node, flow.compact));
     if (taken.length === 0) return;
     const left = Math.min(...taken.map((box) => box.x));
     const top = Math.min(...taken.map((box) => box.y));
@@ -274,7 +283,8 @@ export const WorkflowCanvas = ({
     const stage = node.stageIndex === undefined ? undefined : deliveries[node.group].stages[node.stageIndex];
     if (!stage) return undefined;
     const problems = data.issues[stage.id];
-    if (problems?.length) return { state: 'issue', meta: `${problems.length} issue${problems.length === 1 ? '' : 's'}` };
+    if (problems?.length)
+      return { state: 'issue', meta: `${problems.length} issue${problems.length === 1 ? '' : 's'}` };
     if (stage.enabled === false) return { state: 'off' };
     return data.isEdited(stage) ? { state: 'edited' } : undefined;
   };
@@ -300,7 +310,9 @@ export const WorkflowCanvas = ({
 
   const startPress = (node: FlowNode, event: React.PointerEvent<HTMLButtonElement>) => {
     if (readOnly || mode !== 'configure' || node.stageIndex === undefined || event.button !== 0) return;
-    const siblings = flow.nodes.filter((other) => other.group === node.group && other.hook === node.hook && other.stageIndex !== undefined).sort((a, b) => a.row - b.row);
+    const siblings = flow.nodes
+      .filter((other) => other.group === node.group && other.hook === node.hook && other.stageIndex !== undefined)
+      .sort((a, b) => a.row - b.row);
     if (siblings.length < 2) return;
     const others = siblings.filter((other) => other.id !== node.id);
     const heightOf = (other: FlowNode) => boxOf(other, flow.compact).height;
@@ -315,7 +327,12 @@ export const WorkflowCanvas = ({
       landing = others.filter((other) => topOf(other) + heightOf(other) / 2 < centre).length;
       const before = others[landing - 1];
       const after = others[landing];
-      const lineY = before && after ? (topOf(before) + heightOf(before) + topOf(after)) / 2 : before ? topOf(before) + heightOf(before) + 22 : topOf(after) - 22;
+      const lineY =
+        before && after
+          ? (topOf(before) + heightOf(before) + topOf(after)) / 2
+          : before
+            ? topOf(before) + heightOf(before) + 22
+            : topOf(after) - 22;
       setDrag({ id: node.id, offset, lineY });
     };
     const onMove = (move: PointerEvent) => {
@@ -338,7 +355,10 @@ export const WorkflowCanvas = ({
       if (landing === siblings.indexOf(node)) return;
       const delivery = deliveries[node.group];
       const moved = delivery.stages[node.stageIndex as number];
-      writeStages(delivery.target, insertStage(removeStageAt(delivery.stages, node.stageIndex as number), moved, node.hook as StageHook, landing));
+      writeStages(
+        delivery.target,
+        insertStage(removeStageAt(delivery.stages, node.stageIndex as number), moved, node.hook as StageHook, landing)
+      );
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -362,7 +382,12 @@ export const WorkflowCanvas = ({
         content: (
           <span>
             Removed {removed.name}.{' '}
-            <button type="button" className="wf-btn" style={{ height: 24, marginLeft: 8 }} onClick={undo}>
+            <button
+              type="button"
+              className="wf-btn ui-extracted-d4589e9fda"
+
+              onClick={undo}
+            >
               Undo
             </button>
           </span>
@@ -484,7 +509,11 @@ export const WorkflowCanvas = ({
       data-theme={themeMode === 'dark' ? 'dark' : 'light'}
     >
       {holder}
-      <div className="wf-body" data-drawer={selected ? 'open' : 'closed'} style={{ ['--wf-drawer-w' as string]: `${selected ? drawerFor(selected).width : 0}px` }}>
+      <div
+        className="wf-body"
+        data-drawer={selected ? 'open' : 'closed'}
+        style={{ ['--wf-drawer-w' as string]: `${selected ? drawerFor(selected).width : 0}px` }}
+      >
         <div className="wf-main">
           <div className="wf-topbar">
             <div className="wf-group">
@@ -511,7 +540,7 @@ export const WorkflowCanvas = ({
                 <button type="button" aria-label="Zoom out" onClick={viewport.zoomOut}>
                   −
                 </button>
-                <button type="button" aria-label="Zoom level" disabled style={{ cursor: 'default', minWidth: 52 }}>
+                <button type="button" aria-label="Zoom level" disabled className="ui-extracted-6075722e3b">
                   {zoomLabel}
                 </button>
                 <button type="button" aria-label="Zoom in" onClick={viewport.zoomIn}>
@@ -660,7 +689,16 @@ export const WorkflowCanvas = ({
                   />
                 );
               })}
-              {drag && <div className="wf-drop" style={{ left: boxOf(flow.nodes.find((n) => n.id === drag.id) as FlowNode, flow.compact).x, top: drag.lineY, width: flow.compact ? 208 : 256 }} />}
+              {drag && (
+                <div
+                  className="wf-drop"
+                  style={{
+                    left: boxOf(flow.nodes.find((n) => n.id === drag.id) as FlowNode, flow.compact).x,
+                    top: drag.lineY,
+                    width: flow.compact ? 208 : 256,
+                  }}
+                />
+              )}
               {mode === 'configure' &&
                 !readOnly &&
                 flow.insertions.map((point) => (
@@ -753,7 +791,10 @@ export const WorkflowCanvas = ({
             onAction={(action) => act(selected, action)}
             onClose={() => setSelectedId(null)}
             stepEditors={stepEditors}
-            onOpenTab={onOpenTab && ((tab) => onOpenTab(tab === 'transformation' && targets[0]?.actionIndex !== null ? 'multiAction' : tab))}
+            onOpenTab={
+              onOpenTab &&
+              ((tab) => onOpenTab(tab === 'transformation' && targets[0]?.actionIndex !== null ? 'multiAction' : tab))
+            }
             onChanged={() => void execution.refetch()}
           />
         )}

@@ -1,26 +1,21 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
-  Alert,
   App,
-  Button,
   Card,
   Checkbox,
-  Empty,
   Form,
   Input,
   Modal,
   Popconfirm,
   Radio,
   Select,
-  Skeleton,
   Space,
   Switch,
-  Tag,
   Tooltip,
-  Typography,
-} from 'antd';
-import { CheckCircleFilled, CloseCircleFilled, PlusOutlined } from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import {
@@ -36,6 +31,9 @@ import {
   type AlertChannelPlugin,
 } from '../../../services/api';
 import { cssVar } from '../../../design-system/utils';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const CHANNELS_KEY = ['alert-channels'];
 
@@ -51,7 +49,10 @@ const IntegrationSelect = ({
   onChange?: (value: string) => void;
   id?: string;
 }) => {
-  const { data = [], isLoading } = useQuery({ queryKey: ['inbound-integrations-for-alerts'], queryFn: () => getInboundIntegrations() });
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['inbound-integrations-for-alerts'],
+    queryFn: () => getInboundIntegrations(),
+  });
   return (
     <Select
       {...props}
@@ -82,7 +83,9 @@ const FieldInput = ({ field, onPicked }: { field: AlertChannelField; onPicked: (
     <Form.Item
       name={['config', field.key]}
       label={field.label}
-      extra={field.type === 'list' ? [field.help, 'Separate several with commas.'].filter(Boolean).join(' ') : field.help}
+      extra={
+        field.type === 'list' ? [field.help, 'Separate several with commas.'].filter(Boolean).join(' ') : field.help
+      }
       rules={rules}
       validateTrigger="onBlur"
     >
@@ -98,16 +101,21 @@ const FieldInput = ({ field, onPicked }: { field: AlertChannelField; onPicked: (
 };
 
 const LastResult = ({ result }: { result: AlertChannel['lastResult'] }) => {
-  if (!result) return <Typography.Text type="secondary">Nothing sent yet</Typography.Text>;
+  if (!result) return <Text color="secondary">Nothing sent yet</Text>;
   const when = dayjs(result.at).format('MMM D, HH:mm');
   return result.ok ? (
-    <Typography.Text type="secondary">
-      <CheckCircleFilled style={{ color: cssVar.success.text }} aria-hidden /> Delivered {when}
-    </Typography.Text>
+    <Space size={6}>
+      <StatusBadge status="SUCCESS" size="small" />
+      <Text color="secondary">{when}</Text>
+    </Space>
   ) : (
-    <Typography.Text type="danger">
-      <CloseCircleFilled aria-hidden /> Failed {when}: {result.error}
-    </Typography.Text>
+    <Space size={6} wrap>
+      <StatusBadge status="FAILED" size="small" />
+      <Text color="secondary">
+        {when}
+        {result.error ? `: ${result.error}` : ''}
+      </Text>
+    </Space>
   );
 };
 
@@ -221,42 +229,60 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
       title="Alert channels"
       style={style}
       extra={
-        <Button icon={<PlusOutlined />} onClick={() => startEdit()} disabled={!plugins.length}>
+        <Button icon={<GatewayIcon name="PlusOutlined" />} onClick={() => startEdit()} disabled={!plugins.length}>
           Add channel
         </Button>
       }
     >
-      <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+      <Text color="secondary" as="p" className="ui-extracted-2f71104fa3">
         Where alerts go when something needs attention — an integration or scheduled job failing, the event source
         stopping, failed deliveries piling up — and when it is fixed.
-      </Typography.Paragraph>
-      {isLoading && <Skeleton active paragraph={{ rows: 3 }} />}
+      </Text>
+      {isLoading && <StatePanel glyph="connecting" tone="busy" title="Loading alert channels" size="compact" />}
       {(channelsQuery.isError || pluginsQuery.isError) && (
-        <Alert type="error" showIcon message="Could not load alert channels" />
+        <StatePanel
+          glyph="disrupted"
+          tone="critical"
+          size="compact"
+          title="Could not load alert channels"
+          description="Check your connection and try again."
+          actions={
+            <Button
+              onClick={() => {
+                void channelsQuery.refetch();
+                void pluginsQuery.refetch();
+              }}
+            >
+              Retry
+            </Button>
+          }
+        />
       )}
       {!isLoading && channelsQuery.isSuccess && channels.length === 0 && (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={`No alert channels yet. Add ${plugins.map((plugin) => plugin.name).join(', ')}.`}
+        <StatePanel
+          size="compact"
+          glyph="searching"
+          title="No alert channels yet"
+          description={plugins.length ? `${plugins.length} channel types available.` : undefined}
         />
       )}
       {channels.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="console-stack-vertical-gap-2">
           {channels.map((channel) => (
             <div
               key={channel.id}
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: 12,
+                gap: 'var(--spacing-3)',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: 12,
+                padding: 'var(--spacing-3)',
                 border: `1px solid ${cssVar.border.subtle}`,
                 borderRadius: 8,
               }}
             >
-              <Space direction="vertical" size={2} style={{ minWidth: 0 }}>
+              <Space direction="vertical" size={2} className="console-min-width-0">
                 <Space size={8} wrap>
                   <Switch
                     size="small"
@@ -264,8 +290,8 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
                     aria-label={`${channel.name} enabled`}
                     onChange={(enabled) => toggle.mutate({ id: channel.id, enabled })}
                   />
-                  <Typography.Text strong>{channel.name}</Typography.Text>
-                  <Tag>{pluginFor(channel.type)?.name || channel.type}</Tag>
+                  <Text weight="semibold">{channel.name}</Text>
+                  <Text color="secondary">{pluginFor(channel.type)?.name || channel.type}</Text>
                   {channel.events.length < events.length && (
                     <Tooltip
                       title={events
@@ -273,9 +299,9 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
                         .map((event) => event.label)
                         .join(' · ')}
                     >
-                      <Tag>
+                      <Text color="secondary">
                         {channel.events.length} of {events.length} alerts
-                      </Tag>
+                      </Text>
                     </Tooltip>
                   )}
                 </Space>
@@ -314,7 +340,7 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
         open={Boolean(editing)}
         title={editing?.channel ? `Edit ${editing.channel.name}` : 'Add alert channel'}
         onCancel={() => setEditing(null)}
-        destroyOnClose
+        destroyOnHidden
         okText="Save channel"
         onOk={submit}
         okButtonProps={{ disabled: !editing?.plugin, loading: save.isPending }}
@@ -323,12 +349,24 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
           <Radio.Group
             value={editing.plugin?.type}
             onChange={(event) => choosePlugin(pluginFor(event.target.value) as AlertChannelPlugin)}
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginBottom: 16 }}
+            className="ui-extracted-5b7bab859d"
           >
             {plugins.map((plugin) => (
-              <Radio.Button key={plugin.type} value={plugin.type} style={{ height: 'auto', padding: '8px 12px', lineHeight: 1.4 }}>
-                <div style={{ fontWeight: 600 }}>{plugin.name}</div>
-                <div style={{ fontSize: 12, color: cssVar.text.secondary, whiteSpace: 'normal' }}>{plugin.description}</div>
+              <Radio.Button
+                key={plugin.type}
+                value={plugin.type}
+                className="ui-extracted-515ef852b9"
+              >
+                <div className="console-font-weight-semibold">{plugin.name}</div>
+                <div
+                  style={{
+                    fontSize: 'var(--console-type-caption)',
+                    color: cssVar.text.secondary,
+                    whiteSpace: 'normal',
+                  }}
+                >
+                  {plugin.description}
+                </div>
               </Radio.Button>
             ))}
           </Radio.Group>
@@ -350,18 +388,19 @@ export const AlertChannelsCard = ({ style }: { style?: CSSProperties }) => {
               />
             ))}
             {editing.channel && editing.plugin.fields.some((field) => field.type === 'secret') && (
-              <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: -8 }}>
+              <Text color="secondary" as="p" size="sm" className="ui-extracted-8d98105661">
                 Hidden values stay as they are unless you replace them.
-              </Typography.Paragraph>
+              </Text>
             )}
-            <Form.Item
-              name="events"
-              label="Send"
-              rules={[{ required: true, message: 'Pick at least one alert' }]}
-            >
+            <Form.Item name="events" label="Send" rules={[{ required: true, message: 'Pick at least one alert' }]}>
               <Checkbox.Group options={events.map((event) => ({ label: event.label, value: event.type }))} />
             </Form.Item>
-            <Form.Item name="enabled" label="On" valuePropName="checked" extra="Turn off to pause this channel without removing it.">
+            <Form.Item
+              name="enabled"
+              label="On"
+              valuePropName="checked"
+              extra="Turn off to pause this channel without removing it."
+            >
               <Switch aria-label="Channel on" />
             </Form.Item>
           </Form>

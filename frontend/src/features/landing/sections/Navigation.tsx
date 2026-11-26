@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Github, Sun, Moon } from 'lucide-react';
+import { Icon } from '../../../components/common/Icon';
 import { useTheme } from '../../../hooks/useTheme';
 import { LANDING_PUBLIC_MODE, GITHUB_URL } from '../landing-config';
 
@@ -38,22 +38,12 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
       <div className="flex items-center justify-between px-[4vw] py-4">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <span className="font-heading font-bold text-lg whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+          <span className="font-heading font-bold text-lg whitespace-nowrap landing-text-primary">
             Integration Gateway
           </span>
           <span
-            className="hidden sm:inline"
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase' as const,
-              color: 'var(--accent-color)',
-              border: '1px solid var(--accent-color)',
-              borderRadius: 4,
-              padding: '1px 6px',
-              opacity: 0.85,
-            }}
+            className="hidden sm:inline ui-extracted-0214ce59e0"
+
           >
             BETA
           </span>
@@ -67,8 +57,7 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
                 <a
                   key={href}
                   href={href}
-                  className="text-sm transition-colors"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="text-sm transition-colors landing-text-secondary"
                   onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                   onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
                 >
@@ -77,8 +66,7 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
               ))}
             <Link
               to="/docs"
-              className="text-sm transition-colors"
-              style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+              className="text-sm transition-colors console-link-muted"
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
             >
@@ -89,12 +77,11 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm transition-colors"
-                style={{ color: 'var(--text-secondary)' }}
+                className="flex items-center gap-1.5 text-sm transition-colors landing-text-secondary"
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
               >
-                <Github className="w-4 h-4" />
+                <Icon name="GithubOutlined" size="sm" />
                 GitHub
               </a>
             )}
@@ -106,7 +93,7 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
             className="theme-toggle"
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
-            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            {theme === 'light' ? <Icon name="MoonOutlined" size="md" /> : <Icon name="SunOutlined" size="md" />}
           </button>
 
           <button className="btn-primary text-sm py-2 px-4 whitespace-nowrap" onClick={onLoginClick}>

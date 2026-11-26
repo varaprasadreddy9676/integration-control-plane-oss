@@ -3,7 +3,6 @@ import { useParams, useLocation } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import {
   App,
-  Button,
   Card,
   Col,
   Form,
@@ -13,21 +12,21 @@ import {
   Select,
   Space,
   Switch,
-  Tabs,
-  Typography,
   Divider,
-  Alert,
-  Collapse
-} from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, DatabaseOutlined, BookOutlined } from '@ant-design/icons';
+  Collapse,
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MonacoEditorInput } from '../../integrations/components/MonacoEditorInput';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { getTemplateById, createTemplate, updateTemplate } from '../../../services/api';
 import { useDesignTokens, spacingToNumber, withAlpha, cssVar } from '../../../design-system/utils';
+import { Button } from '../../../components/common/LegacyButton';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { InlineNotice as Notice } from '../../../components/common';
 
 const { TextArea } = Input;
-const { Title, Text } = Typography;
 
 const CATEGORIES = ['EHR', 'PMS', 'BILLING', 'LAB', 'IMAGING', 'OTHER'];
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
@@ -45,7 +44,7 @@ const DEFAULT_EVENT_TYPES = [
   'PAYMENT_RECEIVED',
   'LAB_RESULT_AVAILABLE',
   'PRESCRIPTION_CREATED',
-  'CLINICAL_NOTE_ADDED'
+  'CLINICAL_NOTE_ADDED',
 ];
 
 const DEFAULT_SCRIPT = `// Transform integration payload
@@ -78,7 +77,7 @@ export const TemplateDetailRoute = () => {
   const { data: template, isLoading } = useQuery({
     queryKey: ['template', id],
     queryFn: () => (id && id !== 'new' ? getTemplateById(id) : Promise.resolve(null)),
-    enabled: Boolean(id && id !== 'new')
+    enabled: Boolean(id && id !== 'new'),
   });
 
   useEffect(() => {
@@ -93,7 +92,7 @@ export const TemplateDetailRoute = () => {
         authType: template.authType,
         timeoutMs: template.timeoutMs || 10000,
         retryCount: template.retryCount || 3,
-        isActive: template.isActive !== false
+        isActive: template.isActive !== false,
       });
 
       if (template.headers) {
@@ -155,10 +154,10 @@ export const TemplateDetailRoute = () => {
         transformationMode: transformScript && transformScript.trim() ? 'SCRIPT' : 'NONE',
         transformation: {
           mode: transformScript && transformScript.trim() ? 'SCRIPT' : 'NONE',
-          script: transformScript
+          script: transformScript,
         },
         isActive: values.isActive,
-        metadata
+        metadata,
       };
 
       if (isCreate) {
@@ -180,28 +179,37 @@ export const TemplateDetailRoute = () => {
   };
 
   return (
-    <div>
-      <PageHeader
-        title={isCreate ? 'Create Template' : template?.name || passedTitle || 'Edit Template'}
-        morphTitle={!isCreate}
-        description="Define a reusable event rule template for common integrations"
-        breadcrumb={[
-          { label: 'Templates', path: '/templates' },
-          { label: isCreate ? 'Create' : 'Edit' }
-        ]}
-        compact
-        actions={
-          <Space>
-            <Button size="middle" icon={<ArrowLeftOutlined />} onClick={() => navigate('/templates')}>
-              Back to Templates
-            </Button>
-            <Button type="primary" size="middle" icon={<SaveOutlined />} onClick={() => form.submit()} loading={isSaving}>
-              {isCreate ? 'Create Template' : 'Save Changes'}
-            </Button>
-          </Space>
-        }
-      />
-
+    <PageTemplate
+      header={
+        <PageHeader
+          title={isCreate ? 'Create Template' : template?.name || passedTitle || 'Edit Template'}
+          morphTitle={!isCreate}
+          description="Define a reusable event rule template for common integrations"
+          breadcrumb={[{ label: 'Templates', path: '/templates' }, { label: isCreate ? 'Create' : 'Edit' }]}
+          compact
+          actions={
+            <Space>
+              <Button
+                size="middle"
+                icon={<GatewayIcon name="ArrowLeftOutlined" />}
+                onClick={() => navigate('/templates')}
+              >
+                Back to Templates
+              </Button>
+              <Button
+                type="primary"
+                size="middle"
+                icon={<GatewayIcon name="SaveOutlined" />}
+                onClick={() => form.submit()}
+                loading={isSaving}
+              >
+                {isCreate ? 'Create Template' : 'Save Changes'}
+              </Button>
+            </Space>
+          }
+        />
+      }
+    >
       <Form
         form={form}
         layout="vertical"
@@ -212,7 +220,7 @@ export const TemplateDetailRoute = () => {
           timeoutMs: 10000,
           retryCount: 3,
           isActive: true,
-          eventTypes: []
+          eventTypes: [],
         }}
       >
         <Row gutter={[spacingToNumber(spacing[4]), spacingToNumber(spacing[4])]}>
@@ -243,8 +251,10 @@ export const TemplateDetailRoute = () => {
                     rules={[{ required: true, message: 'Category is required' }]}
                   >
                     <Select placeholder="Select category">
-                      {CATEGORIES.map(cat => (
-                        <Select.Option key={cat} value={cat}>{cat}</Select.Option>
+                      {CATEGORIES.map((cat) => (
+                        <Select.Option key={cat} value={cat}>
+                          {cat}
+                        </Select.Option>
                       ))}
                     </Select>
                   </Form.Item>
@@ -261,14 +271,11 @@ export const TemplateDetailRoute = () => {
                 name="eventType"
                 rules={[{ required: true, message: 'At least one event type is required' }]}
               >
-                <Select
-                  mode="multiple"
-                  placeholder="Select event types"
-                  allowClear
-                  showSearch
-                >
-                  {DEFAULT_EVENT_TYPES.map(event => (
-                    <Select.Option key={event} value={event}>{event}</Select.Option>
+                <Select mode="multiple" placeholder="Select event types" allowClear showSearch>
+                  {DEFAULT_EVENT_TYPES.map((event) => (
+                    <Select.Option key={event} value={event}>
+                      {event}
+                    </Select.Option>
                   ))}
                 </Select>
               </Form.Item>
@@ -281,7 +288,7 @@ export const TemplateDetailRoute = () => {
                 validateTrigger="onBlur"
                 rules={[
                   { required: true, message: 'Target URL is required' },
-                  { type: 'url', message: 'Must be a valid URL' }
+                  { type: 'url', message: 'Must be a valid URL' },
                 ]}
               >
                 <Input placeholder="https://api.example.com/integration" />
@@ -295,8 +302,10 @@ export const TemplateDetailRoute = () => {
                     rules={[{ required: true, message: 'HTTP method is required' }]}
                   >
                     <Select>
-                      {HTTP_METHODS.map(method => (
-                        <Select.Option key={method} value={method}>{method}</Select.Option>
+                      {HTTP_METHODS.map((method) => (
+                        <Select.Option key={method} value={method}>
+                          {method}
+                        </Select.Option>
                       ))}
                     </Select>
                   </Form.Item>
@@ -307,13 +316,13 @@ export const TemplateDetailRoute = () => {
                     name="timeoutMs"
                     rules={[{ required: true, message: 'Timeout is required' }]}
                   >
-                    <InputNumber min={1000} max={60000} step={1000} style={{ width: '100%' }} />
+                    <InputNumber min={1000} max={60000} step={1000} className="console-width-full" />
                   </Form.Item>
                 </Col>
               </Row>
 
               <Form.Item label="Retry Count" name="retryCount">
-                <InputNumber min={0} max={10} style={{ width: '100%' }} />
+                <InputNumber min={0} max={10} className="console-width-full" />
               </Form.Item>
 
               <Form.Item label="Custom Headers (JSON)">
@@ -322,11 +331,11 @@ export const TemplateDetailRoute = () => {
                   value={headersJson}
                   onChange={(e) => setHeadersJson(e.target.value)}
                   placeholder={'{\n  "Content-Type": "application/json"\n}'}
-                  style={{ fontFamily: token.fontFamilyCode }}
+                  className="console-font-mono"
                 />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                <AstryxText type="supporting" color="secondary" size="sm">
                   JSON object with custom HTTP headers
-                </Text>
+                </AstryxText>
               </Form.Item>
             </Card>
           </Col>
@@ -340,8 +349,10 @@ export const TemplateDetailRoute = () => {
                 rules={[{ required: true, message: 'Auth type is required' }]}
               >
                 <Select>
-                  {AUTH_TYPES.map(type => (
-                    <Select.Option key={type} value={type}>{type}</Select.Option>
+                  {AUTH_TYPES.map((type) => (
+                    <Select.Option key={type} value={type}>
+                      {type}
+                    </Select.Option>
                   ))}
                 </Select>
               </Form.Item>
@@ -352,65 +363,82 @@ export const TemplateDetailRoute = () => {
                   value={authConfigJson}
                   onChange={(e) => setAuthConfigJson(e.target.value)}
                   placeholder={'{\n  "apiKey": "your-key",\n  "headerName": "X-API-Key"\n}'}
-                  style={{ fontFamily: token.fontFamilyCode }}
+                  className="console-font-mono"
                 />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                <AstryxText type="supporting" color="secondary" size="sm">
                   Configuration depends on auth type (apiKey, token, username/password, etc.)
-                </Text>
+                </AstryxText>
               </Form.Item>
             </Card>
 
             <Card title="Transformation" className="panel" size="small" style={{ marginTop: spacing[3] }}>
               <Form.Item label="Transformation Script">
-                <Alert
+                <Notice
                   type="success"
-                  showIcon
                   closable
                   message="Editor Keyboard Shortcuts"
                   description={
-                    <div style={{ fontSize: token.fontSizeSM }}>
-                      <ul style={{ margin: 0, paddingLeft: 20 }}>
-                        <li><strong>Cmd/Ctrl + F</strong> - Find text</li>
-                        <li><strong>Cmd/Ctrl + H</strong> - Find and replace</li>
-                        <li><strong>Cmd/Ctrl + /</strong> - Toggle line comment</li>
-                        <li><strong>Cmd/Ctrl + Shift + K</strong> - Delete line</li>
-                        <li><strong>Alt + Up/Down</strong> - Move line up/down</li>
-                        <li><strong>Cmd/Ctrl + D</strong> - Select next occurrence</li>
-                        <li><strong>Cmd/Ctrl + Scroll</strong> - Zoom in/out</li>
+                    <div className="console-type-caption">
+                      <ul className="console-list-reset-indent">
+                        <li>
+                          <strong>Cmd/Ctrl + F</strong> - Find text
+                        </li>
+                        <li>
+                          <strong>Cmd/Ctrl + H</strong> - Find and replace
+                        </li>
+                        <li>
+                          <strong>Cmd/Ctrl + /</strong> - Toggle line comment
+                        </li>
+                        <li>
+                          <strong>Cmd/Ctrl + Shift + K</strong> - Delete line
+                        </li>
+                        <li>
+                          <strong>Alt + Up/Down</strong> - Move line up/down
+                        </li>
+                        <li>
+                          <strong>Cmd/Ctrl + D</strong> - Select next occurrence
+                        </li>
+                        <li>
+                          <strong>Cmd/Ctrl + Scroll</strong> - Zoom in/out
+                        </li>
                       </ul>
                     </div>
                   }
-                  style={{ marginBottom: spacing[3] }}
+                  className="console-margin-bottom-3"
                 />
                 <Collapse
                   size="small"
                   ghost
-                  style={{ marginBottom: spacing[3] }}
-                  items={[{
-                    key: 'lookup-help',
-                    label: (
-                      <Space size={4}>
-                        <DatabaseOutlined style={{ color: colors.primary[600] }} />
-                        <Typography.Text strong style={{ fontSize: 13 }}>
-                          Using Lookup Tables in Scripts
-                        </Typography.Text>
-                      </Space>
-                    ),
-                    children: (
-                      <div>
-                        <Typography.Text style={{ fontSize: 12 }}>
-                          Use <code>lookup(sourceCode, mappingType)</code> to translate codes using your configured lookup tables:
-                        </Typography.Text>
-                        <pre style={{
-                          background: '#1e1e1e',
-                          color: '#d4d4d4',
-                          padding: '8px',
-                          borderRadius: 4,
-                          fontSize: 11,
-                          marginTop: 8,
-                          marginBottom: 8
-                        }}>
-                          {`// Simple lookup
+                  className="console-margin-bottom-3"
+                  items={[
+                    {
+                      key: 'lookup-help',
+                      label: (
+                        <Space size={4}>
+                          <GatewayIcon name="DatabaseOutlined" className="console-text-accent" />
+                          <AstryxText weight="semibold" size="base">
+                            Using Lookup Tables in Scripts
+                          </AstryxText>
+                        </Space>
+                      ),
+                      children: (
+                        <div>
+                          <AstryxText type="supporting" size="sm">
+                            Use <code>lookup(sourceCode, mappingType)</code> to translate codes using your configured
+                            lookup tables:
+                          </AstryxText>
+                          <pre
+                            style={{
+                              background: cssVar.table.codeBg,
+                              color: cssVar.text.primary,
+                              padding: 'var(--spacing-2)',
+                              borderRadius: 4,
+                              fontSize: 'var(--console-type-caption)',
+                              marginTop: 'var(--spacing-2)',
+                              marginBottom: 'var(--spacing-2)',
+                            }}
+                          >
+                            {`// Simple lookup
 externalServiceCode: lookup(payload.serviceCode, 'SERVICE_CODE'),
 
 // With fallback
@@ -421,21 +449,22 @@ items: payload.items?.map(item => ({
   ...item,
   externalCode: lookup(item.code, 'ITEM_CODE')
 }))`}
-                        </pre>
-                        <Typography.Link href="/help/lookup-guide" target="_blank" style={{ fontSize: 12 }}>
-                          <BookOutlined style={{ marginRight: 4 }} />
-                          View Complete Lookup Tables Guide
-                        </Typography.Link>
-                      </div>
-                    )
-                  }]}
+                          </pre>
+                          <a href="/help/lookup-guide" target="_blank" rel="noreferrer">
+                            <GatewayIcon name="BookOutlined" className="console-margin-right-1" />
+                            View Complete Lookup Tables Guide
+                          </a>
+                        </div>
+                      ),
+                    },
+                  ]}
                 />
-                <div style={{ marginBottom: spacing[2] }}>
+                <div className="console-margin-bottom-2">
                   <MonacoEditorInput value={transformScript} onChange={setTransformScript} height="400px" />
                 </div>
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                <AstryxText type="supporting" color="secondary" size="sm">
                   JavaScript function to transform integration payloads
-                </Text>
+                </AstryxText>
               </Form.Item>
             </Card>
 
@@ -446,16 +475,16 @@ items: payload.items?.map(item => ({
                   value={metadataJson}
                   onChange={(e) => setMetadataJson(e.target.value)}
                   placeholder={'{\n  "vendor": "Epic Systems",\n  "documentation": "https://..."\n}'}
-                  style={{ fontFamily: token.fontFamilyCode }}
+                  className="console-font-mono"
                 />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                <AstryxText type="supporting" color="secondary" size="sm">
                   Additional metadata like vendor, documentation links, format, etc.
-                </Text>
+                </AstryxText>
               </Form.Item>
             </Card>
           </Col>
         </Row>
       </Form>
-    </div>
+    </PageTemplate>
   );
 };

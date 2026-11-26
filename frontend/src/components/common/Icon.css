@@ -1,0 +1,15 @@
+.gateway-icon--spin {
+  animation: gateway-icon-spin 1s linear infinite;
+}
+
+@keyframes gateway-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gateway-icon--spin {
+    animation: none;
+  }
+}

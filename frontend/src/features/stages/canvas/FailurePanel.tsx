@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Input, Modal, message } from 'antd';
+import { Input, Modal, message } from '@/components/common/LegacyAntdControls';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { DeliveryLog } from '../../../mocks/types';
@@ -28,8 +28,10 @@ const cause = (log: DeliveryLog) => {
   }
   if (log.responseStatus < 400) {
     return {
-      title: 'A step rejected the provider\'s answer',
-      body: log.errorMessage || `The provider answered ${log.responseStatus}, but a step after the response turned it into a failure.`,
+      title: "A step rejected the provider's answer",
+      body:
+        log.errorMessage ||
+        `The provider answered ${log.responseStatus}, but a step after the response turned it into a failure.`,
     };
   }
   return {
@@ -103,7 +105,7 @@ export const FailurePanel = ({
       <div className="wf-callout" role="group" aria-label="Why it failed">
         <h4>{title}</h4>
         <p>{body}</p>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="wf-action-row">
           {log.errorCategory && <span className="wf-chip wf-chip--danger">{log.errorCategory}</span>}
           <span className="wf-chip wf-chip--danger">{log.status}</span>
           {others && others.matchedOn && others.count > 0 && (
@@ -116,7 +118,7 @@ export const FailurePanel = ({
 
       <div>
         <div className="wf-section-title">What you can do</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="wf-action-row">
           <button
             type="button"
             className="wf-btn wf-btn--primary"
@@ -141,7 +143,7 @@ export const FailurePanel = ({
             </button>
           )}
         </div>
-        <div className="wf-help" style={{ marginTop: 6 }}>
+        <div className="wf-help wf-margin-top-2">
           Asks the provider first, and does not send again if it already has the message.
         </div>
       </div>
@@ -152,17 +154,7 @@ export const FailurePanel = ({
             Attempts <span className="wf-help">each one re-ran the steps before send</span>
           </div>
           {attemptsList.map((attempt) => (
-            <div
-              key={attempt.attemptNumber}
-              className="wf-mono"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 12,
-                padding: '6px 0',
-                borderBottom: '1px solid var(--wf-border)',
-              }}
-            >
+            <div key={attempt.attemptNumber} className="wf-mono wf-attempt-row">
               <span>Attempt {attempt.attemptNumber}</span>
               <span>
                 {attempt.responseStatus ? `HTTP ${attempt.responseStatus}` : 'timeout'}
@@ -176,51 +168,17 @@ export const FailurePanel = ({
       {curl && (
         <div>
           <div className="wf-section-title">Request (masked)</div>
-          <pre
-            className="wf-mono"
-            style={{
-              margin: 0,
-              padding: 12,
-              borderRadius: 8,
-              background: 'var(--wf-sunk)',
-              fontSize: 11.5,
-              lineHeight: '18px',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              maxHeight: 220,
-              overflow: 'auto',
-            }}
-          >
-            {curl}
-          </pre>
+          <pre className="wf-mono wf-failure-code">{curl}</pre>
         </div>
       )}
       <div>
         <div className="wf-section-title">Response</div>
         {log.responseStatus === null || log.responseStatus === undefined ? (
-          <div
-            className="wf-help"
-            style={{ padding: 12, border: '1px dashed var(--wf-border-strong)', borderRadius: 8 }}
-          >
+          <div className="wf-help wf-no-response">
             No response: the connection was closed before the provider answered.
           </div>
         ) : (
-          <pre
-            className="wf-mono"
-            style={{
-              margin: 0,
-              padding: 12,
-              borderRadius: 8,
-              background: 'var(--wf-sunk)',
-              fontSize: 11.5,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              maxHeight: 220,
-              overflow: 'auto',
-            }}
-          >
-            {log.responseBody || `HTTP ${log.responseStatus}`}
-          </pre>
+          <pre className="wf-mono wf-failure-code">{log.responseBody || `HTTP ${log.responseStatus}`}</pre>
         )}
       </div>
 
@@ -237,7 +195,7 @@ export const FailurePanel = ({
         onCancel={() => setAsking(false)}
         destroyOnClose
       >
-        <p className="wf-help" style={{ color: 'inherit' }}>
+        <p className="wf-help">
           The delivery&apos;s own check asks the provider whether it has the message. It is sent again only if the
           provider says it does not.
         </p>
@@ -250,7 +208,7 @@ export const FailurePanel = ({
           onChange={(event) => setReason(event.target.value)}
         />
         {refusal && (
-          <div className="wf-callout" role="alert" style={{ marginTop: 12 }}>
+          <div className="wf-callout wf-margin-top-3" role="alert">
             <h4>
               {refusal.code === 'PROVIDER_HAS_MESSAGE'
                 ? 'Not sent again'

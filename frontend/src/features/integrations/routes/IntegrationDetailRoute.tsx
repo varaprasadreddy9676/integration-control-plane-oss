@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import { useParams, useLocation } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
-import { App, Form, Space, Typography, Collapse, Skeleton } from 'antd';
+import { App, Form, Space, Collapse } from "@/components/common/LegacyAntdControls";
+import { InlineNotice as Notice } from '../../../components/common';
 import { useQueryClient } from '@tanstack/react-query';
+import { Button as AstryxButton } from '@astryxdesign/core/Button';
 import {
   createIntegration,
   updateIntegration,
@@ -10,9 +13,10 @@ import {
   removeIntegrationSecret,
   getIntegrationCredentials,
 } from '../../../services/api';
-import type { } from '../../../mocks/types';
+import type {} from '../../../mocks/types';
 import { IntegrationSigningSection } from '../components/IntegrationSigningSection';
 import { useDesignTokens, cssVar } from '../../../design-system/utils';
+import { useThemeMode } from '../../../app/theme-provider';
 import { useTenant } from '../../../app/tenant-context';
 import { useAuth } from '../../../app/auth-context';
 import { useIntegrationForm } from '../hooks';
@@ -31,6 +35,10 @@ import { useDeliveryModeSwitch } from './integrationDetail/hooks/useDeliveryMode
 import { useIntegrationTest } from './integrationDetail/hooks/useIntegrationTest';
 import { useIntegrationImportExport } from './integrationDetail/hooks/useIntegrationImportExport';
 import { IntegrationPageHeader } from './integrationDetail/components/IntegrationPageHeader';
+import { PageHeader as SharedPageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
 import { IntegrationHistoryButton } from '../../integration-history';
 import { ReviewConfirmDrawer } from './integrationDetail/components/ReviewConfirmDrawer';
@@ -61,6 +69,7 @@ import {
 // Helper component for action transformation preview
 export const IntegrationDetailRoute = () => {
   const { spacing, token } = useDesignTokens();
+  const { mode } = useThemeMode();
   const colors = cssVar.legacy;
   const { user } = useAuth();
   const isPortalSession = !!(user as any)?.isPortalSession;
@@ -86,7 +95,7 @@ export const IntegrationDetailRoute = () => {
 // Call skip(reason, { shouldRetry: true }) to also schedule a retry.
 // Return undefined (or any value) to let the delivery succeed.
 //
-// Example — Northwind-style { statusCode: "0" } success envelope:
+// Example — Pathkind-style { statusCode: "0" } success envelope:
 // if (responseBody?.statusCode !== '0') {
 //   return skip(responseBody?.message || 'Remote API returned failure', { shouldRetry: true });
 // }
@@ -232,6 +241,8 @@ export const IntegrationDetailRoute = () => {
   const {
     existingIntegration,
     integrationLoading,
+    integrationLoadFailed,
+    refetchIntegration,
     allIntegrations,
     eventTypes,
     eventTypesLoading,
@@ -363,14 +374,20 @@ export const IntegrationDetailRoute = () => {
       }
 
       // On steps already (old settings cleared): the classic tabs show and edit its steps.
-      const onSteps = (existingIntegration as any).stageMigration?.state === 'SWITCHED' && !((existingIntegration.actions?.length ?? 0) > 0);
+      const onSteps =
+        (existingIntegration as any).stageMigration?.state === 'SWITCHED' &&
+        !((existingIntegration.actions?.length ?? 0) > 0);
       if (onSteps) {
         const classic = classicFromSteps((existingIntegration as any).stages);
         classicOnLoad.current = classic;
         setResponseTransformEnabled(classic.response.on);
         if (classic.response.script) setResponseTransformScript(classic.response.script);
         form.setFieldsValue({
-          deliveryFollowUp: { enabled: classic.followUp.on, script: classic.followUp.script, checkAfterSeconds: classic.followUp.checkAfterSeconds },
+          deliveryFollowUp: {
+            enabled: classic.followUp.on,
+            script: classic.followUp.script,
+            checkAfterSeconds: classic.followUp.checkAfterSeconds,
+          },
         });
       } else {
         classicOnLoad.current = null;
@@ -698,7 +715,12 @@ const firstTime = addHours(now(), 1);
               {
                 response: { exists: true, on: responseTransformEnabled, script: responseTransformScript },
                 followUp: followUp
-                  ? { exists: true, on: followUp.enabled === true, script: followUp.script || '', checkAfterSeconds: followUp.checkAfterSeconds }
+                  ? {
+                      exists: true,
+                      on: followUp.enabled === true,
+                      script: followUp.script || '',
+                      checkAfterSeconds: followUp.checkAfterSeconds,
+                    }
                   : loaded.followUp,
               },
               loaded,
@@ -881,21 +903,21 @@ const firstTime = addHours(now(), 1);
   });
 
   const transformationEditor = (
-      <TransformationDesigner
-        scriptValue={scriptValue}
-        onScriptChange={setScriptValue}
-        sampleInput={sampleInput}
-        onSampleInputChange={setSampleInput}
-        sampleOutput={sampleOutput}
-        onSampleOutputChange={setSampleOutput}
-        availableFields={availableFields as any[]}
-        eventPayload={selectedEventTypeData?.samplePayload}
-        onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
-        getPreviewContext={() => buildPreviewContext(form)}
-        onValidateScript={() => messageApi.success('Script validated')}
-        eventTypes={eventTypes.map((et) => et.eventType)}
-        currentEventType={form.getFieldValue('eventType')}
-      />
+    <TransformationDesigner
+      scriptValue={scriptValue}
+      onScriptChange={setScriptValue}
+      sampleInput={sampleInput}
+      onSampleInputChange={setSampleInput}
+      sampleOutput={sampleOutput}
+      onSampleOutputChange={setSampleOutput}
+      availableFields={availableFields as any[]}
+      eventPayload={selectedEventTypeData?.samplePayload}
+      onUseEventPayload={(payloadText) => setSampleInput(payloadText)}
+      getPreviewContext={() => buildPreviewContext(form)}
+      onValidateScript={() => messageApi.success('Script validated')}
+      eventTypes={eventTypes.map((et) => et.eventType)}
+      currentEventType={form.getFieldValue('eventType')}
+    />
   );
 
   useAutoExpandSections({
@@ -920,9 +942,49 @@ const firstTime = addHours(now(), 1);
     messageApi,
   });
 
+  if (!isCreate && !integrationLoading && !existingIntegration) {
+    const loadFailed = integrationLoadFailed;
+    return (
+      <PageTemplate
+        as="main"
+        className="integration-detail-template"
+        contentClassName="integration-detail-template__content"
+      >
+        <div className="ui-extracted-d77a9b9b67">
+          <SharedPageHeader
+            title={loadFailed ? 'Integration unavailable' : 'Integration not found'}
+            breadcrumb={[{ label: 'Configuration' }, { label: 'Integrations', path: '/integrations' }]}
+            compact
+          />
+          <StatePanel
+            glyph={loadFailed ? 'disrupted' : 'searching'}
+            tone={loadFailed ? 'critical' : 'neutral'}
+            title={loadFailed ? 'Could not load integration' : 'Integration not found'}
+            description={loadFailed ? 'The request failed.' : 'This integration may have been removed.'}
+            actions={
+              loadFailed ? (
+                <AstryxButton label="Retry" variant="secondary" onClick={() => void refetchIntegration()} />
+              ) : (
+                <AstryxButton
+                  label="Back to integrations"
+                  variant="primary"
+                  onClick={() => navigate('/integrations')}
+                />
+              )
+            }
+          />
+        </div>
+      </PageTemplate>
+    );
+  }
+
   return (
-    <div style={{ paddingBottom: spacing[12] }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+    <PageTemplate
+      as="main"
+      className="integration-detail-template"
+      contentClassName="integration-detail-template__content"
+    >
+      <div className="ui-extracted-d77a9b9b67">
         <IntegrationFormContainer
           form={form}
           initialValues={formInitialValues}
@@ -936,15 +998,7 @@ const firstTime = addHours(now(), 1);
           }
         >
           {isDetailLoading ? (
-            <div style={{ padding: `${spacing[6]} 0 ${spacing[4]}` }}>
-              <Skeleton.Input active size="default" style={{ width: 320, height: 32, marginBottom: spacing[2] }} />
-              <Skeleton.Input active size="small" style={{ width: 420, height: 18, marginBottom: spacing[3] }} />
-              <div style={{ display: 'flex', gap: spacing[2] }}>
-                <Skeleton.Button active size="small" />
-                <Skeleton.Button active size="small" />
-                <Skeleton.Button active size="small" />
-              </div>
-            </div>
+            <StatePanel glyph="connecting" tone="busy" title="Loading integration" size="compact" />
           ) : (
             <IntegrationPageHeader
               isCreate={isCreate}
@@ -985,9 +1039,7 @@ const firstTime = addHours(now(), 1);
             />
           )}
           {isDetailLoading ? (
-            <div style={{ padding: `${spacing[4]} 0` }}>
-              <Skeleton active paragraph={{ rows: 10 }} />
-            </div>
+            <StatePanel glyph="connecting" tone="busy" title="Loading configuration" size="regular" />
           ) : (
             <IntegrationFormBody
               isCreate={isCreate}
@@ -996,9 +1048,7 @@ const firstTime = addHours(now(), 1);
               isSaving={isSaving}
               isActiveValue={isActiveValue}
               canTest={!isCreate}
-              canSave={
-                isMultiAction ? multiActionValidationErrors.length === 0 && hasActions : true
-              }
+              canSave={isMultiAction ? multiActionValidationErrors.length === 0 && hasActions : true}
               spacing={spacing}
               token={token}
               colors={colors}
@@ -1073,6 +1123,7 @@ const firstTime = addHours(now(), 1);
                 availableFields,
                 spacing,
                 token,
+                editorTheme: mode === 'dark' ? 'vs-dark' : 'light',
                 colors,
                 loadCleverTapTemplate,
                 multiActionValidationErrors,
@@ -1158,7 +1209,9 @@ const firstTime = addHours(now(), 1);
               label: 'No validation errors',
               isComplete: multiActionValidationErrors.length === 0,
               warning:
-                multiActionValidationErrors.length > 0 ? `${multiActionValidationErrors.length} errors to fix` : undefined,
+                multiActionValidationErrors.length > 0
+                  ? `${multiActionValidationErrors.length} errors to fix`
+                  : undefined,
             },
           ]}
           isSaving={isSaving}
@@ -1172,7 +1225,7 @@ const firstTime = addHours(now(), 1);
               <LockOutlined />
               <span>Manage Signing Secrets & Configuration</span>
               {!isCreate && !isEditMode && (
-                <Tag color="orange">View Only</Tag>
+                <StatusBadge label="View only" variant="neutral" showIcon={false} />
               )}
             </Space>
           }
@@ -1187,11 +1240,10 @@ const firstTime = addHours(now(), 1);
           style={{ top: 20 }}
         >
           {!isCreate && !isEditMode && (
-            <Alert
+            <Notice
               type="info"
               message="View Only Mode"
               description="Click the Edit button in the top right to modify integration signing configuration."
-              showIcon
               style={{ marginBottom: spacing[4] }}
             />
           )}
@@ -1237,6 +1289,6 @@ const firstTime = addHours(now(), 1);
         </Modal>
         */}
       </div>
-    </div>
+    </PageTemplate>
   );
 };

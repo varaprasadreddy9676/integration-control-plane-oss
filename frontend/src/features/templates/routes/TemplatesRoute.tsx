@@ -1,51 +1,39 @@
 import { useMemo, useState } from 'react';
 import {
   App,
-  Button,
   Card,
   Modal,
-  Tag,
-  Typography,
   Space,
   Input,
   Select,
   Tooltip,
-  Badge,
-  Empty,
   Divider,
-  Alert,
   Collapse,
-} from 'antd';
-import {
-  FilterOutlined,
-  PlusOutlined,
-  SearchOutlined,
-  AppstoreOutlined,
-  BookOutlined,
-  CodeOutlined,
-  InfoCircleOutlined,
-  DeleteOutlined,
-  PlusCircleOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { QuickSetupSection } from '../components/QuickSetupSection';
 import { FilterBar } from '../../../components/common/FilterBar';
+import { SearchInput } from '../../../components/common/ListControls';
 import { StatusBadge } from '../../../components/common/StatusBadge';
+import { StatePanel } from '../../../components/common/StatePanel';
 import { getTemplates, createIntegrationFromTemplate } from '../../../services/api';
 import type { IntegrationTemplate } from '../../../mocks/types';
-import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
+import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { markMorphSource } from '../../../design-system/view-transition';
 import { prefetchDetailRoute } from '../../../app/route-prefetch';
+import { Button } from '../../../components/common/LegacyButton';
 
-const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 export const TemplatesRoute = () => {
   const navigate = useNavigateWithParams();
-  const { spacing, token, borderRadius, transitions } = useDesignTokens();
-  const colors = cssVar.legacy;
+  const { spacing, token } = useDesignTokens();
   const {
     data: templates = [],
     isLoading,
@@ -232,41 +220,29 @@ export const TemplatesRoute = () => {
     }
   };
 
-  const tagTone = (base: string) => ({
-    borderRadius: borderRadius.full,
-    borderColor: withAlpha(base, 0.4),
-    background: withAlpha(base, 0.14),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing['2.5'],
-    paddingBlock: spacing['0.5'],
-  });
-
   const getCategoryIcon = (category: string) => {
-    const toneMap: Record<string, string> = {
-      EHR: colors.info[600],
-      PMS: colors.success[600],
-      BILLING: colors.warning[600],
-      LAB: colors.primary[600],
-      IMAGING: colors.error[600],
-      default: colors.neutral[600],
-    };
-
-    const color = toneMap[category] ?? toneMap.default;
+    const toneClass =
+      {
+        EHR: 'console-text-info',
+        PMS: 'console-text-success',
+        BILLING: 'console-text-warning',
+        LAB: 'console-text-accent',
+        IMAGING: 'console-text-error',
+      }[category] || 'console-text-secondary';
 
     switch (category) {
       case 'EHR':
-        return <BookOutlined style={{ color }} />;
+        return <GatewayIcon name="BookOutlined" className={toneClass} />;
       case 'PMS':
-        return <AppstoreOutlined style={{ color }} />;
+        return <GatewayIcon name="AppstoreOutlined" className={toneClass} />;
       case 'BILLING':
-        return <FilterOutlined style={{ color }} />;
+        return <GatewayIcon name="FilterOutlined" className={toneClass} />;
       case 'LAB':
-        return <SearchOutlined style={{ color }} />;
+        return <GatewayIcon name="SearchOutlined" className={toneClass} />;
       case 'IMAGING':
-        return <FilterOutlined style={{ color }} />;
+        return <GatewayIcon name="FilterOutlined" className={toneClass} />;
       default:
-        return <AppstoreOutlined style={{ color }} />;
+        return <GatewayIcon name="AppstoreOutlined" className={toneClass} />;
     }
   };
 
@@ -275,12 +251,6 @@ export const TemplatesRoute = () => {
       key={template.id}
       hoverable
       className="template-card"
-      style={{
-        height: '100%',
-        transition: transitions.allSlow,
-        borderRadius: token.borderRadiusLG,
-        border: `1px solid ${cssVar.border.default}`,
-      }}
       actions={[
         <Button
           key="details"
@@ -288,7 +258,9 @@ export const TemplatesRoute = () => {
           onMouseEnter={() => prefetchDetailRoute('template')}
           onFocus={() => prefetchDetailRoute('template')}
           onClick={(event) => {
-            markMorphSource(event.currentTarget.closest('.ant-card')?.querySelector<HTMLElement>('.ant-card-meta-title') ?? null);
+            markMorphSource(
+              event.currentTarget.closest('.ant-card')?.querySelector<HTMLElement>('.ant-card-meta-title') ?? null
+            );
             navigate(`/templates/${template.id}`, { state: { title: template.name } });
           }}
           block
@@ -305,22 +277,32 @@ export const TemplatesRoute = () => {
         title={
           <Space>
             {template.name}
-            {template.isActive && <Badge status="success" />}
+            {template.isActive && <StatusBadge label="Active" variant="success" />}
           </Space>
         }
         description={
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <Text type="secondary">{template.description}</Text>
-            <Space wrap>
-              <Tag style={tagTone(colors.info[600])}>{template.category}</Tag>
-              {template.metadata?.vendor && <Tag style={tagTone(colors.success[600])}>{template.metadata.vendor}</Tag>}
-              {template.eventType && <Tag style={tagTone(colors.warning[600])}>{template.eventType}</Tag>}
+          <Space direction="vertical" size="small" className="console-width-full">
+            <AstryxText type="supporting" color="secondary">
+              {template.description}
+            </AstryxText>
+            <Space wrap className="template-card-metadata">
+              <StatusBadge label={template.category} variant="info" showIcon={false} />
+              {template.metadata?.vendor && (
+                <AstryxText type="supporting" color="secondary">
+                  {template.metadata.vendor}
+                </AstryxText>
+              )}
+              {template.eventType && <code className="console-font-mono console-type-body">{template.eventType}</code>}
             </Space>
             {template.transformationMode && (
-              <Tag style={tagTone(colors.primary[600])}>{template.transformationMode} Transform</Tag>
+              <AstryxText type="supporting" color="secondary">
+                {template.transformationMode} transform
+              </AstryxText>
             )}
             {template.actions && template.actions.length > 0 && (
-              <Tag style={tagTone(colors.error[600])}>{template.actions.length} Actions</Tag>
+              <AstryxText type="supporting" color="secondary">
+                {template.actions.length} actions
+              </AstryxText>
             )}
           </Space>
         }
@@ -329,78 +311,79 @@ export const TemplatesRoute = () => {
   );
 
   return (
-    <div>
-      <PageHeader
-        title="Templates"
-        description="Connect a common service in one step, or start from your organization's own templates."
-        statusChips={[
-          { label: `${templates?.length || 0} templates` },
-          { label: `${categories.length} categories`, color: colors.primary[600] },
-        ]}
-        compact
-        actions={
-          <Space>
-            <Button size="middle" onClick={() => refetch()}>
-              Refresh Templates
-            </Button>
-            <Button type="primary" size="middle" icon={<PlusOutlined />} onClick={() => navigate('/templates/new')}>
-              Create Template
-            </Button>
-          </Space>
-        }
-      />
-
+    <PageTemplate
+      className="templates-list-template"
+      header={
+        <PageHeader
+          title="Templates"
+          description="Connect a common service in one step, or start from your organization's own templates."
+          compact
+          actions={
+            <Space>
+              <Button size="middle" onClick={() => refetch()}>
+                Refresh Templates
+              </Button>
+              <Button
+                type="primary"
+                size="middle"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => navigate('/templates/new')}
+              >
+                Create Template
+              </Button>
+            </Space>
+          }
+        />
+      }
+    >
       <QuickSetupSection />
 
       <FilterBar
         rightSlot={
-          <Button
-            icon={<FilterOutlined />}
-            type="text"
-            onClick={() => {
-              setSearchTerm('');
-              setCategoryFilter(undefined);
-            }}
-          >
-            Reset
-          </Button>
+          <Space>
+            <AstryxText type="supporting" color="secondary">
+              {filteredTemplates.length} of {templates.length} templates
+            </AstryxText>
+            <Button
+              icon={<GatewayIcon name="FilterOutlined" />}
+              type="text"
+              onClick={() => {
+                setSearchTerm('');
+                setCategoryFilter(undefined);
+              }}
+            >
+              Reset
+            </Button>
+          </Space>
         }
       >
-        <Input
-          placeholder="Search templates..."
-          prefix={<SearchOutlined />}
+        <SearchInput
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ width: 250 }}
-          allowClear
+          onChange={setSearchTerm}
+          label="Search templates"
+          placeholder="Search templates..."
+          width={250}
         />
         <Select
           placeholder="Category"
           value={categoryFilter}
           onChange={setCategoryFilter}
-          style={{ width: 150 }}
+          className="template-category-filter"
           allowClear
           options={categories.map((cat) => ({ value: cat, label: cat }))}
         />
       </FilterBar>
 
-      <div style={{ padding: `${spacing[3]} 0` }}>
+      <div className="console-padding-y-3">
         {filteredTemplates.length === 0 ? (
-          <Empty
-            description="No templates found"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            style={{ margin: `${spacing[12]} 0` }}
+          <StatePanel
+            size="compact"
+            glyph="searching"
+            title={templates.length === 0 ? 'No templates available' : 'No matching templates'}
+            description={templates.length === 0 ? undefined : 'Adjust the search or category filter.'}
           />
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: spacing[3],
-            }}
-          >
-            {filteredTemplates.map(renderTemplateCard)}
-          </div>
+          <div className="template-card-grid">{filteredTemplates.map(renderTemplateCard)}</div>
         )}
       </div>
 
@@ -420,98 +403,89 @@ export const TemplatesRoute = () => {
         width={700}
       >
         {selectedTemplate && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space direction="vertical" size="middle" className="console-width-full">
             {/* Template Information */}
             <div>
-              <Text strong>Template Information</Text>
-              <div style={{ marginTop: spacing[2] }}>
-                <Paragraph>{selectedTemplate.description}</Paragraph>
+              <AstryxText weight="semibold">Template Information</AstryxText>
+              <div className="console-margin-top-2">
+                <AstryxText as="p" display="block">
+                  {selectedTemplate.description}
+                </AstryxText>
                 <Space wrap>
-                  <Tag color={colors.info[600]}>{selectedTemplate.category}</Tag>
+                  <StatusBadge label={selectedTemplate.category} variant="info" showIcon={false} />
                   {selectedTemplate.metadata?.vendor && (
-                    <Tag color={colors.success[600]}>{selectedTemplate.metadata.vendor}</Tag>
+                    <AstryxText type="supporting" color="secondary">
+                      {selectedTemplate.metadata.vendor}
+                    </AstryxText>
                   )}
                   {selectedTemplate.transformationMode && (
-                    <Tag icon={<CodeOutlined />} color={colors.primary[600]}>
-                      {selectedTemplate.transformationMode}
-                    </Tag>
+                    <AstryxText type="code">
+                      <GatewayIcon name="CodeOutlined" aria-hidden="true" /> {selectedTemplate.transformationMode}
+                    </AstryxText>
                   )}
                   {selectedTemplate.actions && selectedTemplate.actions.length > 0 && (
-                    <Tag color={colors.warning[600]}>{selectedTemplate.actions.length} Actions</Tag>
+                    <AstryxText type="supporting" color="secondary">
+                      {selectedTemplate.actions.length} actions
+                    </AstryxText>
                   )}
                 </Space>
                 {selectedTemplate.metadata?.documentation && (
-                  <div style={{ marginTop: spacing[2] }}>
-                    <Text type="secondary">
-                      <InfoCircleOutlined />{' '}
+                  <div className="console-margin-top-2">
+                    <AstryxText type="supporting" color="secondary">
+                      <GatewayIcon name="InfoCircleOutlined" />{' '}
                       <a href={selectedTemplate.metadata.documentation} target="_blank" rel="noopener noreferrer">
                         View Documentation
                       </a>
-                    </Text>
+                    </AstryxText>
                   </div>
                 )}
               </div>
             </div>
 
-            <Divider style={{ margin: `${spacing[2]} 0` }} />
+            <Divider className="console-margin-y-2" />
 
             {/* Placeholder Configuration */}
             {selectedTemplate.metadata?.placeholders &&
               Object.keys(selectedTemplate.metadata.placeholders).length > 0 && (
                 <>
                   <div>
-                    <Text strong>Template Placeholders *</Text>
-                    <Alert
-                      message="Fill in the required values below to customize this template"
-                      type="info"
-                      showIcon
-                      style={{ marginTop: spacing[2], marginBottom: spacing[2] }}
-                    />
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <AstryxText weight="semibold">Template Placeholders *</AstryxText>
+                    <AstryxText
+                      type="supporting"
+                      color="secondary"
+                      className="console-display-block console-margin-top-1 console-margin-bottom-2"
+                    >
+                      Fill in the required values below to customize this template.
+                    </AstryxText>
+                    <Space direction="vertical" size="small" className="console-width-full">
                       {Object.entries(selectedTemplate.metadata.placeholders).map(([key, description]) => {
                         // Special handling for BODY_PARAMS - render dynamic parameter builder
                         if (key === 'BODY_PARAMS') {
                           return (
                             <div key={key}>
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  marginBottom: spacing[1],
-                                }}
-                              >
-                                <Text strong>Body Parameters *</Text>
+                              <div className="template-body-params-heading">
+                                <AstryxText weight="semibold">Body Parameters *</AstryxText>
                                 <Button
                                   type="dashed"
                                   size="small"
-                                  icon={<PlusCircleOutlined />}
+                                  icon={<GatewayIcon name="PlusCircleOutlined" />}
                                   onClick={() => setBodyParams([...bodyParams, { field: '', default: '' }])}
                                 >
                                   Add Parameter
                                 </Button>
                               </div>
-                              <Text
-                                type="secondary"
-                                style={{ fontSize: '12px', display: 'block', marginBottom: spacing[2] }}
+                              <AstryxText
+                                type="supporting"
+                                color="secondary"
+                                className="console-type-caption console-display-block console-margin-bottom-2"
                               >
                                 {description as string}
-                              </Text>
-                              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                              </AstryxText>
+                              <Space direction="vertical" size="small" className="console-width-full">
                                 {bodyParams.map((param, idx) => (
-                                  <div
-                                    key={idx}
-                                    style={{
-                                      display: 'flex',
-                                      gap: spacing[2],
-                                      padding: spacing[2],
-                                      background: colors.neutral[50],
-                                      borderRadius: token.borderRadius,
-                                      alignItems: 'center',
-                                    }}
-                                  >
-                                    <div style={{ flex: 1 }}>
-                                      <Text style={{ fontSize: '12px', color: cssVar.text.secondary }}>Field Name</Text>
+                                  <div key={idx} className="template-body-param-row">
+                                    <div className="console-flex-fill">
+                                      <AstryxText className="console-caption-secondary">Field Name</AstryxText>
                                       <Input
                                         size="small"
                                         value={param.field}
@@ -523,10 +497,8 @@ export const TemplatesRoute = () => {
                                         placeholder="e.g., name"
                                       />
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                      <Text style={{ fontSize: '12px', color: cssVar.text.secondary }}>
-                                        Default Value
-                                      </Text>
+                                    <div className="console-flex-fill">
+                                      <AstryxText className="console-caption-secondary">Default Value</AstryxText>
                                       <Input
                                         size="small"
                                         value={param.default}
@@ -542,12 +514,12 @@ export const TemplatesRoute = () => {
                                       type="text"
                                       danger
                                       size="small"
-                                      icon={<DeleteOutlined />}
+                                      icon={<GatewayIcon name="DeleteOutlined" />}
                                       onClick={() => {
                                         const newParams = bodyParams.filter((_, i) => i !== idx);
                                         setBodyParams(newParams);
                                       }}
-                                      style={{ marginTop: '18px' }}
+                                      className="ui-extracted-d495312882"
                                     />
                                   </div>
                                 ))}
@@ -559,13 +531,13 @@ export const TemplatesRoute = () => {
                         // Regular placeholder input
                         return (
                           <div key={key}>
-                            <Text>{key} *</Text>
+                            <AstryxText>{key} *</AstryxText>
                             <Tooltip title={description}>
                               <Input
                                 value={placeholderValues[key] || ''}
                                 onChange={(e) => setPlaceholderValues((prev) => ({ ...prev, [key]: e.target.value }))}
                                 placeholder={description as string}
-                                suffix={<InfoCircleOutlined style={{ color: cssVar.text.muted }} />}
+                                suffix={<GatewayIcon name="InfoCircleOutlined" className="console-text-muted" />}
                               />
                             </Tooltip>
                           </div>
@@ -573,16 +545,16 @@ export const TemplatesRoute = () => {
                       })}
                     </Space>
                   </div>
-                  <Divider style={{ margin: `${spacing[2]} 0` }} />
+                  <Divider className="console-margin-y-2" />
                 </>
               )}
 
             {/* Basic Configuration */}
             <div>
-              <Text strong>Integration Configuration</Text>
-              <Space direction="vertical" size="small" style={{ width: '100%', marginTop: spacing[2] }}>
+              <AstryxText weight="semibold">Integration Configuration</AstryxText>
+              <Space direction="vertical" size="small" className="console-width-full-margin-top-2">
                 <div>
-                  <Text>Integration Name *</Text>
+                  <AstryxText>Integration Name *</AstryxText>
                   <Input
                     value={overrides.name}
                     onChange={(e) => setOverrides((prev) => ({ ...prev, name: e.target.value }))}
@@ -591,7 +563,7 @@ export const TemplatesRoute = () => {
                 </div>
 
                 <div>
-                  <Text>Event Type</Text>
+                  <AstryxText>Event Type</AstryxText>
                   <Input
                     value={overrides.eventType}
                     onChange={(e) => setOverrides((prev) => ({ ...prev, eventType: e.target.value }))}
@@ -599,16 +571,16 @@ export const TemplatesRoute = () => {
                     disabled={!!selectedTemplate.metadata?.placeholders?.EVENT_TYPE}
                   />
                   {selectedTemplate.metadata?.placeholders?.EVENT_TYPE && (
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                    <AstryxText type="supporting" color="secondary" className="console-type-caption">
                       This will be set from the EVENT_TYPE placeholder above
-                    </Text>
+                    </AstryxText>
                   )}
                 </div>
 
                 <div>
-                  <Space style={{ width: '100%' }}>
-                    <div style={{ flex: 1 }}>
-                      <Text>Timeout (ms)</Text>
+                  <Space className="console-width-full">
+                    <div className="console-flex-fill">
+                      <AstryxText>Timeout (ms)</AstryxText>
                       <Input
                         type="number"
                         value={overrides.timeoutMs}
@@ -619,8 +591,8 @@ export const TemplatesRoute = () => {
                         max="60000"
                       />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <Text>Retry Count</Text>
+                    <div className="console-flex-fill">
+                      <AstryxText>Retry Count</AstryxText>
                       <Input
                         type="number"
                         value={overrides.retryCount}
@@ -643,34 +615,36 @@ export const TemplatesRoute = () => {
                   key: 'advanced',
                   label: 'Advanced Details',
                   children: (
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <Space direction="vertical" size="small" className="console-width-full">
                       {/* Multi-Action Display */}
                       {selectedTemplate.actions && selectedTemplate.actions.length > 0 && (
                         <div>
-                          <Text strong>Actions ({selectedTemplate.actions.length})</Text>
+                          <AstryxText weight="semibold">Actions ({selectedTemplate.actions.length})</AstryxText>
                           {selectedTemplate.actions.map((action, idx) => (
                             <div
                               key={idx}
                               style={{
                                 marginTop: spacing[2],
                                 padding: spacing[2],
-                                background: colors.neutral[100],
+                                background: cssVar.bg.subtle,
                                 borderRadius: token.borderRadius,
                               }}
                             >
-                              <Text strong>
+                              <AstryxText weight="semibold">
                                 {idx + 1}. {action.name}
-                              </Text>
+                              </AstryxText>
                               {action.condition && (
-                                <div style={{ marginTop: spacing[1] }}>
-                                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                                <div className="console-margin-top-1">
+                                  <AstryxText type="supporting" color="secondary" className="console-type-caption">
                                     Condition: <code>{action.condition}</code>
-                                  </Text>
+                                  </AstryxText>
                                 </div>
                               )}
                               {action.transformationMode && (
-                                <div style={{ marginTop: spacing[1] }}>
-                                  <Tag style={{ fontSize: '12px' }}>{action.transformationMode}</Tag>
+                                <div className="console-margin-top-1">
+                                  <AstryxText type="supporting" color="secondary">
+                                    <GatewayIcon name="CodeOutlined" aria-hidden="true" /> {action.transformationMode}
+                                  </AstryxText>
                                 </div>
                               )}
                             </div>
@@ -681,7 +655,7 @@ export const TemplatesRoute = () => {
                       {/* Transformation Script Preview */}
                       {selectedTemplate.transformationMode === 'SCRIPT' && selectedTemplate.transformation?.script && (
                         <div>
-                          <Text strong>Transformation Script</Text>
+                          <AstryxText weight="semibold">Transformation Script</AstryxText>
                           <TextArea
                             value={selectedTemplate.transformation.script}
                             readOnly
@@ -689,8 +663,8 @@ export const TemplatesRoute = () => {
                             style={{
                               marginTop: spacing[1],
                               fontFamily: 'monospace',
-                              fontSize: '12px',
-                              background: colors.neutral[100],
+                              fontSize: 'var(--console-type-caption)',
+                              background: cssVar.table.codeBg,
                             }}
                           />
                         </div>
@@ -699,30 +673,30 @@ export const TemplatesRoute = () => {
                       {/* Examples */}
                       {selectedTemplate.metadata?.examples && selectedTemplate.metadata.examples.length > 0 && (
                         <div>
-                          <Text strong>Usage Examples</Text>
+                          <AstryxText weight="semibold">Usage Examples</AstryxText>
                           {selectedTemplate.metadata.examples.map((example, idx) => (
                             <div
                               key={idx}
                               style={{
                                 marginTop: spacing[1],
                                 padding: spacing[2],
-                                background: colors.neutral[50],
+                                background: cssVar.bg.subtle,
                                 borderRadius: token.borderRadius,
                               }}
                             >
-                              <Text>{example.name}</Text>
+                              <AstryxText>{example.name}</AstryxText>
                               {example.eventType && (
                                 <div>
-                                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                                  <AstryxText type="supporting" color="secondary" className="console-type-caption">
                                     Event: {example.eventType}
-                                  </Text>
+                                  </AstryxText>
                                 </div>
                               )}
                               {example.params && (
                                 <div>
-                                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                                  <AstryxText type="supporting" color="secondary" className="console-type-caption">
                                     Params: {example.params.join(', ')}
-                                  </Text>
+                                  </AstryxText>
                                 </div>
                               )}
                             </div>
@@ -737,6 +711,6 @@ export const TemplatesRoute = () => {
           </Space>
         )}
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

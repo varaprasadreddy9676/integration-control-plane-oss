@@ -48,7 +48,7 @@ export const Connectors = ({ flow, states, traceKey }: ConnectorsProps) => {
     <svg
       width={flow.width}
       height={flow.height}
-      style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}
+      className="ui-extracted-a10e7e70c0"
       fill="none"
       strokeLinecap="round"
       strokeLinejoin="round"

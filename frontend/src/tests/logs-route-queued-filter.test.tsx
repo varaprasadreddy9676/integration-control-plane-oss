@@ -33,7 +33,16 @@ vi.mock('../components/common/PageHeader', () => ({
 vi.mock('../components/common/ModernTable', async () => {
   const antd = await import('antd');
   return {
-    ModernTable: (props: any) => <antd.Table {...props} pagination={false} />,
+    ModernTable: (props: any) => (
+      <div
+        data-testid="modern-table-columns"
+        data-columns={JSON.stringify(
+          props.columns.map(({ key, width, fixed, responsive }: any) => ({ key, width, fixed, responsive }))
+        )}
+      >
+        <antd.Table {...props} pagination={false} />
+      </div>
+    ),
   };
 });
 
@@ -66,7 +75,7 @@ describe('Delivery Logs list — QUEUED status filter', () => {
     mockApi.getEventTypes.mockResolvedValue([]);
   });
 
-  const renderRoute = async () => {
+  const renderRoute = async (initialEntry = '/logs') => {
     const { LogsRoute } = await import('../features/logs/routes/LogsRoute');
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -74,7 +83,7 @@ describe('Delivery Logs list — QUEUED status filter', () => {
       <ThemeProvider>
         <QueryClientProvider client={qc}>
           <App>
-            <MemoryRouter>
+            <MemoryRouter initialEntries={[initialEntry]}>
               <LogsRoute />
               <LocationProbe />
             </MemoryRouter>
@@ -84,14 +93,14 @@ describe('Delivery Logs list — QUEUED status filter', () => {
     );
   };
 
-  it('offers Queued in the top Status filter dropdown', async () => {
+  it('offers the sentence-case queued status in the top Status filter dropdown', async () => {
     await renderRoute();
 
     const statusSelect = await screen.findByText('Status');
     const selector = statusSelect.closest('.ant-select-selector') as HTMLElement;
     fireEvent.mouseDown(selector);
 
-    expect(await screen.findByTitle('QUEUED')).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Pending (queued)' })).toBeInTheDocument();
   });
 
   it('shows the filter controls on a fresh visit, before any filter exists', async () => {
@@ -104,6 +113,41 @@ describe('Delivery Logs list — QUEUED status filter', () => {
     expect(await screen.findByText('Filters')).toBeVisible();
     expect(screen.getByText('Status')).toBeVisible();
     expect(screen.getByPlaceholderText('Start date')).toBeVisible();
+  });
+
+  it('clears an applied filter through a labeled keyboard-accessible button', async () => {
+    await renderRoute('/logs?status=FAILED');
+
+    const clearStatus = await screen.findByRole('button', {
+      name: 'Clear filter: Status: Failed (including abandoned)',
+    });
+    expect(clearStatus).toBeVisible();
+    fireEvent.click(clearStatus);
+
+    await waitFor(() => {
+      expect(new URLSearchParams(screen.getByTestId('location-search').textContent || '').has('status')).toBe(false);
+    });
+  });
+
+  it('keeps status and delivery diagnostics in the desktop table without a pinned action overlay', async () => {
+    await renderRoute();
+
+    const columns = JSON.parse(screen.getByTestId('modern-table-columns').getAttribute('data-columns') || '[]');
+    const byKey = Object.fromEntries(columns.map((column: any) => [column.key, column]));
+    const primaryDesktopColumns = [
+      'createdAt',
+      'integrationName',
+      'eventType',
+      'status',
+      'responseStatus',
+      'responseTimeMs',
+      'attemptCount',
+      'actions',
+    ];
+
+    expect(primaryDesktopColumns.every((key) => typeof byKey[key]?.width === 'number')).toBe(true);
+    expect(primaryDesktopColumns.reduce((sum, key) => sum + byKey[key].width, 0)).toBeLessThanOrEqual(1000);
+    expect(byKey.actions.fixed).toBeUndefined();
   });
 
   it('widens the date range from the empty state', async () => {

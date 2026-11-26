@@ -1,126 +1,70 @@
 /* ============================================================================
    Workflow canvas (docs/design/workflow-canvas/README.md, section 5).
-   Tokens are scoped to .wf so the canvas has its own light and dark palette
-   whatever the surrounding page does. Motion is the spec's: 140-320 ms, one
+   Tokens are scoped to .wf and resolve through the application theme. Motion
+   is the spec's: 140-320 ms, one
    easing, nothing loops except the running dot.
    ========================================================================= */
 
 .wf {
-  --wf-font: 'Instrument Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --wf-font: var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif);
   --wf-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --wf-canvas: #f5f3ee;
-  --wf-dot: #d6d0c4;
-  --wf-surface: #ffffff;
-  --wf-sunk: #f7f6f2;
-  --wf-sunk-2: #fbfaf7;
-  --wf-border: #e2ded5;
-  --wf-border-strong: #c9c3b7;
-  --wf-input: #d9d4ca;
-  --wf-ink: #16171b;
-  --wf-ink-2: #45464d;
-  --wf-ink-3: #66676e;
-  --wf-accent: #2b59e6;
-  --wf-accent-soft: rgba(43, 89, 230, 0.14);
-  --wf-accent-tint: #e8eefd;
-  --wf-on-accent: #ffffff;
-  --wf-success: #1e7a4c;
-  --wf-success-bg: #e6f2ea;
-  --wf-success-ink: #1e6b44;
-  --wf-danger: #b42318;
-  --wf-danger-soft: rgba(180, 35, 24, 0.14);
-  --wf-danger-bg: #fbe9e7;
-  --wf-danger-ink: #9e1f15;
-  --wf-danger-callout: #fdf3f1;
-  --wf-danger-border: #f2c9c3;
-  --wf-warning: #8f5400;
-  --wf-warning-bg: #fdf0dc;
-  --wf-warning-ink: #7a4700;
-  --wf-retry: #b4570b;
-  --wf-neutral: #5d5e66;
-  --wf-neutral-bg: #eeedea;
-  --wf-neutral-ink: #4d4e55;
-  --wf-connector: #9c9688;
-  --wf-taken: #45464d;
-  --wf-not-taken: #cfc9be;
-  --wf-quiet-surface: #f8f7f3;
-  --wf-quiet-border: #d3cdc1;
-  --wf-quiet-label: #66676e;
-  --wf-tile-mix: 10%;
-  --wf-shadow-1: 0 1px 2px rgba(22, 23, 27, 0.06), 0 1px 1px rgba(22, 23, 27, 0.04);
-  --wf-shadow-2: 0 12px 32px rgba(22, 23, 27, 0.12), 0 2px 6px rgba(22, 23, 27, 0.06);
+  --wf-canvas: var(--color-bg-base);
+  --wf-dot: var(--color-border-subtle);
+  --wf-surface: var(--color-bg-surface);
+  --wf-sunk: var(--color-bg-subtle);
+  --wf-sunk-2: var(--color-bg-subtle);
+  --wf-border: var(--color-border-subtle);
+  --wf-border-strong: var(--color-border-default);
+  --wf-input: var(--color-border-default);
+  --wf-ink: var(--color-text-primary);
+  --wf-ink-2: var(--color-text-secondary);
+  --wf-ink-3: var(--color-text-muted);
+  --wf-accent: var(--color-accent-text);
+  --wf-accent-soft: color-mix(in srgb, var(--color-accent-text) 14%, transparent);
+  --wf-accent-tint: var(--color-info-bg);
+  --wf-on-accent: var(--color-text-inverse);
+  --wf-success: var(--color-success-text);
+  --wf-success-bg: var(--color-success-bg);
+  --wf-success-ink: var(--color-success-text);
+  --wf-danger: var(--color-error-text);
+  --wf-danger-soft: color-mix(in srgb, var(--color-error-text) 14%, transparent);
+  --wf-danger-bg: var(--color-error-bg);
+  --wf-danger-ink: var(--color-error-text);
+  --wf-danger-callout: var(--color-error-bg);
+  --wf-danger-border: var(--color-error-border);
+  --wf-warning: var(--color-warning-text);
+  --wf-warning-bg: var(--color-warning-bg);
+  --wf-warning-ink: var(--color-warning-text);
+  --wf-retry: var(--color-warning-text);
+  --wf-neutral: var(--color-text-muted);
+  --wf-neutral-bg: var(--color-bg-subtle);
+  --wf-neutral-ink: var(--color-text-secondary);
+  --wf-connector: var(--color-border-strong);
+  --wf-taken: var(--color-accent-text);
+  --wf-not-taken: var(--color-border-default);
+  --wf-quiet-surface: var(--color-bg-subtle);
+  --wf-quiet-border: var(--color-border-default);
+  --wf-quiet-label: var(--color-text-muted);
+  --wf-tile-mix: 0%;
+  --wf-shadow-1: var(--shadow-base);
+  --wf-shadow-2: var(--shadow-md);
   --wf-ease: cubic-bezier(0.2, 0, 0, 1);
   --wf-ease-exit: cubic-bezier(0.4, 0, 1, 1);
-  --t-trigger: #6a4bd6;
-  --t-transform: #4d5562;
-  --t-http: #2b59e6;
-  --t-script: #3d4451;
-  --t-gate: #9a5a00;
-  --t-send: #1f4fd1;
-  --t-retry: #b4570b;
-  --t-schedule: #11756a;
-  --t-notify: #b2345e;
-  --t-done: #1e7a4c;
-  --t-skipped: #5d5e66;
-  --t-failedEnd: #b42318;
-  --t-group: #4d5562;
+  --t-trigger: var(--wf-ink-2);
+  --t-transform: var(--wf-ink-2);
+  --t-http: var(--wf-ink-2);
+  --t-script: var(--wf-ink-2);
+  --t-gate: var(--wf-ink-2);
+  --t-send: var(--wf-ink-2);
+  --t-retry: var(--wf-warning);
+  --t-schedule: var(--wf-ink-2);
+  --t-notify: var(--wf-ink-2);
+  --t-done: var(--wf-success);
+  --t-skipped: var(--wf-neutral);
+  --t-failedEnd: var(--wf-danger);
+  --t-group: var(--wf-ink-2);
   font-family: var(--wf-font);
   color: var(--wf-ink);
-}
-
-.wf[data-theme='dark'] {
-  --wf-canvas: #131416;
-  --wf-dot: #2a2c30;
-  --wf-surface: #1c1e21;
-  --wf-sunk: #16181b;
-  --wf-sunk-2: #16181b;
-  --wf-border: #2e3136;
-  --wf-border-strong: #40444b;
-  --wf-input: #3a3e44;
-  --wf-ink: #edeae3;
-  --wf-ink-2: #c2bfb7;
-  --wf-ink-3: #97958f;
-  --wf-accent: #43d3b4;
-  --wf-accent-soft: rgba(67, 211, 180, 0.16);
-  --wf-accent-tint: rgba(67, 211, 180, 0.12);
-  --wf-on-accent: #0b1f1a;
-  --wf-success: #5fd394;
-  --wf-success-bg: rgba(95, 211, 148, 0.12);
-  --wf-success-ink: #8ee3b3;
-  --wf-danger: #f47c70;
-  --wf-danger-soft: rgba(244, 124, 112, 0.16);
-  --wf-danger-bg: rgba(244, 124, 112, 0.14);
-  --wf-danger-ink: #f9a59c;
-  --wf-danger-callout: rgba(244, 124, 112, 0.1);
-  --wf-danger-border: rgba(244, 124, 112, 0.35);
-  --wf-warning: #edb95a;
-  --wf-warning-bg: rgba(237, 185, 90, 0.14);
-  --wf-warning-ink: #f1c982;
-  --wf-retry: #f2a35e;
-  --wf-neutral: #97958f;
-  --wf-neutral-bg: rgba(151, 149, 143, 0.14);
-  --wf-neutral-ink: #c2bfb7;
-  --wf-connector: #5a5e66;
-  --wf-taken: #43d3b4;
-  --wf-not-taken: #3a3d43;
-  --wf-quiet-surface: #17191c;
-  --wf-quiet-border: #3a3e44;
-  --wf-quiet-label: #8e8c86;
-  --wf-tile-mix: 16%;
-  --wf-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --wf-shadow-2: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-  --t-trigger: #a893f5;
-  --t-transform: #a9b0bc;
-  --t-http: #7ea2ff;
-  --t-script: #b5bcc8;
-  --t-gate: #edb95a;
-  --t-send: #86a8ff;
-  --t-retry: #f2a35e;
-  --t-schedule: #4fd1c2;
-  --t-notify: #f28bae;
-  --t-done: #5fd394;
-  --t-skipped: #97958f;
-  --t-failedEnd: #f47c70;
-  --t-group: #a9b0bc;
 }
 
 /* ── Layout: canvas, inspector */
@@ -132,7 +76,7 @@
   flex-direction: column;
   background: var(--wf-canvas);
   border: 1px solid var(--wf-border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   overflow: hidden;
   min-height: 560px;
   height: 100%;
@@ -214,13 +158,13 @@
   gap: 2px;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
 }
 .wf-seg button {
   height: 28px;
   padding: 0 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--wf-ink-2);
   font: 500 13px/20px var(--wf-font);
@@ -247,7 +191,7 @@
   gap: 6px;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   color: var(--wf-ink);
   font: 500 13px/20px var(--wf-font);
   cursor: pointer;
@@ -287,7 +231,7 @@
   gap: 8px;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
 }
 .wf-search input {
   flex: 1;
@@ -313,7 +257,7 @@
   padding: 4px;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 .wf-palette button {
   width: 36px;
@@ -321,7 +265,7 @@
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--wf-ink-2);
   cursor: pointer;
@@ -344,7 +288,7 @@
   z-index: 4;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   overflow: hidden;
 }
 .wf-bottombar {
@@ -372,7 +316,7 @@
   color: var(--wf-ink);
   background: var(--wf-sunken, var(--wf-bg));
   border: 1px solid var(--wf-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 .wf-chip {
   display: inline-flex;
@@ -398,7 +342,7 @@
   padding: 0 10px;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   font: 500 12px var(--wf-mono);
   color: var(--wf-ink-2);
 }
@@ -407,8 +351,7 @@
 .wf-band {
   position: absolute;
   font: 400 12px/16px var(--wf-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--wf-ink-3);
   user-select: none;
 }
@@ -494,7 +437,7 @@
   align-items: flex-start;
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   box-shadow: var(--wf-shadow-1);
   text-align: left;
   font-family: var(--wf-font);
@@ -550,7 +493,7 @@
   height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--radius-surface);
   background: color-mix(in oklab, var(--tint) var(--wf-tile-mix), transparent);
   color: var(--tint);
 }
@@ -571,8 +514,7 @@
   justify-content: space-between;
   gap: 8px;
   font: 500 11px/14px var(--wf-font);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--wf-ink-3);
 }
 .wf-node__eyebrow > span:first-child {
@@ -712,7 +654,7 @@
 .wf-inspector__title h3 {
   margin: 0;
   font: 600 17px/22px var(--wf-font);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--wf-ink);
 }
 .wf-inspector__body {
@@ -756,7 +698,7 @@
 }
 .wf-callout {
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   border: 1px solid var(--wf-danger-border);
   background: var(--wf-danger-callout);
   display: flex;
@@ -777,6 +719,47 @@
   font-size: 12.5px;
   line-height: 18px;
   color: var(--wf-ink-2);
+}
+
+.wf-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.wf-margin-top-2 {
+  margin-top: var(--spacing-2);
+}
+
+.wf-margin-top-3 {
+  margin-top: var(--spacing-3);
+}
+
+.wf-attempt-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--spacing-1-5) 0;
+  border-bottom: 1px solid var(--wf-border);
+  font-size: var(--console-type-caption);
+}
+
+.wf-failure-code {
+  max-height: 13.75rem;
+  overflow: auto;
+  margin: var(--spacing-0);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-surface);
+  background: var(--wf-sunk);
+  font-size: var(--console-type-caption);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wf-no-response {
+  padding: var(--spacing-3);
+  border: 1px dashed var(--wf-border-strong);
+  border-radius: var(--radius-surface);
 }
 .wf-section-title {
   font: 600 12.5px/16px var(--wf-font);
@@ -808,14 +791,14 @@
 .wf-trace__bar {
   position: relative;
   height: 14px;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   background: var(--wf-sunk);
 }
 .wf-trace__bar > i {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   background: var(--wf-taken);
 }
 .wf-trace__bar > i.wf-trace--failed { background: var(--wf-danger); }
@@ -847,7 +830,7 @@
     height: 58%;
     border-left: 0;
     border-top: 1px solid var(--wf-border);
-    border-radius: 14px 14px 0 0;
+    border-radius: var(--radius-surface) var(--radius-surface) 0 0;
     animation: wf-insp-up 220ms var(--wf-ease);
   }
 }
@@ -902,7 +885,7 @@
 .wf-drop {
   position: absolute;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: var(--wf-accent);
   box-shadow: 0 0 0 3px var(--wf-accent-soft);
   pointer-events: none;

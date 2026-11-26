@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Alert, Button, Drawer, Empty, Grid, Select, Skeleton, Space, Tag, Typography } from 'antd';
-import { HistoryOutlined, RollbackOutlined } from '@ant-design/icons';
+import { App, Drawer, Grid, Select, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import {
@@ -12,6 +13,10 @@ import {
 import { cssVar } from '../../design-system/utils';
 import { formatDateTime } from '../../utils/format';
 import { RevisionChanges } from './RevisionChanges';
+import { StatePanel } from '../../components/common/StatePanel';
+import { Button } from '../../components/common/LegacyButton';
+import { MetaTag } from '../../components/common/MetaTag';
+import { StatusBadge } from '../../components/common/StatusBadge';
 
 const SOURCE_LABEL: Record<IntegrationRevisionSummary['source'], string> = {
   BASELINE: 'Before history began',
@@ -52,7 +57,7 @@ const RevisionItem = ({
         display: 'block',
         width: '100%',
         textAlign: 'left',
-        padding: 12,
+        padding: 'var(--spacing-3)',
         borderRadius: 8,
         cursor: 'pointer',
         border: `1px solid ${selected ? cssVar.primary[500] : cssVar.border.subtle}`,
@@ -62,15 +67,15 @@ const RevisionItem = ({
       }}
     >
       <Space size={6} wrap>
-        <Typography.Text strong>Revision {revision.revision}</Typography.Text>
-        {isCurrent && <Tag color="green">Current</Tag>}
-        <Tag>
+        <Text weight="semibold">Revision {revision.revision}</Text>
+        {isCurrent && <StatusBadge label="Current" variant="success" size="small" showIcon={false} />}
+        <Text as="span" type="supporting" color="secondary">
           {revision.source === 'RESTORED' && revision.restoredFrom
             ? `Restored from ${revision.restoredFrom}`
             : SOURCE_LABEL[revision.source]}
-        </Tag>
+        </Text>
       </Space>
-      <div style={{ marginTop: 4, fontSize: 12, color: cssVar.text.secondary }}>
+      <Text as="div" display="block" type="supporting" color="secondary" className="console-margin-top-1">
         <span title={formatDateTime(revision.createdAt)}>{dayjs(revision.createdAt).format('MMM D, HH:mm')}</span>
         {revision.changedBy?.email && (
           <>
@@ -78,15 +83,15 @@ const RevisionItem = ({
             <span>{revision.changedBy.email}</span>
           </>
         )}
-      </div>
+      </Text>
       {revision.changedFields.length > 0 && (
-        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <div className="ui-extracted-4dd65c232f">
           {revision.changedFields.slice(0, MAX_FIELD_TAGS).map((field) => (
-            <Tag key={field} style={{ margin: 0, fontSize: 11 }}>
+            <MetaTag key={field} variant="neutral" size="small">
               {field}
-            </Tag>
+            </MetaTag>
           ))}
-          {extraFields > 0 && <Tag style={{ margin: 0, fontSize: 11 }}>+{extraFields} more</Tag>}
+          {extraFields > 0 && <MetaTag size="small">+{extraFields} more</MetaTag>}
         </div>
       )}
     </button>
@@ -97,7 +102,12 @@ const RevisionItem = ({
  * Every saved version of an integration: who changed what, a comparison with the
  * current configuration (or another revision), and restore.
  */
-export const IntegrationHistoryDrawer = ({ open, integrationId, onClose, onRestored }: IntegrationHistoryDrawerProps) => {
+export const IntegrationHistoryDrawer = ({
+  open,
+  integrationId,
+  onClose,
+  onRestored,
+}: IntegrationHistoryDrawerProps) => {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
   const screens = Grid.useBreakpoint();
@@ -151,27 +161,33 @@ export const IntegrationHistoryDrawer = ({ open, integrationId, onClose, onResto
   const compareOptions = useMemo(
     () => [
       { label: 'Current configuration', value: 'current' as const },
-      ...revisions.filter((r) => r.revision !== selected).map((r) => ({ label: `Revision ${r.revision}`, value: r.revision })),
+      ...revisions
+        .filter((r) => r.revision !== selected)
+        .map((r) => ({ label: `Revision ${r.revision}`, value: r.revision })),
     ],
     [revisions, selected]
   );
 
   const forbidden = (historyQuery.error as { statusCode?: number } | null)?.statusCode === 403;
-  const integrationName = historyQuery.data?.integration.name;
+  const integrationName = historyQuery.data?.integration?.name;
   const selectedIsCurrent = selected === latest && against === 'current';
 
   const renderDetails = () => {
     if (selected === null) return null;
     if (selectedIsCurrent) {
       return (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="This is the current configuration. Pick an earlier revision, or compare it with one."
+        <StatePanel
+          size="compact"
+          glyph="searching"
+          title="Current configuration"
+          description="Select an earlier revision to compare."
         />
       );
     }
-    if (diffQuery.isLoading) return <Skeleton active paragraph={{ rows: 6 }} />;
-    if (diffQuery.isError) return <Alert type="error" showIcon message="Could not load the comparison" />;
+    if (diffQuery.isLoading)
+      return <StatePanel glyph="connecting" tone="busy" title="Loading comparison" size="compact" />;
+    if (diffQuery.isError)
+      return <StatePanel glyph="disrupted" tone="critical" title="Comparison unavailable" size="compact" />;
     if (!diffQuery.data) return null;
     return (
       <RevisionChanges
@@ -190,33 +206,45 @@ export const IntegrationHistoryDrawer = ({ open, integrationId, onClose, onResto
       destroyOnClose
       title={
         <Space>
-          <HistoryOutlined aria-hidden />
+          <GatewayIcon name="HistoryOutlined" aria-hidden />
           <span>History{integrationName ? ` · ${integrationName}` : ''}</span>
         </Space>
       }
     >
-      {historyQuery.isLoading && <Skeleton active paragraph={{ rows: 8 }} />}
+      {historyQuery.isLoading && <StatePanel glyph="connecting" tone="busy" title="Loading history" />}
       {historyQuery.isError && (
-        <Alert
-          type={forbidden ? 'warning' : 'error'}
-          showIcon
-          message={forbidden ? 'You do not have access to this integration’s history.' : 'Could not load history'}
-          description={forbidden ? 'Ask an organization admin for the “Access version history” permission.' : undefined}
+        <StatePanel
+          glyph={forbidden ? undefined : 'disrupted'}
+          tone={forbidden ? 'neutral' : 'critical'}
+          size="compact"
+          title={forbidden ? 'History access required' : 'Could not load history'}
+          description={
+            forbidden
+              ? 'Ask an organization admin for the “Access version history” permission.'
+              : 'Check your connection and try again.'
+          }
+          actions={
+            forbidden ? undefined : (
+              <Button type="primary" onClick={() => historyQuery.refetch()} loading={historyQuery.isFetching}>
+                Retry
+              </Button>
+            )
+          }
         />
       )}
       {historyQuery.isSuccess && revisions.length === 0 && (
-        <Empty description="No history yet. Each save from now on is recorded here." />
+        <StatePanel size="compact" glyph="searching" title="No revision history yet" />
       )}
       {historyQuery.isSuccess && revisions.length > 0 && (
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: screens.md ? '300px minmax(0, 1fr)' : '1fr',
-            gap: 20,
+            gap: 'var(--spacing-5)',
             alignItems: 'start',
           }}
         >
-          <nav aria-label="Revisions" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <nav aria-label="Revisions" className="console-stack-vertical-gap-2">
             {revisions.map((revision) => (
               <RevisionItem
                 key={revision.revision}
@@ -230,24 +258,31 @@ export const IntegrationHistoryDrawer = ({ open, integrationId, onClose, onResto
               />
             ))}
           </nav>
-          <section aria-label="Changes" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section
+            aria-label="Changes"
+            className="ui-extracted-e71c651d0b"
+          >
             {selected !== null && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+              <div
+                className="ui-extracted-7a2d2b9b1c"
+              >
                 <Space wrap>
-                  <Typography.Text strong>Revision {selected}</Typography.Text>
-                  <Typography.Text type="secondary">compared with</Typography.Text>
+                  <Text weight="semibold">Revision {selected}</Text>
+                  <Text type="supporting" color="secondary">
+                    compared with
+                  </Text>
                   <Select
                     aria-label="Compare with"
                     value={against}
                     onChange={setAgainst}
                     options={compareOptions}
-                    style={{ minWidth: 200 }}
+                    className="ui-extracted-e90dbd8593"
                   />
                 </Space>
                 {selected !== latest && (
                   <Button
                     type="primary"
-                    icon={<RollbackOutlined />}
+                    icon={<GatewayIcon name="RollbackOutlined" />}
                     loading={restore.isPending}
                     onClick={() => confirmRestore(selected)}
                   >

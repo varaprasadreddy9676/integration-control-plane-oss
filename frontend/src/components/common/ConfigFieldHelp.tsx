@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Typography } from 'antd';
+import { Text } from '@astryxdesign/core/Text';
 
 interface ConfigFieldHelpProps {
   children: ReactNode;
@@ -11,7 +11,7 @@ interface ConfigFieldHelpProps {
  * color everywhere instead of relying on antd's default `extra` styling.
  */
 export const ConfigFieldHelp = ({ children }: ConfigFieldHelpProps) => (
-  <Typography.Text type="secondary" style={{ fontSize: 12, lineHeight: 1.5 }}>
+  <Text as="span" type="supporting" className="config-field-help">
     {children}
-  </Typography.Text>
+  </Text>
 );

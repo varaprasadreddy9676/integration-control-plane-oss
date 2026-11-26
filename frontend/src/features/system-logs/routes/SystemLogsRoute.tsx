@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState, type Key, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type Key } from 'react';
 import {
-  Alert,
   App,
-  Button,
   Card,
   Divider,
   Dropdown,
@@ -11,22 +9,14 @@ import {
   Select,
   Space,
   Switch,
-  Tabs,
-  Tag,
-  Typography,
-} from 'antd';
-import {
-  BugOutlined,
-  ClearOutlined,
-  DeleteOutlined,
-  DownloadOutlined,
-  InfoCircleOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-  ToolOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Text } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Stack } from '@astryxdesign/core/Stack';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
 import {
@@ -42,6 +32,10 @@ import { formatDateTime } from '../../../utils/format';
 import { createExportProgress } from '../../../utils/export-progress';
 import { cssVar, spacingToNumber, useDesignTokens, withAlpha } from '../../../design-system/utils';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge, type StatusBadgeVariant } from '../../../components/common/StatusBadge';
+import { InlineHint } from '../../../components/common/InlineHint';
+import { StatePanel } from '../../../components/common/StatePanel';
 
 type LogRecord = SystemLog & {
   meta?: Record<string, any>;
@@ -106,7 +100,7 @@ const filterLogsByStatus = (logs: LogRecord[], statusFilter: string) => {
 };
 
 export default function SystemLogsRoute() {
-  const { spacing, token, shadows, borderRadius, transitions } = useDesignTokens();
+  const { spacing, token, borderRadius, transitions } = useDesignTokens();
   const colors = cssVar.legacy;
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
@@ -134,14 +128,6 @@ export default function SystemLogsRoute() {
     healthy: number;
   } | null>(null);
   const [processLineLimit, setProcessLineLimit] = useState<number>(200);
-
-  const tableFullBleedStyle = isNarrow
-    ? {}
-    : {
-        marginLeft: 0,
-        marginRight: `-${spacing[5]}`,
-        paddingRight: spacing[1],
-      };
 
   useEffect(() => {
     setSelectedRowKeys([]);
@@ -258,35 +244,15 @@ export default function SystemLogsRoute() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [serverStats]);
 
-  const levelTone: Record<string, { bg: string; text: string; border: string; icon: ReactNode; dotColor: string }> = {
-    error: {
-      bg: withAlpha(colors.error[100], 1),
-      text: colors.error[700],
-      border: colors.error[300],
-      icon: <BugOutlined />,
-      dotColor: colors.error[600],
-    },
-    warn: {
-      bg: withAlpha(colors.warning[100], 1),
-      text: colors.warning[700],
-      border: colors.warning[300],
-      icon: <WarningOutlined />,
-      dotColor: colors.warning[600],
-    },
-    info: {
-      bg: withAlpha(colors.info[100], 1),
-      text: colors.info[700],
-      border: colors.info[300],
-      icon: <InfoCircleOutlined />,
-      dotColor: colors.info[600],
-    },
-    debug: {
-      bg: withAlpha(colors.neutral[100], 1),
-      text: cssVar.text.secondary,
-      border: colors.neutral[200],
-      icon: <ToolOutlined />,
-      dotColor: colors.neutral[600],
-    },
+  const levelPresentation: Record<string, { label: string; variant: StatusBadgeVariant }> = {
+    error: { label: 'Error', variant: 'error' },
+    warn: { label: 'Warning', variant: 'warning' },
+    info: { label: 'Info', variant: 'info' },
+    debug: { label: 'Debug', variant: 'neutral' },
+  };
+  const renderLevelBadge = (level: string) => {
+    const presentation = levelPresentation[level] || levelPresentation.info;
+    return <StatusBadge status={level} label={presentation.label} variant={presentation.variant} />;
   };
 
   const hasActiveFilters =
@@ -512,27 +478,12 @@ export default function SystemLogsRoute() {
       sorter: (a: PollGroupRow, b: PollGroupRow) => (a.pollId || '').localeCompare(b.pollId || ''),
       render: (pollId: string, record: PollGroupRow) => {
         const label = pollId === 'NO_POLL' ? 'Ungrouped logs' : `POLL #${pollId}`;
-        const statusTone = record.hasError ? levelTone.error : record.hasWarn ? levelTone.warn : levelTone.info;
         return (
           <Space direction="vertical" size={2}>
-            <Tag
-              icon={statusTone.icon}
-              style={{
-                borderRadius: borderRadius.full,
-                fontSize: 12,
-                padding: `${spacing['1']} ${spacing[2]}`,
-                background: statusTone.bg,
-                color: statusTone.text,
-                borderColor: statusTone.border,
-                fontWeight: 700,
-                margin: 0,
-              }}
-            >
-              {label}
-            </Tag>
-            <Typography.Text type="secondary" style={{ fontSize: 11, color: cssVar.text.secondary }}>
+            <Text type="code">{label}</Text>
+            <Text type="supporting" color="secondary" className="console-caption-secondary">
               {(record.logs ?? []).length} step{(record.logs ?? []).length > 1 ? 's' : ''}
-            </Typography.Text>
+            </Text>
           </Space>
         );
       },
@@ -546,12 +497,12 @@ export default function SystemLogsRoute() {
       defaultSortOrder: 'descend' as const,
       render: (_: unknown, record: PollGroupRow) => (
         <Space direction="vertical" size={2}>
-          <Typography.Text style={{ fontSize: 13, color: cssVar.text.secondary }}>
+          <Text color="secondary" className="console-type-body">
             {formatDateTime(record.firstTimestamp)} → {formatDateTime(record.lastTimestamp)}
-          </Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 11, color: cssVar.text.secondary }}>
+          </Text>
+          <Text type="supporting" color="secondary" className="console-caption-secondary">
             Duration: {formatDuration(record.firstTimestamp, record.lastTimestamp)}
-          </Typography.Text>
+          </Text>
         </Space>
       ),
     },
@@ -560,70 +511,21 @@ export default function SystemLogsRoute() {
       key: 'summary',
       ellipsis: true,
       render: (_: unknown, record: PollGroupRow) => {
-        const tone = record.hasError ? levelTone.error : record.hasWarn ? levelTone.warn : levelTone.info;
+        const health = record.hasError
+          ? { status: 'FAILED', label: 'Has errors', variant: 'error' as const }
+          : record.hasWarn
+            ? { status: 'WARNING', label: 'Warnings only', variant: 'warning' as const }
+            : { status: 'HEALTHY', label: 'Healthy', variant: 'neutral' as const };
+        const errors = (record.logs ?? []).filter((log) => log.level === 'error').length;
+        const warnings = (record.logs ?? []).filter((log) => log.level === 'warn').length;
         return (
-          <Space direction="vertical" size={2} style={{ width: '100%' }}>
-            <Typography.Text strong style={{ fontSize: 13, color: cssVar.text.primary }}>
-              {record.hasError ? 'Has errors' : record.hasWarn ? 'Warnings only' : 'OK'}
-            </Typography.Text>
-            <Space size={8} wrap>
-              <Tag
-                style={{
-                  borderRadius: borderRadius.full,
-                  fontSize: 11,
-                  padding: `0 ${spacing[2]}`,
-                  background: withAlpha(tone.bg, 0.9),
-                  color: tone.text,
-                  borderColor: tone.border,
-                  margin: 0,
-                }}
-              >
-                {(record.logs ?? []).filter((log) => log.level === 'error').length} error(s)
-              </Tag>
-              <Tag
-                style={{
-                  borderRadius: borderRadius.full,
-                  fontSize: 11,
-                  padding: `0 ${spacing[2]}`,
-                  background: withAlpha(colors.warning[50], 1),
-                  color: colors.warning[700],
-                  borderColor: colors.warning[300],
-                  margin: 0,
-                }}
-              >
-                {(record.logs ?? []).filter((log) => log.level === 'warn').length} warning(s)
-              </Tag>
-              {typeof record.eventsProcessed === 'number' && (
-                <Tag
-                  style={{
-                    borderRadius: borderRadius.full,
-                    fontSize: 11,
-                    padding: `0 ${spacing[2]}`,
-                    background: cssVar.bg.elevated,
-                    color: cssVar.text.secondary,
-                    borderColor: cssVar.border.default,
-                    margin: 0,
-                  }}
-                >
-                  events: {record.eventsProcessed}
-                </Tag>
-              )}
-              {typeof record.retriesProcessed === 'number' && (
-                <Tag
-                  style={{
-                    borderRadius: borderRadius.full,
-                    fontSize: 11,
-                    padding: `0 ${spacing[2]}`,
-                    background: cssVar.bg.elevated,
-                    color: cssVar.text.secondary,
-                    borderColor: cssVar.border.default,
-                    margin: 0,
-                  }}
-                >
-                  retries: {record.retriesProcessed}
-                </Tag>
-              )}
-            </Space>
+          <Space direction="vertical" size={2} className="console-width-full">
+            <StatusBadge status={health.status} label={health.label} variant={health.variant} />
+            <Text type="supporting" color="secondary">
+              {errors} {errors === 1 ? 'error' : 'errors'} · {warnings} {warnings === 1 ? 'warning' : 'warnings'}
+              {typeof record.eventsProcessed === 'number' ? ` · ${record.eventsProcessed} events` : ''}
+              {typeof record.retriesProcessed === 'number' ? ` · ${record.retriesProcessed} retries` : ''}
+            </Text>
           </Space>
         );
       },
@@ -638,46 +540,26 @@ export default function SystemLogsRoute() {
       width: 210,
       sorter: (a: LogRecord, b: LogRecord) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
       defaultSortOrder: 'descend' as const,
-      render: (value: string) => (
-        <Typography.Text style={{ fontSize: 12, color: cssVar.text.secondary }}>
-          {formatDateTime(value)}
-        </Typography.Text>
-      ),
+      render: (value: string) => <Text className="console-caption-secondary">{formatDateTime(value)}</Text>,
     },
     {
       title: 'Level',
       dataIndex: 'level',
       key: 'level',
       width: 120,
-      render: (level: string) => {
-        const tone = levelTone[level] || levelTone.info;
-        return (
-          <Tag
-            icon={tone.icon}
-            style={{
-              borderRadius: borderRadius.full,
-              background: tone.bg,
-              color: tone.text,
-              borderColor: tone.border,
-              margin: 0,
-            }}
-          >
-            {String(level).toUpperCase()}
-          </Tag>
-        );
-      },
+      render: (level: string) => renderLevelBadge(level),
     },
     {
       title: 'Request',
       key: 'request',
       render: (_: unknown, record: LogRecord) => (
         <Space direction="vertical" size={0}>
-          <Typography.Text strong style={{ color: cssVar.text.primary }}>
+          <Text weight="semibold" className="console-text-primary">
             {record.meta?.method || 'REQUEST'} {record.meta?.url || record.message}
-          </Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 11, color: cssVar.text.secondary }}>
+          </Text>
+          <Text type="supporting" color="secondary" className="console-caption-secondary">
             stream: {record.stream || 'access'}
-          </Typography.Text>
+          </Text>
         </Space>
       ),
     },
@@ -709,56 +591,25 @@ export default function SystemLogsRoute() {
 
     return (
       <div
-        style={{
-          padding: `${spacing[3]} ${spacing[5]}`,
-          background: `linear-gradient(to right, ${withAlpha(cssVar.bg.base, 0.6)} 0%, ${withAlpha(cssVar.bg.subtle, 0.9)} 100%)`,
-        }}
+        className="system-log-expanded-row"
       >
         <Card
           variant="outlined"
-          style={{
-            borderRadius: token.borderRadiusLG,
-            border: `1px solid ${withAlpha(cssVar.border.default, 0.8)}`,
-            boxShadow: shadows.sm,
-          }}
+          className="system-log-card"
           styles={{ body: { padding: spacing[4] } }}
         >
-          <div
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[4] }}
-          >
-            <Typography.Text strong style={{ fontSize: 14, color: cssVar.text.primary }}>
+          <div className="system-log-timeline-heading">
+            <Text weight="semibold" className="console-type-control console-text-primary">
               Poll Cycle Timeline
-            </Typography.Text>
+            </Text>
             <Space size={spacingToNumber(spacing[2])}>
-              <Tag
-                style={{
-                  borderRadius: borderRadius.full,
-                  fontSize: 11,
-                  padding: `2px ${spacing[2]}`,
-                  background: withAlpha(colors.info[50], 1),
-                  color: colors.info[700],
-                  borderColor: colors.info[200],
-                  margin: 0,
-                }}
-              >
-                {sorted.length} event{sorted.length > 1 ? 's' : ''}
-              </Tag>
-              <Tag
-                style={{
-                  borderRadius: borderRadius.full,
-                  fontSize: 11,
-                  padding: `2px ${spacing[2]}`,
-                  background: cssVar.bg.elevated,
-                  color: cssVar.text.secondary,
-                  borderColor: cssVar.border.default,
-                  margin: 0,
-                }}
-              >
+              <Text type="supporting" color="secondary">
+                {sorted.length} event{sorted.length > 1 ? 's' : ''} ·{' '}
                 {formatDuration(group.firstTimestamp, group.lastTimestamp)} duration
-              </Tag>
+              </Text>
               <Button
                 size="small"
-                icon={<DownloadOutlined />}
+                icon={<GatewayIcon name="DownloadOutlined" />}
                 onClick={() => handleDownloadPollCycle(group)}
                 disabled={exportLoading}
                 style={{ borderRadius: borderRadius.full }}
@@ -768,62 +619,37 @@ export default function SystemLogsRoute() {
             </Space>
           </div>
 
-          <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
             {sorted.map((entry, index) => {
-              const tone = levelTone[entry.level] || levelTone.info;
               return (
                 <Card
                   key={`${entry.timestamp}-${index}`}
                   variant="outlined"
-                  style={{
-                    borderRadius: token.borderRadius,
-                    borderColor: withAlpha(tone.border, 0.4),
-                    background: `linear-gradient(135deg, ${cssVar.bg.surface} 0%, ${withAlpha(tone.bg, 0.3)} 100%)`,
-                  }}
+                  className="system-log-entry-card"
+                  data-level={['error', 'warn', 'debug'].includes(entry.level) ? entry.level : 'info'}
                   styles={{ body: { padding: spacing[3] } }}
                 >
-                  <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
+                  <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
                     <Space wrap>
-                      <Tag
-                        icon={tone.icon}
-                        style={{
-                          borderRadius: borderRadius.full,
-                          background: tone.bg,
-                          color: tone.text,
-                          borderColor: tone.border,
-                          margin: 0,
-                        }}
-                      >
-                        {entry.level.toUpperCase()}
-                      </Tag>
-                      <Tag style={{ borderRadius: borderRadius.full, margin: 0 }}>
-                        {getRelativeTime(entry.timestamp)}
-                      </Tag>
+                      {renderLevelBadge(entry.level)}
+                      <Text type="code">{getRelativeTime(entry.timestamp)}</Text>
                       {entry.errorCategory && (
-                        <Tag style={{ borderRadius: borderRadius.full, margin: 0 }}>{entry.errorCategory}</Tag>
+                        <Text type="supporting" color="secondary">
+                          {entry.errorCategory}
+                        </Text>
                       )}
                     </Space>
-                    <Typography.Text
-                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: cssVar.text.primary }}
-                    >
+                    <Text className="system-log-message">
                       {entry.message}
-                    </Typography.Text>
-                    <Typography.Text type="secondary" style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                    </Text>
+                    <Text type="supporting" color="secondary" className="console-caption-secondary">
                       {formatDateTime(entry.timestamp)}
-                    </Typography.Text>
+                    </Text>
                     {entry.meta && Object.keys(entry.meta).length > 0 && (
                       <div
-                        style={{
-                          fontFamily: 'ui-monospace, monospace',
-                          fontSize: 11,
-                          background: cssVar.bg.elevated,
-                          border: `1px solid ${withAlpha(cssVar.border.default, 0.5)}`,
-                          borderRadius: token.borderRadiusSM,
-                          padding: spacing[2],
-                          overflowX: 'auto',
-                        }}
+                        className="system-log-metadata"
                       >
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: cssVar.text.secondary }}>
+                        <pre className="system-log-metadata__content">
                           {JSON.stringify(entry.meta, null, 2)}
                         </pre>
                       </div>
@@ -880,199 +706,145 @@ export default function SystemLogsRoute() {
         ? 'Inspect rotated access logs from the backend request stream.'
         : 'Tail the process bootstrap output from nohup.out.';
 
-  const statusChips =
-    activeTab === 'process'
-      ? [
-          { label: processTail?.fileName || 'nohup.out' },
-          { label: `${processTail?.returnedLines || 0} lines`, color: colors.primary[600] },
-          { label: `Last refresh: ${lastRefresh.toLocaleTimeString()}`, color: colors.primary[600] },
-        ]
-      : [
-          // Explicitly "loaded" — this is the current page (capped at the fetch
-          // limit), not the total for the window. The "Poll Cycles" card below
-          // shows that total, and the two numbers legitimately differ; without a
-          // qualifier here they read as two disagreeing counts of the same thing.
-          { label: `${logs.length} ${activeTab === 'app' ? 'raw logs' : 'access logs'} loaded` },
-          {
-            label:
-              activeTab === 'app'
-                ? `${pollGroups.length} poll cycles`
-                : `${serverStats?.byStream?.access ?? logs.length} access entries`,
-            color: colors.primary[600],
-          },
-          { label: `Last refresh: ${lastRefresh.toLocaleTimeString()}`, color: colors.primary[600] },
-        ];
-
   return (
-    <div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isNarrow ? '1fr' : '1fr auto',
-          alignItems: isNarrow ? 'flex-start' : 'center',
-          gap: spacing[3],
-          rowGap: spacing[2],
-          marginBottom: spacing[3],
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 280 }}>
-          <PageHeader
-            title="System logs"
-            description={pageDescription}
-            statusChips={statusChips}
-            compact
-            actions={
-              activeTab === 'process' ? null : (
-                <Space size={spacingToNumber(spacing[2])}>
-                  <Dropdown
-                    trigger={['click']}
-                    disabled={exportLoading}
-                    menu={{
-                      items: [
-                        {
-                          key: 'all-csv',
-                          label: 'Export all logs (CSV)',
-                          icon: <DownloadOutlined />,
-                          onClick: () => handleExport('all', 'csv'),
-                          disabled: exportLoading,
-                        },
-                        {
-                          key: 'all-json',
-                          label: 'Export all logs (JSON)',
-                          icon: <DownloadOutlined />,
-                          onClick: () => handleExport('all', 'json'),
-                          disabled: exportLoading,
-                        },
-                        { type: 'divider' as const },
-                        {
-                          key: 'filtered-csv',
-                          label: 'Export filtered logs (CSV)',
-                          icon: <DownloadOutlined />,
-                          onClick: () => handleExport('filtered', 'csv'),
-                          disabled: !hasActiveFilters || exportLoading,
-                        },
-                        {
-                          key: 'filtered-json',
-                          label: 'Export filtered logs (JSON)',
-                          icon: <DownloadOutlined />,
-                          onClick: () => handleExport('filtered', 'json'),
-                          disabled: !hasActiveFilters || exportLoading,
-                        },
-                        ...(activeTab === 'app'
-                          ? [
-                              { type: 'divider' as const },
-                              {
-                                key: 'selected-csv',
-                                label: `Export selected cycles (${selectedRowKeys.length}) CSV`,
-                                icon: <DownloadOutlined />,
-                                onClick: () => handleExport('selected', 'csv'),
-                                disabled: selectedRowKeys.length === 0 || exportLoading,
-                              },
-                              {
-                                key: 'selected-json',
-                                label: `Export selected cycles (${selectedRowKeys.length}) JSON`,
-                                icon: <DownloadOutlined />,
-                                onClick: () => handleExport('selected', 'json'),
-                                disabled: selectedRowKeys.length === 0 || exportLoading,
-                              },
-                            ]
-                          : []),
-                      ],
-                    }}
-                  >
-                    <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
-                      Export logs
+    <PageTemplate
+      header={
+        <div className="system-logs-header-grid" data-narrow={isNarrow}>
+          <div className="system-logs-header-content">
+            <PageHeader
+              title="System logs"
+              description={pageDescription}
+              compact
+              actions={
+                activeTab === 'process' ? null : (
+                  <Space size={spacingToNumber(spacing[2])}>
+                    <Dropdown
+                      trigger={['click']}
+                      disabled={exportLoading}
+                      menu={{
+                        items: [
+                          {
+                            key: 'all-csv',
+                            label: 'Export all logs (CSV)',
+                            icon: <GatewayIcon name="DownloadOutlined" />,
+                            onClick: () => handleExport('all', 'csv'),
+                            disabled: exportLoading,
+                          },
+                          {
+                            key: 'all-json',
+                            label: 'Export all logs (JSON)',
+                            icon: <GatewayIcon name="DownloadOutlined" />,
+                            onClick: () => handleExport('all', 'json'),
+                            disabled: exportLoading,
+                          },
+                          { type: 'divider' as const },
+                          {
+                            key: 'filtered-csv',
+                            label: 'Export filtered logs (CSV)',
+                            icon: <GatewayIcon name="DownloadOutlined" />,
+                            onClick: () => handleExport('filtered', 'csv'),
+                            disabled: !hasActiveFilters || exportLoading,
+                          },
+                          {
+                            key: 'filtered-json',
+                            label: 'Export filtered logs (JSON)',
+                            icon: <GatewayIcon name="DownloadOutlined" />,
+                            onClick: () => handleExport('filtered', 'json'),
+                            disabled: !hasActiveFilters || exportLoading,
+                          },
+                          ...(activeTab === 'app'
+                            ? [
+                                { type: 'divider' as const },
+                                {
+                                  key: 'selected-csv',
+                                  label: `Export selected cycles (${selectedRowKeys.length}) CSV`,
+                                  icon: <GatewayIcon name="DownloadOutlined" />,
+                                  onClick: () => handleExport('selected', 'csv'),
+                                  disabled: selectedRowKeys.length === 0 || exportLoading,
+                                },
+                                {
+                                  key: 'selected-json',
+                                  label: `Export selected cycles (${selectedRowKeys.length}) JSON`,
+                                  icon: <GatewayIcon name="DownloadOutlined" />,
+                                  onClick: () => handleExport('selected', 'json'),
+                                  disabled: selectedRowKeys.length === 0 || exportLoading,
+                                },
+                              ]
+                            : []),
+                        ],
+                      }}
+                    >
+                      <Button icon={<GatewayIcon name="DownloadOutlined" />} disabled={exportLoading} size="small">
+                        Export logs
+                      </Button>
+                    </Dropdown>
+                    <Button
+                      danger
+                      icon={<GatewayIcon name="DeleteOutlined" />}
+                      onClick={handleClearAll}
+                      disabled={exportLoading || loading}
+                      size="small"
+                    >
+                      Clear All
                     </Button>
-                  </Dropdown>
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={handleClearAll}
-                    disabled={exportLoading || loading}
-                    size="small"
-                  >
-                    Clear All
-                  </Button>
-                </Space>
-              )
-            }
-          />
+                  </Space>
+                )
+              }
+            />
+          </div>
+          <div className="system-logs-refresh-control" data-narrow={isNarrow}>
+            {autoRefresh ? (
+              <RefreshCountdown intervalMs={5000} lastRefreshAt={lastRefresh.getTime()} />
+            ) : (
+              <Text type="supporting" color="secondary" className="console-text-secondary">
+                Auto-refresh off
+              </Text>
+            )}
+            <Switch checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} />
+            <Divider type="vertical" className="console-margin-none" />
+            <Button
+              type={autoRefresh ? 'primary' : 'default'}
+              icon={<GatewayIcon name="ReloadOutlined" />}
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              size="small"
+            >
+              {autoRefresh ? 'On' : 'Off'}
+            </Button>
+          </div>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: isNarrow ? 'flex-start' : 'flex-end',
-            flexWrap: isNarrow ? 'wrap' : 'nowrap',
-            gap: spacing['1.5'],
-            padding: `${spacing['1.5']} ${spacing[3]}`,
-            borderRadius: token.borderRadiusLG,
-            border: `1px solid ${cssVar.border.default}`,
-            background: withAlpha(cssVar.bg.surface, 0.9),
-          }}
-        >
-          {autoRefresh ? (
-            <RefreshCountdown intervalMs={5000} lastRefreshAt={lastRefresh.getTime()} />
-          ) : (
-            <Typography.Text type="secondary" style={{ color: cssVar.text.secondary }}>
-              Auto-refresh off
-            </Typography.Text>
-          )}
-          <Switch checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} />
-          <Divider type="vertical" style={{ margin: 0 }} />
-          <Button
-            type={autoRefresh ? 'primary' : 'default'}
-            icon={<ReloadOutlined />}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            size="small"
-          >
-            {autoRefresh ? 'On' : 'Off'}
-          </Button>
-        </div>
-      </div>
-
-      <Tabs
-        activeKey={activeTab}
+      }
+    >
+      <TabList
+        role="tablist"
+        aria-label="System log source"
+        value={activeTab}
         onChange={(key) => setActiveTab(key as ActiveTab)}
-        items={[
-          { key: 'app', label: 'Application Logs' },
-          { key: 'access', label: 'Access Logs' },
-          { key: 'process', label: 'Process Output' },
-        ]}
-        style={{ marginBottom: spacing[3] }}
-      />
+        hasDivider
+        className="console-margin-bottom-3"
+      >
+        <Tab value="app" label="Application Logs" />
+        <Tab value="access" label="Access Logs" />
+        <Tab value="process" label="Process Output" />
+      </TabList>
 
       {activeTab === 'process' ? (
         <>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: spacing['1.5'],
-              padding: `${spacing['1.5']} ${spacing[3]}`,
-              borderRadius: token.borderRadiusLG,
-              border: `1px solid ${cssVar.border.default}`,
-              background: cssVar.bg.surface,
-              boxShadow: shadows.lg,
-              marginBottom: spacing[3],
-              alignItems: 'center',
-            }}
-          >
+          <div className="system-logs-process-toolbar">
             <Select
               placeholder="Lines"
               size="small"
               value={processLineLimit}
               onChange={(value) => setProcessLineLimit(value)}
-              style={{ minWidth: 140 }}
+              className="system-logs-line-limit"
               options={[
                 { value: 100, label: 'Last 100 lines' },
                 { value: 200, label: 'Last 200 lines' },
                 { value: 500, label: 'Last 500 lines' },
               ]}
             />
-            <div style={{ display: 'flex', gap: spacing['1.5'], marginLeft: 'auto' }}>
+            <div className="system-logs-process-actions">
               <Button
-                icon={<ReloadOutlined />}
+                icon={<GatewayIcon name="ReloadOutlined" />}
                 onClick={() => fetchProcessTail({ manual: true, silent: true })}
                 loading={manualRefreshPending}
                 size="small"
@@ -1083,70 +855,46 @@ export default function SystemLogsRoute() {
           </div>
 
           {processTail?.truncated && (
-            <Alert
-              type="info"
-              showIcon
-              message="Showing the tail of nohup.out"
-              description="The response is intentionally capped to the most recent lines so the page stays fast."
-              style={{ marginBottom: spacing[3] }}
-            />
+            <InlineHint tone="warning">
+              Showing only the latest lines from nohup.out to keep the response fast.
+            </InlineHint>
           )}
 
           <Card
+            className="system-logs-process-card"
             variant="outlined"
-            style={{
-              borderRadius: token.borderRadiusLG,
-              border: `1px solid ${cssVar.border.default}`,
-              boxShadow: shadows.xl,
-            }}
             styles={{ body: { padding: spacing[4] } }}
           >
-            <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
-              <Space wrap>
-                <Tag style={{ borderRadius: borderRadius.full, margin: 0 }}>{processTail?.fileName || 'nohup.out'}</Tag>
-                <Tag style={{ borderRadius: borderRadius.full, margin: 0 }}>
+            <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
+              <Space wrap size={spacingToNumber(spacing[2])}>
+                <Text type="code">{processTail?.fileName || 'nohup.out'}</Text>
+                <Text type="supporting" color="secondary">
                   {processTail?.returnedLines || 0} lines
-                </Tag>
-                <Tag style={{ borderRadius: borderRadius.full, margin: 0 }}>
+                </Text>
+                <Text type="supporting" color="secondary">
                   {formatBytes(processTail?.sizeBytes || 0)}
-                </Tag>
-                <Tag style={{ borderRadius: borderRadius.full, margin: 0 }}>
+                </Text>
+                <Text type="supporting" color="secondary">
                   {processTail?.updatedAt ? `Updated ${formatDateTime(processTail.updatedAt)}` : 'No process log found'}
-                </Tag>
+                </Text>
               </Space>
 
               {!processTail?.fileExists ? (
-                <div style={{ padding: spacing[6], textAlign: 'center' }}>
-                  <InfoCircleOutlined style={{ fontSize: 48, color: cssVar.text.muted, marginBottom: spacing[3] }} />
-                  <Typography.Title level={4} style={{ color: cssVar.text.secondary, marginBottom: spacing[2] }}>
-                    No nohup.out file found
-                  </Typography.Title>
-                  <Typography.Text type="secondary" style={{ color: cssVar.text.secondary }}>
-                    The process output file does not exist at the configured path.
-                  </Typography.Text>
-                </div>
+                <StatePanel
+                  glyph="searching"
+                  size="compact"
+                  title="No process output found"
+                  description="The process output file does not exist at the configured path."
+                />
               ) : (
-                <div
-                  style={{
-                    maxHeight: 720,
-                    overflow: 'auto',
-                    borderRadius: token.borderRadius,
-                    border: `1px solid ${cssVar.border.default}`,
-                    background: '#0d1117',
-                    color: '#c9d1d9',
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                    fontSize: 12,
-                    lineHeight: 1.6,
-                    padding: spacing[3],
-                  }}
-                >
+                <div className="system-logs-process-output">
                   {(processTail.lines || []).map((line: ProcessLogLine) => (
                     <div
                       key={`${line.lineNumber}-${line.text.slice(0, 20)}`}
-                      style={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: spacing[2] }}
+                      className="system-log-process-line"
                     >
-                      <span style={{ color: '#8b949e', textAlign: 'right' }}>{line.lineNumber}</span>
-                      <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{line.text}</span>
+                      <span className="system-log-line-number">{line.lineNumber}</span>
+                      <span className="system-log-message">{line.text}</span>
                     </div>
                   ))}
                 </div>
@@ -1157,12 +905,8 @@ export default function SystemLogsRoute() {
       ) : (
         <>
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: spacing[3],
-              marginBottom: spacing[4],
-            }}
+            className="system-logs-summary-grid"
+            data-narrow={isNarrow}
           >
             {(activeTab === 'app'
               ? [
@@ -1171,7 +915,7 @@ export default function SystemLogsRoute() {
                     value: pollStats.total,
                     subtitle: `${rawStats.total} raw logs in window`,
                     tone: cssVar.text.secondary,
-                    icon: <SearchOutlined style={{ color: cssVar.text.secondary }} />,
+                    icon: <GatewayIcon name="SearchOutlined" className="console-text-secondary" />,
                     filter: '' as const,
                   },
                   {
@@ -1179,7 +923,7 @@ export default function SystemLogsRoute() {
                     value: pollStats.withErrors,
                     subtitle: `${rawStats.error} error-level log lines`,
                     tone: colors.error[600],
-                    icon: <BugOutlined style={{ color: colors.error[500] }} />,
+                    icon: <GatewayIcon name="BugOutlined" className="console-text-error" />,
                     filter: 'error' as const,
                   },
                   {
@@ -1187,7 +931,7 @@ export default function SystemLogsRoute() {
                     value: pollStats.withWarnings,
                     subtitle: `${rawStats.warn} warning logs`,
                     tone: colors.warning[600],
-                    icon: <WarningOutlined style={{ color: colors.warning[500] }} />,
+                    icon: <GatewayIcon name="WarningOutlined" className="console-text-warning" />,
                     filter: 'warn' as const,
                   },
                   {
@@ -1195,7 +939,7 @@ export default function SystemLogsRoute() {
                     value: pollStats.healthy,
                     subtitle: 'No issues',
                     tone: colors.success[600],
-                    icon: <InfoCircleOutlined style={{ color: colors.success[500] }} />,
+                    icon: <GatewayIcon name="InfoCircleOutlined" className="console-text-success" />,
                     filter: 'ok' as const,
                   },
                 ]
@@ -1205,7 +949,7 @@ export default function SystemLogsRoute() {
                     value: accessLogs.length,
                     subtitle: `${serverStats?.byStream?.access ?? accessLogs.length} in period`,
                     tone: cssVar.text.secondary,
-                    icon: <SearchOutlined style={{ color: cssVar.text.secondary }} />,
+                    icon: <GatewayIcon name="SearchOutlined" className="console-text-secondary" />,
                     filter: '' as const,
                   },
                   {
@@ -1213,7 +957,7 @@ export default function SystemLogsRoute() {
                     value: rawStats.error,
                     subtitle: 'Server-side request failures',
                     tone: colors.error[600],
-                    icon: <BugOutlined style={{ color: colors.error[500] }} />,
+                    icon: <GatewayIcon name="BugOutlined" className="console-text-error" />,
                     filter: 'error' as const,
                   },
                   {
@@ -1221,7 +965,7 @@ export default function SystemLogsRoute() {
                     value: rawStats.warn,
                     subtitle: 'Client/request warnings',
                     tone: colors.warning[600],
-                    icon: <WarningOutlined style={{ color: colors.warning[500] }} />,
+                    icon: <GatewayIcon name="WarningOutlined" className="console-text-warning" />,
                     filter: 'warn' as const,
                   },
                   {
@@ -1229,7 +973,7 @@ export default function SystemLogsRoute() {
                     value: rawStats.info,
                     subtitle: '2xx/3xx and normal traffic',
                     tone: colors.success[600],
-                    icon: <InfoCircleOutlined style={{ color: colors.success[500] }} />,
+                    icon: <GatewayIcon name="InfoCircleOutlined" className="console-text-success" />,
                     filter: 'ok' as const,
                   },
                 ]
@@ -1243,31 +987,26 @@ export default function SystemLogsRoute() {
                   padding: spacing[3],
                   borderRadius: token.borderRadiusLG,
                   border: `1px solid ${withAlpha(item.tone, statusFilter === item.filter && item.filter ? 0.5 : 0.15)}`,
-                  boxShadow: statusFilter === item.filter && item.filter ? shadows.lg : shadows.xl,
+                  boxShadow: 'none',
                   cursor: item.filter ? 'pointer' : 'default',
                   transition: transitions.all,
                   background:
                     statusFilter === item.filter && item.filter ? withAlpha(item.tone, 0.05) : cssVar.bg.surface,
                 }}
-                styles={{ body: { padding: 0 } }}
+                styles={{ body: { padding: 'var(--spacing-0)' } }}
               >
-                <div
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[1] }}>
-                    <Typography.Text
-                      type="secondary"
-                      style={{ fontSize: token.fontSizeSM, color: cssVar.text.secondary }}
-                    >
+                <div className="system-logs-summary-card-content">
+                  <Stack gap={1}>
+                    <Text type="supporting" className="console-caption-secondary">
                       {item.title}
-                    </Typography.Text>
-                    <Typography.Title level={3} style={{ margin: 0, color: item.tone }}>
+                    </Text>
+                    <Heading level={3} style={{ margin: 'var(--spacing-0)', color: item.tone }}>
                       {item.value}
-                    </Typography.Title>
-                    <Typography.Text type="secondary" style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                    </Heading>
+                    <Text type="supporting" color="secondary" className="console-caption-secondary">
                       {item.subtitle}
-                    </Typography.Text>
-                  </div>
+                    </Text>
+                  </Stack>
                   <div
                     style={{
                       width: spacing[7],
@@ -1287,54 +1026,34 @@ export default function SystemLogsRoute() {
 
           {activeTab === 'app' && selectedRowKeys.length > 0 && (
             <Card
-              style={{
-                borderRadius: token.borderRadiusLG,
-                marginBottom: spacing[3],
-                borderColor: colors.primary[300],
-                background: withAlpha(colors.primary[50], 0.5),
-              }}
+              className="system-logs-selection-card"
             >
               <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: spacing[2],
-                }}
+                className="system-logs-selection-content"
               >
                 <div>
-                  <Typography.Text strong style={{ marginRight: spacing[2] }}>
+                  <Text weight="semibold" className="console-margin-right-2">
                     {selectedRowKeys.length} poll cycle(s) selected
-                  </Typography.Text>
+                  </Text>
                   <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
                     Clear selection
                   </Button>
                 </div>
-                <Button size="small" icon={<DownloadOutlined />} onClick={() => handleExport('selected', 'json')}>
+                <Button
+                  size="small"
+                  icon={<GatewayIcon name="DownloadOutlined" />}
+                  onClick={() => handleExport('selected', 'json')}
+                >
                   Export Selected (JSON)
                 </Button>
               </div>
             </Card>
           )}
 
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: spacing['1.5'],
-              padding: `${spacing['1.5']} ${spacing[3]}`,
-              borderRadius: token.borderRadiusLG,
-              border: `1px solid ${cssVar.border.default}`,
-              background: cssVar.bg.surface,
-              boxShadow: shadows.lg,
-              marginBottom: spacing[2],
-              alignItems: 'center',
-            }}
-          >
+          <div className="system-logs-filter-toolbar">
             <Select
               placeholder="Status"
-              style={{ minWidth: 140, flex: isNarrow ? '1 1 auto' : '0 0 160px' }}
+              className="system-logs-filter-status"
               allowClear
               size="small"
               value={statusFilter || undefined}
@@ -1347,7 +1066,7 @@ export default function SystemLogsRoute() {
             />
             <Select
               placeholder="Log Level"
-              style={{ minWidth: 130, flex: isNarrow ? '1 1 auto' : '0 0 150px' }}
+              className="system-logs-filter-level"
               allowClear
               size="small"
               value={levelFilter || undefined}
@@ -1361,7 +1080,7 @@ export default function SystemLogsRoute() {
             />
             <Select
               placeholder="Error Category"
-              style={{ minWidth: 160, flex: isNarrow ? '1 1 auto' : '0 0 200px' }}
+              className="system-logs-filter-category"
               allowClear
               size="small"
               value={errorCategoryFilter || undefined}
@@ -1378,8 +1097,8 @@ export default function SystemLogsRoute() {
                 size="small"
                 value={pollIdFilter}
                 onChange={(event) => setPollIdFilter(event.target.value)}
-                style={{ minWidth: 140, flex: isNarrow ? '1 1 auto' : '0 0 180px' }}
-                prefix={<SearchOutlined style={{ color: cssVar.text.muted }} />}
+                className="system-logs-filter-poll-id"
+                prefix={<GatewayIcon name="SearchOutlined" className="console-text-muted" />}
               />
             )}
             <Input
@@ -1388,25 +1107,17 @@ export default function SystemLogsRoute() {
               size="small"
               value={searchFilter}
               onChange={(event) => setSearchFilter(event.target.value)}
-              style={{ minWidth: 180, flex: '1 1 240px' }}
-              prefix={<SearchOutlined style={{ color: cssVar.text.muted }} />}
+              className="system-logs-filter-search"
+              prefix={<GatewayIcon name="SearchOutlined" className="console-text-muted" />}
             />
-            <div
-              style={{
-                display: 'flex',
-                gap: spacing['1.5'],
-                marginLeft: isNarrow ? 0 : 'auto',
-                flex: '0 0 auto',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <div className="system-logs-filter-actions" data-narrow={isNarrow}>
               {hasActiveFilters && (
-                <Button size="small" onClick={handleClearFilters} icon={<ClearOutlined />}>
+                <Button size="small" onClick={handleClearFilters} icon={<GatewayIcon name="ClearOutlined" />}>
                   Clear Filters
                 </Button>
               )}
               <Button
-                icon={<ReloadOutlined />}
+                icon={<GatewayIcon name="ReloadOutlined" />}
                 onClick={() => fetchLogs({ manual: true, silent: true })}
                 loading={manualRefreshPending}
                 size="small"
@@ -1416,15 +1127,15 @@ export default function SystemLogsRoute() {
             </div>
           </div>
 
-          <div className="full-bleed-table" style={tableFullBleedStyle}>
+          <div className="full-bleed-table">
             <Card
               className="panel"
               style={{
                 borderRadius: token.borderRadiusLG,
                 border: `1px solid ${cssVar.border.default}`,
-                boxShadow: shadows.xl,
+                boxShadow: 'none',
               }}
-              styles={{ body: { padding: 0 } }}
+              styles={{ body: { padding: 'var(--spacing-0)' } }}
             >
               {activeTab === 'app' ? (
                 // Explicit `key` forces React to unmount/remount instead of
@@ -1455,39 +1166,32 @@ export default function SystemLogsRoute() {
                   }}
                   locale={{
                     emptyText: hasActiveFilters ? (
-                      <div style={{ padding: spacing[6], textAlign: 'center' }}>
-                        <InfoCircleOutlined
-                          style={{ fontSize: 48, color: cssVar.text.muted, marginBottom: spacing[3] }}
-                        />
-                        <Typography.Title level={4} style={{ color: cssVar.text.secondary, marginBottom: spacing[2] }}>
-                          No poll cycles match your filters
-                        </Typography.Title>
-                        <Typography.Text
-                          type="secondary"
-                          style={{ display: 'block', marginBottom: spacing[4], color: cssVar.text.secondary }}
-                        >
-                          Try adjusting or clearing your filters to see more results.
-                        </Typography.Text>
-                        <Button onClick={handleClearFilters} icon={<ClearOutlined />}>
-                          Clear All Filters
-                        </Button>
-                      </div>
+                      <StatePanel
+                        glyph="searching"
+                        size="compact"
+                        title="No poll cycles match these filters"
+                        description="Clear filters to see more results."
+                        actions={
+                          <Button onClick={handleClearFilters} icon={<GatewayIcon name="ClearOutlined" />}>
+                            Clear filters
+                          </Button>
+                        }
+                      />
                     ) : (
-                      <div style={{ padding: spacing[6], textAlign: 'center' }}>
-                        <SearchOutlined style={{ fontSize: 48, color: cssVar.text.muted, marginBottom: spacing[3] }} />
-                        <Typography.Title level={4} style={{ color: cssVar.text.secondary, marginBottom: spacing[2] }}>
-                          No application logs found
-                        </Typography.Title>
-                        <Typography.Text
-                          type="secondary"
-                          style={{ display: 'block', marginBottom: spacing[4], color: cssVar.text.secondary }}
-                        >
-                          Worker, scheduler, and backend logs from the last 24 hours will appear here.
-                        </Typography.Text>
-                        <Button onClick={() => fetchLogs({ manual: true, silent: true })} icon={<ReloadOutlined />}>
-                          Refresh Logs
-                        </Button>
-                      </div>
+                      <StatePanel
+                        glyph="searching"
+                        size="compact"
+                        title="No application logs found"
+                        description="Worker, scheduler, and backend logs from the last 24 hours appear here."
+                        actions={
+                          <Button
+                            onClick={() => fetchLogs({ manual: true, silent: true })}
+                            icon={<GatewayIcon name="ReloadOutlined" />}
+                          >
+                            Refresh logs
+                          </Button>
+                        }
+                      />
                     ),
                   }}
                 />
@@ -1507,39 +1211,32 @@ export default function SystemLogsRoute() {
                   }}
                   locale={{
                     emptyText: hasActiveFilters ? (
-                      <div style={{ padding: spacing[6], textAlign: 'center' }}>
-                        <InfoCircleOutlined
-                          style={{ fontSize: 48, color: cssVar.text.muted, marginBottom: spacing[3] }}
-                        />
-                        <Typography.Title level={4} style={{ color: cssVar.text.secondary, marginBottom: spacing[2] }}>
-                          No access logs match your filters
-                        </Typography.Title>
-                        <Typography.Text
-                          type="secondary"
-                          style={{ display: 'block', marginBottom: spacing[4], color: cssVar.text.secondary }}
-                        >
-                          Adjust the request filters or clear them to widen the view.
-                        </Typography.Text>
-                        <Button onClick={handleClearFilters} icon={<ClearOutlined />}>
-                          Clear All Filters
-                        </Button>
-                      </div>
+                      <StatePanel
+                        glyph="searching"
+                        size="compact"
+                        title="No access logs match these filters"
+                        description="Adjust or clear filters to widen the view."
+                        actions={
+                          <Button onClick={handleClearFilters} icon={<GatewayIcon name="ClearOutlined" />}>
+                            Clear filters
+                          </Button>
+                        }
+                      />
                     ) : (
-                      <div style={{ padding: spacing[6], textAlign: 'center' }}>
-                        <SearchOutlined style={{ fontSize: 48, color: cssVar.text.muted, marginBottom: spacing[3] }} />
-                        <Typography.Title level={4} style={{ color: cssVar.text.secondary, marginBottom: spacing[2] }}>
-                          No access logs found
-                        </Typography.Title>
-                        <Typography.Text
-                          type="secondary"
-                          style={{ display: 'block', marginBottom: spacing[4], color: cssVar.text.secondary }}
-                        >
-                          Recent rotated access logs will appear here.
-                        </Typography.Text>
-                        <Button onClick={() => fetchLogs({ manual: true, silent: true })} icon={<ReloadOutlined />}>
-                          Refresh Logs
-                        </Button>
-                      </div>
+                      <StatePanel
+                        glyph="searching"
+                        size="compact"
+                        title="No access logs found"
+                        description="Recent rotated access logs appear here."
+                        actions={
+                          <Button
+                            onClick={() => fetchLogs({ manual: true, silent: true })}
+                            icon={<GatewayIcon name="ReloadOutlined" />}
+                          >
+                            Refresh logs
+                          </Button>
+                        }
+                      />
                     ),
                   }}
                 />
@@ -1548,6 +1245,6 @@ export default function SystemLogsRoute() {
           </div>
         </>
       )}
-    </div>
+    </PageTemplate>
   );
 }

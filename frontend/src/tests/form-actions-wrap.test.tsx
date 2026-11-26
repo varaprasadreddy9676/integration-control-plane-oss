@@ -6,14 +6,13 @@ import { FormActions } from '../features/integrations/components/common/FormActi
 // Regression test for the narrow-viewport bug where the button row inside FormActions
 // overflowed the visible page instead of wrapping onto a second line (see FormActionFooter.tsx
 // and InboundIntegrationDetailRoute.tsx bottom action bar for the two other places this was fixed).
-// AntD's <Space wrap> sets flexWrap: 'wrap' as an inline style on its wrapper div rather than
-// a dedicated class, so we assert on that style directly.
+// The shared Space adapter maps explicit wrap behavior to Astryx Stack's data attribute.
 
 const spacing = { 2: '8px' };
 const colors = { neutral: { 900: '#000' } };
 const noop = () => {};
 
-const getSpaceWrapper = (container: HTMLElement) => container.querySelector('.ant-space') as HTMLElement;
+const getSpaceWrapper = (container: HTMLElement) => container.querySelector('[data-wrap="wrap"]');
 
 describe('FormActions button rows wrap on narrow viewports', () => {
   it('wraps in "view" mode (Test / Export / Duplicate / Edit)', () => {
@@ -34,7 +33,7 @@ describe('FormActions button rows wrap on narrow viewports', () => {
       />
     );
 
-    expect(getSpaceWrapper(container).style.flexWrap).toBe('wrap');
+    expect(getSpaceWrapper(container)).toBeInTheDocument();
   });
 
   it('wraps in "view + isEditMode" mode (Cancel / Save Changes)', () => {
@@ -42,7 +41,7 @@ describe('FormActions button rows wrap on narrow viewports', () => {
       <FormActions mode="view" isEditMode onSave={noop} onCancel={noop} spacing={spacing} colors={colors} />
     );
 
-    expect(getSpaceWrapper(container).style.flexWrap).toBe('wrap');
+    expect(getSpaceWrapper(container)).toBeInTheDocument();
   });
 
   it('wraps in "edit" mode (Cancel / Test / Save Changes)', () => {
@@ -50,7 +49,7 @@ describe('FormActions button rows wrap on narrow viewports', () => {
       <FormActions mode="edit" canTest onSave={noop} onTest={noop} onCancel={noop} spacing={spacing} colors={colors} />
     );
 
-    expect(getSpaceWrapper(container).style.flexWrap).toBe('wrap');
+    expect(getSpaceWrapper(container)).toBeInTheDocument();
   });
 
   it('wraps in "create" mode (Import / Cancel / Create)', () => {
@@ -66,6 +65,6 @@ describe('FormActions button rows wrap on narrow viewports', () => {
       />
     );
 
-    expect(getSpaceWrapper(container).style.flexWrap).toBe('wrap');
+    expect(getSpaceWrapper(container)).toBeInTheDocument();
   });
 });

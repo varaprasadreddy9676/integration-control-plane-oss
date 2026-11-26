@@ -7,159 +7,73 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
-import { Badge, Tooltip } from 'antd';
-import {
-  ThunderboltOutlined,
-  LockOutlined,
-  UnlockOutlined,
-  ApiOutlined,
-  SwapOutlined,
-  FilterOutlined,
-  ClockCircleOutlined,
-  FileTextOutlined,
-  BranchesOutlined,
-  SendOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
-import { cssVar, useDesignTokens } from '../../../../design-system/utils';
+import { Badge, Tooltip } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import type { FlowNodeData, FlowNodeType } from '../../state/flowTypes';
 
 export type BaseNodeProps = NodeProps<FlowNodeData>;
 
 const NODE_ICONS: Record<FlowNodeType, React.ReactNode> = {
-  trigger: <ThunderboltOutlined />,
-  inboundAuth: <LockOutlined />,
-  outboundAuth: <UnlockOutlined />,
-  http: <ApiOutlined />,
-  transform: <SwapOutlined />,
-  filter: <FilterOutlined />,
-  scheduleScript: <FileTextOutlined />,
-  delay: <ClockCircleOutlined />,
-  multiAction: <BranchesOutlined />,
-  response: <CheckCircleOutlined />,
-  integration: <SendOutlined />,
-};
-
-const NODE_COLORS: Record<FlowNodeType, { background: string; border: string; text: string }> = {
-  trigger: { background: '#e6f7ff', border: '#1890ff', text: '#0050b3' },
-  inboundAuth: { background: '#fff7e6', border: '#fa8c16', text: '#ad6800' },
-  outboundAuth: { background: '#fff7e6', border: '#fa8c16', text: '#ad6800' },
-  http: { background: '#f9f0ff', border: '#722ed1', text: '#531dab' },
-  transform: { background: '#f6ffed', border: '#52c41a', text: '#389e0d' },
-  filter: { background: '#fff1f0', border: '#f5222d', text: '#a8071a' },
-  scheduleScript: { background: '#f0f5ff', border: '#2f54eb', text: '#1d39c4' },
-  delay: { background: '#fffbe6', border: '#faad14', text: '#ad6800' },
-  multiAction: { background: '#e6fffb', border: '#13c2c2', text: '#08979c' },
-  response: { background: '#f0f5ff', border: '#2f54eb', text: '#1d39c4' },
-  integration: { background: '#f9f0ff', border: '#722ed1', text: '#531dab' },
+  trigger: <GatewayIcon name="ThunderboltOutlined" />,
+  inboundAuth: <GatewayIcon name="LockOutlined" />,
+  outboundAuth: <GatewayIcon name="UnlockOutlined" />,
+  http: <GatewayIcon name="ApiOutlined" />,
+  transform: <GatewayIcon name="SwapOutlined" />,
+  filter: <GatewayIcon name="FilterOutlined" />,
+  scheduleScript: <GatewayIcon name="FileTextOutlined" />,
+  delay: <GatewayIcon name="ClockCircleOutlined" />,
+  multiAction: <GatewayIcon name="BranchesOutlined" />,
+  response: <GatewayIcon name="CheckCircleOutlined" />,
+  integration: <GatewayIcon name="SendOutlined" />,
 };
 
 export const BaseNode: React.FC<BaseNodeProps> = ({ id, data, selected = false }) => {
-  const { token, shadows, transitions } = useDesignTokens();
-  const colors = NODE_COLORS[data.nodeType] || NODE_COLORS.trigger;
   const icon = NODE_ICONS[data.nodeType];
 
   const hasErrors = data.errors && data.errors.length > 0;
   const isValid = data.isValid !== false;
+  const verticalLayout = data.layoutDirection === 'vertical' || data.layoutDirection === undefined;
+  const targetPosition = verticalLayout ? Position.Top : Position.Left;
+  const sourcePosition = verticalLayout ? Position.Bottom : Position.Right;
 
   return (
-    <div
-      style={{
-        background: selected ? colors.background : cssVar.bg.surface,
-        border: `1px solid ${selected ? colors.border : hasErrors ? cssVar.error.text : cssVar.border.default}`,
-        borderRadius: token.borderRadiusLG,
-        padding: '12px 16px',
-        minWidth: '180px',
-        maxWidth: '250px',
-        boxShadow: selected ? `0 0 0 2px ${colors.border}40` : shadows.sm,
-        position: 'relative',
-        transition: transitions.all,
-      }}
-    >
+    <div className="flow-builder-node" data-selected={selected} data-has-errors={Boolean(hasErrors)}>
       {/* Incoming Handle */}
       {data.nodeType !== 'trigger' && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={{
-            width: '10px',
-            height: '10px',
-            background: colors.border,
-            border: `1px solid ${cssVar.bg.surface}`,
-          }}
-        />
+        <Handle type="target" position={targetPosition} className="flow-builder-node-handle" />
       )}
 
       {/* Node Content */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+      <div className="flow-builder-node-content">
         {/* Icon */}
-        <div
-          style={{
-            fontSize: '20px',
-            color: colors.border,
-            lineHeight: '1',
-            paddingTop: '2px',
-          }}
-        >
+        <div className="flow-builder-node-icon" data-selected={selected}>
           {icon}
         </div>
 
         {/* Label and Description */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontWeight: 600,
-              fontSize: '14px',
-              color: cssVar.text.primary,
-              lineHeight: '20px',
-              marginBottom: '4px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {data.label}
-          </div>
+        <div className="console-flex-min-width-0">
+          <div className="flow-builder-node-label console-type-section">{data.label}</div>
 
-          {data.description && (
-            <div
-              style={{
-                fontSize: '12px',
-                color: cssVar.text.secondary,
-                lineHeight: '18px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-              }}
-            >
-              {data.description}
-            </div>
-          )}
+          {data.description && <div className="flow-builder-node-description">{data.description}</div>}
 
           {/* Error/Warning Badge */}
           {hasErrors && (
-            <Tooltip title={data.errors?.join(', ')}>
-              <Badge
-                count={data.errors!.length}
-                style={{
-                  marginTop: '6px',
-                  backgroundColor: cssVar.error.text,
-                  fontSize: '10px',
-                }}
-                offset={[0, 0]}
+            <Tooltip title={data.errors?.join(', ')} trigger={['hover', 'focus']}>
+              <span
+                tabIndex={0}
+                role="img"
+                aria-label={`${data.errors!.length} validation ${data.errors!.length === 1 ? 'error' : 'errors'}: ${data.errors!.join('. ')}`}
               >
-                <ExclamationCircleOutlined style={{ color: cssVar.error.text, fontSize: '14px' }} />
-              </Badge>
+                <Badge count={data.errors!.length} className="flow-builder-node-error-count" offset={[0, 0]}>
+                  <GatewayIcon size="xsm" name="ExclamationCircleOutlined" className="console-text-error" />
+                </Badge>
+              </span>
             </Tooltip>
           )}
 
           {!hasErrors && !isValid && (
             <Tooltip title="This node has validation warnings">
-              <WarningOutlined style={{ color: '#faad14', fontSize: '14px', marginTop: '6px' }} />
+              <GatewayIcon size="xsm" name="WarningOutlined" className="console-text-warning console-margin-top-1-5" />
             </Tooltip>
           )}
         </div>
@@ -167,16 +81,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({ id, data, selected = false }
 
       {/* Outgoing Handle */}
       {data.nodeType !== 'response' && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          style={{
-            width: '10px',
-            height: '10px',
-            background: colors.border,
-            border: `1px solid ${cssVar.bg.surface}`,
-          }}
-        />
+        <Handle type="source" position={sourcePosition} className="flow-builder-node-handle" />
       )}
     </div>
   );

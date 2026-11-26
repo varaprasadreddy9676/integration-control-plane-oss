@@ -221,7 +221,7 @@ export function BarChart({
           tickLine={false}
           tickFormatter={wrapAxisLabels && !isVertical ? undefined : xAxisTickFormatter}
           tick={wrapAxisLabels && !isVertical ? renderWrappedTick('x') : undefined}
-          height={!isVertical ? xAxisHeight : undefined}
+          {...(!isVertical && xAxisHeight !== undefined ? { height: xAxisHeight } : {})}
           interval={!isVertical ? xAxisInterval : undefined}
           type={isVertical ? 'number' : 'category'}
           domain={xAxisDomain}

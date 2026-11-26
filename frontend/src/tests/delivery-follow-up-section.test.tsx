@@ -157,7 +157,7 @@ describe('DeliveryFollowUpSection', () => {
       result: { status: 'DELIVERED' },
       httpCalls: [{ method: 'GET', url: 'https://p.example/v1/messages?msgid=m1', statusCode: 200, durationMs: 40, error: null, responseBody: null }],
     });
-    render(<Harness initial={{ deliveryFollowUp: { enabled: true, script: 'return 1;' } }} integrationId="i1" />);
+    const { container } = render(<Harness initial={{ deliveryFollowUp: { enabled: true, script: 'return 1;' } }} integrationId="i1" />);
     await userEvent.click(screen.getByText('Test the script'));
     await userEvent.click(await screen.findByRole('button', { name: /Run test/ }));
     await waitFor(() =>
@@ -165,14 +165,29 @@ describe('DeliveryFollowUpSection', () => {
     );
     expect(await screen.findByText('Delivered')).toBeInTheDocument();
     expect(screen.getByText(/GET https:\/\/p\.example\/v1\/messages\?msgid=m1 → 200/)).toBeInTheDocument();
+    expect(container.querySelector('.status-badge')).toHaveTextContent('Delivered');
+    expect(container.querySelector('.ant-tag')).not.toBeInTheDocument();
+    expect(container.querySelector('.ant-alert')).not.toBeInTheDocument();
   });
 
   it('shows a script error from the test instead of hiding it', async () => {
     api.testFollowUpScript.mockResolvedValue({ outcome: 'ERROR', durationMs: 5, error: 'HTTP GET failed: ECONNRESET', httpCalls: [] });
-    render(<Harness initial={{ deliveryFollowUp: { enabled: true, script: 'return 1;' } }} />);
+    const { container } = render(<Harness initial={{ deliveryFollowUp: { enabled: true, script: 'return 1;' } }} />);
     await userEvent.click(screen.getByText('Test the script'));
     await userEvent.click(await screen.findByRole('button', { name: /Run test/ }));
     expect(await screen.findByText('HTTP GET failed: ECONNRESET')).toBeInTheDocument();
     expect(api.testFollowUpScript).toHaveBeenCalledWith('new', expect.anything());
+    expect(container.querySelector('.astryx-banner')).toHaveTextContent('The script failed');
+    expect(container.querySelector('.ant-alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps a skipped test informational and compact', async () => {
+    api.testFollowUpScript.mockResolvedValue({ outcome: 'SKIPPED', durationMs: 2, reason: 'No message ID', httpCalls: [] });
+    const { container } = render(<Harness initial={{ deliveryFollowUp: { enabled: true, script: 'skip("No message ID")' } }} />);
+    await userEvent.click(screen.getByText('Test the script'));
+    await userEvent.click(await screen.findByRole('button', { name: /Run test/ }));
+    expect(await screen.findByText('The script stopped following up: No message ID')).toBeInTheDocument();
+    expect(container.querySelector('.ant-alert')).not.toBeInTheDocument();
+    expect(container.querySelector('.ant-tag')).not.toBeInTheDocument();
   });
 });

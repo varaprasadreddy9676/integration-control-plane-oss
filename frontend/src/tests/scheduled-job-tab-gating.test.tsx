@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
 
+vi.mock('../app/theme-provider', () => ({ useThemeMode: () => ({ mode: 'light' }) }));
+
 // Regression tests for two bugs found on the Scheduled Job edit screen:
 //
 // 1. Same tab-gating deadlock as the inbound integration screen: editing an existing,
@@ -45,6 +47,7 @@ vi.mock('../app/auth-context', () => ({
 }));
 
 vi.mock('../design-system/utils', () => ({
+  editorFontSize: () => 13,
   spacingToNumber: (value: string | number) => {
     if (typeof value === 'number') return value;
     const parsed = parseInt(String(value), 10);
@@ -92,7 +95,7 @@ describe('Scheduled Job edit — tab gating and Monaco layout on an already-comp
     mockApi.getUIConfig.mockResolvedValue({});
     mockApi.getScheduledJobById.mockResolvedValue({
       _id: '6a4611f9a3e87fcccd2548c7',
-      name: 'Tailspin Daily Sync Report',
+      name: 'Nova Daily Sync Report',
       type: 'DAILY_EXPORT',
       direction: 'SCRIPT_JOB',
       isActive: true,
@@ -122,14 +125,12 @@ describe('Scheduled Job edit — tab gating and Monaco layout on an already-comp
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Tailspin Daily Sync Report')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Nova Daily Sync Report')).toBeInTheDocument();
     });
 
-    const disabledTabLabels = Array.from(container.querySelectorAll('.ant-tabs-tab-disabled')).map((el) =>
-      el.textContent?.trim()
-    );
-
-    expect(disabledTabLabels).toEqual([]);
+    expect(container.querySelectorAll('[role="tab"][aria-disabled="true"]')).toHaveLength(0);
+    expect(screen.queryByRole('tab', { name: 'Data Source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Destination' })).not.toBeInTheDocument();
   });
 
   it('passes automaticLayout: true to every Monaco editor instance', async () => {
@@ -150,7 +151,7 @@ describe('Scheduled Job edit — tab gating and Monaco layout on an already-comp
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Tailspin Daily Sync Report')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Nova Daily Sync Report')).toBeInTheDocument();
     });
 
     // With the tab-gating fix, Schedule + Script panes forceRender immediately, so their
@@ -179,10 +180,12 @@ describe('Scheduled Job edit — tab gating and Monaco layout on an already-comp
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Tailspin Daily Sync Report')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Nova Daily Sync Report')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Review & Submit'));
+    const reviewTab = screen.getByRole('tab', { name: 'Review & Submit' });
+    fireEvent.click(reviewTab);
+    expect(reviewTab).toHaveAttribute('aria-selected', 'true');
 
     expect(await screen.findByText(/Please review all settings before saving the scheduled job/)).toBeInTheDocument();
     expect(screen.queryByText(/before creating the scheduled job/)).not.toBeInTheDocument();
@@ -206,7 +209,7 @@ describe('Scheduled Job edit — tab gating and Monaco layout on an already-comp
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Tailspin Daily Sync Report')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Nova Daily Sync Report')).toBeInTheDocument();
     });
 
     const activeRadio = screen.getByRole('radio', { name: 'Active' }) as HTMLInputElement;
@@ -227,7 +230,7 @@ describe('Scheduled Job edit — environment variable reveal', () => {
     mockApi.getUIConfig.mockResolvedValue({});
     mockApi.getScheduledJobById.mockResolvedValue({
       _id: '6a4679fdc45b4f1c52bc08fa',
-      name: 'Tailspin Daily Sync Report',
+      name: 'Nova Daily Sync Report',
       type: 'DAILY_EXPORT',
       direction: 'SCRIPT_JOB',
       isActive: true,
@@ -266,10 +269,10 @@ describe('Scheduled Job edit — environment variable reveal', () => {
   const getEyeIcons = (container: HTMLElement) => Array.from(container.querySelectorAll('.ant-input-password-icon'));
 
   it('fetches and displays the real value when the eye icon is clicked', async () => {
-    mockApi.revealScheduledJobEnvVar.mockResolvedValue({ key: 'EMAIL_TO', value: 'dev@example.com' });
+    mockApi.revealScheduledJobEnvVar.mockResolvedValue({ key: 'EMAIL_TO', value: 'sai.varaprasad@ubq.in' });
     const { container } = await renderRoute();
 
-    await waitFor(() => expect(screen.getByDisplayValue('Tailspin Daily Sync Report')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue('Nova Daily Sync Report')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('tab', { name: /Script/ }));
 
     const eyeIcons = getEyeIcons(container);
@@ -277,7 +280,7 @@ describe('Scheduled Job edit — environment variable reveal', () => {
 
     fireEvent.click(eyeIcons[0]);
 
-    expect(await screen.findByDisplayValue('dev@example.com')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('sai.varaprasad@ubq.in')).toBeInTheDocument();
     expect(mockApi.revealScheduledJobEnvVar).toHaveBeenCalledWith('6a4679fdc45b4f1c52bc08fa', 'EMAIL_TO', '33');
   });
 
@@ -285,7 +288,7 @@ describe('Scheduled Job edit — environment variable reveal', () => {
     mockApi.revealScheduledJobEnvVar.mockRejectedValue(new Error('Environment variable not found'));
     const { container } = await renderRoute();
 
-    await waitFor(() => expect(screen.getByDisplayValue('Tailspin Daily Sync Report')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue('Nova Daily Sync Report')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('tab', { name: /Script/ }));
 
     fireEvent.click(getEyeIcons(container)[0]);
@@ -351,13 +354,28 @@ describe('Scheduled Job — Execution History tab', () => {
     await renderRoute();
     await openHistoryTab();
 
-    expect(await screen.findByText('FAILED')).toBeInTheDocument();
-    expect(screen.getByText('SUCCESS')).toBeInTheDocument();
+    expect(await screen.findByText('Failed')).toBeInTheDocument();
+    expect(screen.getByText('Delivered')).toBeInTheDocument();
     // Durations are humanised, not raw milliseconds.
     expect(screen.getByText('91.8s')).toBeInTheDocument();
     expect(screen.getByText('48.4s')).toBeInTheDocument();
     expect(screen.getByText('MANUAL')).toBeInTheDocument();
+    expect(screen.getByText('MANUAL').closest('.status-badge')).toBeNull();
     expect(screen.queryByText('No executions yet')).not.toBeInTheDocument();
+  });
+
+  it('uses a stable row key when an execution only has an id field', async () => {
+    mockApi.getScheduledJobLogs.mockResolvedValue([
+      { id: 'run-with-id-only', status: 'SUCCESS', startedAt: '2026-08-01T05:35:08.309Z', trigger: 'SCHEDULE' },
+    ]);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+
+    await renderRoute();
+    await openHistoryTab();
+
+    expect(await screen.findByText('Delivered')).toBeInTheDocument();
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('unique "key" prop');
+    consoleError.mockRestore();
   });
 
   it('surfaces the failure reason inline so the tab answers "did it work?"', async () => {
@@ -375,7 +393,9 @@ describe('Scheduled Job — Execution History tab', () => {
     await renderRoute();
     await openHistoryTab();
 
-    expect(await screen.findByText(/\$addToSet used too much memory/)).toBeInTheDocument();
+    const failureDetail = await screen.findByText(/\$addToSet used too much memory/);
+    expect(failureDetail).toBeInTheDocument();
+    expect(failureDetail.closest('.ant-typography-danger')).toBeNull();
   });
 
   it('shows the empty state only when there genuinely are no runs', async () => {

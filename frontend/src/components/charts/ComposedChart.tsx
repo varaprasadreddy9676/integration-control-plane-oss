@@ -42,6 +42,7 @@ export interface ComposedChartProps {
   height?: number;
   showLegend?: boolean;
   showGrid?: boolean;
+  animate?: boolean;
   margin?: ChartMargin;
   smooth?: boolean;
   barSize?: number;
@@ -59,6 +60,7 @@ export function ComposedChart({
   height = 300,
   showLegend = true,
   showGrid = true,
+  animate = true,
   margin = chartMargins.default,
   smooth = true,
   barSize = 24,
@@ -154,6 +156,7 @@ export function ComposedChart({
             stackId={bar.stackId}
             radius={[3, 3, 0, 0]}
             barSize={barSize}
+            isAnimationActive={animate}
             yAxisId="left"
             animationDuration={chartAnimationConfig.duration}
             animationEasing={chartAnimationConfig.easing}
@@ -177,6 +180,7 @@ export function ComposedChart({
             stroke={line.color}
             strokeWidth={line.strokeWidth}
             strokeDasharray={line.strokeDasharray}
+            isAnimationActive={animate}
             dot={{ fill: line.color, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             yAxisId={line.yAxisId || 'left'}

@@ -27,3 +27,13 @@ export const followUpStatusColor = (status?: string | null, done?: boolean): str
   if (BAD.test(status)) return 'red';
   return done || status === 'DELIVERED' || status === 'READ' ? 'green' : 'blue';
 };
+
+export const followUpStatusVariant = (status?: string | null, done?: boolean): 'neutral' | 'info' | 'success' | 'warning' | 'error' => {
+  switch (followUpStatusColor(status, done)) {
+    case 'green': return 'success';
+    case 'blue': return 'info';
+    case 'orange': return 'warning';
+    case 'red': return 'error';
+    default: return 'neutral';
+  }
+};

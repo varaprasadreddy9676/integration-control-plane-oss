@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from "@/components/common/LegacyAntdControls";
 import { cssVar, useDesignTokens, withAlpha } from '../../design-system/utils';
 
 export interface HeatmapData {
@@ -64,11 +64,11 @@ export function HeatmapChart({
 
   return (
     <div style={{ width: '100%', height }}>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="ui-extracted-53d82cd020">
         {/* Y-axis labels + grid */}
-        <div style={{ display: 'flex', flex: 1 }}>
+        <div className="ui-extracted-947a621628">
           {/* Y-axis labels */}
-          <div style={{ width: 80, display: 'flex', flexDirection: 'column' }}>
+          <div className="ui-extracted-d5eadd045e">
             {yLabels.map((label, yIndex) => (
               <div
                 key={`y-${yIndex}`}
@@ -89,9 +89,9 @@ export function HeatmapChart({
           </div>
 
           {/* Heatmap grid */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="ui-extracted-b6cc6f6226">
             {yLabels.map((yLabel, yIndex) => (
-              <div key={`row-${yIndex}`} style={{ display: 'flex', flex: 1 }}>
+              <div key={`row-${yIndex}`} className="ui-extracted-947a621628">
                 {xLabels.map((xLabel, xIndex) => {
                   const value = dataMap.get(`${xLabel}-${yLabel}`) || 0;
                   const color = getColor(value);
@@ -142,8 +142,8 @@ export function HeatmapChart({
 
         {/* X-axis labels */}
         <div style={{ display: 'flex', marginTop: spacing[1] }}>
-          <div style={{ width: 80 }} />
-          <div style={{ flex: 1, display: 'flex' }}>
+          <div className="ui-extracted-5307a94b0e" />
+          <div className="ui-extracted-947a621628">
             {xLabels.map((label, index) => (
               <div
                 key={`x-${index}`}

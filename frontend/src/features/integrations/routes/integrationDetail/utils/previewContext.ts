@@ -1,4 +1,4 @@
-import type { FormInstance } from 'antd';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 
 export const buildPreviewContext = (form: FormInstance) => ({
   eventType: form.getFieldValue('eventType') ?? 'UNKNOWN',

@@ -64,6 +64,7 @@ vi.mock('../design-system/utils', () => ({
       6: '24px',
       8: '32px',
     },
+    zIndex: { filterBar: 12 },
   }),
   cssVar: {
     legacy: {
@@ -73,6 +74,8 @@ vi.mock('../design-system/utils', () => ({
       success: { 600: '#16a34a' },
     },
     bg: { surface: '#fff' },
+    text: { primary: '#111', secondary: '#666', muted: '#888' },
+    error: { text: '#b42318' },
     border: { default: '#e5e7eb' },
   },
 }));

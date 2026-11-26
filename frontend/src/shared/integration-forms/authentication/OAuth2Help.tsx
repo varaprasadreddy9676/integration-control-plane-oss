@@ -1,5 +1,5 @@
-import { Popover } from 'antd';
-import { QuestionCircleOutlined } from '@ant-design/icons';
+import { Popover } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 
 interface HelpPopoverProps {
   title: string;
@@ -11,12 +11,10 @@ interface HelpPopoverProps {
  */
 export const HelpPopover = ({ title, content }: HelpPopoverProps) => (
   <Popover title={title} content={content} trigger="hover">
-    <QuestionCircleOutlined
-      style={{
-        color: '#8c8c8c',
-        cursor: 'help',
-        fontSize: 14
-      }}
+    <GatewayIcon
+      size="xsm"
+      name="QuestionCircleOutlined"
+      className="ui-extracted-e0e82d505c"
     />
   </Popover>
 );

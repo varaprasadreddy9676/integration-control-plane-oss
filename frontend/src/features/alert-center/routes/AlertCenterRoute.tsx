@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   App,
-  Button,
   Card,
   Col,
   DatePicker,
@@ -9,23 +8,21 @@ import {
   Divider,
   Drawer,
   Grid,
-  Input,
   Row,
   Select,
   Space,
   Statistic,
-  Tag,
-  Typography,
-  Skeleton,
   Dropdown,
   Collapse,
-} from 'antd';
-import { ClearOutlined, DownloadOutlined, EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+} from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { FilterBar } from '../../../components/common/FilterBar';
+import { SearchInput } from '../../../components/common/ListControls';
 import { ModernTable } from '../../../components/common/ModernTable';
 import {
   exportAlertCenterLogsToCsv,
@@ -42,9 +39,27 @@ import { copyTextToClipboard } from '../../../utils/clipboard';
 import { createExportProgress } from '../../../utils/export-progress';
 import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+
+const alertStatusCopy: Record<string, { label: string; status: string }> = {
+  SENT: { label: 'Delivered', status: 'SUCCESS' },
+  FAILED: { label: 'Failed', status: 'FAILED' },
+  SKIPPED: { label: 'Skipped', status: 'SKIPPED' },
+  RESOLVED: { label: 'Resolved', status: 'SUCCESS' },
+};
+
+const AlertStatus = ({ status }: { status?: string }) => {
+  const normalizedStatus = String(status || '').toUpperCase();
+  const copy = alertStatusCopy[normalizedStatus];
+  return (
+    <StatusBadge status={copy?.status || normalizedStatus} label={copy?.label || status || 'Unknown'} size="small" />
+  );
+};
 
 const STATUS_OPTIONS = [
-  { value: 'SENT', label: 'Sent' },
+  { value: 'SENT', label: 'Delivered' },
   { value: 'FAILED', label: 'Failed' },
   { value: 'SKIPPED', label: 'Skipped' },
   { value: 'RESOLVED', label: 'Resolved' },
@@ -66,18 +81,11 @@ const TYPE_LABELS: Record<string, string> = {
 const { RangePicker } = DatePicker;
 
 export const AlertCenterRoute = () => {
-  const { spacing, token, shadows, borderRadius } = useDesignTokens();
+  const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
   const { message: msgApi } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
-  const tableFullBleedStyle = isNarrow
-    ? {}
-    : {
-        marginLeft: 0,
-        marginRight: `-${spacing[5]}`,
-        paddingRight: spacing[1],
-      };
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Use a ref to read searchParams without subscribing to its changes,
@@ -201,24 +209,6 @@ export const AlertCenterRoute = () => {
     return merged.map((value) => ({ value, label: TYPE_LABELS[value] || value }));
   }, [logs]);
 
-  const tagTone = (base: string) => ({
-    borderRadius: borderRadius.full,
-    borderColor: withAlpha(base, 0.25),
-    background: withAlpha(base, 0.12),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing[2],
-    paddingBlock: spacing['0.5'],
-    fontSize: token.fontSizeSM,
-  });
-
-  const statusColor = (status?: string) => {
-    if (status === 'SENT' || status === 'RESOLVED') return colors.success[600];
-    if (status === 'FAILED') return colors.error[600];
-    if (status === 'SKIPPED') return colors.warning[600];
-    return cssVar.text.secondary;
-  };
-
   const formatRecipients = (recipients?: string[]) => {
     if (!recipients || recipients.length === 0) return '—';
     if (recipients.length === 1) return recipients[0];
@@ -338,15 +328,15 @@ export const AlertCenterRoute = () => {
       title: 'Status',
       dataIndex: 'status',
       width: 100,
-      render: (value: string) => <Tag style={tagTone(statusColor(value))}>{value || '—'}</Tag>,
+      render: (value: string) => (value ? <AlertStatus status={value} /> : '—'),
     },
     {
       title: 'Subject',
       dataIndex: 'subject',
       render: (value: string) => (
-        <Typography.Text ellipsis style={{ maxWidth: 400, display: 'block' }}>
+        <Text maxLines={1} className="console-display-block alert-center-subject-cell">
           {value || '—'}
-        </Typography.Text>
+        </Text>
       ),
     },
     {
@@ -354,9 +344,9 @@ export const AlertCenterRoute = () => {
       dataIndex: 'recipients',
       width: 220,
       render: (value: string[]) => (
-        <Typography.Text ellipsis style={{ maxWidth: 200, display: 'block' }}>
+        <Text maxLines={1} className="console-display-block alert-center-recipient-cell">
           {formatRecipients(value)}
-        </Typography.Text>
+        </Text>
       ),
     },
     {
@@ -374,7 +364,7 @@ export const AlertCenterRoute = () => {
       render: (_: string, record: AlertCenterLog) => (
         <Button
           type="link"
-          icon={<EyeOutlined />}
+          icon={<GatewayIcon name="EyeOutlined" />}
           onClick={() => {
             setSelectedLog(record);
             setPayloadExpanded(!!record.payload);
@@ -391,105 +381,116 @@ export const AlertCenterRoute = () => {
     borderRadius: token.borderRadiusLG,
     border: `1px solid ${cssVar.border.default}`,
     background: cssVar.bg.surface,
-    boxShadow: shadows.xl,
   } as const;
 
   return (
-    <div>
-      <PageHeader
-        title="Alert Center"
-        description="Monitor outbound alerting activity across channels."
-        compact
-        actions={
-          <Space size={spacingToNumber(spacing[2])} wrap>
-            <Dropdown
-              disabled={exportLoading}
-              menu={{
-                items: [
-                  { key: 'csv', label: 'Export CSV', icon: <DownloadOutlined />, onClick: () => handleExport('csv') },
-                  {
-                    key: 'json',
-                    label: 'Export JSON',
-                    icon: <DownloadOutlined />,
-                    onClick: () => handleExport('json'),
-                  },
-                ],
-              }}
-            >
-              <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
-                Export logs
-              </Button>
-            </Dropdown>
-            <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={isFetching} size="small">
-              Refresh
+    <PageTemplate
+      title="Alert Center"
+      description="Monitor outbound alerting activity across channels."
+      compact
+      actions={
+        <Space size={spacingToNumber(spacing[2])} wrap>
+          <Dropdown
+            disabled={exportLoading}
+            menu={{
+              items: [
+                {
+                  key: 'csv',
+                  label: 'Export CSV',
+                  icon: <GatewayIcon name="DownloadOutlined" />,
+                  onClick: () => handleExport('csv'),
+                },
+                {
+                  key: 'json',
+                  label: 'Export JSON',
+                  icon: <GatewayIcon name="DownloadOutlined" />,
+                  onClick: () => handleExport('json'),
+                },
+              ],
+            }}
+          >
+            <Button icon={<GatewayIcon name="DownloadOutlined" />} disabled={exportLoading} size="small">
+              Export logs
             </Button>
-            <Button icon={<ClearOutlined />} onClick={handleClearFilters} size="small">
-              Clear Filters
-            </Button>
-          </Space>
-        }
-      />
-
+          </Dropdown>
+          <Button
+            icon={<GatewayIcon name="ReloadOutlined" />}
+            onClick={handleRefresh}
+            loading={isFetching}
+            size="small"
+          >
+            Refresh
+          </Button>
+          <Button icon={<GatewayIcon name="ClearOutlined" />} onClick={handleClearFilters} size="small">
+            Clear Filters
+          </Button>
+        </Space>
+      }
+    >
       <Card
         style={{ ...cardStyle, marginBottom: spacing[2], padding: `${spacing['1.5']} ${spacing[3]}` }}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 'var(--spacing-0)' } }}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['1.5'], alignItems: 'center' }}>
-          {[
-            { label: `Total: ${stats.total}`, tone: colors.primary[600] },
-            { label: `Sent: ${stats.sent}`, tone: colors.success[600] },
-            { label: `Failed: ${stats.failed}`, tone: colors.error[600] },
-            { label: `Skipped: ${stats.skipped}`, tone: colors.warning[600] },
-            {
-              label: `Next run: ${alertStatus?.nextRunAt ? formatDateTime(alertStatus.nextRunAt) : alertStatus?.enabled ? '—' : 'Disabled'}`,
-              tone: cssVar.text.secondary,
-            },
-            {
-              label: `Last run: ${alertStatus?.lastRunLog?.status || '—'}`,
-              tone:
-                alertStatus?.lastRunLog?.status === 'SENT'
-                  ? colors.success[600]
-                  : alertStatus?.lastRunLog?.status === 'FAILED'
-                    ? colors.error[600]
-                    : colors.warning[600],
-            },
-            {
-              label: `Last run failures: ${typeof alertStatus?.lastRunLog?.totalFailures === 'number' ? alertStatus?.lastRunLog?.totalFailures : '—'}`,
-              tone: cssVar.text.secondary,
-            },
-            {
-              label: `Recipient: ${uiConfig?.notifications?.failureEmailReports?.email || tenantInfo?.tenantEmail || 'Not configured'}`,
-              tone: cssVar.text.secondary,
-            },
-          ].map((item) => (
-            <Tag
-              key={item.label}
-              style={{
-                borderRadius: borderRadius.full,
-                fontSize: 12,
-                padding: `${spacing['0.5']} ${spacing[2]}`,
-                borderColor: withAlpha(item.tone, 0.25),
-                background: withAlpha(item.tone, 0.06),
-                color: item.tone,
-                fontWeight: 700,
-                margin: 0,
-              }}
-            >
-              {item.label}
-            </Tag>
-          ))}
+        <div className="alert-center-summary">
+          <dl className="alert-center-metrics" aria-label="Alert totals">
+            <div>
+              <dt>Total alerts</dt>
+              <dd>{stats.total}</dd>
+            </div>
+            <div>
+              <dt>Delivered</dt>
+              <dd>{stats.sent}</dd>
+            </div>
+            <div>
+              <dt>Failed</dt>
+              <dd>{stats.failed}</dd>
+            </div>
+            <div>
+              <dt>Skipped</dt>
+              <dd>{stats.skipped}</dd>
+            </div>
+          </dl>
+          <dl className="alert-center-metadata" aria-label="Alert configuration status">
+            <div>
+              <dt>Next run</dt>
+              <dd>
+                {alertStatus?.nextRunAt
+                  ? formatDateTime(alertStatus.nextRunAt)
+                  : alertStatus?.enabled
+                    ? '—'
+                    : 'Disabled'}
+              </dd>
+            </div>
+            <div>
+              <dt>Last run</dt>
+              <dd>{alertStatus?.lastRunLog?.status ? <AlertStatus status={alertStatus.lastRunLog.status} /> : '—'}</dd>
+            </div>
+            <div>
+              <dt>Last run failures</dt>
+              <dd>
+                {typeof alertStatus?.lastRunLog?.totalFailures === 'number'
+                  ? alertStatus.lastRunLog.totalFailures
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Recipient</dt>
+              <dd>
+                {uiConfig?.notifications?.failureEmailReports?.email || tenantInfo?.tenantEmail || 'Not configured'}
+              </dd>
+            </div>
+          </dl>
         </div>
       </Card>
 
       <FilterBar>
-        <Input
-          allowClear
-          placeholder="Search subject, recipient, or error"
-          prefix={<SearchOutlined style={{ color: cssVar.text.secondary }} />}
+        <SearchInput
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          style={{ width: isNarrow ? '100%' : 280 }}
-          size="small"
+          onChange={setSearch}
+          isNarrow={isNarrow}
+          label="Search alert logs"
+          placeholder="Search subject, recipient, or error"
+          width={280}
         />
         <Select
           allowClear
@@ -497,7 +498,7 @@ export const AlertCenterRoute = () => {
           value={statusFilter}
           onChange={(value) => setStatusFilter(value || undefined)}
           options={STATUS_OPTIONS}
-          style={{ minWidth: 160 }}
+          className="alert-center-short-filter"
           size="small"
         />
         <Select
@@ -506,7 +507,7 @@ export const AlertCenterRoute = () => {
           value={channelFilter}
           onChange={(value) => setChannelFilter(value || undefined)}
           options={CHANNEL_OPTIONS}
-          style={{ minWidth: 160 }}
+          className="alert-center-short-filter"
           size="small"
         />
         <Select
@@ -515,11 +516,11 @@ export const AlertCenterRoute = () => {
           value={typeFilter}
           onChange={(value) => setTypeFilter(value || undefined)}
           options={typeOptions}
-          style={{ minWidth: 220 }}
+          className="alert-center-wide-filter"
           size="small"
         />
         <RangePicker
-          style={{ minWidth: 220 }}
+          className="alert-center-wide-filter"
           size="small"
           presets={[
             {
@@ -546,7 +547,7 @@ export const AlertCenterRoute = () => {
         />
       </FilterBar>
 
-      <div className="full-bleed-table" style={tableFullBleedStyle}>
+      <div className="full-bleed-table">
         <Card style={cardStyle}>
           <ModernTable<AlertCenterLog>
             rowKey="id"
@@ -568,18 +569,14 @@ export const AlertCenterRoute = () => {
         destroyOnClose
       >
         {selectedLog ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[3] }}>
+          <div className="alert-center-detail-stack">
             <Descriptions column={1} size="small" labelStyle={{ width: 160, color: cssVar.text.secondary }}>
               <Descriptions.Item label="Status">
-                <Tag style={tagTone(statusColor(selectedLog.status))}>{selectedLog.status}</Tag>
+                <AlertStatus status={selectedLog.status} />
               </Descriptions.Item>
-              <Descriptions.Item label="Channel">
-                <Tag style={tagTone(colors.info[600])}>{selectedLog.channel}</Tag>
-              </Descriptions.Item>
+              <Descriptions.Item label="Channel">{selectedLog.channel || '—'}</Descriptions.Item>
               <Descriptions.Item label="Type">
-                <Tag style={tagTone(colors.neutral[600])}>
-                  {TYPE_LABELS[selectedLog.type] || selectedLog.type || '—'}
-                </Tag>
+                {TYPE_LABELS[selectedLog.type] || selectedLog.type || '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Subject">{selectedLog.subject || '—'}</Descriptions.Item>
               <Descriptions.Item label="Recipients">
@@ -596,9 +593,9 @@ export const AlertCenterRoute = () => {
               <Descriptions.Item label="Created At">{formatDateTime(selectedLog.createdAt)}</Descriptions.Item>
               {selectedLog.providerUrl && (
                 <Descriptions.Item label="Provider URL">
-                  <Typography.Text style={{ fontFamily: token.fontFamilyCode, fontSize: 12, wordBreak: 'break-all' }}>
+                  <Text type="code" className="console-word-break-all">
                     {selectedLog.providerUrl}
-                  </Typography.Text>
+                  </Text>
                 </Descriptions.Item>
               )}
             </Descriptions>
@@ -607,46 +604,30 @@ export const AlertCenterRoute = () => {
 
             {selectedLog.errorMessage && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography.Text strong>Error Message</Typography.Text>
+                <div className="console-flex-between-center">
+                  <Text weight="semibold">Error Message</Text>
                   <Button size="small" onClick={() => copyToClipboard(selectedLog.errorMessage || '', 'Error message')}>
                     Copy
                   </Button>
                 </div>
-                <div
-                  style={{
-                    marginTop: spacing[2],
-                    padding: spacing[3],
-                    background: withAlpha(cssVar.error.bg, 0.8),
-                    borderRadius: token.borderRadiusLG,
-                    border: `1px solid ${cssVar.error.border}`,
-                  }}
-                >
-                  <Typography.Text style={{ whiteSpace: 'pre-wrap' }}>{selectedLog.errorMessage}</Typography.Text>
+                <div className="alert-center-error-detail">
+                  <Text className="alert-center-code-content">{selectedLog.errorMessage}</Text>
                 </div>
               </div>
             )}
 
             {selectedLog.errorStack && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography.Text strong>Error Stack</Typography.Text>
+                <div className="console-flex-between-center">
+                  <Text weight="semibold">Error Stack</Text>
                   <Button size="small" onClick={() => copyToClipboard(selectedLog.errorStack || '', 'Error stack')}>
                     Copy
                   </Button>
                 </div>
-                <div
-                  style={{
-                    marginTop: spacing[2],
-                    padding: spacing[3],
-                    background: cssVar.bg.elevated,
-                    borderRadius: token.borderRadiusLG,
-                    border: `1px solid ${cssVar.border.default}`,
-                  }}
-                >
-                  <Typography.Text style={{ whiteSpace: 'pre-wrap', fontFamily: token.fontFamilyCode }}>
+                <div className="alert-center-detail-surface alert-center-detail-surface--spaced">
+                  <Text type="code" className="alert-center-code-content">
                     {selectedLog.errorStack}
-                  </Typography.Text>
+                  </Text>
                 </div>
               </div>
             )}
@@ -674,30 +655,11 @@ export const AlertCenterRoute = () => {
                       </Button>
                     ),
                     children: (
-                      <div
-                        style={{
-                          padding: spacing[3],
-                          background: cssVar.bg.elevated,
-                          borderRadius: token.borderRadiusLG,
-                          border: `1px solid ${cssVar.border.default}`,
-                        }}
-                      >
-                        <pre
-                          className="clamped-code-block"
-                          style={{
-                            margin: 0,
-                            whiteSpace: 'pre-wrap',
-                            fontFamily: token.fontFamilyCode,
-                            fontSize: token.fontSizeSM,
-                            color: token.colorText,
-                          }}
-                        >
+                      <div className="alert-center-detail-surface">
+                        <pre className="clamped-code-block alert-center-code-block">
                           <code
-                            className="clamped-code-inline"
+                            className="clamped-code-inline console-display-block"
                             dangerouslySetInnerHTML={{ __html: formatJsonForDisplay(selectedLog.payload) }}
-                            style={{
-                              display: 'block',
-                            }}
                           />
                         </pre>
                       </div>
@@ -722,15 +684,9 @@ export const AlertCenterRoute = () => {
                     label: (
                       <Space size={spacingToNumber(spacing[2])}>
                         <span>Provider Response</span>
-                        <Tag
-                          style={tagTone(
-                            selectedLog.providerResponse.status >= 200 && selectedLog.providerResponse.status < 300
-                              ? colors.success[600]
-                              : colors.error[600]
-                          )}
-                        >
+                        <Text type="supporting" color="secondary">
                           HTTP {selectedLog.providerResponse.status}
-                        </Tag>
+                        </Text>
                       </Space>
                     ),
                     extra: (
@@ -745,30 +701,13 @@ export const AlertCenterRoute = () => {
                       </Button>
                     ),
                     children: (
-                      <div
-                        style={{
-                          padding: spacing[3],
-                          background: cssVar.bg.elevated,
-                          borderRadius: token.borderRadiusLG,
-                          border: `1px solid ${cssVar.border.default}`,
-                        }}
-                      >
-                        <pre
-                          className="clamped-code-block"
-                          style={{
-                            margin: 0,
-                            whiteSpace: 'pre-wrap',
-                            fontFamily: token.fontFamilyCode,
-                            fontSize: token.fontSizeSM,
-                            color: token.colorText,
-                          }}
-                        >
+                      <div className="alert-center-detail-surface">
+                        <pre className="clamped-code-block alert-center-code-block">
                           <code
-                            className="clamped-code-inline"
+                            className="clamped-code-inline console-display-block"
                             dangerouslySetInnerHTML={{
                               __html: formatTextOrJsonForDisplay(selectedLog.providerResponse.body) || '(empty)',
                             }}
-                            style={{ display: 'block' }}
                           />
                         </pre>
                       </div>
@@ -782,17 +721,17 @@ export const AlertCenterRoute = () => {
               !selectedLog.errorStack &&
               !selectedLog.payload &&
               !selectedLog.providerResponse && (
-                <div style={{ padding: spacing[4], textAlign: 'center', color: cssVar.text.secondary }}>
-                  <Typography.Text type="secondary" style={{ color: cssVar.text.secondary }}>
+                <div className="alert-center-empty-detail">
+                  <Text type="supporting" color="secondary">
                     No additional details available for this alert.
-                  </Typography.Text>
+                  </Text>
                 </div>
               )}
           </div>
         ) : (
-          <Skeleton active paragraph={{ rows: 6 }} />
+          <StatePanel glyph="connecting" tone="busy" title="Loading alert details" />
         )}
       </Drawer>
-    </div>
+    </PageTemplate>
   );
 };

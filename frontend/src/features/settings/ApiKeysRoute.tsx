@@ -1,24 +1,14 @@
 import { useEffect, useState } from 'react';
-import {
-  Button,
-  Modal,
-  Form,
-  Input,
-  Space,
-  Typography,
-  Tag,
-  Popconfirm,
-  message,
-  Alert,
-  Collapse,
-  Tooltip,
-  Radio,
-} from 'antd';
-import { PlusOutlined, KeyOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Modal, Form, Input, Select, Space, Popconfirm, message, Collapse, Tooltip, Radio } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { FilterBar } from '../../components/common/FilterBar';
 import { ModernTable } from '../../components/common/ModernTable';
-import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { MetaTag } from '../../components/common/MetaTag';
+import { useDesignTokens } from '../../design-system/utils';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   listApiKeys,
@@ -32,8 +22,9 @@ import {
 } from '../../services/api';
 import { formatDateTime } from '../../utils/format';
 import { scrambleReveal } from '../../design-system/delight';
-
-const { Text, Paragraph } = Typography;
+import { Button } from '../../components/common/LegacyButton';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { InlineNotice as Notice } from '../../components/common';
 
 /** Ready-to-paste .mcp.json using the key that was just created. */
 const buildMcpConfigSnippet = (rawKey: string): string => {
@@ -61,6 +52,8 @@ const buildMcpConfigSnippet = (rawKey: string): string => {
 export const ApiKeysRoute = () => {
   const { spacing } = useDesignTokens();
   const queryClient = useQueryClient();
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'revoked'>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   // The new key decodes into view; copy always uses the real value.
@@ -82,9 +75,23 @@ export const ApiKeysRoute = () => {
     }
   };
 
-  const { data: keys = [], isLoading } = useQuery({
+  const {
+    data: keys = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['api-keys'],
     queryFn: listApiKeys,
+  });
+
+  const filteredKeys = keys.filter((key) => {
+    const search = searchText.trim().toLowerCase();
+    const matchesSearch =
+      !search || key.name.toLowerCase().includes(search) || key.prefix.toLowerCase().includes(search);
+    const matchesStatus =
+      statusFilter === 'all' || (statusFilter === 'active' ? !key.revokedAt : Boolean(key.revokedAt));
+    return matchesSearch && matchesStatus;
   });
 
   const createMutation = useMutation({
@@ -136,10 +143,10 @@ export const ApiKeysRoute = () => {
       key: 'name',
       render: (name: string, record: ApiKey) => (
         <Space direction="vertical" size={0}>
-          <Text strong>{name}</Text>
-          <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: 12 }}>
+          <AstryxText weight="semibold">{name}</AstryxText>
+          <AstryxText type="code" size="sm" color="secondary">
             {record.prefix}…
-          </Text>
+          </AstryxText>
         </Space>
       ),
     },
@@ -150,10 +157,10 @@ export const ApiKeysRoute = () => {
       render: (role: string) =>
         role === 'API_KEY' ? (
           <Tooltip title="Can only run and view this organization's integrations">
-            <Tag color="blue">Integrations only</Tag>
+            <StatusBadge label="Integrations only" variant="info" showIcon={false} size="small" />
           </Tooltip>
         ) : (
-          <Tag>{role}</Tag>
+          <MetaTag variant="neutral">{role}</MetaTag>
         ),
     },
     {
@@ -166,14 +173,25 @@ export const ApiKeysRoute = () => {
       title: 'Last Used',
       dataIndex: 'lastUsedAt',
       key: 'lastUsedAt',
-      render: (value: string | null) => (value ? formatDateTime(value) : <Text type="secondary">Never</Text>),
+      render: (value: string | null) =>
+        value ? (
+          formatDateTime(value)
+        ) : (
+          <AstryxText type="supporting" color="secondary">
+            Never
+          </AstryxText>
+        ),
     },
     {
       title: 'Status',
       dataIndex: 'revokedAt',
       key: 'status',
       render: (revokedAt: string | null) =>
-        revokedAt ? <Tag color="default">Revoked</Tag> : <Tag color="green">Active</Tag>,
+        revokedAt ? (
+          <StatusBadge label="Revoked" variant="neutral" showIcon={false} size="small" />
+        ) : (
+          <StatusBadge label="Active" variant="success" showIcon={false} size="small" />
+        ),
     },
     {
       title: 'Actions',
@@ -192,7 +210,7 @@ export const ApiKeysRoute = () => {
               size="small"
               danger
               type="text"
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               aria-label={`Delete ${record.name}`}
               loading={purgeMutation.isPending && purgeMutation.variables === record.id}
             />
@@ -209,7 +227,7 @@ export const ApiKeysRoute = () => {
               size="small"
               danger
               type="text"
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               aria-label={`Revoke ${record.name}`}
               loading={revokeMutation.isPending && revokeMutation.variables === record.id}
             />
@@ -219,43 +237,121 @@ export const ApiKeysRoute = () => {
   ];
 
   return (
-    <div style={{ width: '100%' }}>
-      <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+    <PageTemplate
+      as="main"
+      className="api-key-workspace"
+      contentClassName="api-key-workspace__content"
+      header={
         <PageHeader
           title="API Keys"
           description="Personal access tokens for scripts, CI pipelines, or MCP clients. A key authenticates as you — same role and org access — and can be revoked at any time."
           actions={
             <Space wrap>
+              <Button icon={<GatewayIcon name="ReloadOutlined" />} onClick={() => refetch()} loading={isLoading}>
+                Refresh
+              </Button>
               <Tooltip title="Get the MCP server package (zip) to run with Claude Code, Codex, or any MCP client — pair it with an API key from this page">
-                <Button icon={<DownloadOutlined />} loading={isDownloadingMcp} onClick={handleDownloadMcpServer}>
+                <Button
+                  icon={<GatewayIcon name="DownloadOutlined" />}
+                  loading={isDownloadingMcp}
+                  onClick={handleDownloadMcpServer}
+                >
                   Download MCP Server
                 </Button>
               </Tooltip>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateModalOpen(true)}>
+              <Button
+                type="primary"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => setIsCreateModalOpen(true)}
+              >
                 Create API Key
               </Button>
             </Space>
           }
         />
+      }
+    >
+      <FilterBar
+        rightSlot={
+          searchText || statusFilter !== 'all' ? (
+            <Button
+              size="small"
+              onClick={() => {
+                setSearchText('');
+                setStatusFilter('all');
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : null
+        }
+      >
+        <div className="api-key-filter-grid">
+          <label className="api-key-filter-field">
+            <span>Search keys</span>
+            <Input
+              aria-label="Search API keys"
+              placeholder="Name or key prefix"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              allowClear
+            />
+          </label>
+          <label className="api-key-filter-field">
+            <span>Status</span>
+            <Select aria-label="Filter API keys by status" value={statusFilter} onChange={setStatusFilter}>
+              <Select.Option value="all">All statuses</Select.Option>
+              <Select.Option value="active">Active</Select.Option>
+              <Select.Option value="revoked">Revoked</Select.Option>
+            </Select>
+          </label>
+        </div>
+      </FilterBar>
 
+      {error && (
+        <Notice
+          type="error"
+          message="Could not load API keys"
+          description={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+          action={
+            <Button size="small" onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
+        />
+      )}
+
+      <section className="api-key-table-section" aria-label="API key directory">
+        <div className="api-key-table-heading">
+          <AstryxText weight="semibold">API keys</AstryxText>
+          <AstryxText type="supporting" color="secondary">
+            Showing {filteredKeys.length} of {keys.length}
+          </AstryxText>
+        </div>
         <ModernTable<ApiKey>
           columns={columns}
-          dataSource={keys}
+          dataSource={filteredKeys}
           rowKey="id"
           loading={isLoading}
           pagination={{ pageSize: 20 }}
           emptyState={{
-            icon: <KeyOutlined style={{ fontSize: 32 }} />,
-            title: 'No API keys yet',
-            description: 'Create one to authenticate scripts, CI pipelines, or MCP clients as yourself.',
-            action: (
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateModalOpen(true)}>
+            icon: <GatewayIcon name="KeyOutlined" className="ui-extracted-f2cf2c9518" />,
+            title: keys.length ? 'No API keys match these filters' : 'No API keys yet',
+            description: keys.length
+              ? 'Change or clear a filter to see the full list.'
+              : 'Create one to authenticate scripts, CI pipelines, or MCP clients as yourself.',
+            action: keys.length ? undefined : (
+              <Button
+                type="primary"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => setIsCreateModalOpen(true)}
+              >
                 Create API Key
               </Button>
             ),
           }}
         />
-      </Space>
+      </section>
 
       <Modal
         title="Create API Key"
@@ -283,16 +379,16 @@ export const ApiKeysRoute = () => {
               <Space direction="vertical">
                 <Radio value="user">
                   Same as me
-                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                  <AstryxText as="div" display="block" type="supporting" size="sm" color="secondary">
                     For your own scripts and MCP clients.
-                  </Typography.Text>
+                  </AstryxText>
                 </Radio>
                 <Radio value="integrations">
                   Run integrations only
-                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-                    For a partner or system that calls this organization's integrations. It can run and view them,
-                    and nothing else.
-                  </Typography.Text>
+                  <AstryxText as="div" display="block" type="supporting" size="sm" color="secondary">
+                    For a partner or system that calls this organization's integrations. It can run and view them, and
+                    nothing else.
+                  </AstryxText>
                 </Radio>
               </Space>
             </Radio.Group>
@@ -312,48 +408,55 @@ export const ApiKeysRoute = () => {
         closable={false}
         maskClosable={false}
       >
-        <Alert
+        <Notice
           type="warning"
-          showIcon
           message="Copy this key now — you won't be able to see it again"
           description="If you lose it, revoke this key and create a new one."
-          style={{ marginBottom: spacing[3] }}
+          className="console-margin-bottom-3"
         />
-        <Paragraph style={{ marginBottom: spacing[2] }}>
-          <Text strong>{createdKey?.name}</Text>
-        </Paragraph>
-        <Space.Compact style={{ width: '100%' }}>
-          <Input readOnly value={shownKey} aria-label="New API key" style={{ fontFamily: 'monospace' }} />
-          <Button icon={<CopyOutlined />} onClick={() => createdKey && handleCopy(createdKey.key)}>
+        <AstryxText as="p" display="block" className="console-margin-bottom-2">
+          <AstryxText weight="semibold">{createdKey?.name}</AstryxText>
+        </AstryxText>
+        <Space.Compact className="console-width-full">
+          <Input readOnly value={shownKey} aria-label="New API key" className="console-font-mono" />
+          <Button icon={<GatewayIcon name="CopyOutlined" />} onClick={() => createdKey && handleCopy(createdKey.key)}>
             Copy
           </Button>
         </Space.Compact>
         <Collapse
           ghost
           size="small"
-          style={{ marginTop: spacing[3] }}
+          className="console-margin-top-3"
           items={[
             {
               key: 'mcp-setup',
               label: 'Use with an MCP client (Claude Code, Codex, Cursor)',
               children: (
                 <>
-                  <ol style={{ fontSize: 13, paddingLeft: 20, marginBottom: spacing[2] }}>
+                  <ol
+                    style={{
+                      fontSize: 'var(--console-type-body)',
+                      paddingLeft: 'var(--spacing-5)',
+                      marginBottom: spacing[2],
+                    }}
+                  >
                     <li>
-                      Click <Text strong>Download MCP Server</Text> on this page and unzip it.
+                      Click <AstryxText weight="semibold">Download MCP Server</AstryxText> on this page and unzip it.
                     </li>
                     <li>
-                      In the unzipped folder, run <Text code>npm install</Text> (needs Node.js 18 or newer). Without
-                      it the server can't start and your client only says it couldn't connect.
+                      In the unzipped folder, run <AstryxText type="code">npm install</AstryxText> (needs Node.js 18 or
+                      newer). Without it the server can't start and your client only says it couldn't connect.
                     </li>
                     <li>
-                      Paste the config below into your client's MCP config and change <Text code>args</Text> to the
-                      absolute path of <Text code>src/index.js</Text> in that folder. It already includes your new key,
-                      which won't be shown again.
+                      Paste the config below into your client's MCP config and change{' '}
+                      <AstryxText type="code">args</AstryxText> to the absolute path of{' '}
+                      <AstryxText type="code">src/index.js</AstryxText> in that folder. It already includes your new
+                      key, which won't be shown again.
                     </li>
                     <li>
-                      Restart the client and ask it to run <Text code>gateway_health</Text>. <Text code>auth.ok</Text>{' '}
-                      should be <Text code>true</Text>. The bundled README has the Claude Code and Codex versions.
+                      Restart the client and ask it to run <AstryxText type="code">gateway_health</AstryxText>.{' '}
+                      <AstryxText type="code">auth.ok</AstryxText> should be <AstryxText type="code">true</AstryxText>.
+                      The bundled README has the Claude Code and Codex versions.
                     </li>
                   </ol>
                   {createdKey && (
@@ -361,10 +464,10 @@ export const ApiKeysRoute = () => {
                       <pre
                         style={{
                           fontFamily: 'monospace',
-                          fontSize: 12,
+                          fontSize: 'var(--console-type-caption)',
                           lineHeight: 1.6,
                           padding: spacing[2],
-                          margin: 0,
+                          margin: 'var(--spacing-0)',
                           borderRadius: 8,
                           border: '1px solid rgba(128, 128, 128, 0.25)',
                           background: 'rgba(128, 128, 128, 0.08)',
@@ -375,9 +478,8 @@ export const ApiKeysRoute = () => {
                         {buildMcpConfigSnippet(createdKey.key)}
                       </pre>
                       <Button
-                        icon={<CopyOutlined />}
-                        size="small"
-                        style={{ marginTop: spacing[2] }}
+                        icon={<GatewayIcon name="CopyOutlined" />}
+                        size="small" className="console-margin-top-2"
                         onClick={() => handleCopy(buildMcpConfigSnippet(createdKey.key))}
                       >
                         Copy config
@@ -390,6 +492,6 @@ export const ApiKeysRoute = () => {
           ]}
         />
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

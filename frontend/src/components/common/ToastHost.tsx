@@ -1,4 +1,4 @@
-import { App as AntdApp, message as globalMessage, notification as globalNotification } from 'antd';
+import { App as AntdApp, message as globalMessage, notification as globalNotification } from "@/components/common/LegacyAntdControls";
 import { useEffect } from 'react';
 
 export const ToastHost = () => {

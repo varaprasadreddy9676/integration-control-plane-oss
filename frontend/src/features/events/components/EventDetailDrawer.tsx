@@ -1,20 +1,16 @@
-import { useMemo } from 'react';
-import { Drawer, Typography, Space, Tag, Button, Tabs, message, Grid, Divider, Skeleton } from 'antd';
-import {
-  ThunderboltOutlined,
-  CopyOutlined,
-  FileTextOutlined,
-  CodeOutlined,
-  DatabaseOutlined,
-  InfoCircleOutlined,
-} from '@ant-design/icons';
+import { useEffect, useMemo, useState } from 'react';
+import { Drawer, Space, message, Grid, Divider } from '@/components/common/LegacyAntdControls';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { EventType, FieldSchema } from '../../../services/api';
-import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
-import { useThemeMode } from '../../../app/theme-provider';
+import { useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { StatePanel } from '../../../components/common/StatePanel';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { Button } from '../../../components/common/LegacyButton';
 
-const { Title, Text, Paragraph } = Typography;
 interface EventDetailDrawerProps {
   event: EventType | null;
   open: boolean;
@@ -23,9 +19,9 @@ interface EventDetailDrawerProps {
 }
 
 export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }: EventDetailDrawerProps) => {
-  const { token, themeColors, spacing } = useDesignTokens();
-  const colors = cssVar.legacy;
-  const { mode } = useThemeMode();
+  const [activeTab, setActiveTab] = useState<'schema' | 'sample' | 'usage'>('schema');
+  useEffect(() => setActiveTab('schema'), [event?.eventType, open]);
+  const { spacing } = useDesignTokens();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
 
@@ -75,8 +71,8 @@ export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }:
     return (
       <Drawer
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-            <FileTextOutlined style={{ color: colors.primary[600] }} />
+          <div className="console-flex-center-gap-2">
+            <GatewayIcon name="FileTextOutlined" className="console-text-accent" />
             <span>Loading event...</span>
           </div>
         }
@@ -86,17 +82,13 @@ export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }:
         onClose={onClose}
         extra={
           <Space>
-            <Button type="primary" icon={<ThunderboltOutlined />} disabled>
+            <Button type="primary" icon={<GatewayIcon name="ThunderboltOutlined" />} disabled>
               Create Integration
             </Button>
           </Space>
         }
       >
-        <Space direction="vertical" size={spacingToNumber(spacing[5])} style={{ width: '100%' }}>
-          <Skeleton active paragraph={{ rows: 2 }} />
-          <Skeleton active paragraph={{ rows: 4 }} />
-          <Skeleton active paragraph={{ rows: 6 }} />
-        </Space>
+        <StatePanel title="Loading event" size="compact" />
       </Drawer>
     );
   }
@@ -104,8 +96,8 @@ export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }:
   return (
     <Drawer
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-          <FileTextOutlined style={{ color: colors.primary[600] }} />
+        <div className="console-flex-center-gap-2">
+          <GatewayIcon name="FileTextOutlined" className="console-text-accent" />
           <span>{event?.label || 'Loading event...'}</span>
         </div>
       }
@@ -115,38 +107,28 @@ export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }:
       onClose={onClose}
       extra={
         <Space>
-          <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleCreateIntegration}>
+          <Button type="primary" icon={<GatewayIcon name="ThunderboltOutlined" />} onClick={handleCreateIntegration}>
             Create Integration
           </Button>
         </Space>
       }
     >
-      <Space direction="vertical" size={spacingToNumber(spacing[5])} style={{ width: '100%' }}>
+      <Space direction="vertical" size={spacingToNumber(spacing[5])} className="console-width-full">
         {/* Event Info */}
         <div>
-          <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: spacing[1] }}>
+              <AstryxText type="supporting" color="secondary" className="console-block-margin-bottom-1" size="sm">
                 Event Type
-              </Text>
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-                <Tag
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    padding: '4px 12px',
-                    fontFamily: 'monospace',
-                    background:
-                      mode === 'dark' ? withAlpha(colors.neutral[800], 0.6) : withAlpha(colors.neutral[100], 0.8),
-                    color: token.colorText,
-                  }}
-                >
+              </AstryxText>
+              <div className="console-flex-center-gap-2">
+                <AstryxText type="code" size="base">
                   {event.eventType}
-                </Tag>
+                </AstryxText>
                 <Button
                   type="text"
                   size="small"
-                  icon={<CopyOutlined />}
+                  icon={<GatewayIcon name="CopyOutlined" />}
                   onClick={handleCopyEventType}
                   aria-label="Copy event type"
                 />
@@ -154,253 +136,238 @@ export const EventDetailDrawer = ({ event, open, onClose, onCreateIntegration }:
             </div>
 
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: spacing[1] }}>
+              <AstryxText type="supporting" color="secondary" className="console-block-margin-bottom-1" size="sm">
                 Category
-              </Text>
-              <Tag color="blue" style={{ margin: 0, fontSize: 13 }}>
-                {event.category}
-              </Tag>
+              </AstryxText>
+              <AstryxText>{event.category}</AstryxText>
             </div>
 
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: spacing[1] }}>
+              <AstryxText type="supporting" color="secondary" className="console-block-margin-bottom-1" size="sm">
                 Description
-              </Text>
-              <Paragraph style={{ margin: 0, fontSize: 14 }}>{event.description}</Paragraph>
+              </AstryxText>
+              <AstryxText as="p" display="block" className="console-margin-none" size="base">
+                {event.description}
+              </AstryxText>
             </div>
 
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: spacing[1] }}>
+              <AstryxText type="supporting" color="secondary" className="console-block-margin-bottom-1" size="sm">
                 Implementation
-              </Text>
-              <Text
-                code
-                style={{
-                  fontSize: 12,
-                  background:
-                    mode === 'dark' ? withAlpha(colors.neutral[800], 0.6) : withAlpha(colors.neutral[100], 0.8),
-                  padding: '4px 8px',
-                  borderRadius: token.borderRadius,
-                }}
-              >
+              </AstryxText>
+              <AstryxText type="code" className="event-detail-implementation-code" size="sm">
                 {event.implementationClass}
-              </Text>
+              </AstryxText>
             </div>
           </Space>
         </div>
 
-        <Divider style={{ margin: 0 }} />
+        <Divider className="console-margin-none" />
 
-        {/* Tabs for Schema and Sample */}
-        <Tabs
-          defaultActiveKey="schema"
-          items={[
-            {
-              key: 'schema',
-              label: (
-                <span>
-                  <DatabaseOutlined /> Field Schema ({event.fields?.length || 0})
-                </span>
-              ),
-              children: (
-                <div
-                  style={{
-                    maxHeight: 'calc(100vh - 400px)',
-                    overflowY: 'auto',
-                    paddingRight: spacing[2],
-                  }}
-                >
-                  {event.fields && event.fields.length > 0 ? (
-                    <ModernTable
-                      dataSource={schemaRows}
-                      pagination={false}
-                      size="small"
-                      style={{ marginTop: spacing[2] }}
-                      columns={[
-                        {
-                          title: 'Field',
-                          dataIndex: 'name',
-                          key: 'name',
-                          render: (text: string, record: any) => (
-                            <div style={{ paddingLeft: record.depth * 16 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' }}>
-                                <Text code style={{ fontSize: 12 }}>
-                                  {text}
-                                </Text>
-                                {record.required && (
-                                  <Tag color="red" style={{ margin: 0 }}>
-                                    required
-                                  </Tag>
-                                )}
-                              </div>
-                              <Text type="secondary" style={{ fontSize: 11 }}>
-                                {record.path}
-                              </Text>
-                            </div>
-                          ),
-                        },
-                        {
-                          title: 'Type',
-                          dataIndex: 'type',
-                          key: 'type',
-                          render: (type: string, record: any) => (
-                            <Space size={spacingToNumber(spacing[1])}>
-                              <Tag color="blue" style={{ margin: 0 }}>
-                                {type}
-                              </Tag>
-                              {record.itemType && (
-                                <Tag color="purple" style={{ margin: 0 }}>
-                                  items: {record.itemType}
-                                </Tag>
-                              )}
-                            </Space>
-                          ),
-                          width: 220,
-                        },
-                        {
-                          title: 'Description',
-                          dataIndex: 'description',
-                          key: 'description',
-                          render: (desc: string) =>
-                            desc ? (
-                              <Text style={{ fontSize: 13 }}>{desc}</Text>
-                            ) : (
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                —
-                              </Text>
-                            ),
-                        },
-                      ]}
-                    />
-                  ) : (
-                    <Text type="secondary">No field schema available</Text>
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'sample',
-              label: (
-                <span>
-                  <CodeOutlined /> Sample Payload
-                </span>
-              ),
-              children: event.samplePayload ? (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: spacing[2] }}>
-                    <Button
-                      size="small"
-                      icon={<CopyOutlined />}
-                      onClick={handleCopySample}
-                      aria-label="Copy sample payload"
-                    >
-                      Copy Sample
-                    </Button>
-                  </div>
-                  <pre
-                    className="clamped-code-block"
-                    tabIndex={0}
-                    aria-label="Sample payload"
-                    style={{
-                      background:
-                        mode === 'dark' ? withAlpha(colors.neutral[900], 0.8) : withAlpha(colors.neutral[50], 0.8),
-                      padding: spacing[4],
-                      borderRadius: token.borderRadius,
-                      border: `1px solid ${mode === 'dark' ? withAlpha(colors.neutral[700], 0.3) : cssVar.border.default}`,
-                      fontSize: 12,
-                      lineHeight: 1.6,
-                      maxHeight: 'calc(100vh - 400px)',
-                      overflowY: 'auto',
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {JSON.stringify(event.samplePayload, null, 2)}
-                  </pre>
-                </div>
-              ) : (
-                <Text type="secondary">No sample payload available</Text>
-              ),
-            },
-            {
-              key: 'usage',
-              label: (
-                <span>
-                  <InfoCircleOutlined /> Usage Guide
-                </span>
-              ),
-              children: (
-                <div>
-                  <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
-                    <div>
-                      <Title level={5}>When This Event Triggers</Title>
-                      <Paragraph type="secondary">{event.description}</Paragraph>
-                    </div>
-
-                    <div>
-                      <Title level={5}>Common Use Cases</Title>
-                      <ul style={{ paddingLeft: 20, margin: 0 }}>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Send real-time notifications to external systems</Text>
-                        </li>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Sync data to CRM or ERP platforms</Text>
-                        </li>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Trigger automated workflows</Text>
-                        </li>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Update data warehouses or analytics platforms</Text>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <Title level={5}>Creating a Integration</Title>
-                      <Paragraph type="secondary">
-                        Click the "Create Integration" button to configure a integration for this event type. You'll be
-                        able to:
-                      </Paragraph>
-                      <ul style={{ paddingLeft: 20, margin: 0 }}>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Set the target URL to receive events</Text>
-                        </li>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Configure authentication (API Key, OAuth, Basic)</Text>
-                        </li>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Transform the payload with a script</Text>
-                        </li>
-                        <li style={{ marginBottom: spacing[2] }}>
-                          <Text>Set scope (include children entities or exclude specific entities)</Text>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div
-                      style={{
-                        background:
-                          mode === 'dark' ? withAlpha(colors.info[900], 0.2) : withAlpha(colors.info[50], 0.8),
-                        padding: spacing[4],
-                        borderRadius: token.borderRadius,
-                        borderLeft: `4px solid ${colors.info[600]}`,
-                      }}
-                    >
-                      <Space direction="vertical" size={spacingToNumber(spacing[2])}>
-                        <Text strong style={{ color: colors.info[700] }}>
-                          💡 Pro Tip
-                        </Text>
-                        <Text type="secondary">
-                          Use the Field Schema tab to understand available fields, then use the Sample Payload tab to
-                          see the actual data structure. This helps you write accurate transformations.
-                        </Text>
+        <TabList
+          role="tablist"
+          aria-label="Event detail sections"
+          value={activeTab}
+          onChange={(value) => setActiveTab(value as typeof activeTab)}
+          hasDivider
+        >
+          <Tab
+            id="event-detail-schema-tab"
+            value="schema"
+            label={`Field Schema (${event.fields?.length || 0})`}
+            icon={<GatewayIcon name="DatabaseOutlined" aria-hidden="true" />}
+            panelId="event-detail-schema-panel"
+          />
+          <Tab
+            id="event-detail-sample-tab"
+            value="sample"
+            label="Sample Payload"
+            icon={<GatewayIcon name="CodeOutlined" aria-hidden="true" />}
+            panelId="event-detail-sample-panel"
+          />
+          <Tab
+            id="event-detail-usage-tab"
+            value="usage"
+            label="Usage Guide"
+            icon={<GatewayIcon name="InfoCircleOutlined" aria-hidden="true" />}
+            panelId="event-detail-usage-panel"
+          />
+        </TabList>
+        <div
+          id="event-detail-schema-panel"
+          role="tabpanel"
+          aria-labelledby="event-detail-schema-tab"
+          hidden={activeTab !== 'schema'}
+          tabIndex={0}
+        >
+          <div className="event-detail-schema-scroll">
+            {event.fields && event.fields.length > 0 ? (
+              <ModernTable
+                dataSource={schemaRows}
+                pagination={false}
+                size="small"
+                className="console-margin-top-2"
+                columns={[
+                  {
+                    title: 'Field',
+                    dataIndex: 'name',
+                    key: 'name',
+                    render: (text: string, record: any) => (
+                      <div style={{ paddingLeft: record.depth * 16 }}>
+                        <div className="event-detail-field-name">
+                          <AstryxText type="code" size="sm">
+                            {text}
+                          </AstryxText>
+                          {record.required && (
+                            <AstryxText type="supporting" color="secondary">
+                              Required
+                            </AstryxText>
+                          )}
+                        </div>
+                        <AstryxText type="supporting" color="secondary" size="sm">
+                          {record.path}
+                        </AstryxText>
+                      </div>
+                    ),
+                  },
+                  {
+                    title: 'Type',
+                    dataIndex: 'type',
+                    key: 'type',
+                    render: (type: string, record: any) => (
+                      <Space size={spacingToNumber(spacing[1])}>
+                        <AstryxText type="code">{type}</AstryxText>
+                        {record.itemType && (
+                          <AstryxText type="supporting" color="secondary">
+                            items: {record.itemType}
+                          </AstryxText>
+                        )}
                       </Space>
-                    </div>
-                  </Space>
-                </div>
-              ),
-            },
-          ]}
-        />
+                    ),
+                    width: 220,
+                  },
+                  {
+                    title: 'Description',
+                    dataIndex: 'description',
+                    key: 'description',
+                    render: (desc: string) =>
+                      desc ? (
+                        <AstryxText size="base">{desc}</AstryxText>
+                      ) : (
+                        <AstryxText type="supporting" color="secondary" size="sm">
+                          —
+                        </AstryxText>
+                      ),
+                  },
+                ]}
+              />
+            ) : (
+              <AstryxText type="supporting" color="secondary">
+                No field schema available
+              </AstryxText>
+            )}
+          </div>
+        </div>
+        <div
+          id="event-detail-sample-panel"
+          role="tabpanel"
+          aria-labelledby="event-detail-sample-tab"
+          hidden={activeTab !== 'sample'}
+          tabIndex={0}
+        >
+          {event.samplePayload ? (
+            <div>
+              <div className="event-detail-copy-action">
+                <Button
+                  size="small"
+                  icon={<GatewayIcon name="CopyOutlined" />}
+                  onClick={handleCopySample}
+                  aria-label="Copy sample payload"
+                >
+                  Copy Sample
+                </Button>
+              </div>
+              <pre
+                tabIndex={0}
+                aria-label="Sample payload"
+                className="clamped-code-block console-type-caption event-detail-sample-code"
+              >
+                {JSON.stringify(event.samplePayload, null, 2)}
+              </pre>
+            </div>
+          ) : (
+            <AstryxText type="supporting" color="secondary">
+              No sample payload available
+            </AstryxText>
+          )}
+        </div>
+        <div
+          id="event-detail-usage-panel"
+          role="tabpanel"
+          aria-labelledby="event-detail-usage-tab"
+          hidden={activeTab !== 'usage'}
+          tabIndex={0}
+        >
+          <div>
+            <Space direction="vertical" size={spacingToNumber(spacing[4])} className="console-width-full">
+              <div>
+                <Heading level={5}>When This Event Triggers</Heading>
+                <AstryxText as="p" display="block" type="supporting" color="secondary">
+                  {event.description}
+                </AstryxText>
+              </div>
+              <div>
+                <Heading level={5}>Common Use Cases</Heading>
+                <ul className="event-detail-usage-list">
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Send real-time notifications to external systems</AstryxText>
+                  </li>
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Sync data to CRM or ERP platforms</AstryxText>
+                  </li>
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Trigger automated workflows</AstryxText>
+                  </li>
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Update data warehouses or analytics platforms</AstryxText>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <Heading level={5}>Creating a Integration</Heading>
+                <AstryxText as="p" display="block" type="supporting" color="secondary">
+                  Click the "Create Integration" button to configure a integration for this event type. You'll be able
+                  to:
+                </AstryxText>
+                <ul className="event-detail-usage-list">
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Set the target URL to receive events</AstryxText>
+                  </li>
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Configure authentication (API Key, OAuth, Basic)</AstryxText>
+                  </li>
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Transform the payload with a script</AstryxText>
+                  </li>
+                  <li className="console-margin-bottom-2">
+                    <AstryxText>Set scope (include children entities or exclude specific entities)</AstryxText>
+                  </li>
+                </ul>
+              </div>
+              <div className="event-detail-pro-tip">
+                <Space direction="vertical" size={spacingToNumber(spacing[2])}>
+                  <AstryxText weight="semibold" className="console-text-info">
+                    💡 Pro Tip
+                  </AstryxText>
+                  <AstryxText type="supporting" color="secondary">
+                    Use the Field Schema tab to understand available fields, then use the Sample Payload tab to see the
+                    actual data structure. This helps you write accurate transformations.
+                  </AstryxText>
+                </Space>
+              </div>
+            </Space>
+          </div>
+        </div>
       </Space>
     </Drawer>
   );

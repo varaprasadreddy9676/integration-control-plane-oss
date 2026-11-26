@@ -1,0 +1,7 @@
+.versions-tabs {
+  margin-block-end: var(--space-2);
+}
+
+.versions-panel-content {
+  padding-block: var(--space-3);
+}

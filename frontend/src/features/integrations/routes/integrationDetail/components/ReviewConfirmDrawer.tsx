@@ -1,19 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Drawer, Space, Typography, Button, Alert, Divider, Checkbox, Input, Tag, Row, Col } from 'antd';
-import {
-  CheckCircleOutlined,
-  ThunderboltOutlined,
-  CloseOutlined,
-  ExclamationCircleOutlined,
-  ApiOutlined,
-  ClockCircleOutlined,
-  LockOutlined,
-  SyncOutlined,
-  GlobalOutlined,
-  SaveOutlined
-} from '@ant-design/icons';
-import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../../../design-system/utils';
+import type { KeyboardEvent } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Drawer, Space, Divider, Checkbox, Input, Row, Col } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
+import { cssVar, useDesignTokens, spacingToNumber } from '../../../../../design-system/utils';
 import { getDeliveryModeLabel, getDeliveryModeSummaryText } from '../utils/deliveryMode';
+import { Button } from '../../../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../../../components/common';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -71,15 +64,15 @@ export const ReviewConfirmDrawer = ({
   authMethod,
   transformationType,
   readinessChecks,
-  isSaving
+  isSaving,
 }: ReviewConfirmDrawerProps) => {
-  const { spacing, transitions } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const colors = cssVar.legacy;
   const [activationChoice, setActivationChoice] = useState<'activate' | 'draft'>('draft');
   const [confirmText, setConfirmText] = useState('');
   const [hasReadImpact, setHasReadImpact] = useState(false);
 
-  const isReadyToActivate = readinessChecks.every(check => check.isComplete || check.advisory);
+  const isReadyToActivate = readinessChecks.every((check) => check.isComplete || check.advisory);
   const requiresConfirmation = activationChoice === 'activate';
   const confirmationMatch = confirmText.toUpperCase() === 'ACTIVATE';
   const canProceed = activationChoice === 'draft' || (requiresConfirmation && confirmationMatch && hasReadImpact);
@@ -98,47 +91,49 @@ export const ReviewConfirmDrawer = ({
     {
       label: 'Trigger Event',
       value: eventType || 'Not configured',
-      icon: <ThunderboltOutlined style={{ color: colors.primary[500] }} />,
-      critical: true
+      icon: <GatewayIcon name="ThunderboltOutlined" className="console-text-accent" />,
+      critical: true,
     },
     {
       label: 'Target Endpoint',
       value: (
         <Space direction="vertical" size={2}>
-          <Text code style={{ fontSize: 12 }}>{httpMethod}</Text>
-          <Text style={{ fontSize: 12, wordBreak: 'break-all' }}>{targetUrl}</Text>
+          <Text code className="console-type-caption">
+            {httpMethod}
+          </Text>
+          <Text className="console-type-caption console-word-break-all">{targetUrl}</Text>
         </Space>
       ),
-      icon: <ApiOutlined style={{ color: colors.primary[500] }} />,
-      critical: true
+      icon: <GatewayIcon name="ApiOutlined" className="console-text-accent" />,
+      critical: true,
     },
     {
       label: 'Scope',
       value: scope === 'ALL' ? 'All entities' : scope === 'TENANT' ? 'Current tenant only' : scope,
-      icon: <GlobalOutlined style={{ color: cssVar.text.secondary }} />
+      icon: <GatewayIcon name="GlobalOutlined" className="console-text-secondary" />,
     },
     {
       label: 'Delivery',
       value: getDeliveryModeLabel(deliveryMode),
-      icon: <ClockCircleOutlined style={{ color: cssVar.text.secondary }} />
+      icon: <GatewayIcon name="ClockCircleOutlined" className="console-text-secondary" />,
     },
     {
       label: 'Retry Policy',
       value: retryPolicy,
-      icon: <SyncOutlined style={{ color: cssVar.text.secondary }} />
+      icon: <GatewayIcon name="SyncOutlined" className="console-text-secondary" />,
     },
     {
       label: 'Authentication',
       value: authMethod || 'None',
-      icon: <LockOutlined style={{ color: cssVar.text.secondary }} />
-    }
+      icon: <GatewayIcon name="LockOutlined" className="console-text-secondary" />,
+    },
   ];
 
   if (transformationType) {
     reviewItems.push({
       label: 'Transformation',
       value: transformationType,
-      icon: <ApiOutlined style={{ color: cssVar.text.secondary }} />
+      icon: <GatewayIcon name="ApiOutlined" className="console-text-secondary" />,
     });
   }
 
@@ -150,37 +145,41 @@ export const ReviewConfirmDrawer = ({
       width={640}
       closable={false}
       styles={{
-        body: { padding: 0 }
+        body: { padding: 'var(--spacing-0)' },
       }}
     >
-      <div style={{ padding: `${spacing[5]} ${spacing[5]} ${spacing[3]}` }}>
+      <div className="review-confirm-content">
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing[4] }}>
+        <div className="review-confirm-header">
           <Space direction="vertical" size={spacingToNumber(spacing[2])}>
-            <Title level={3} style={{ margin: 0 }}>
+            <Title level={3} className="console-margin-none">
               {isCreating ? 'Final Step: Create Event Rule' : 'Review Changes'}
             </Title>
-            <Text type="secondary" style={{ color: cssVar.text.secondary }}>
+            <Text type="secondary" className="console-text-secondary">
               {isCreating
                 ? 'Review the rule, then choose whether to create it as a draft or create and activate it now.'
                 : 'Review what will change before saving or re-activating this event rule.'}
             </Text>
           </Space>
-          <Button type="text" icon={<CloseOutlined />} onClick={onClose} />
+          <Button type="text" icon={<GatewayIcon name="CloseOutlined" />} onClick={onClose} />
         </div>
 
         {/* Impact Summary */}
-        <Alert
+        <Notice
           type="info"
-          showIcon
-          icon={<ThunderboltOutlined />}
-          style={{ marginBottom: spacing[5] }}
-              message={
+          icon={<GatewayIcon name="ThunderboltOutlined" />}
+          className="console-margin-bottom-5"
+          message={
             <div>
-              <Text strong style={{ fontSize: 14 }}>{isCreating ? 'You are about to create this rule:' : 'This rule will:'}</Text>
-              <Paragraph style={{ marginTop: spacing[2], marginBottom: 0, fontSize: 13 }}>
-                Automatically send <Text strong>{httpMethod}</Text> requests to <Text code style={{ fontSize: 11 }}>{targetUrl}</Text> when{' '}
-                <Text strong>{eventType}</Text> events occur{' '}
+              <Text strong className="console-type-control">
+                {isCreating ? 'You are about to create this rule:' : 'This rule will:'}
+              </Text>
+              <Paragraph className="console-margin-top-2-reset-bottom console-type-body">
+                Automatically send <Text strong>{httpMethod}</Text> requests to{' '}
+                <Text code className="console-type-caption">
+                  {targetUrl}
+                </Text>{' '}
+                when <Text strong>{eventType}</Text> events occur{' '}
                 {scope === 'ALL' ? 'across all entities' : 'in the current tenant'}.
                 {deliveryMode && ` ${getDeliveryModeSummaryText(deliveryMode)}`}
               </Paragraph>
@@ -189,25 +188,25 @@ export const ReviewConfirmDrawer = ({
         />
 
         {/* Configuration Details */}
-        <div style={{ marginBottom: spacing[5] }}>
-          <Text strong style={{ fontSize: 14, marginBottom: spacing[3], display: 'block' }}>
+        <div className="console-margin-bottom-5">
+          <Text strong className="review-confirm-section-heading">
             Configuration Details
           </Text>
-          <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
             {reviewItems.map((item, idx) => (
               <Row key={idx} gutter={16} align="middle">
                 <Col span={1}>
-                  <div style={{ fontSize: 16 }}>{item.icon}</div>
+                  <div className="console-type-section">{item.icon}</div>
                 </Col>
                 <Col span={7}>
-                  <Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
+                  <Text type="secondary" className="console-caption-secondary">
                     {item.label}
                   </Text>
                 </Col>
                 <Col span={16}>
                   <div>
                     {typeof item.value === 'string' ? (
-                      <Text strong={item.critical} style={{ fontSize: 13 }}>
+                      <Text strong={item.critical} className="console-type-body">
                         {item.value}
                       </Text>
                     ) : (
@@ -223,34 +222,35 @@ export const ReviewConfirmDrawer = ({
         <Divider />
 
         {/* Readiness Checklist */}
-        <div style={{ marginBottom: spacing[5] }}>
-          <Text strong style={{ fontSize: 14, marginBottom: spacing[3], display: 'block' }}>
+        <div className="console-margin-bottom-5">
+          <Text strong className="review-confirm-section-heading">
             Readiness Checklist
           </Text>
-          <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
             {readinessChecks.map((check, idx) => (
               <div
                 key={idx}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: spacing[2],
-                  padding: spacing[2],
-                  background: check.isComplete ? withAlpha(colors.success[50], 0.3) : withAlpha(colors.warning[50], 0.3),
-                  borderRadius: 6,
-                  border: `1px solid ${check.isComplete ? colors.success[200] : colors.warning[200]}`
-                }}
+                className="review-readiness-check"
+                data-state={check.isComplete ? 'complete' : 'incomplete'}
               >
                 {check.isComplete ? (
-                  <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 16, paddingTop: 2 }} />
+                  <GatewayIcon
+                    size="sm"
+                    name="CheckCircleOutlined"
+                    className="console-text-success console-margin-top-1"
+                  />
                 ) : (
-                  <ExclamationCircleOutlined style={{ color: colors.warning[600], fontSize: 16, paddingTop: 2 }} />
+                  <GatewayIcon
+                    size="sm"
+                    name="ExclamationCircleOutlined"
+                    className="console-text-warning console-margin-top-1"
+                  />
                 )}
-                <div style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13 }}>{check.label}</Text>
+                <div className="console-flex-fill">
+                  <Text className="console-type-body">{check.label}</Text>
                   {check.warning && (
-                    <div style={{ marginTop: spacing[1] }}>
-                      <Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
+                    <div className="console-margin-top-1">
+                      <Text type="secondary" className="console-caption-secondary">
                         {check.warning}
                       </Text>
                     </div>
@@ -264,81 +264,128 @@ export const ReviewConfirmDrawer = ({
         <Divider />
 
         {/* Activation Choice */}
-        <div style={{ marginBottom: spacing[5] }}>
-          <Text strong style={{ fontSize: 14, marginBottom: spacing[3], display: 'block' }}>
+        <div className="console-margin-bottom-5">
+          <Text strong className="review-confirm-section-heading">
             {isCreating ? 'How should this new rule be created?' : 'What would you like to do?'}
           </Text>
-          <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
-            <div
+          <Space
+            direction="vertical"
+            size={spacingToNumber(spacing[2])}
+            className="console-width-full"
+            role="radiogroup"
+            aria-label={isCreating ? 'New rule activation choice' : 'Rule activation choice'}
+            onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+              if (
+                event.key !== 'ArrowDown' &&
+                event.key !== 'ArrowRight' &&
+                event.key !== 'ArrowUp' &&
+                event.key !== 'ArrowLeft'
+              ) {
+                return;
+              }
+              const choices = Array.from(
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+              ).filter((choice) => !choice.disabled);
+              if (choices.length === 0) return;
+              const focusedIndex = choices.indexOf(document.activeElement as HTMLButtonElement);
+              const selectedIndex = choices.findIndex((choice) => choice.getAttribute('aria-checked') === 'true');
+              const current = focusedIndex >= 0 ? focusedIndex : selectedIndex;
+              if (current < 0) return;
+              const direction = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1;
+              const next = (current + direction + choices.length) % choices.length;
+              choices[next]?.focus();
+              choices[next]?.click();
+              event.preventDefault();
+            }}
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={activationChoice === 'draft'}
+              className="review-activation-choice"
+              data-choice="draft"
+              data-selected={activationChoice === 'draft'}
+              tabIndex={activationChoice === 'draft' ? 0 : -1}
               onClick={() => setActivationChoice('draft')}
-              style={{
-                padding: spacing[3],
-                border: `2px solid ${activationChoice === 'draft' ? colors.primary[500] : colors.neutral[200]}`,
-                borderRadius: 8,
-                cursor: 'pointer',
-                background: activationChoice === 'draft' ? withAlpha(colors.primary[50], 0.3) : 'transparent',
-                transition: transitions.all
-              }}
             >
-              <Space>
-                <SaveOutlined style={{ fontSize: 18, color: activationChoice === 'draft' ? colors.primary[600] : cssVar.text.secondary }} />
-                <div>
-                  <Text strong style={{ display: 'block', fontSize: 14 }}>
+              <span className="review-activation-choice-content">
+                <GatewayIcon
+                  size="md"
+                  name="SaveOutlined"
+                  className={activationChoice === 'draft' ? 'console-text-accent' : 'console-text-secondary'}
+                />
+                <span>
+                  <Text strong className="console-display-block console-type-control">
                     {isCreating ? 'Create as Draft' : 'Save as Draft'}
                   </Text>
-                  <Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
-                    {isCreating ? 'Create it now, but keep it inactive until you are ready' : 'Keep the rule inactive until you are ready'}
+                  <Text type="secondary" className="console-caption-secondary">
+                    {isCreating
+                      ? 'Create it now, but keep it inactive until you are ready'
+                      : 'Keep the rule inactive until you are ready'}
                   </Text>
-                </div>
-              </Space>
-            </div>
+                </span>
+              </span>
+            </button>
 
-            <div
-              onClick={() => isReadyToActivate && setActivationChoice('activate')}
-              style={{
-                padding: spacing[3],
-                border: `2px solid ${activationChoice === 'activate' ? colors.success[500] : colors.neutral[200]}`,
-                borderRadius: 8,
-                cursor: isReadyToActivate ? 'pointer' : 'not-allowed',
-                background: activationChoice === 'activate' ? withAlpha(colors.success[50], 0.3) : 'transparent',
-                opacity: isReadyToActivate ? 1 : 0.5,
-                transition: transitions.all
-              }}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={activationChoice === 'activate'}
+              disabled={!isReadyToActivate}
+              className="review-activation-choice"
+              data-choice="activate"
+              data-selected={activationChoice === 'activate'}
+              tabIndex={activationChoice === 'activate' ? 0 : -1}
+              onClick={() => setActivationChoice('activate')}
             >
-              <Space>
-                <ThunderboltOutlined style={{ fontSize: 18, color: activationChoice === 'activate' ? colors.success[600] : cssVar.text.secondary }} />
-                <div>
-                  <Text strong style={{ display: 'block', fontSize: 14 }}>
+              <span className="review-activation-choice-content">
+                <GatewayIcon
+                  size="md"
+                  name="ThunderboltOutlined"
+                  className={activationChoice === 'activate' ? 'console-text-success' : 'console-text-secondary'}
+                />
+                <span>
+                  <Text strong className="console-display-block console-type-control">
                     {isCreating ? 'Create & Activate Now' : 'Activate Immediately'}
                   </Text>
-                  <Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
+                  <Text type="secondary" className="console-caption-secondary">
                     {isReadyToActivate
-                      ? (isCreating ? 'Create the rule and start processing events right away' : 'Start processing events right away')
+                      ? isCreating
+                        ? 'Create the rule and start processing events right away'
+                        : 'Start processing events right away'
                       : 'Complete all readiness checks first'}
                   </Text>
-                </div>
-              </Space>
-            </div>
+                </span>
+              </span>
+            </button>
           </Space>
         </div>
 
         {/* Activation Confirmation (High-impact action) */}
         {requiresConfirmation && (
-          <Alert
+          <Notice
             type="warning"
-            showIcon
-            style={{ marginBottom: spacing[4] }}
+            className="console-margin-bottom-4"
             message="Confirmation Required"
             description={
-              <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%', marginTop: spacing[2] }}>
+              <Space
+                direction="vertical"
+                size={spacingToNumber(spacing[3])}
+                className="console-width-full-margin-top-2"
+              >
                 <Checkbox checked={hasReadImpact} onChange={(e) => setHasReadImpact(e.target.checked)}>
-                  <Text style={{ fontSize: 13 }}>
-                    I understand this rule will immediately start processing events and sending requests to the target endpoint
+                  <Text className="console-type-body">
+                    I understand this rule will immediately start processing events and sending requests to the target
+                    endpoint
                   </Text>
                 </Checkbox>
                 <div>
-                  <Text style={{ fontSize: 13, display: 'block', marginBottom: spacing[2] }}>
-                    Type <Text strong code>ACTIVATE</Text> to confirm:
+                  <Text className="console-type-body console-display-block console-margin-bottom-2">
+                    Type{' '}
+                    <Text strong code>
+                      ACTIVATE
+                    </Text>{' '}
+                    to confirm:
                   </Text>
                   <Input
                     value={confirmText}
@@ -346,7 +393,7 @@ export const ReviewConfirmDrawer = ({
                     placeholder="Type ACTIVATE"
                     disabled={!hasReadImpact}
                     style={{
-                      borderColor: confirmText && !confirmationMatch ? colors.error[400] : undefined
+                      borderColor: confirmText && !confirmationMatch ? colors.error[400] : undefined,
                     }}
                   />
                 </div>
@@ -357,32 +404,31 @@ export const ReviewConfirmDrawer = ({
       </div>
 
       {/* Footer Actions */}
-      <div
-        style={{
-          position: 'sticky',
-          bottom: 0,
-          padding: spacing[4],
-          background: cssVar.bg.surface,
-          borderTop: `1px solid ${cssVar.border.default}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
-      >
+      <div className="review-confirm-footer">
         <Button size="middle" onClick={onClose}>
           {isCreating ? 'Back to Setup' : 'Back to Edit'}
         </Button>
         <Button
           type={activationChoice === 'activate' ? 'primary' : 'default'}
           size="middle"
-          icon={activationChoice === 'activate' ? <ThunderboltOutlined /> : <SaveOutlined />}
+          icon={
+            activationChoice === 'activate' ? (
+              <GatewayIcon name="ThunderboltOutlined" />
+            ) : (
+              <GatewayIcon name="SaveOutlined" />
+            )
+          }
           onClick={handleConfirm}
           disabled={!canProceed}
           loading={isSaving}
         >
           {activationChoice === 'activate'
-            ? (isCreating ? 'Create & Activate' : 'Activate Event Rule')
-            : (isCreating ? 'Create Draft' : 'Save Draft')}
+            ? isCreating
+              ? 'Create & Activate'
+              : 'Activate Event Rule'
+            : isCreating
+              ? 'Create Draft'
+              : 'Save Draft'}
         </Button>
       </div>
     </Drawer>

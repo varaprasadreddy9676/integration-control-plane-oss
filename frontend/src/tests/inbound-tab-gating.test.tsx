@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
 
+vi.mock('../app/theme-provider', () => ({ useThemeMode: () => ({ mode: 'light' }) }));
+
 // Regression test: editing an already-complete inbound integration used to leave every
 // downstream tab (Request Policy, Authentication, Request Transform, Response Transform,
 // Review & Submit) disabled on first render. Root cause: their `disabled` flags depend on
@@ -38,6 +40,7 @@ vi.mock('../app/tenant-context', () => ({
 }));
 
 vi.mock('../design-system/utils', () => ({
+  editorFontSize: () => 14,
   spacingToNumber: (value: string | number) => {
     if (typeof value === 'number') return value;
     const parsed = parseInt(String(value), 10);
@@ -57,7 +60,10 @@ vi.mock('../design-system/utils', () => ({
     },
     bg: { base: '#fff', surface: '#fff' },
     border: { default: '#eee' },
+    primary: { 600: '#1677ff' },
     text: { secondary: '#666' },
+    warning: { text: '#ad6800' },
+    success: { text: '#237804' },
   },
 }));
 
@@ -121,13 +127,76 @@ describe('Inbound Integration edit — tab gating on an already-complete record'
       expect(screen.getByDisplayValue('PartnerHub - Link Records')).toBeInTheDocument();
     });
 
-    const disabledTabLabels = Array.from(container.querySelectorAll('.ant-tabs-tab-disabled')).map((el) =>
+    const disabledTabLabels = Array.from(container.querySelectorAll('[role="tab"][aria-disabled="true"]')).map((el) =>
       el.textContent?.trim()
     );
 
     // Only tabs that gate on Basic Info would legitimately be disabled if the name were
     // missing — here it's fully populated, so nothing past Basic Info should be locked.
     expect(disabledTabLabels).toEqual([]);
+  });
+
+  it('keeps visited configuration panels mounted and exposes tab-panel relationships', async () => {
+    const { InboundIntegrationDetailRoute } = await import(
+      '../features/inbound-integrations/routes/InboundIntegrationDetailRoute'
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <App>
+          <MemoryRouter initialEntries={['/inbound-integrations/507f1f77bcf86cd799439011']}>
+            <Routes>
+              <Route path="/inbound-integrations/:id" element={<InboundIntegrationDetailRoute />} />
+            </Routes>
+          </MemoryRouter>
+        </App>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => expect(screen.getByDisplayValue('PartnerHub - Link Records')).toBeInTheDocument());
+    const tabList = screen.getByRole('tablist', { name: 'Inbound integration configuration' });
+    const policyTab = screen.getByRole('tab', { name: /Request Policy/ });
+    const authTab = screen.getByRole('tab', { name: /Authentication/ });
+    const policyPanelId = policyTab.getAttribute('aria-controls');
+    expect(policyPanelId).toBeTruthy();
+
+    fireEvent.click(policyTab);
+    expect(policyTab).toHaveAttribute('aria-selected', 'true');
+    expect(container.querySelector(`#${policyPanelId}`)).toBeVisible();
+    fireEvent.click(authTab);
+
+    expect(authTab).toHaveAttribute('aria-selected', 'true');
+    expect(container.querySelector(`#${policyPanelId}`)).not.toBeVisible();
+    expect(container.querySelector(`#${policyPanelId} .integration-tab-content`)).not.toBeNull();
+    expect(tabList.querySelectorAll('[role="tab"]')).toHaveLength(7);
+  });
+
+  it('renders inbound tab content without an extra card shell', async () => {
+    const { InboundIntegrationDetailRoute } = await import(
+      '../features/inbound-integrations/routes/InboundIntegrationDetailRoute'
+    );
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <App>
+          <MemoryRouter initialEntries={['/inbound-integrations/507f1f77bcf86cd799439011']}>
+            <Routes>
+              <Route path="/inbound-integrations/:id" element={<InboundIntegrationDetailRoute />} />
+            </Routes>
+          </MemoryRouter>
+        </App>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('PartnerHub - Link Records')).toBeInTheDocument();
+    });
+
+    const panel = container.querySelector('.integration-tab-content');
+    expect(panel).not.toBeNull();
+    expect(panel?.parentElement).not.toHaveClass('ant-card');
   });
 
   it('wraps the bottom action bar instead of letting Save Changes overflow the viewport', async () => {
@@ -169,7 +238,7 @@ describe('Inbound Integration edit — tab gating on an already-complete record'
     expect(flexRow!.style.flexWrap).toBe('wrap');
   });
 
-  it('says "saving" rather than "creating" on Review & Submit when editing an existing integration', async () => {
+  it('opens the configuration summary without a redundant review instruction', async () => {
     const { InboundIntegrationDetailRoute } = await import(
       '../features/inbound-integrations/routes/InboundIntegrationDetailRoute'
     );
@@ -192,9 +261,10 @@ describe('Inbound Integration edit — tab gating on an already-complete record'
       expect(screen.getByDisplayValue('PartnerHub - Link Records')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Review & Submit'));
+    fireEvent.click(screen.getByRole('tab', { name: /Review & Submit/ }));
 
-    expect(await screen.findByText(/Please review all settings before saving the integration/)).toBeInTheDocument();
-    expect(screen.queryByText(/before creating the integration/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Basic Information')).toBeInTheDocument();
+    expect(screen.getByText('Target API Configuration')).toBeInTheDocument();
+    expect(screen.queryByText(/Please review all settings before/)).not.toBeInTheDocument();
   });
 });

@@ -1,0 +1,45 @@
+.config-field-help {
+  font-size: var(--console-type-caption);
+  line-height: 1.5;
+}
+
+.inline-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-1);
+}
+
+.inline-hint__icon {
+  display: inline-flex;
+  font-size: var(--console-type-body);
+  line-height: 1.6;
+}
+
+.inline-hint__text {
+  font-size: var(--console-type-caption);
+  line-height: 1.6;
+}
+
+.stat-pill__icon {
+  display: inline-flex;
+  font-size: var(--console-type-body);
+}
+
+.stat-pill__value {
+  font-size: var(--console-type-body);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.state-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-4);
+}

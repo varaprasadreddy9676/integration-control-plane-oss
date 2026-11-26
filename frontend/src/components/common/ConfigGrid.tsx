@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Grid } from 'antd';
+import { Grid } from "@/components/common/LegacyAntdControls";
 import { useDesignTokens } from '../../design-system/utils';
 
 interface ConfigGridProps {

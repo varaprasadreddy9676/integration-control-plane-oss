@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Col, Empty, Progress, Row, Space, Statistic, Switch, Tag, Tooltip, Typography } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { Card, Col, Progress, Row, Space, Statistic, Switch, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../app/auth-context';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import { RefreshCountdown, SecondsAgo } from '../../components/common/RefreshCountdown';
-import { useDesignTokens } from '../../design-system/utils';
 import { BarChart } from '../../components/charts/BarChart';
 import { PieChart } from '../../components/charts/PieChart';
 import { getAdminStorageStats, type CollectionStat } from '../../services/api';
 import { ModernTable } from '../../components/common/ModernTable';
-
-const { Text } = Typography;
+import { StatePanel } from '../../components/common/StatePanel';
+import { InlineHint } from '../../components/common/InlineHint';
+import { Button as AstryxButton } from '@astryxdesign/core/Button';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -24,7 +26,6 @@ function formatBytes(bytes: number): string {
 export const StorageStatsRoute = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'ORG_ADMIN';
-  const { spacing, token } = useDesignTokens();
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [manualRefreshPending, setManualRefreshPending] = useState(false);
 
@@ -35,7 +36,6 @@ export const StorageStatsRoute = () => {
     refetchInterval: autoRefresh ? 30_000 : false,
     enabled: isAdmin,
   });
-
 
   const handleManualRefresh = async () => {
     setManualRefreshPending(true);
@@ -48,12 +48,13 @@ export const StorageStatsRoute = () => {
 
   if (!isAdmin) {
     return (
-      <Alert
-        type="error"
-        showIcon
-        message="Admin access only"
-        description="You need SUPER_ADMIN, ADMIN, or ORG_ADMIN role to view storage stats."
-      />
+      <PageTemplate title="Storage & Usage">
+        <StatePanel
+          title="Admin access required"
+          description="Your account does not have access to storage and usage."
+          size="compact"
+        />
+      </PageTemplate>
     );
   }
 
@@ -61,13 +62,33 @@ export const StorageStatsRoute = () => {
   const collections = data?.collections ?? [];
   const isOrgView = data?.isOrgView ?? false;
 
-  const compressionRatio =
-    db && db.storageSize > 0
-      ? (db.dataSize / db.storageSize).toFixed(1)
-      : '—';
+  if (error && !data) {
+    return (
+      <PageTemplate header={<PageHeader title="Storage & Usage" />}>
+        <StatePanel
+          title="Unable to load storage statistics"
+          description="Check your connection and try again."
+          footnote={(error as Error).message}
+          tone="critical"
+          size="compact"
+          actions={
+            <AstryxButton
+              label="Retry"
+              variant="secondary"
+              icon={<GatewayIcon name="ReloadOutlined" />}
+              onClick={handleManualRefresh}
+              isLoading={manualRefreshPending}
+            />
+          }
+        />
+      </PageTemplate>
+    );
+  }
+
+  const compressionRatio = db && db.storageSize > 0 ? (db.dataSize / db.storageSize).toFixed(1) : '—';
 
   // Bar chart: top 10 by storageSize (converted to MB)
-  const barData = collections.slice(0, 10).map(c => ({
+  const barData = collections.slice(0, 10).map((c) => ({
     label: c.label,
     storageMB: +(c.storageSize / 1024 ** 2).toFixed(2),
   }));
@@ -76,7 +97,7 @@ export const StorageStatsRoute = () => {
   const pieTop7 = collections.slice(0, 7);
   const otherSum = collections.slice(7).reduce((s, c) => s + c.storageSize, 0);
   const pieData = [
-    ...pieTop7.map(c => ({ name: c.label, value: c.storageSize })),
+    ...pieTop7.map((c) => ({ name: c.label, value: c.storageSize })),
     ...(otherSum > 0 ? [{ name: 'Other', value: otherSum }] : []),
   ];
 
@@ -87,12 +108,12 @@ export const StorageStatsRoute = () => {
       render: (_: unknown, row: CollectionStat) => (
         <Space direction="vertical" size={0}>
           <Space size={4}>
-            <Text strong>{row.label}</Text>
-            {row.percentOfTotal > 50 && (
-              <Tag color="orange">Dominant</Tag>
-            )}
+            <Text weight="semibold">{row.label}</Text>
+            {row.percentOfTotal > 50 && <Text color="secondary">Dominant</Text>}
           </Space>
-          <Text type="secondary" style={{ fontSize: 12 }}>{row.name}</Text>
+          <Text color="secondary" className="console-type-caption">
+            {row.name}
+          </Text>
         </Space>
       ),
     },
@@ -105,35 +126,23 @@ export const StorageStatsRoute = () => {
       render: (v: number) => v.toLocaleString(),
     },
     {
-      title: (
-        <Tooltip title="Raw size before compression">
-          Data Size
-        </Tooltip>
-      ),
+      title: <Tooltip title="Raw size before compression">Data Size</Tooltip>,
       dataIndex: 'dataSize',
       key: 'dataSize',
       align: 'right' as const,
       sorter: (a: CollectionStat, b: CollectionStat) => a.dataSize - b.dataSize,
       render: (v: number, row: CollectionStat) =>
-        row.count === 0 && row.storageSize === 0
-          ? <Text type="secondary">—</Text>
-          : formatBytes(v),
+        row.count === 0 && row.storageSize === 0 ? <Text color="secondary">—</Text> : formatBytes(v),
     },
     {
-      title: (
-        <Tooltip title="Actual disk usage">
-          Stored on Disk
-        </Tooltip>
-      ),
+      title: <Tooltip title="Actual disk usage">Stored on Disk</Tooltip>,
       dataIndex: 'storageSize',
       key: 'storageSize',
       align: 'right' as const,
       defaultSortOrder: 'descend' as const,
       sorter: (a: CollectionStat, b: CollectionStat) => a.storageSize - b.storageSize,
       render: (v: number, row: CollectionStat) =>
-        row.count === 0 && row.storageSize === 0
-          ? <Text type="secondary">empty</Text>
-          : formatBytes(v),
+        row.count === 0 && row.storageSize === 0 ? <Text color="secondary">empty</Text> : formatBytes(v),
     },
     {
       title: 'Index Size',
@@ -141,17 +150,14 @@ export const StorageStatsRoute = () => {
       key: 'indexSize',
       align: 'right' as const,
       sorter: (a: CollectionStat, b: CollectionStat) => a.indexSize - b.indexSize,
-      render: (v: number) => v === 0 ? <Text type="secondary">—</Text> : formatBytes(v),
+      render: (v: number) => (v === 0 ? <Text color="secondary">—</Text> : formatBytes(v)),
     },
     {
       title: '% of Total',
       dataIndex: 'percentOfTotal',
       key: 'percentOfTotal',
       sorter: (a: CollectionStat, b: CollectionStat) => a.percentOfTotal - b.percentOfTotal,
-      render: (v: number) =>
-        v === 0
-          ? <Text type="secondary">—</Text>
-          : <Progress percent={v} size="small" />,
+      render: (v: number) => (v === 0 ? <Text color="secondary">—</Text> : <Progress percent={v} size="small" />),
       width: 160,
     },
     {
@@ -160,152 +166,135 @@ export const StorageStatsRoute = () => {
       key: 'avgObjSize',
       align: 'right' as const,
       sorter: (a: CollectionStat, b: CollectionStat) => a.avgObjSize - b.avgObjSize,
-      render: (v: number) => v === 0 ? <Text type="secondary">—</Text> : formatBytes(v),
+      render: (v: number) => (v === 0 ? <Text color="secondary">—</Text> : formatBytes(v)),
     },
   ];
 
   return (
-    <div style={{ padding: spacing['6'] }}>
-      <PageHeader
-        title="Storage & Usage"
-        description={dataUpdatedAt ? <SecondsAgo since={dataUpdatedAt} /> : undefined}
-        actions={
-          <Space>
-            <Space size={8}>
-              {autoRefresh ? (
-                <RefreshCountdown intervalMs={30_000} lastRefreshAt={dataUpdatedAt} fontSize={13} />
-              ) : (
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  Auto-refresh off
-                </Text>
-              )}
-              <Switch size="small" checked={autoRefresh} onChange={setAutoRefresh} />
-            </Space>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={handleManualRefresh}
-              loading={manualRefreshPending}
-            >
-              {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
-            </Button>
-          </Space>
-        }
-      />
-
-      {isOrgView && (
-        <Alert
-          type="info"
-          showIcon
-          message="Org-scoped view"
-          description="Document counts are specific to your organization. Storage sizes (disk usage, index size) reflect the entire platform — MongoDB does not support per-org storage breakdown."
-          style={{ marginBottom: spacing['4'] }}
-        />
-      )}
-
-      {error && (
-        <Alert
-          type="error"
-          showIcon
-          message="Failed to load storage stats"
-          description={(error as Error).message}
-          style={{ marginBottom: spacing['4'] }}
-        />
-      )}
-
-      {/* KPI Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: spacing['6'] }}>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Actual disk space used (after MongoDB compression)">
-              <Statistic
-                title="Total Storage"
-                value={db ? formatBytes(db.storageSize) : '—'}
-                loading={isLoading}
+    <PageTemplate
+      header={
+        <PageHeader
+          title="Storage & Usage"
+          description={dataUpdatedAt ? <SecondsAgo since={dataUpdatedAt} /> : undefined}
+          actions={
+            <Space wrap>
+              <Space size={8}>
+                {autoRefresh ? (
+                  <RefreshCountdown intervalMs={30_000} lastRefreshAt={dataUpdatedAt} fontSize={13} />
+                ) : (
+                  <Text color="secondary" className="console-type-body">
+                    Auto-refresh off
+                  </Text>
+                )}
+                <Switch
+                  aria-label="Enable automatic refresh"
+                  size="small"
+                  checked={autoRefresh}
+                  onChange={setAutoRefresh}
+                />
+              </Space>
+              <AstryxButton
+                label={manualRefreshPending ? 'Refreshing…' : 'Refresh'}
+                variant="secondary"
+                icon={<GatewayIcon name="ReloadOutlined" />}
+                onClick={handleManualRefresh}
+                isLoading={manualRefreshPending}
               />
+            </Space>
+          }
+        />
+      }
+    >
+      <div className="storage-workspace">
+        {isOrgView && (
+          <InlineHint>
+            Organization scope: document counts are specific to your organization; disk and index sizes are
+            platform-wide.
+          </InlineHint>
+        )}
+
+        {error && data && (
+          <InlineHint tone="warning">The latest refresh failed. Showing the most recently loaded values.</InlineHint>
+        )}
+
+        {/* Summary metrics */}
+        <Row className="storage-metrics" gutter={[16, 12]}>
+          <Col xs={12} md={6}>
+            <Tooltip title="Actual disk space used (after MongoDB compression)">
+              <Statistic title="Total storage" value={db ? formatBytes(db.storageSize) : '—'} loading={isLoading} />
             </Tooltip>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Tooltip title={isOrgView ? 'Total records belonging to your organization' : 'Total records across all collections'}>
+          </Col>
+          <Col xs={12} md={6}>
+            <Tooltip
+              title={
+                isOrgView ? 'Total records belonging to your organization' : 'Total records across all collections'
+              }
+            >
               <Statistic
-                title={isOrgView ? 'Your Documents' : 'Documents Stored'}
+                title={isOrgView ? 'Your documents' : 'Documents stored'}
                 value={db ? db.objects.toLocaleString() : '—'}
                 loading={isLoading}
               />
             </Tooltip>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Extra space for query indexes — 20–40% of data is normal">
-              <Statistic
-                title="Index Overhead"
-                value={db ? formatBytes(db.indexSize) : '—'}
-                loading={isLoading}
-              />
+          </Col>
+          <Col xs={12} md={6}>
+            <Tooltip title="Space used by query indexes">
+              <Statistic title="Index size" value={db ? formatBytes(db.indexSize) : '—'} loading={isLoading} />
             </Tooltip>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Tooltip title="How effectively MongoDB compressed your data. Higher = better.">
+          </Col>
+          <Col xs={12} md={6}>
+            <Tooltip title="Ratio of logical data size to on-disk storage">
               <Statistic
-                title="Compression"
+                title="Compression ratio"
                 value={db && db.storageSize > 0 ? `${compressionRatio}×` : '—'}
                 loading={isLoading}
               />
             </Tooltip>
-          </Card>
-        </Col>
-      </Row>
+          </Col>
+        </Row>
 
-      {/* Charts */}
-      <Row gutter={[16, 16]} style={{ marginBottom: spacing['6'] }}>
-        <Col xs={24} md={14}>
-          <Card title="Top 10 Collections by Disk Usage" loading={isLoading}>
-            {barData.length > 0 ? (
-              <BarChart
-                data={barData}
-                bars={[{ dataKey: 'storageMB', name: 'Storage (MB)' }]}
-                xAxisKey="label"
-                layout="vertical"
-                height={320}
-                showLegend={false}
-                yAxisWidth={130}
-                tooltipFormatter={(value: number) => [`${value} MB`, 'Storage']}
-              />
-            ) : (
-              !isLoading && <Empty description="No collections with data yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} md={10}>
-          <Card title="Storage Distribution" loading={isLoading}>
-            {pieData.length > 0 ? (
-              <PieChart
-                data={pieData}
-                innerRadius={60}
-                height={320}
-              />
-            ) : (
-              !isLoading && <Empty description="No data to display" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            )}
-          </Card>
-        </Col>
-      </Row>
+        {/* Charts */}
+        <Row className="storage-charts" gutter={[16, 16]}>
+          <Col xs={24} md={14}>
+            <Card className="storage-chart-panel" title="Top collections by disk usage" loading={isLoading}>
+              {barData.length > 0 ? (
+                <BarChart
+                  data={barData}
+                  bars={[{ dataKey: 'storageMB', name: 'Storage (MB)' }]}
+                  xAxisKey="label"
+                  layout="vertical"
+                  height={320}
+                  showLegend={false}
+                  yAxisWidth={130}
+                  tooltipFormatter={(value: number) => [`${value} MB`, 'Storage']}
+                />
+              ) : (
+                !isLoading && <StatePanel size="compact" glyph="searching" title="No collection data" />
+              )}
+            </Card>
+          </Col>
+          <Col xs={24} md={10}>
+            <Card className="storage-chart-panel" title="Storage distribution" loading={isLoading}>
+              {pieData.length > 0 ? (
+                <PieChart data={pieData} innerRadius={60} height={320} />
+              ) : (
+                !isLoading && <StatePanel size="compact" glyph="searching" title="No storage data" />
+              )}
+            </Card>
+          </Col>
+        </Row>
 
-      {/* Collections Table */}
-      <Card title="All Collections" loading={isLoading}>
-        <ModernTable
-          dataSource={collections}
-          columns={columns}
-          rowKey="name"
-          size="small"
-          pagination={{ pageSize: 20, showSizeChanger: false }}
-          style={{ background: token.colorBgContainer }}
-        />
-      </Card>
-    </div>
+        {/* Collections Table */}
+        <Card className="storage-collections-panel" title="Collections" loading={isLoading}>
+          <ModernTable
+            dataSource={collections}
+            columns={columns}
+            rowKey="name"
+            size="small"
+            pagination={{ pageSize: 20, showSizeChanger: false }}
+          />
+        </Card>
+      </div>
+    </PageTemplate>
   );
 };

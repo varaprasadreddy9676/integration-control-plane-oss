@@ -1,26 +1,16 @@
-import type { TabsProps } from 'antd';
 import type { ReactNode } from 'react';
-import { Form, Space, Card, Alert, Divider, Typography, Tag, Switch } from 'antd';
-import {
-  ApiOutlined,
-  LockOutlined,
-  ThunderboltOutlined,
-  ClockCircleOutlined,
-  CodeOutlined,
-  CheckCircleOutlined,
-  EyeOutlined,
-  RadarChartOutlined,
-  SwapOutlined,
-  CarryOutOutlined,
-  NodeIndexOutlined,
-} from '@ant-design/icons';
+import { editorFontSize } from '../../../../../design-system/utils';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Form, Space, Divider, Switch } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
+import { Stack } from '@astryxdesign/core/Stack';
 import Editor from '@monaco-editor/react';
 
 const { Text } = Typography;
 import { ConfigSection } from '../../../../../components/common/ConfigSection';
+import { InlineHint } from '../../../../../components/common/InlineHint';
 import { ConfigurationPanelContent } from './ConfigurationPanel';
 import { AuthenticationPanelContent } from './AuthenticationPanel';
-import { } from './MultiActionHeader';
 import { MultiActionList } from './MultiActionList';
 import { DeliveryReliabilitySection } from './DeliveryReliabilitySection';
 import { DeliveryReliabilitySummary } from './DeliveryReliabilitySummary';
@@ -35,6 +25,7 @@ import type { DeliveryLayout } from '../utils/deliveryLayout';
 import { DeliveryTab } from '../../../../stages/components/delivery-tab/DeliveryTab';
 import type { StepEditors } from '../../../../stages/canvas/stepEditors';
 import { deliveriesOf, stageCountOf } from '../../../../stages/deliveryTargets';
+import type { IntegrationSectionItem } from './IntegrationSections';
 
 export interface IntegrationSectionsContentProps {
   form: any;
@@ -53,6 +44,7 @@ export interface IntegrationSectionsContentProps {
   availableFields: any[];
   spacing: Record<string, string>;
   token: any;
+  editorTheme: 'vs-dark' | 'light';
   colors: any;
   loadCleverTapTemplate: () => void;
   multiActionValidationErrors: string[];
@@ -103,6 +95,7 @@ export const buildIntegrationSectionItems = ({
   availableFields,
   spacing,
   token,
+  editorTheme,
   colors,
   loadCleverTapTemplate,
   multiActionValidationErrors,
@@ -132,12 +125,14 @@ export const buildIntegrationSectionItems = ({
   responseTransformScript = '',
   onResponseTransformEnabledChange,
   onResponseTransformScriptChange,
-}: IntegrationSectionsContentProps): TabsProps['items'] => {
+}: IntegrationSectionsContentProps): IntegrationSectionItem[] => {
   const wrapContent = (content: ReactNode) => (
-    <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0 }}>
-      <Card style={{ marginTop: spacing[2] }} size="small">
-        {content}
-      </Card>
+    <fieldset
+      className="integration-tab-content"
+      disabled={isReadOnly}
+      style={{ border: 'none', padding: 'var(--spacing-0)', margin: `${spacing[2]} 0 0` }}
+    >
+      {content}
     </fieldset>
   );
 
@@ -151,40 +146,40 @@ export const buildIntegrationSectionItems = ({
   const values = form.getFieldsValue(true);
 
   const renderBasicInfoSummary = () => (
-    <ConfigSection icon={<ApiOutlined />} title="Basic Information">
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
+    <ConfigSection icon={<GatewayIcon name="ApiOutlined" />} title="Basic Information">
+      <Space direction="vertical" size="small" className="console-width-full">
+        <div className="console-flex-gap-2">
+          <Text type="secondary" className="console-label-min-width">
             Rule Name:
           </Text>
           <Text strong>{values.name || <Text type="secondary">Not set</Text>}</Text>
         </div>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
+        <div className="console-flex-gap-2">
+          <Text type="secondary" className="console-label-min-width">
             Event Type:
           </Text>
           <Text strong>
             <code>{values.eventType || <Text type="secondary">Not set</Text>}</code>
           </Text>
         </div>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
+        <div className="console-flex-gap-2">
+          <Text type="secondary" className="console-label-min-width">
             Target URL:
           </Text>
           <Text strong>{values.targetUrl || <Text type="secondary">Not set</Text>}</Text>
         </div>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
+        <div className="console-flex-gap-2">
+          <Text type="secondary" className="console-label-min-width">
             HTTP Method:
           </Text>
-          <Tag color="blue">{values.httpMethod || 'POST'}</Tag>
+          <Text className="font-mono">{values.httpMethod || 'POST'}</Text>
         </div>
         {values.scope && (
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
+          <div className="console-flex-gap-2">
+            <Text type="secondary" className="console-label-min-width">
               Scope:
             </Text>
-            <Tag>{values.scope === 'GLOBAL' ? 'All Tenants' : 'Current Tenant'}</Tag>
+            <Text>{values.scope === 'GLOBAL' ? 'All Tenants' : 'Current Tenant'}</Text>
           </div>
         )}
       </Space>
@@ -192,9 +187,9 @@ export const buildIntegrationSectionItems = ({
   );
 
   const renderMultiActionSummary = () => (
-    <ConfigSection icon={<ThunderboltOutlined />} title="Multi-Action Configuration">
-      <div style={{ display: 'flex', gap: spacing[2] }}>
-        <Text type="secondary" style={{ minWidth: 150 }}>
+    <ConfigSection icon={<GatewayIcon name="ThunderboltOutlined" />} title="Multi-Action Configuration">
+      <div className="console-flex-gap-2">
+        <Text type="secondary" className="console-label-min-width">
           Actions Configured:
         </Text>
         <Text strong>
@@ -205,52 +200,36 @@ export const buildIntegrationSectionItems = ({
   );
 
   const renderAuthSummary = () => (
-    <ConfigSection icon={<LockOutlined />} title="Authentication">
-      <div style={{ display: 'flex', gap: spacing[2] }}>
-        <Text type="secondary" style={{ minWidth: 150 }}>
+    <ConfigSection icon={<GatewayIcon name="LockOutlined" />} title="Authentication">
+      <div className="console-flex-gap-2">
+        <Text type="secondary" className="console-label-min-width">
           Auth Type:
         </Text>
-        <Tag color={!values.outgoingAuthType || values.outgoingAuthType === 'NONE' ? 'default' : 'blue'}>
-          {values.outgoingAuthType || 'NONE'}
-        </Tag>
+        <Text>{values.outgoingAuthType || 'NONE'}</Text>
       </div>
     </ConfigSection>
   );
 
   const renderDeliveryModeSummary = () => (
-    <ConfigSection icon={<ClockCircleOutlined />} title="Delivery Mode">
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', gap: spacing[2] }}>
-          <Text type="secondary" style={{ minWidth: 150 }}>
+    <ConfigSection icon={<GatewayIcon name="ClockCircleOutlined" />} title="Delivery Mode">
+      <Space direction="vertical" size="small" className="console-width-full">
+        <div className="console-flex-gap-2">
+          <Text type="secondary" className="console-label-min-width">
             Mode:
           </Text>
-          <Tag
-            color={
-              deliveryModeValue === 'IMMEDIATE'
-                ? 'green'
-                : deliveryModeValue === 'DELAYED'
-                  ? 'orange'
-                  : deliveryModeValue === 'RECURRING'
-                    ? 'purple'
-                    : deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT'
-                      ? 'cyan'
-                      : 'default'
-            }
-          >
-            {getDeliveryModeChipLabel(deliveryModeValue)}
-          </Tag>
+          <Text>{getDeliveryModeChipLabel(deliveryModeValue)}</Text>
         </div>
         {deliveryModeValue === 'DELAYED' && values.schedulingConfig?.script && (
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
+          <div className="console-flex-gap-2">
+            <Text type="secondary" className="console-label-min-width">
               Scheduling Script:
             </Text>
             <Text type="secondary">Configured</Text>
           </div>
         )}
         {deliveryModeValue === 'RECURRING' && values.schedulingConfig?.script && (
-          <div style={{ display: 'flex', gap: spacing[2] }}>
-            <Text type="secondary" style={{ minWidth: 150 }}>
+          <div className="console-flex-gap-2">
+            <Text type="secondary" className="console-label-min-width">
               Recurring Script:
             </Text>
             <Text type="secondary">Configured</Text>
@@ -261,22 +240,22 @@ export const buildIntegrationSectionItems = ({
   );
 
   const renderTransformationSummary = () => (
-    <ConfigSection icon={<CodeOutlined />} title="Transformation">
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+    <ConfigSection icon={<GatewayIcon name="CodeOutlined" />} title="Transformation">
+      <Space direction="vertical" size="small" className="console-width-full">
         {!scriptValue && <Text type="secondary">No transformation: the event is sent as it is.</Text>}
         {scriptValue && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[1] }}>
+          <Stack gap={1}>
             <Text type="secondary">Script ({scriptValue.split('\n').length} lines):</Text>
             <Editor
               height={Math.min(scriptValue.split('\n').length * 19 + 16, 400)}
               defaultLanguage="javascript"
               value={scriptValue}
-              theme="vs-dark"
+              theme={editorTheme}
               options={{
                 readOnly: true,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
-                fontSize: 13,
+                fontSize: editorFontSize('body'),
                 lineNumbers: 'on',
                 folding: true,
                 wordWrap: 'off',
@@ -284,7 +263,7 @@ export const buildIntegrationSectionItems = ({
                 renderLineHighlight: 'none',
               }}
             />
-          </div>
+          </Stack>
         )}
       </Space>
     </ConfigSection>
@@ -325,16 +304,10 @@ export const buildIntegrationSectionItems = ({
   const runsOnSteps = form.getFieldValue('stageMigration')?.state === 'SWITCHED';
   const classicSteps = classicFromSteps(form.getFieldValue('stages'));
 
-  const items: TabsProps['items'] = [
+  const items: IntegrationSectionItem[] = [
     {
       key: 'configuration',
-      label: (
-        <Space size={6}>
-          <ApiOutlined />
-          Basic Info
-          {configComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-        </Space>
-      ),
+      label: 'Basic Info',
       disabled: false, // First tab always enabled
       children: wrapContent(
         isReadOnly ? (
@@ -362,13 +335,7 @@ export const buildIntegrationSectionItems = ({
   if (isMultiAction) {
     items.push({
       key: 'multiAction',
-      label: (
-        <Space size={6}>
-          <ThunderboltOutlined />
-          Multi-Action
-          {isTabComplete('multiAction') && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-        </Space>
-      ),
+      label: 'Multi-Action',
       disabled: !configComplete, // Requires Basic Info to be complete
       children: wrapContent(
         isReadOnly ? (
@@ -399,15 +366,7 @@ export const buildIntegrationSectionItems = ({
   items.push(
     {
       key: 'authentication',
-      label: (
-        <Space size={6}>
-          <LockOutlined />
-          Authentication
-          {isTabComplete('authentication') && (
-            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-          )}
-        </Space>
-      ),
+      label: 'Authentication',
       disabled: !configComplete, // Requires Basic Info to be complete
       children: wrapContent(
         isReadOnly ? (
@@ -428,21 +387,13 @@ export const buildIntegrationSectionItems = ({
     },
     {
       key: 'timingFollowUp',
-      label: (
-        <Space size={6}>
-          <ClockCircleOutlined />
-          Timing & Follow-up
-          {isTabComplete('timingFollowUp') && (
-            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-          )}
-        </Space>
-      ),
+      label: 'Timing & Follow-up',
       disabled: !configComplete, // Requires Basic Info to be complete
       children: wrapContent(
         isReadOnly ? (
           renderDeliveryModeSummary()
         ) : (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space direction="vertical" size="middle" className="console-width-full">
             <DeliveryTimingSection
               deliveryModeValue={deliveryModeValue}
               uiConfig={uiConfig}
@@ -476,13 +427,7 @@ export const buildIntegrationSectionItems = ({
     },
     {
       key: 'reliability',
-      label: (
-        <Space size={6}>
-          <RadarChartOutlined />
-          Reliability
-          {isTabComplete('reliability') && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-        </Space>
-      ),
+      label: 'Reliability',
       disabled: !configComplete,
       children: wrapContent(
         isReadOnly ? (
@@ -500,13 +445,7 @@ export const buildIntegrationSectionItems = ({
   const stageCount = stageCountOf(form.getFieldsValue(true));
   items.push({
     key: 'delivery',
-    label: (
-      <Space size={6}>
-        <NodeIndexOutlined />
-        Delivery
-        {stageCount > 0 && <Tag style={{ margin: 0 }}>{stageCount}</Tag>}
-      </Space>
-    ),
+    label: stageCount > 0 ? `Delivery (${stageCount} ${stageCount === 1 ? 'step' : 'steps'})` : 'Delivery',
     disabled: !configComplete,
     children: null, // filled in once every tab's content exists (below): the diagram edits their sections in place
   });
@@ -514,15 +453,7 @@ export const buildIntegrationSectionItems = ({
   if (!isMultiAction) {
     items.push({
       key: 'transformation',
-      label: (
-        <Space size={6}>
-          <CodeOutlined />
-          Transformation
-          {isTabComplete('transformation') && (
-            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-          )}
-        </Space>
-      ),
+      label: 'Transformation',
       disabled: !configComplete, // Requires Basic Info to be complete
       children: wrapContent(
         isReadOnly ? (
@@ -546,35 +477,19 @@ export const buildIntegrationSectionItems = ({
 
     items.push({
       key: 'responseTransform',
-      label: (
-        <Space size={6}>
-          <SwapOutlined />
-          Response Transform
-          {responseTransformEnabled && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-        </Space>
-      ),
+      label: 'Response Transform',
       disabled: !configComplete,
       children: wrapContent(
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Alert
-            type="info"
-            showIcon
-            message="Validate & normalize the remote API's response"
-            description={
-              <span>
-                Use a JavaScript script to inspect the response body. Call <code>skip(reason)</code> to signal a
-                business-level failure (optionally pass <code>{'{ shouldRetry: true }'}</code> to schedule a retry).
-                Return a value or <code>undefined</code> to let the delivery succeed normally.
-              </span>
-            }
-          />
+        <Space direction="vertical" size="middle" className="console-width-full">
+          <InlineHint>
+            Inspect or normalize the response with JavaScript. Call <code>skip(reason)</code> for a business failure;
+            return a value or <code>undefined</code> to accept it.
+          </InlineHint>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="console-flex-between-center">
             <Text strong>Enable Response Transformation</Text>
             {isReadOnly ? (
-              <Tag color={responseTransformEnabled ? 'green' : 'default'}>
-                {responseTransformEnabled ? 'Enabled' : 'Disabled'}
-              </Tag>
+              <Text type="secondary">{responseTransformEnabled ? 'Enabled' : 'Disabled'}</Text>
             ) : (
               <Switch
                 checked={responseTransformEnabled}
@@ -586,19 +501,19 @@ export const buildIntegrationSectionItems = ({
           </div>
 
           {responseTransformEnabled ? (
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+            <Space direction="vertical" size="small" className="console-width-full">
+              <Text type="secondary" className="console-type-caption">
                 Function signature: <code>{'async function transform(responseBody, context) { ... }'}</code>
               </Text>
               <Editor
                 height="320px"
                 language="javascript"
-                theme="vs-dark"
+                theme={editorTheme}
                 value={responseTransformScript}
                 onChange={(value) => onResponseTransformScriptChange?.(value || '')}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 14,
+                  fontSize: editorFontSize('control'),
                   lineNumbers: 'on',
                   scrollBeyondLastLine: false,
                   readOnly: isReadOnly,
@@ -606,12 +521,7 @@ export const buildIntegrationSectionItems = ({
               />
             </Space>
           ) : (
-            <Alert
-              type="info"
-              showIcon
-              message="Response transformation is disabled"
-              description="Responses will be treated as successful if the HTTP status is 2xx. Enable to add a script that inspects the response body."
-            />
+            <InlineHint>Without a response check, any HTTP 2xx response is treated as successful.</InlineHint>
           )}
         </Space>
       ),
@@ -620,15 +530,7 @@ export const buildIntegrationSectionItems = ({
     // After a send is accepted, a script asks the provider what became of it (delivered, read, failed...).
     items.push({
       key: 'deliveryFollowUp',
-      label: (
-        <Space size={6}>
-          <CarryOutOutlined />
-          Delivery follow-up
-          {form?.getFieldValue(['deliveryFollowUp', 'enabled']) === true && (
-            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-          )}
-        </Space>
-      ),
+      label: 'Delivery follow-up',
       disabled: !configComplete,
       children: wrapContent(
         isReadOnly ? (
@@ -636,13 +538,9 @@ export const buildIntegrationSectionItems = ({
         ) : (
           <>
             {runsOnSteps && !classicSteps.followUp.exists && (
-              <Alert
-                type="info"
-                showIcon
-                style={{ marginBottom: spacing[3] }}
-                message="Saving creates the follow-up step"
-                description="This integration runs on steps. Switch the follow-up on and save: its step is created for you, from the provider's script if you don't write one."
-              />
+              <InlineHint tone="warning">
+                Turn on follow-up and save to create its step. If its script is blank, the provider template is used.
+              </InlineHint>
             )}
             <DeliveryFollowUpSection form={form} integrationId={integrationId} />
           </>
@@ -653,49 +551,30 @@ export const buildIntegrationSectionItems = ({
 
   // Add Review tab for create/edit mode
   if ((isCreate || isEditMode) && onSave && onCancel) {
-    const allTabsComplete =
-      configComplete &&
-      isTabComplete('authentication') &&
-      isTabComplete('timingFollowUp') &&
-      isTabComplete('reliability');
-
     items.push({
       key: 'review',
-      label: (
-        <Space size={6}>
-          <EyeOutlined />
-          Review & Submit
-          {allTabsComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-        </Space>
-      ),
+      label: 'Review & Submit',
       disabled: !configComplete, // Requires Basic Info to be complete
       children: wrapContent(
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Alert
-            type="info"
-            showIcon
-            message="Review Your Configuration"
-            description="Please review all settings before saving the event rule. You can click on any tab above to make changes."
-          />
-
+        <Space direction="vertical" size="middle" className="console-width-full">
           {renderBasicInfoSummary()}
 
           {isMultiAction && (
             <>
-              <Divider style={{ margin: 0 }} />
+              <Divider className="console-margin-none" />
               {renderMultiActionSummary()}
             </>
           )}
 
-          <Divider style={{ margin: 0 }} />
+          <Divider className="console-margin-none" />
           {renderAuthSummary()}
 
-          <Divider style={{ margin: 0 }} />
+          <Divider className="console-margin-none" />
           {renderDeliveryModeSummary()}
 
           {!isMultiAction && (
             <>
-              <Divider style={{ margin: 0 }} />
+              <Divider className="console-margin-none" />
               {renderTransformationSummary()}
             </>
           )}
@@ -711,7 +590,11 @@ export const buildIntegrationSectionItems = ({
   const stepEditors: StepEditors = {
     trigger: [section('configuration', 'Event and target')],
     transform: isMultiAction ? [section('multiAction', 'Actions')] : [section('transformation', 'Transformation')],
-    send: [section('configuration', 'Target'), section('authentication', 'Authentication'), section('timingFollowUp', 'Timing and follow-up')],
+    send: [
+      section('configuration', 'Target'),
+      section('authentication', 'Authentication'),
+      section('timingFollowUp', 'Timing and follow-up'),
+    ],
     retry: [section('reliability', 'Retries and limits')],
   };
   const current = form.getFieldsValue(true);
@@ -736,15 +619,12 @@ export const buildIntegrationSectionItems = ({
           // Not inside the page's disabled fieldset: the tab handles read-only itself, and a
           // disabled fieldset would make the diagram's buttons unclickable.
           children: (
-            <Card style={{ marginTop: spacing[2] }} size="small">
+            <div className="integration-tab-content console-margin-top-2">
               {visible.stepsShownAnyway && (
-                <Alert
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: spacing[3] }}
-                  message="This integration runs on steps"
-                  description="Its response check and follow-up are steps. You can edit them here or in the classic tabs; they are the same thing."
-                />
+                <InlineHint>
+                  Response checks and follow-up are steps here and in the classic tabs; both views edit the same
+                  settings.
+                </InlineHint>
               )}
               <DeliveryTab
                 form={form}
@@ -755,10 +635,14 @@ export const buildIntegrationSectionItems = ({
                 stepEditors={stepEditors}
                 context={() => {
                   const current = form.getFieldsValue(true);
-                  return { direction: current.direction || 'OUTBOUND', actions: current.actions || [], targetUrl: current.targetUrl };
+                  return {
+                    direction: current.direction || 'OUTBOUND',
+                    actions: current.actions || [],
+                    targetUrl: current.targetUrl,
+                  };
                 }}
               />
-            </Card>
+            </div>
           ),
         }
       : item

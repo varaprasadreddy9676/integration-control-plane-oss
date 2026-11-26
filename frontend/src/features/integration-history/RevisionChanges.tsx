@@ -1,15 +1,18 @@
-import { Empty, Segmented, Table, Tag, Typography } from 'antd';
-import { LockOutlined } from '@ant-design/icons';
+import { Segmented, Table } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { DiffEditor } from '@monaco-editor/react';
 import { useState } from 'react';
+import { Button } from '../../components/common/LegacyButton';
 import type { IntegrationRevisionChange, IntegrationRevisionDiff } from '../../services/api';
 import { cssVar } from '../../design-system/utils';
 import { useThemeMode } from '../../app/theme-provider';
+import { StatePanel } from '../../components/common/StatePanel';
 
-const KIND_LABEL: Record<IntegrationRevisionChange['kind'], { label: string; color: string }> = {
-  added: { label: 'Added', color: 'green' },
-  removed: { label: 'Removed', color: 'red' },
-  changed: { label: 'Changed', color: 'blue' },
+const KIND_LABEL: Record<IntegrationRevisionChange['kind'], string> = {
+  added: 'Added',
+  removed: 'Removed',
+  changed: 'Changed',
 };
 
 const formatValue = (value: unknown) => {
@@ -19,21 +22,38 @@ const formatValue = (value: unknown) => {
 };
 
 const ValueCell = ({ change, value }: { change: IntegrationRevisionChange; value: unknown }) => {
-  if (value === undefined) return <Typography.Text type="secondary">—</Typography.Text>;
+  const [expanded, setExpanded] = useState(false);
+  if (value === undefined)
+    return (
+      <Text type="supporting" color="secondary">
+        —
+      </Text>
+    );
   if (change.secret) {
     return (
-      <Typography.Text type="secondary">
-        <LockOutlined aria-hidden /> Hidden
-      </Typography.Text>
+      <Text type="supporting" color="secondary">
+        <GatewayIcon name="LockOutlined" aria-hidden /> Hidden
+      </Text>
     );
   }
   return (
-    <Typography.Paragraph
-      style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)', fontSize: 12, whiteSpace: 'pre-wrap' }}
-      ellipsis={{ rows: 4, expandable: true, symbol: 'Show all' }}
-    >
-      {formatValue(value)}
-    </Typography.Paragraph>
+    <>
+      <Text
+        as="p"
+        display="block"
+        type="code"
+        size="sm"
+        className="console-code-reset-wrap"
+        maxLines={expanded ? 0 : 4}
+      >
+        {formatValue(value)}
+      </Text>
+      {String(formatValue(value)).split('\n').length > 4 && (
+        <Button size="small" type="link" onClick={() => setExpanded((current) => !current)}>
+          {expanded ? 'Show less' : 'Show all'}
+        </Button>
+      )}
+    </>
   );
 };
 
@@ -50,11 +70,18 @@ export const RevisionChanges = ({ diff, fromLabel, toLabel }: RevisionChangesPro
   const { mode } = useThemeMode();
 
   if (diff.changes.length === 0) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`${fromLabel} is identical to ${toLabel.toLowerCase()}`} />;
+    return (
+      <StatePanel
+        size="compact"
+        glyph="searching"
+        title="No configuration changes"
+        description={`${fromLabel} is identical to ${toLabel.toLowerCase()}.`}
+      />
+    );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="ui-extracted-99f7e0d87d">
       <Segmented
         value={view}
         onChange={(value) => setView(value as typeof view)}
@@ -77,17 +104,21 @@ export const RevisionChanges = ({ diff, fromLabel, toLabel }: RevisionChangesPro
               dataIndex: 'path',
               width: 220,
               render: (path: string, change) => (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <Typography.Text code style={{ fontSize: 12 }}>
+                <div className="ui-extracted-30ed93c9fe">
+                  <Text type="code" size="sm">
                     {path}
-                  </Typography.Text>
-                  <Tag color={KIND_LABEL[change.kind].color} style={{ width: 'fit-content' }}>
-                    {KIND_LABEL[change.kind].label}
-                  </Tag>
+                  </Text>
+                  <Text type="supporting" color="secondary">
+                    {KIND_LABEL[change.kind]}
+                  </Text>
                 </div>
               ),
             },
-            { title: fromLabel, key: 'before', render: (_, change) => <ValueCell change={change} value={change.before} /> },
+            {
+              title: fromLabel,
+              key: 'before',
+              render: (_, change) => <ValueCell change={change} value={change.before} />,
+            },
             { title: toLabel, key: 'after', render: (_, change) => <ValueCell change={change} value={change.after} /> },
           ]}
         />
@@ -99,7 +130,12 @@ export const RevisionChanges = ({ diff, fromLabel, toLabel }: RevisionChangesPro
             theme={mode === 'dark' ? 'vs-dark' : 'light'}
             original={JSON.stringify(diff.fromSnapshot, null, 2)}
             modified={JSON.stringify(diff.toSnapshot, null, 2)}
-            options={{ readOnly: true, renderSideBySide: true, minimap: { enabled: false }, scrollBeyondLastLine: false }}
+            options={{
+              readOnly: true,
+              renderSideBySide: true,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+            }}
           />
         </div>
       )}

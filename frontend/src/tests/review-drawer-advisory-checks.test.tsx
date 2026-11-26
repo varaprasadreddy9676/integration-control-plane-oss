@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ThemeProvider } from '../app/theme-provider';
 import { ReviewConfirmDrawer } from '../features/integrations/routes/integrationDetail/components/ReviewConfirmDrawer';
 
@@ -24,13 +24,13 @@ describe('ReviewConfirmDrawer readiness', () => {
   it('allows activation when only an advisory check is incomplete (no transform = passthrough)', () => {
     render(
       <ThemeProvider>
-      <ReviewConfirmDrawer
-        {...baseProps}
-        readinessChecks={[
-          { label: 'Target endpoint configured', isComplete: true },
-          { label: 'Transformation configured', isComplete: false, advisory: true, warning: 'Payload is sent as-is' },
-        ]}
-      />
+        <ReviewConfirmDrawer
+          {...baseProps}
+          readinessChecks={[
+            { label: 'Target endpoint configured', isComplete: true },
+            { label: 'Transformation configured', isComplete: false, advisory: true, warning: 'Payload is sent as-is' },
+          ]}
+        />
       </ThemeProvider>
     );
     expect(screen.queryByText('Complete all readiness checks first')).not.toBeInTheDocument();
@@ -40,12 +40,34 @@ describe('ReviewConfirmDrawer readiness', () => {
   it('still blocks activation when a required check is incomplete', () => {
     render(
       <ThemeProvider>
-      <ReviewConfirmDrawer
-        {...baseProps}
-        readinessChecks={[{ label: 'Target endpoint configured', isComplete: false, warning: 'Required field missing' }]}
-      />
+        <ReviewConfirmDrawer
+          {...baseProps}
+          readinessChecks={[
+            { label: 'Target endpoint configured', isComplete: false, warning: 'Required field missing' },
+          ]}
+        />
       </ThemeProvider>
     );
     expect(screen.getByText('Complete all readiness checks first')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Create & Activate Now/i })).toBeDisabled();
+  });
+
+  it('supports arrow-key selection for available activation choices', () => {
+    render(
+      <ThemeProvider>
+        <ReviewConfirmDrawer
+          {...baseProps}
+          readinessChecks={[{ label: 'Target endpoint configured', isComplete: true }]}
+        />
+      </ThemeProvider>
+    );
+
+    const draftChoice = screen.getByRole('radio', { name: /Create as Draft/i });
+    const activateChoice = screen.getByRole('radio', { name: /Create & Activate Now/i });
+
+    expect(draftChoice).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(draftChoice, { key: 'ArrowDown' });
+    expect(activateChoice).toHaveAttribute('aria-checked', 'true');
+    expect(activateChoice).toHaveFocus();
   });
 });

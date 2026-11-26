@@ -92,11 +92,7 @@ export default function CapabilitiesSection() {
                 {g.items.map((c) => (
                   <li key={c.name}>
                     {c.doc ? (
-                      <Link
-                        to={`/docs/${c.doc}`}
-                        className="caps-name pl-link"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
+                      <Link to={`/docs/${c.doc}`} className="caps-name pl-link landing-text-primary">
                         {c.name}
                       </Link>
                     ) : (

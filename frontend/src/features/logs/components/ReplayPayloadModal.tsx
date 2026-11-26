@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Input, Modal, Space, Switch, Typography, message } from 'antd';
-
-const { Text } = Typography;
+import { Input, Modal, Space, Switch, message } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Banner } from '@astryxdesign/core/Banner';
 
 type ReplayPayloadModalProps = {
   open: boolean;
@@ -67,27 +67,24 @@ export function ReplayPayloadModal({
     <Modal
       open={open}
       title={title}
-      width={820}
+      width="min(820px, calc(100vw - 24px))"
       okText={force ? 'Force replay' : 'Replay'}
       okButtonProps={{ danger: force, loading: submitting }}
       cancelButtonProps={{ disabled: submitting }}
       onCancel={onCancel}
       onOk={handleSubmit}
-      destroyOnClose
+      destroyOnHidden
     >
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        <Alert
-          type="info"
-          showIcon
-          message="This replays the source payload through the current integration configuration."
-          description="For transformed protocols such as HL7 MLLP, the transformation runs again before delivery."
-        />
+      <Space direction="vertical" className="console-width-full" size="middle">
+        <Text color="secondary">Replay uses the current configuration. Protocol transforms run before delivery.</Text>
         <Input
+          aria-label="Replay reason"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           placeholder="Replay reason"
         />
         <Input.TextArea
+          aria-label="Replay payload"
           value={editorValue}
           onChange={(event) => {
             setEditorValue(event.target.value);
@@ -95,9 +92,9 @@ export function ReplayPayloadModal({
           }}
           autoSize={{ minRows: 14, maxRows: 26 }}
           spellCheck={false}
-          style={{ fontFamily: 'Monaco, Consolas, "Courier New", monospace', fontSize: 12 }}
+          className="ui-extracted-d4a846e090"
         />
-        {parseError && <Alert type="error" showIcon message="Payload is not valid JSON" description={parseError} />}
+        {parseError && <Banner status="error" title="Payload is not valid JSON" description={parseError} />}
         <Space>
           <Switch checked={force} onChange={setForce} />
           <Text>Bypass circuit breaker for this replay</Text>

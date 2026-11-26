@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Row, Col, Form, Input, Select, Button, Space, Alert, Typography, Popover, App, Tag } from 'antd';
+import { Row, Col, Form, Input, Select, Space, Popover, App } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
 import Editor from '@monaco-editor/react';
-import {
-  ThunderboltOutlined,
-  ClockCircleOutlined,
-  FieldTimeOutlined,
-  RocketOutlined,
-  CopyOutlined,
-  CheckCircleOutlined,
-  CodeOutlined,
-} from '@ant-design/icons';
-import { useDesignTokens, withAlpha, cssVar } from '../../../../design-system/utils';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
+import { editorFontSize, useDesignTokens, cssVar } from '../../../../design-system/utils';
+import { useThemeMode } from '../../../../app/theme-provider';
 import { HelpPopover, SchedulingScriptHelp, UtilityFunctionsHelp, ScriptSyntaxHelp } from './shared';
 import { type SchedulingTestResult } from '../../../../services/api';
 import { SchedulingPreview } from './SchedulingPreview';
@@ -22,10 +16,14 @@ import {
 } from '../../routes/integrationDetail/utils/deliveryMode';
 // import { SchedulingQuickBuilder } from './SchedulingQuickBuilder';
 import { formatDateTime } from '../../../../utils/format';
+import { Button } from '../../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../../components/common/StatusBadge';
+import { InlineNotice as Notice } from '../../../../components/common';
 
 // Monaco Editor wrapper component for Form.Item compatibility
 const MonacoEditorInput = ({ value, onChange, placeholder, height = '300px', onScriptChange }: any) => {
   const { token } = useDesignTokens();
+  const { mode } = useThemeMode();
   const colors = cssVar.legacy;
 
   const handleChange = (newValue: string | undefined) => {
@@ -39,7 +37,7 @@ const MonacoEditorInput = ({ value, onChange, placeholder, height = '300px', onS
       style={{
         borderRadius: token.borderRadiusLG,
         overflow: 'hidden',
-        border: `1px solid ${withAlpha(colors.neutral[900], 0.6)}`,
+        border: `1px solid ${cssVar.border.default}`,
         boxShadow: token.boxShadowSecondary,
       }}
     >
@@ -50,11 +48,11 @@ const MonacoEditorInput = ({ value, onChange, placeholder, height = '300px', onS
         onChange={handleChange}
         options={{
           minimap: { enabled: false },
-          fontSize: 14,
+          fontSize: editorFontSize('control'),
           lineNumbers: 'on',
           wordWrap: 'on',
         }}
-        theme="vs-dark"
+        theme={mode === 'dark' ? 'vs-dark' : 'light'}
       />
     </div>
   );
@@ -182,7 +180,23 @@ export const SchedulingSection = ({
         { label: 'Mode', value: deliveryModeLabel },
         { label: 'Timezone', value: timezoneValue || 'Asia/Kolkata' },
         { label: 'Next run', value: nextRunText },
-        { label: 'Script', value: <Tag color={scriptStatusValue.color}>{scriptStatusValue.label}</Tag> },
+        {
+          label: 'Script',
+          value: (
+            <StatusBadge
+              label={scriptStatusValue.label}
+              variant={
+                scriptStatusValue.color === 'success'
+                  ? 'success'
+                  : scriptStatusValue.color === 'error'
+                    ? 'error'
+                    : scriptStatusValue.color === 'processing'
+                      ? 'info'
+                      : 'neutral'
+              }
+            />
+          ),
+        },
       ]
     : isHoldMode
       ? [
@@ -223,45 +237,45 @@ export const SchedulingSection = ({
           <Select size="middle" placeholder="Select delivery timing" optionLabelProp="label">
             <Select.Option value="IMMEDIATE" label="Send immediately">
               <Space>
-                <ThunderboltOutlined style={{ color: colors.success[600] }} />
+                <GatewayIcon name="ThunderboltOutlined" className="console-text-success" />
                 <div>
-                  <div style={{ fontWeight: 500 }}>Send immediately</div>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <div className="console-font-weight-medium">Send immediately</div>
+                  <Text type="supporting" size="sm" color="secondary">
                     Send this event as soon as it arrives
-                  </Typography.Text>
+                  </Text>
                 </div>
               </Space>
             </Select.Option>
             <Select.Option value="DELAYED" label="Send later">
               <Space>
-                <ClockCircleOutlined style={{ color: colors.warning[600] }} />
+                <GatewayIcon name="ClockCircleOutlined" className="console-text-warning" />
                 <div>
-                  <div style={{ fontWeight: 500 }}>Send later</div>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <div className="console-font-weight-medium">Send later</div>
+                  <Text type="supporting" size="sm" color="secondary">
                     Schedule one future delivery for this event
-                  </Typography.Text>
+                  </Text>
                 </div>
               </Space>
             </Select.Option>
             <Select.Option value="RECURRING" label="Send on a recurring schedule">
               <Space>
-                <FieldTimeOutlined style={{ color: colors.info[600] }} />
+                <GatewayIcon name="FieldTimeOutlined" style={{ color: colors.info[600] }} />
                 <div>
-                  <div style={{ fontWeight: 500 }}>Send on a recurring schedule</div>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <div className="console-font-weight-medium">Send on a recurring schedule</div>
+                  <Text type="supporting" size="sm" color="secondary">
                     Schedule repeated deliveries over time
-                  </Typography.Text>
+                  </Text>
                 </div>
               </Space>
             </Select.Option>
             <Select.Option value="WAIT_FOR_CONDITION" label="Hold until a follow-up event arrives">
               <Space>
-                <RocketOutlined style={{ color: colors.primary[600] }} />
+                <GatewayIcon name="RocketOutlined" className="console-text-accent" />
                 <div>
-                  <div style={{ fontWeight: 500 }}>Hold until a follow-up event arrives</div>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <div className="console-font-weight-medium">Hold until a follow-up event arrives</div>
+                  <Text type="supporting" size="sm" color="secondary">
                     Hold this event now and release it only when a related event matches
-                  </Typography.Text>
+                  </Text>
                 </div>
               </Space>
             </Select.Option>
@@ -279,16 +293,16 @@ export const SchedulingSection = ({
             marginBottom: spacingToNumber(spacing[3]),
           }}
         >
-          <Space wrap size={spacingToNumber(spacing[3])} style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space wrap size={spacingToNumber(spacing[3])} className="console-width-full-between">
             {summaryItems.map((item) => (
               <Space key={item.label} size={6}>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="supporting" size="sm" color="secondary">
                   {item.label}
-                </Typography.Text>
+                </Text>
                 {typeof item.value === 'string' ? (
-                  <Typography.Text style={{ fontSize: 13, fontWeight: item.label === 'Mode' ? 600 : 400 }}>
+                  <Text size="base" weight={item.label === 'Mode' ? 'semibold' : 'normal'}>
                     {item.value}
-                  </Typography.Text>
+                  </Text>
                 ) : (
                   item.value
                 )}
@@ -361,9 +375,9 @@ export const SchedulingSection = ({
                     <Button
                       type="link"
                       size="small"
-                      icon={<CopyOutlined />}
+                      icon={<GatewayIcon name="CopyOutlined" />}
                       onClick={() => scheduledDeliveryMode && onCopyExampleScript(scheduledDeliveryMode)}
-                      style={{ padding: 0, height: 'auto' }}
+                      className="console-control-reset-padding"
                     >
                       Copy example
                     </Button>
@@ -376,7 +390,12 @@ export const SchedulingSection = ({
                     onOpenChange={setUtilityDocsOpen}
                     overlayStyle={{ maxWidth: 500 }}
                   >
-                    <Button type="link" size="small" icon={<CodeOutlined />} style={{ padding: 0, height: 'auto' }}>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<GatewayIcon name="CodeOutlined" />}
+                      className="console-control-reset-padding"
+                    >
                       View utility docs
                     </Button>
                   </Popover>
@@ -421,7 +440,7 @@ export const SchedulingSection = ({
           {isScheduledMode && (
             <Col xs={24}>
               <Button
-                icon={<CheckCircleOutlined />}
+                icon={<GatewayIcon name="CheckCircleOutlined" />}
                 onClick={onValidateScript}
                 loading={isValidatingScript}
                 disabled={isValidatingScript}
@@ -430,9 +449,8 @@ export const SchedulingSection = ({
                 {isValidatingScript ? 'Validating...' : 'Validate Script'}
               </Button>
               {schedulingScriptValidation.status !== 'idle' && (
-                <Alert
+                <Notice
                   type={schedulingScriptValidation.status === 'success' ? 'success' : 'error'}
-                  showIcon
                   message={schedulingScriptValidation.status === 'success' ? 'Script Valid' : 'Validation Error'}
                   description={schedulingScriptValidation.message}
                   closable

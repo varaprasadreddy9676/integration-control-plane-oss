@@ -1,8 +1,10 @@
-import { App, Button, Descriptions, Space, Tag, Tooltip, Typography } from 'antd';
-import { CopyOutlined, FilterOutlined } from '@ant-design/icons';
+import { App, Descriptions, Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from "../../../components/common/Icon";
 import { useDesignTokens } from '../../../design-system/utils';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import type { CallerInfo } from '../../../utils/caller';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface CallerCardProps {
   info: CallerInfo;
@@ -15,7 +17,7 @@ const formatBytes = (bytes: number): string => (bytes < 1024 ? `${bytes} B` : `$
 export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
   const { token } = useDesignTokens();
   const { message } = App.useApp();
-  const empty = <Typography.Text type="secondary">Not sent</Typography.Text>;
+  const empty = <Text type="supporting" color="secondary">Not sent</Text>;
 
   const copy = async (value: string, what: string) => {
     const copied = await copyTextToClipboard(value);
@@ -33,18 +35,18 @@ export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
       size="small"
       column={1}
       colon={false}
-      labelStyle={{ width: 150, color: token.colorTextSecondary }}
+      styles={{ label: { width: 150, color: token.colorTextSecondary } }}
       style={{ padding: `${token.paddingXS}px 0` }}
     >
       <Descriptions.Item label="Client IP">
         {info.clientIp ? (
           <Space size="small" wrap>
-            <Typography.Text code>{info.clientIp}</Typography.Text>
+            <Text type="code">{info.clientIp}</Text>
             <Tooltip title="Copy IP">
               <Button
                 size="small"
                 type="text"
-                icon={<CopyOutlined />}
+                icon={<GatewayIcon name="CopyOutlined" />}
                 aria-label="Copy client IP"
                 onClick={() => copy(info.clientIp as string, 'IP')}
               />
@@ -53,7 +55,7 @@ export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
               <Button
                 size="small"
                 type="link"
-                icon={<FilterOutlined />}
+                icon={<GatewayIcon name="FilterOutlined" />}
                 onClick={() => onFilterIp(info.clientIp as string)}
               >
                 Show all calls from this IP
@@ -68,9 +70,9 @@ export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
         {info.agent ? (
           <Space size="small" wrap>
             <span>{info.agent.label}</span>
-            <Tag bordered={false}>
+            <Text type="supporting" color="secondary">
               {info.agent.kind === 'browser' ? 'Browser' : info.agent.kind === 'tool' ? 'API tool' : 'Application'}
-            </Tag>
+            </Text>
           </Space>
         ) : (
           empty
@@ -78,9 +80,9 @@ export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
       </Descriptions.Item>
       {info.userAgent && (
         <Descriptions.Item label="User-Agent">
-          <Typography.Text type="secondary" style={{ wordBreak: 'break-all' }}>
+          <Text type="supporting" color="secondary" className="console-word-break-all">
             {info.userAgent}
-          </Typography.Text>
+          </Text>
         </Descriptions.Item>
       )}
       <Descriptions.Item label="Called">{info.host || empty}</Descriptions.Item>
@@ -91,20 +93,20 @@ export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
       )}
       {via.length > 0 && (
         <Descriptions.Item label="Passed through">
-          <Typography.Text type="secondary">{via.join(' → ')}</Typography.Text>
+          <Text type="supporting" color="secondary">{via.join(' → ')}</Text>
         </Descriptions.Item>
       )}
       {claimed.length > 0 && (
         <Descriptions.Item label="Claimed by caller">
           <Tooltip title="The caller put these in X-Forwarded-For itself. They are not verified and are ignored when working out the Client IP.">
-            <Typography.Text type="secondary">{claimed.join(', ')} (unverified)</Typography.Text>
+            <Text type="supporting" color="secondary">{claimed.join(', ')} (unverified)</Text>
           </Tooltip>
         </Descriptions.Item>
       )}
       {info.origin && <Descriptions.Item label="Origin">{info.origin}</Descriptions.Item>}
       {info.referer && (
         <Descriptions.Item label="Referer">
-          <span style={{ wordBreak: 'break-all' }}>{info.referer}</span>
+          <span className="console-word-break-all">{info.referer}</span>
         </Descriptions.Item>
       )}
       {info.contentLength !== null && (
@@ -112,9 +114,18 @@ export const CallerCard = ({ info, onFilterIp }: CallerCardProps) => {
       )}
       {info.requestId && (
         <Descriptions.Item label="Load balancer trace">
-          <Typography.Text type="secondary" copyable={{ text: info.requestId }}>
-            {info.requestId}
-          </Typography.Text>
+          <Space size="small">
+            <Text type="supporting" color="secondary">{info.requestId}</Text>
+            <Tooltip title="Copy load balancer trace">
+              <Button
+                size="small"
+                type="text"
+                icon={<GatewayIcon name="CopyOutlined" />}
+                aria-label="Copy load balancer trace"
+                onClick={() => copy(info.requestId as string, 'Request ID')}
+              />
+            </Tooltip>
+          </Space>
         </Descriptions.Item>
       )}
     </Descriptions>

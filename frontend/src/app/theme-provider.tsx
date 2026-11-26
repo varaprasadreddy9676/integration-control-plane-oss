@@ -1,8 +1,10 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ConfigProvider, App as AntdApp } from 'antd';
-import { darkTheme, lightTheme } from '../design-system/theme';
+import { ConfigProvider, App as AntdApp } from "@/components/common/LegacyAntdControls";
+import { Theme as AstryxTheme } from '@astryxdesign/core/theme';
 import { useEffect } from 'react';
+import { getAntdTheme } from '../design-system/theme';
+import { medicsConsoleTheme } from '../design-system/theme/medics-console';
 
 type ThemeMode = 'light' | 'dark';
 type Density = 'middle' | 'small';
@@ -21,12 +23,6 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [density, setDensity] = useState<Density>(() => (localStorage.getItem('density') as Density) || 'middle');
 
   useEffect(() => {
-    const className = 'theme-dark';
-    if (mode === 'dark') {
-      document.body.classList.add(className);
-    } else {
-      document.body.classList.remove(className);
-    }
     localStorage.setItem('themeMode', mode);
   }, [mode]);
 
@@ -52,14 +48,15 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ThemeModeContext.Provider value={value}>
-      <ConfigProvider
-        theme={mode === 'light' ? lightTheme : darkTheme}
-        componentSize={density}
-        // Filled fields read as part of the surface instead of a grid of boxes.
-        variant="filled"
-      >
-        <AntdApp>{children}</AntdApp>
-      </ConfigProvider>
+      <AstryxTheme theme={medicsConsoleTheme} mode={mode}>
+        <ConfigProvider
+          theme={getAntdTheme(mode)}
+          componentSize={density}
+          variant="outlined"
+        >
+          <AntdApp>{children}</AntdApp>
+        </ConfigProvider>
+      </AstryxTheme>
     </ThemeModeContext.Provider>
   );
 };

@@ -1,12 +1,15 @@
-import { Button, Card, List, Skeleton, Space, Tag, Typography } from 'antd';
+import { Card, List, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
 import { formatDateTime } from '../../../utils/format';
 import { cssVar, spacingToNumber, useDesignTokens } from '../../../design-system/utils';
 import {
   DashboardEmptyState,
+  DashboardLoadingState,
   DashboardSectionTitle,
-  useDashboardPanelStyle,
-  useDashboardTagTone,
+  DASHBOARD_PANEL_CLASS,
 } from './DashboardPrimitives';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 interface DashboardLogsTabProps {
   logsLoading: boolean;
@@ -16,12 +19,10 @@ interface DashboardLogsTabProps {
 }
 
 export const DashboardLogsTab = ({ logsLoading, logs, noDataHint, onViewAll }: DashboardLogsTabProps) => {
-  const { themeColors, spacing, token } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-  const tagTone = useDashboardTagTone();
+  const { spacing, token } = useDesignTokens();
 
   return (
-    <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+    <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
       <Card
         variant="borderless"
         title={<DashboardSectionTitle title="Recent Failures" subtitle="Most recent failed deliveries" />}
@@ -33,7 +34,7 @@ export const DashboardLogsTab = ({ logsLoading, logs, noDataHint, onViewAll }: D
         styles={{ body: { padding: spacing[4] } }}
       >
         {logsLoading ? (
-          <Skeleton active paragraph={{ rows: 6 }} />
+          <DashboardLoadingState title="Loading recent failures" />
         ) : logs.length > 0 ? (
           <List
             dataSource={logs}
@@ -46,7 +47,7 @@ export const DashboardLogsTab = ({ logsLoading, logs, noDataHint, onViewAll }: D
             }}
             renderItem={(log: any) => (
               <List.Item style={{ padding: `${spacing[3]} 0`, borderBlockEnd: `1px solid ${cssVar.border.default}` }}>
-                <Space direction="vertical" size={spacingToNumber(spacing[1])} style={{ width: '100%' }}>
+                <Space direction="vertical" size={spacingToNumber(spacing[1])} className="console-width-full">
                   <Space
                     style={{
                       width: '100%',
@@ -55,22 +56,22 @@ export const DashboardLogsTab = ({ logsLoading, logs, noDataHint, onViewAll }: D
                       gap: spacing[2],
                     }}
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <Typography.Text strong style={{ fontSize: 13 }}>
+                    <div className="console-min-width-0">
+                      <Text weight="semibold">
                         {log.__KEEP_integrationName__ ||
                           log.integrationName ||
                           log.__KEEP___KEEP_integrationConfig__Id__ ||
                           'Unknown integration'}
-                      </Typography.Text>
-                      <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                      </Text>
+                      <Text type="supporting" color="secondary" display="block">
                         {log.errorMessage || 'Failed delivery'}
-                      </Typography.Text>
+                      </Text>
                     </div>
-                    <Tag style={tagTone(themeColors.error.text)}>FAILED</Tag>
+                    <StatusBadge status="FAILED" size="small" />
                   </Space>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="supporting" color="secondary">
                     {formatDateTime(log.createdAt)}
-                  </Typography.Text>
+                  </Text>
                 </Space>
               </List.Item>
             )}

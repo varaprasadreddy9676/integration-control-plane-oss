@@ -1,5 +1,7 @@
-import { Alert, Button, Divider, Form, Input } from 'antd';
-import { BellOutlined } from '@ant-design/icons';
+import { Divider, Form, Input } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Button } from '../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../components/common';
 
 interface FcmConfigFieldsProps {
   spacing: Record<string, string>;
@@ -29,10 +31,7 @@ export function FcmConfigFields({ spacing, httpComplete, onBack, onNext }: FcmCo
         ]}
         extra="From your service account JSON — the client_email field"
       >
-        <Input
-          size="middle"
-          placeholder="firebase-adminsdk-xxx@my-app-12345.iam.gserviceaccount.com"
-        />
+        <Input size="middle" placeholder="firebase-adminsdk-xxx@my-app-12345.iam.gserviceaccount.com" />
       </Form.Item>
 
       <Form.Item
@@ -44,19 +43,18 @@ export function FcmConfigFields({ spacing, httpComplete, onBack, onNext }: FcmCo
         <Input.TextArea
           rows={5}
           placeholder={'-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBg...\n-----END PRIVATE KEY-----'}
-          style={{ fontFamily: 'monospace', fontSize: 12 }}
+          className="console-mono-caption"
         />
       </Form.Item>
 
-      <Alert
+      <Notice
         type="warning"
-        showIcon
-        icon={<BellOutlined />}
+        icon={<GatewayIcon name="BellOutlined" />}
         message="Firebase Setup"
         description={
           <div>
-            <p style={{ marginBottom: 8 }}>To get your Firebase service account credentials:</p>
-            <ol style={{ paddingLeft: 20, marginBottom: 8 }}>
+            <p className="console-margin-bottom-2">To get your Firebase service account credentials:</p>
+            <ol className="console-indent-5-margin-bottom-2">
               <li>
                 Open{' '}
                 <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer">
@@ -65,33 +63,37 @@ export function FcmConfigFields({ spacing, httpComplete, onBack, onNext }: FcmCo
               </li>
               <li>Project Settings → Service Accounts → Generate new private key</li>
               <li>
-                Copy <strong>project_id</strong>, <strong>client_email</strong>, and{' '}
-                <strong>private_key</strong> from the downloaded JSON
+                Copy <strong>project_id</strong>, <strong>client_email</strong>, and <strong>private_key</strong> from
+                the downloaded JSON
               </li>
             </ol>
-            <p style={{ marginBottom: 4 }}>
+            <p className="console-margin-bottom-1">
               <strong>Payload your app must send (device token):</strong>
             </p>
-            <code style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-              {'{ "token": "<device_fcm_token>", "title": "New Bill", "body": "₹500 due", "data": { "billId": "123" } }'}
+            <code
+              className="ui-extracted-e8bd2112ae"
+            >
+              {
+                '{ "token": "<device_fcm_token>", "title": "New Bill", "body": "₹500 due", "data": { "billId": "123" } }'
+              }
             </code>
-            <p style={{ marginBottom: 4 }}>
+            <p className="console-margin-bottom-1">
               <strong>Broadcast to all users (topic):</strong>
             </p>
-            <code style={{ fontSize: 11, display: 'block' }}>
+            <code className="console-caption-block">
               {'{ "topic": "all-patients", "title": "System Update", "body": "..." }'}
             </code>
-            <p style={{ marginTop: 8, marginBottom: 0 }}>
-              All <code>data</code> values must be strings. Use <code>androidPriority: "high"</code> for
-              time-sensitive alerts (default).
+            <p className="console-margin-top-2-reset-bottom">
+              All <code>data</code> values must be strings. Use <code>androidPriority: "high"</code> for time-sensitive
+              alerts (default).
             </p>
           </div>
         }
       />
 
-      <Divider style={{ margin: `${spacing[4]} 0` }} />
+      <Divider className="console-margin-y-4" />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div className="console-flex-between">
         <Button size="middle" onClick={onBack}>
           Back to Basic Info
         </Button>

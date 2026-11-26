@@ -1,20 +1,15 @@
 import { useMemo } from 'react';
-import { Drawer, Typography, Space, Tag, Button, Divider, Timeline, Card, Collapse } from 'antd';
-import {
-  CopyOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
-  CloseCircleOutlined,
-  ExclamationCircleOutlined,
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Drawer, Space, Divider, Timeline, Card, Collapse } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { Link } from 'react-router-dom';
 import type { EventAuditRecord } from '../../../mocks/types';
-import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
-import { useThemeMode } from '../../../app/theme-provider';
+import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import { formatDateTime, formatDateTimeWithSeconds } from '../../../utils/format';
 import { useNavigateWithParams, buildUrlWithOrgId } from '../../../utils/navigation';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { Button } from '../../../components/common/LegacyButton';
+import { getStatusLabel, StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Text, Title } = Typography;
 
@@ -24,19 +19,9 @@ interface EventAuditDrawerProps {
   onClose: () => void;
 }
 
-const statusColorMap: Record<string, string> = {
-  RECEIVED: 'processing',
-  PROCESSING: 'processing',
-  DELIVERED: 'success',
-  SKIPPED: 'warning',
-  FAILED: 'error',
-  STUCK: 'error',
-};
-
 export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps) => {
-  const { token, themeColors, spacing } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const colors = cssVar.legacy;
-  const { mode } = useThemeMode();
   const navigate = useNavigateWithParams();
 
   const formatDuration = (ms: number) => {
@@ -64,46 +49,32 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
                   : colors.primary[500],
           dot:
             entry.stage === 'DELIVERED' ? (
-              <CheckCircleOutlined />
+              <GatewayIcon name="CheckCircleOutlined" />
             ) : entry.stage === 'FAILED' || entry.stage === 'STUCK' ? (
-              <CloseCircleOutlined />
+              <GatewayIcon name="CloseCircleOutlined" />
             ) : entry.stage === 'SKIPPED' ? (
-              <WarningOutlined />
+              <GatewayIcon name="WarningOutlined" />
             ) : (
-              <ClockCircleOutlined />
+              <GatewayIcon name="ClockCircleOutlined" />
             ),
           children: (
-            <div
-              style={{
-                padding: `${spacing[2]} ${spacing[3]}`,
-                borderRadius: token.borderRadius,
-                border: `1px solid ${cssVar.border.default}`,
-                background: withAlpha(colors.neutral[50], 0.8),
-              }}
-            >
+            <div className="event-audit-timeline-item" data-testid="event-audit-timeline-item">
               <Space size={spacingToNumber(spacing[2])} align="center" wrap>
-                <Tag color={statusColorMap[entry.stage] || 'default'} style={{ margin: 0, fontWeight: 700 }}>
-                  {entry.stage}
-                </Tag>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="supporting" color="secondary" weight="semibold">
+                  {getStatusLabel(entry.stage)}
+                </Text>
+                <Text type="secondary" className="console-type-caption">
                   {formatDateTimeWithSeconds(entry.ts)}
                 </Text>
                 {deltaMs !== null && deltaMs >= 0 && (
-                  <Tag
-                    color="default"
-                    style={{
-                      margin: 0,
-                      fontSize: 11,
-                      background: withAlpha(colors.neutral[200], 0.5),
-                    }}
-                  >
+                  <Text type="supporting" color="secondary">
                     +{formatDuration(deltaMs)}
-                  </Tag>
+                  </Text>
                 )}
               </Space>
               {entry.details && (
                 <Typography.Paragraph
-                  style={{ marginTop: spacing['1'], fontSize: 12, marginBottom: 0 }}
+                  className="console-margin-top-1 console-type-caption console-margin-bottom-0"
                   ellipsis={{ rows: 2, expandable: true, symbol: 'More' }}
                 >
                   {entry.details}
@@ -114,7 +85,7 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
         };
       });
     return sorted;
-  }, [event?.timeline, colors, token, spacing]);
+  }, [event?.timeline, colors, spacing]);
 
   if (!event) return null;
 
@@ -143,7 +114,7 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
     <Drawer
       title={
         <Space size={spacingToNumber(spacing[2])}>
-          <WarningOutlined style={{ color: colors.primary[600] }} />
+          <GatewayIcon name="WarningOutlined" className="console-text-accent" />
           <span>Event Audit</span>
         </Space>
       }
@@ -153,47 +124,49 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
       onClose={onClose}
       extra={
         <Space>
-          <Button type="text" icon={<CopyOutlined />} onClick={() => handleCopy(event.eventId)}>
+          <Button type="text" icon={<GatewayIcon name="CopyOutlined" />} onClick={() => handleCopy(event.eventId)}>
             Copy Event ID
           </Button>
         </Space>
       }
     >
-      <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
-        <Card
-          style={{
-            borderRadius: token.borderRadiusLG,
-            border: `1px solid ${cssVar.border.default}`,
-            background: mode === 'dark' ? withAlpha(colors.neutral[900], 0.4) : cssVar.bg.surface,
-          }}
-          styles={{ body: { padding: spacing[4] } }}
-        >
-          <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: spacing[3], flexWrap: 'wrap' }}>
+      <Space direction="vertical" size={spacingToNumber(spacing[4])} className="console-width-full">
+        <Card className="event-audit-card" styles={{ body: { padding: spacing[4] } }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
+            <div className="event-audit-summary-row">
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Event ID
                 </Text>
-                <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{event.eventId}</div>
+                <div className="console-font-mono console-type-caption">{event.eventId}</div>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Status
                 </Text>
                 <div>
-                  <Tag color={statusColorMap[event.status || 'RECEIVED'] || 'default'} style={{ margin: 0 }}>
-                    {event.status || 'RECEIVED'}
-                  </Tag>
+                  <StatusBadge
+                    label={getStatusLabel(event.status || 'RECEIVED')}
+                    status={
+                      event.status === 'DELIVERED'
+                        ? 'SUCCESS'
+                        : event.status === 'SKIPPED'
+                          ? 'SKIPPED'
+                          : event.status === 'FAILED' || event.status === 'STUCK'
+                            ? 'FAILED'
+                            : 'PENDING'
+                    }
+                  />
                 </div>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Event Type
                 </Text>
-                <div style={{ fontWeight: 600 }}>{event.eventType || '—'}</div>
+                <div className="console-font-weight-semibold">{event.eventType || '—'}</div>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Source
                 </Text>
                 <div>
@@ -202,31 +175,29 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
               </div>
             </div>
 
-            <Divider style={{ margin: `${spacing[2]} 0` }} />
+            <Divider className="console-margin-y-2" />
 
-            <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: spacing[3] }}
-            >
+            <div className="event-audit-metadata-grid">
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Received
                 </Text>
                 <div>{event.receivedAt ? formatDateTime(event.receivedAt) : '—'}</div>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Processed
                 </Text>
                 <div>{processedAt ? formatDateTime(processedAt) : '—'}</div>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Processing Time
                 </Text>
                 <div>{typeof event.processingTimeMs === 'number' ? `${event.processingTimeMs} ms` : '—'}</div>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   Delivery
                 </Text>
                 <div>
@@ -234,14 +205,14 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
                   {delivery.failedCount ?? 0} failed
                 </div>
                 {delivery.deliveryLogIds && delivery.deliveryLogIds.length > 0 && (
-                  <Space size={spacingToNumber(spacing[1])} style={{ marginTop: spacing[1], flexWrap: 'wrap' }}>
+                  <Space size={spacingToNumber(spacing[1])} className="event-audit-log-links">
                     {delivery.deliveryLogIds.map((logId) => (
                       <Link
                         key={logId}
                         to={buildUrlWithOrgId(`/logs/${logId}`)}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ fontSize: 12 }}
+                        className="console-type-caption"
                       >
                         View log {logId}
                       </Link>
@@ -252,17 +223,17 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
             </div>
 
             {(event.skipCategory || event.skipReason || event.errorMessage) && (
-              <div style={{ marginTop: spacing[2] }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+              <div className="console-margin-top-2">
+                <Text type="secondary" className="console-type-caption">
                   Skip / Failure
                 </Text>
-                <div style={{ marginTop: spacing['0.5'] }}>
+                <div className="event-audit-failure-detail">
                   {event.skipCategory && (
-                    <Tag color="warning" style={{ marginRight: spacing[1] }}>
+                    <Text type="supporting" color="secondary">
                       {event.skipCategory}
-                    </Tag>
+                    </Text>
                   )}
-                  <Text strong style={{ color: colors.error[600] }}>
+                  <Text strong className="console-text-error">
                     {event.skipReason || event.errorMessage || '—'}
                   </Text>
                 </div>
@@ -270,42 +241,21 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
                   <Collapse
                     ghost
                     size="small"
-                    style={{ marginTop: spacing[2] }}
+                    className="console-margin-top-2"
                     items={[
                       {
                         key: 'error-details',
                         label: (
                           <Space size={spacingToNumber(spacing[1])}>
-                            <ExclamationCircleOutlined style={{ color: colors.error[500] }} />
-                            <Text type="secondary" style={{ fontSize: 12 }}>
+                            <GatewayIcon name="ExclamationCircleOutlined" className="console-text-error" />
+                            <Text type="secondary" className="console-type-caption">
                               View Error Stack Trace
                             </Text>
                           </Space>
                         ),
                         children: (
-                          <Card
-                            size="small"
-                            style={{
-                              borderRadius: token.borderRadius,
-                              border: `1px solid ${colors.error[200]}`,
-                              background:
-                                mode === 'dark' ? withAlpha(colors.error[900], 0.1) : withAlpha(colors.error[50], 0.5),
-                            }}
-                          >
-                            <pre
-                              style={{
-                                margin: 0,
-                                fontSize: 11,
-                                fontFamily: 'ui-monospace, monospace',
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                                color: mode === 'dark' ? colors.error[300] : colors.error[700],
-                                maxHeight: 300,
-                                overflow: 'auto',
-                              }}
-                            >
-                              {event.errorStack}
-                            </pre>
+                          <Card size="small" className="event-audit-error-card">
+                            <pre className="event-audit-error-stack">{event.errorStack}</pre>
                           </Card>
                         ),
                       },
@@ -318,7 +268,7 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
         </Card>
 
         <div>
-          <Title level={5} style={{ marginBottom: spacing[2] }}>
+          <Title level={5} className="console-margin-bottom-2">
             Timeline
           </Title>
           {timelineItems.length > 0 ? (
@@ -329,47 +279,32 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
         </div>
 
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] }}>
-            <Title level={5} style={{ margin: 0 }}>
+          <div className="event-audit-payload-heading">
+            <Title level={5} className="console-margin-none">
               Payload
             </Title>
             <Button
               size="small"
-              icon={<CopyOutlined />}
+              icon={<GatewayIcon name="CopyOutlined" />}
               onClick={() => handleCopy(payloadText)}
               disabled={!payloadText}
             >
               Copy Payload
             </Button>
           </div>
-          <div style={{ marginTop: spacing[2] }}>
-            <Card
-              style={{
-                borderRadius: token.borderRadius,
-                border: `1px solid ${cssVar.border.default}`,
-                background: mode === 'dark' ? withAlpha(colors.neutral[900], 0.4) : withAlpha(colors.neutral[50], 0.6),
-              }}
-              styles={{ body: { padding: spacing[3] } }}
-            >
+          <div className="console-margin-top-2">
+            <Card className="event-audit-card" styles={{ body: { padding: spacing[3] } }}>
               {payloadText ? (
                 <>
                   {!hasFullPayload && hasSummaryPayload && (
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: spacing[2] }}>
+                    <Text
+                      type="secondary"
+                      className="console-type-caption console-display-block console-margin-bottom-2"
+                    >
                       Full payload not stored. Showing summary only.
                     </Text>
                   )}
-                  <pre
-                    className="clamped-code-block"
-                    style={{
-                      margin: 0,
-                      fontSize: 12,
-                      whiteSpace: 'pre-wrap',
-                      maxHeight: 360,
-                      overflow: 'auto',
-                    }}
-                  >
-                    {payloadText}
-                  </pre>
+                  <pre className="clamped-code-block console-type-caption event-audit-payload-code">{payloadText}</pre>
                 </>
               ) : (
                 <Text type="secondary">No payload captured for this event.</Text>

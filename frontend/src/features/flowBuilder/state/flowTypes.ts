@@ -46,6 +46,7 @@ export interface BaseNodeData {
   description?: string;
   isValid: boolean;
   errors?: string[];
+  layoutDirection?: 'vertical';
 }
 
 /**

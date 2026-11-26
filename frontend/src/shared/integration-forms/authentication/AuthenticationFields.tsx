@@ -1,6 +1,7 @@
-import { Row, Col, Form, Input, Select, Button, Space } from 'antd';
+import { Row, Col, Form, Input, Select, Space } from "@/components/common/LegacyAntdControls";
 import { HelpPopover } from './OAuth2Help';
 import type { AuthenticationFieldsProps } from '../types';
+import { Button } from '../../../components/common/LegacyButton';
 
 const spacingToNumber = (value: any): number => {
   if (typeof value === 'number') return value;
@@ -13,15 +14,15 @@ const spacingToNumber = (value: any): number => {
  */
 const OAuth2RequirementsHelp = () => (
   <div>
-    <p style={{ marginBottom: 8 }}>
+    <p className="console-margin-bottom-2">
       <strong>Token endpoint must support:</strong>
     </p>
-    <ul style={{ paddingLeft: 20, marginBottom: 8 }}>
+    <ul className="console-indent-5-margin-bottom-2">
       <li>POST requests with client_credentials grant</li>
       <li>Content-Type: application/x-www-form-urlencoded</li>
       <li>Response with access_token field</li>
     </ul>
-    <p style={{ marginBottom: 0 }}>Tokens are cached and automatically refreshed when expired.</p>
+    <p className="console-margin-bottom-none">Tokens are cached and automatically refreshed when expired.</p>
   </div>
 );
 
@@ -159,21 +160,21 @@ export const AuthenticationFields = ({
             {({ getFieldValue }) =>
               getFieldValue([...fieldPrefix, 'scheme']) === 'STRIPE' ? null : (
                 <>
-                <Col xs={24} md={8}>
-                  <Form.Item name={[...fieldPrefix, 'signatureHeader']} label="Signature Header">
-                    <Input placeholder="X-Integration-Signature" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={8}>
-                  <Form.Item name={[...fieldPrefix, 'timestampHeader']} label="Timestamp Header">
-                    <Input placeholder="X-Integration-Timestamp" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={8}>
-                  <Form.Item name={[...fieldPrefix, 'messageIdHeader']} label="Message ID Header">
-                    <Input placeholder="X-Integration-ID" />
-                  </Form.Item>
-                </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item name={[...fieldPrefix, 'signatureHeader']} label="Signature Header">
+                      <Input placeholder="X-Integration-Signature" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item name={[...fieldPrefix, 'timestampHeader']} label="Timestamp Header">
+                      <Input placeholder="X-Integration-Timestamp" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item name={[...fieldPrefix, 'messageIdHeader']} label="Message ID Header">
+                      <Input placeholder="X-Integration-ID" />
+                    </Form.Item>
+                  </Col>
                 </>
               )
             }
@@ -395,7 +396,7 @@ export const AuthenticationFields = ({
                   <Row
                     key={key}
                     gutter={[spacingToNumber(spacing[2]), 0]}
-                    style={{ marginBottom: spacingToNumber(spacing[2]) }}
+                    className="console-margin-bottom-2"
                   >
                     <Col xs={24} md={10}>
                       <Form.Item
@@ -416,7 +417,7 @@ export const AuthenticationFields = ({
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={2}>
-                      <Button type="text" danger onClick={() => remove(name)} style={{ width: '100%' }}>
+                      <Button type="text" danger onClick={() => remove(name)} className="console-width-full">
                         Remove
                       </Button>
                     </Col>

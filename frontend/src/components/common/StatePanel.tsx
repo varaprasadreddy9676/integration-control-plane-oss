@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { Typography } from 'antd';
-import { ApiOutlined, DisconnectOutlined, InboxOutlined } from '@ant-design/icons';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from './Icon';
 import { cssVar } from '../../design-system/utils';
 
 /**
@@ -53,7 +54,12 @@ const DEFAULT_GLYPH_SIZE: Record<NonNullable<StatePanelProps['size']>, number> =
  * environments (tests, SSR) where the token module is stubbed.
  */
 const toneColor = (tone: StateTone): string =>
-  tone === 'critical' ? cssVar.error?.text : cssVar.text?.primary;
+  tone === 'critical'
+    ? cssVar.error?.text || 'var(--color-error-text)'
+    : cssVar.text?.primary || 'var(--color-text-primary)';
+
+const supportingColor = () => cssVar.text?.secondary || 'var(--color-text-secondary)';
+const mutedColor = () => cssVar.text?.muted || 'var(--color-text-muted)';
 
 export const StatePanel = ({
   glyph,
@@ -67,6 +73,7 @@ export const StatePanel = ({
 }: StatePanelProps) => {
   return (
     <div
+      className={`state-panel state-panel--${size}`}
       role="status"
       aria-live="polite"
       style={{
@@ -76,43 +83,70 @@ export const StatePanel = ({
         justifyContent: 'center',
         textAlign: 'center',
         padding: SIZE_PADDING[size],
-        gap: 4,
+        gap: 'var(--spacing-1)',
       }}
     >
       {glyph && (
-        <span aria-hidden="true" style={{ fontSize: Math.min(glyphSize ?? DEFAULT_GLYPH_SIZE[size], 32), color: tone === 'critical' ? cssVar.error.text : cssVar.text.secondary, marginBottom: 8 }}>
-          {glyph === 'disrupted' ? <DisconnectOutlined /> : glyph === 'connecting' ? <ApiOutlined /> : <InboxOutlined />}
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: Math.min(glyphSize ?? DEFAULT_GLYPH_SIZE[size], 32),
+            color: tone === 'critical' ? cssVar.error?.text || 'var(--color-error-text)' : supportingColor(),
+            marginBottom: 'var(--spacing-2)',
+          }}
+        >
+          {glyph === 'disrupted' ? (
+            <GatewayIcon name="DisconnectOutlined" />
+          ) : glyph === 'connecting' ? (
+            <GatewayIcon name="ApiOutlined" />
+          ) : (
+            <GatewayIcon name="InboxOutlined" />
+          )}
         </span>
       )}
 
-      <Typography.Text
+      <Heading
+        level={5}
         style={{
-          fontSize: 14,
+          fontSize: 'var(--console-type-control)',
           fontWeight: 600,
+          lineHeight: 1.35,
           color: toneColor(tone),
-          letterSpacing: 0,
+          margin: 'var(--spacing-0)',
         }}
       >
         {title}
-      </Typography.Text>
+      </Heading>
 
       {description && (
-        <Typography.Text
+        <Text
+          type="supporting"
+          as="div"
           style={{
-            fontSize: 13,
-            color: cssVar.text.secondary,
+            fontSize: 'var(--console-type-body)',
+            color: supportingColor(),
             maxWidth: 460,
             lineHeight: 1.6,
           }}
         >
           {description}
-        </Typography.Text>
+        </Text>
       )}
 
-      {actions && <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>{actions}</div>}
+      {actions && (
+        <div className="state-panel__actions">{actions}</div>
+      )}
 
       {footnote && (
-        <div style={{ marginTop: 14, fontSize: 12, color: cssVar.text.muted, maxWidth: 520, wordBreak: 'break-word' }}>
+        <div
+          style={{
+            marginTop: 'var(--spacing-4)',
+            fontSize: 'var(--console-type-caption)',
+            color: mutedColor(),
+            maxWidth: 520,
+            wordBreak: 'break-word',
+          }}
+        >
           {footnote}
         </div>
       )}

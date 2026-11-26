@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Form, Skeleton, Space, Typography } from 'antd';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Form, Space } from "@/components/common/LegacyAntdControls";
 import { ConditionRulesSection } from './ConditionRulesSection';
 import { LifecycleRulesSection } from './LifecycleRulesSection';
 import { LifecycleSubjectSection } from './LifecycleSubjectSection';
 import type { LifecyclePanelContentProps } from './LifecyclePanel.types';
+import { StatePanel } from '../../../../../components/common/StatePanel';
+import { Button } from '../../../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../../../components/common';
 
 const { Text } = Typography;
 
@@ -62,7 +66,7 @@ export const LifecyclePanelContent = ({
   }, [deliveryModeValue, hasSavedConfig]);
 
   if (isLoading) {
-    return <Skeleton active paragraph={{ rows: 8 }} />;
+    return <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading lifecycle settings" />;
   }
 
   if (deliveryModeValue === 'IMMEDIATE' && !hasSavedConfig) {
@@ -70,12 +74,11 @@ export const LifecyclePanelContent = ({
   }
 
   return (
-    <Space direction="vertical" size={Number.parseInt(spacing[4], 10) || 16} style={{ width: '100%' }}>
+    <Space direction="vertical" size={Number.parseInt(spacing[4], 10) || 16} className="console-width-full">
       {deliveryModeValue === 'IMMEDIATE' && hasSavedConfig && (
         <>
-          <Alert
+          <Notice
             type="info"
-            showIcon
             message="These matching and follow-up settings are saved but inactive for immediate delivery."
             description="Switch to Send later, Recurring, or Hold until a follow-up event if you want these settings to take effect."
           />

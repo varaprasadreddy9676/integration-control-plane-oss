@@ -1,11 +1,11 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import type { NodeKind } from './model';
 import type { NodeView } from './execution';
 
 /** Icons of the node types (spec 6.1): 24 x 24, stroke only. */
 const ICONS: Record<
   NodeKind | 'plus' | 'search' | 'fit' | 'pencil' | 'shield' | 'cursor' | 'hand' | 'undo' | 'redo' | 'x',
-  JSX.Element
+  ReactElement
 > = {
   trigger: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />,
   transform: (

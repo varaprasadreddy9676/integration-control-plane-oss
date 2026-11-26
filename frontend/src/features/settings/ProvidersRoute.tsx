@@ -1,28 +1,21 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Form, Input, Modal, Space, Switch, Tag, Tooltip, Typography, message } from 'antd';
-import {
-  AppstoreOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
-import { PageHeader } from '../../components/common/PageHeader';
-import {
-  createProvider,
-  deleteProvider,
-  listProviders,
-  updateProvider,
-  type Provider,
-} from '../../services/api';
-import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
+import { Form, Input, Modal, Select, Space, Switch, Tooltip, message } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { FilterBar } from '../../components/common/FilterBar';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { createProvider, deleteProvider, listProviders, updateProvider, type Provider } from '../../services/api';
+import { useDesignTokens } from '../../design-system/utils';
 import { useTenant } from '../../app/tenant-context';
 import { ModernTable } from '../../components/common/ModernTable';
-
-const { Text, Paragraph } = Typography;
+import { StatePanel } from '../../components/common/StatePanel';
+import { Button } from '../../components/common/LegacyButton';
 
 export const ProvidersRoute = () => {
-  const { spacing, token } = useDesignTokens();
+  const { token } = useDesignTokens();
   const { orgId } = useTenant();
   const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
@@ -31,9 +24,16 @@ export const ProvidersRoute = () => {
   const [editing, setEditing] = useState<Provider | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [form] = Form.useForm();
 
-  const { data: providers = [], isLoading } = useQuery({
+  const {
+    data: providers = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['providers', orgId],
     queryFn: () => listProviders(),
     enabled: !!orgId,
@@ -93,8 +93,8 @@ export const ProvidersRoute = () => {
       title: 'Delete provider?',
       content: (
         <span>
-          Remove <strong>{provider.name}</strong>? Existing integrations that reference this provider
-          will keep their tag, but it will no longer appear as a suggestion.
+          Remove <strong>{provider.name}</strong>? Existing integrations that reference this provider will keep their
+          tag, but it will no longer appear as a suggestion.
         </span>
       ),
       okText: 'Delete',
@@ -115,6 +115,17 @@ export const ProvidersRoute = () => {
     });
   };
 
+  const filteredProviders = providers.filter((provider) => {
+    const search = searchText.trim().toLowerCase();
+    const matchesSearch =
+      !search ||
+      provider.name.toLowerCase().includes(search) ||
+      (provider.description || '').toLowerCase().includes(search);
+    const matchesStatus =
+      statusFilter === 'all' || (statusFilter === 'active' ? provider.isActive : !provider.isActive);
+    return matchesSearch && matchesStatus;
+  });
+
   const columns = [
     {
       title: 'Name',
@@ -122,9 +133,9 @@ export const ProvidersRoute = () => {
       key: 'name',
       render: (name: string, record: Provider) => (
         <Space direction="vertical" size={0}>
-          <Text strong>{name}</Text>
+          <Text weight="semibold">{name}</Text>
           {record.description && (
-            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+            <Text color="secondary" className="console-type-caption">
               {record.description}
             </Text>
           )}
@@ -136,8 +147,14 @@ export const ProvidersRoute = () => {
       dataIndex: 'isActive',
       key: 'isActive',
       width: 100,
-      render: (isActive: boolean) =>
-        isActive ? <Tag color="success">Active</Tag> : <Tag color="default">Inactive</Tag>,
+      render: (isActive: boolean) => (
+        <StatusBadge
+          label={isActive ? 'Active' : 'Inactive'}
+          variant={isActive ? 'success' : 'neutral'}
+          showIcon={false}
+          size="small"
+        />
+      ),
     },
     {
       title: 'Actions',
@@ -146,17 +163,13 @@ export const ProvidersRoute = () => {
       render: (_: unknown, record: Provider) => (
         <Space>
           <Tooltip title="Edit">
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleOpenEdit(record)}
-            />
+            <Button size="small" icon={<GatewayIcon name="EditOutlined" />} onClick={() => handleOpenEdit(record)} />
           </Tooltip>
           <Tooltip title="Delete">
             <Button
               size="small"
               danger
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               loading={deletingId === record.id}
               onClick={() => handleDelete(record)}
             />
@@ -167,41 +180,119 @@ export const ProvidersRoute = () => {
   ];
 
   return (
-    <div>
-      {contextHolder}
-      <PageHeader
-        title="Providers"
-        description="Manage the list of provider names used to tag and filter integrations."
-        actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+    <PageTemplate
+      as="main"
+      className="provider-workspace"
+      title="Providers"
+      description="Manage the list of provider names used to tag and filter integrations."
+      actions={
+        <Space>
+          <Button icon={<GatewayIcon name="ReloadOutlined" />} onClick={() => refetch()} loading={isLoading}>
+            Refresh
+          </Button>
+          <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} onClick={handleOpenCreate}>
             Add Provider
           </Button>
-        }
-      />
+        </Space>
+      }
+    >
+      {contextHolder}
 
-      <ModernTable
-        dataSource={providers}
-        columns={columns}
-        rowKey="id"
-        loading={isLoading}
-        pagination={{ pageSize: 20, hideOnSinglePage: true }}
-        locale={{
-          emptyText: (
-            <Space direction="vertical" style={{ padding: spacingToNumber(spacing[6]) }}>
-              <AppstoreOutlined style={{ fontSize: 32, color: token.colorTextTertiary }} />
-              <div>
-                <Text strong>No providers yet</Text>
-                <Paragraph type="secondary" style={{ margin: '4px 0 0' }}>
-                  Add providers to create a controlled list for tagging integrations.
-                </Paragraph>
-              </div>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
-                Add your first provider
-              </Button>
-            </Space>
-          ),
-        }}
-      />
+      <FilterBar
+        rightSlot={
+          searchText || statusFilter !== 'all' ? (
+            <Button
+              size="small"
+              onClick={() => {
+                setSearchText('');
+                setStatusFilter('all');
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : null
+        }
+      >
+        <div className="provider-filter-grid">
+          <label className="provider-filter-field">
+            <span>Search providers</span>
+            <Input
+              aria-label="Search providers"
+              placeholder="Provider name or description"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              allowClear
+            />
+          </label>
+          <label className="provider-filter-field">
+            <span>Status</span>
+            <Select aria-label="Filter providers by status" value={statusFilter} onChange={setStatusFilter}>
+              <Select.Option value="all">All statuses</Select.Option>
+              <Select.Option value="active">Active</Select.Option>
+              <Select.Option value="inactive">Inactive</Select.Option>
+            </Select>
+          </label>
+        </div>
+      </FilterBar>
+
+      {error && (
+        <Banner
+          status="error"
+          title="Could not load providers"
+          description={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+          endContent={
+            <Button size="small" onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
+        />
+      )}
+
+      <section className="provider-table-section" aria-label="Provider directory">
+        <div className="provider-table-heading">
+          <Text weight="semibold">Provider directory</Text>
+          <Text color="secondary">
+            Showing {filteredProviders.length} of {providers.length}
+          </Text>
+        </div>
+
+        {!isLoading && filteredProviders.length === 0 ? (
+          <StatePanel
+            glyph="searching"
+            size="regular"
+            title={providers.length ? 'No providers match these filters' : 'No providers yet'}
+            description={
+              providers.length
+                ? 'Change or clear a filter to see the full directory.'
+                : 'Add providers to create a controlled list for tagging integrations.'
+            }
+            actions={
+              providers.length ? (
+                <Button
+                  onClick={() => {
+                    setSearchText('');
+                    setStatusFilter('all');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : (
+                <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} onClick={handleOpenCreate}>
+                  Add your first provider
+                </Button>
+              )
+            }
+          />
+        ) : (
+          <ModernTable
+            dataSource={filteredProviders}
+            columns={columns}
+            rowKey="id"
+            loading={isLoading}
+            pagination={{ pageSize: 20, hideOnSinglePage: true }}
+          />
+        )}
+      </section>
 
       <Modal
         title={editing ? 'Edit Provider' : 'New Provider'}
@@ -210,21 +301,14 @@ export const ProvidersRoute = () => {
         onCancel={() => setOpen(false)}
         okText={editing ? 'Save' : 'Create'}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item
-            name="name"
-            label="Provider Name"
-            rules={[{ required: true, message: 'Name is required' }]}
-          >
+        <Form form={form} layout="vertical" className="console-margin-top-4">
+          <Form.Item name="name" label="Provider Name" rules={[{ required: true, message: 'Name is required' }]}>
             <Input placeholder="e.g. QikChat WhatsApp" size="large" />
           </Form.Item>
           <Form.Item name="description" label="Description">
-            <Input.TextArea
-              placeholder="Optional — describe what this provider is used for"
-              rows={2}
-            />
+            <Input.TextArea placeholder="Optional — describe what this provider is used for" rows={2} />
           </Form.Item>
           {editing && (
             <Form.Item name="isActive" label="Active" valuePropName="checked">
@@ -233,6 +317,6 @@ export const ProvidersRoute = () => {
           )}
         </Form>
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Form, Segmented, Space, Switch, Typography } from 'antd';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Form, Segmented, Space, Switch } from "@/components/common/LegacyAntdControls";
 import type { StageConfig } from '../../../../services/stages-api';
 import type { DeliveryTarget } from '../../deliveryTargets';
 import { protocolLabel } from '../../deliveryTargets';
@@ -43,7 +44,15 @@ const savedView = (): View => {
  * stages of each of its deliveries. An integration with actions picks the
  * action; every kind of delivery is edited the same way.
  */
-export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = false, onOpenTab, stepEditors }: DeliveryTabProps) => {
+export const DeliveryTab = ({
+  form,
+  integrationId,
+  targets,
+  context,
+  readOnly = false,
+  onOpenTab,
+  stepEditors,
+}: DeliveryTabProps) => {
   const [picked, setPicked] = useState(0);
   const [view, setView] = useState<View>(savedView);
   const [fullscreen, setFullscreen] = useState(false);
@@ -61,8 +70,10 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
   const stages = (form.getFieldValue([...target.namePath, 'stages']) || []) as StageConfig[];
 
   return (
-    <Space direction="vertical" size={20} style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+    <Space direction="vertical" size={20} className="console-width-full">
+      <div
+        className="ui-extracted-7a2d2b9b1c"
+      >
         <Segmented
           aria-label="How to show the delivery"
           value={view}
@@ -73,14 +84,19 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
           ]}
         />
         {view === 'workflow' && (
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" className="console-type-caption">
             Drawn from the engine&apos;s rules: every branch can happen, and every branch that can happen is shown.
           </Text>
         )}
       </div>
       {!readOnly && (
         <Space align="center">
-          <Form.Item name="stagesPaused" noStyle getValueProps={(paused) => ({ checked: !paused })} normalize={(checked) => !checked}>
+          <Form.Item
+            name="stagesPaused"
+            noStyle
+            getValueProps={(paused) => ({ checked: !paused })}
+            normalize={(checked) => !checked}
+          >
             <Switch aria-label="Run this integration's steps" />
           </Form.Item>
           <Text>Run this integration&apos;s steps</Text>
@@ -107,26 +123,32 @@ export const DeliveryTab = ({ form, integrationId, targets, context, readOnly = 
         </div>
       ) : (
         <>
-      {targets.length > 1 && (
-        <div>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 6 }}>
-            Each action is its own delivery, with its own stages.
-          </Text>
-          <Segmented
-            aria-label="Action"
-            value={index}
-            onChange={(next) => setPicked(Number(next))}
-            options={targets.map((candidate, position) => ({ value: position, label: `${candidate.label} · ${protocolLabel(candidate.protocol)}` }))}
-          />
-        </div>
-      )}
-      {readOnly ? (
-        <DeliveryStagesView key={target.key} stages={stages} />
-      ) : (
-        <Form.Item key={target.key} name={[...target.namePath, 'stages']} noStyle>
-          <DeliveryStagesSection form={form} integrationId={integrationId} target={target} context={context} />
-        </Form.Item>
-      )}
+          {targets.length > 1 && (
+            <div>
+              <Text
+                type="secondary"
+                className="ui-extracted-e8bd2112ae"
+              >
+                Each action is its own delivery, with its own stages.
+              </Text>
+              <Segmented
+                aria-label="Action"
+                value={index}
+                onChange={(next) => setPicked(Number(next))}
+                options={targets.map((candidate, position) => ({
+                  value: position,
+                  label: `${candidate.label} · ${protocolLabel(candidate.protocol)}`,
+                }))}
+              />
+            </div>
+          )}
+          {readOnly ? (
+            <DeliveryStagesView key={target.key} stages={stages} />
+          ) : (
+            <Form.Item key={target.key} name={[...target.namePath, 'stages']} noStyle>
+              <DeliveryStagesSection form={form} integrationId={integrationId} target={target} context={context} />
+            </Form.Item>
+          )}
         </>
       )}
     </Space>

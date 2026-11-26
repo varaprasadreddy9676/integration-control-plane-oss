@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Collapse, Divider, Input, InputNumber, Modal, Pagination, Row, Select, Skeleton, Space, Switch, Tag, Tooltip, Typography, message } from 'antd';
+import { Typography } from '@/components/common/LegacyTypography';
 import {
-  ApartmentOutlined,
-  AppstoreOutlined,
-  AuditOutlined,
-  DatabaseOutlined,
-  InfoCircleOutlined,
-  KeyOutlined,
-  MailOutlined,
-  ReloadOutlined,
-  RollbackOutlined,
-  SettingOutlined,
-  SyncOutlined,
-  TeamOutlined,
-  ThunderboltOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+  Card,
+  Col,
+  Collapse,
+  Divider,
+  Input,
+  InputNumber,
+  Modal,
+  Pagination,
+  Row,
+  Select,
+  Space,
+  Switch,
+  Tooltip,
+  message,
+} from '@/components/common/LegacyAntdControls';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/auth-context';
 import { useTenant } from '../../app/tenant-context';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import {
   clearUIConfigOverride,
   getAdminSystemConfig,
@@ -37,6 +40,10 @@ import {
 import { useDesignTokens, spacingToNumber, cssVar } from '../../design-system/utils';
 import { ModernTable } from '../../components/common/ModernTable';
 import { AlertChannelsCard } from './components/AlertChannelsCard';
+import { StatePanel } from '../../components/common/StatePanel';
+import { Button } from '../../components/common/LegacyButton';
+import { InlineHint } from '../../components/common/InlineHint';
+import { StatusBadge } from '../../components/common/StatusBadge';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -45,15 +52,14 @@ const { Text, Title, Paragraph } = Typography;
 // ---------------------------------------------------------------------------
 
 function FieldRow({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  const { token } = useDesignTokens();
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: 8 }}>
-      <Text type="secondary" style={{ fontSize: token.fontSizeSM, flexShrink: 0, marginRight: 12 }}>
+    <div className="settings-field-row">
+      <Text type="secondary" className="settings-field-label">
         {label}
       </Text>
-      <Text strong style={{ textAlign: 'right', fontFamily: mono ? token.fontFamilyCode : undefined }}>
+      <Text strong className={`settings-field-value${mono ? ' settings-field-value--mono' : ''}`}>
         {value || (
-          <Text type="secondary" italic style={{ fontWeight: 400 }}>
+          <Text type="secondary" italic className="console-font-weight-normal">
             Not set
           </Text>
         )}
@@ -220,8 +226,8 @@ export const SettingsRoute = () => {
     return 'http';
   })();
 
-  const cardStyle = { borderRadius: token.borderRadiusLG };
-  const mt = { marginTop: spacingToNumber(spacing[5]) };
+  const cardStyle = { borderRadius: token.borderRadius };
+  const mt = { marginTop: spacingToNumber(spacing[4]) };
 
   // ---- save helpers ----
   const saveAlertSettings = async (
@@ -262,13 +268,19 @@ export const SettingsRoute = () => {
   // RENDER
   // ============================
   return (
-    <div>
+    <PageTemplate
+      as="main"
+      className="organization-settings-workspace"
+      contentClassName="organization-settings-workspace__content"
+      header={
+        <PageHeader
+          title="Organization Settings"
+          description="Configure alerts, display preferences, and view your organization details."
+          summary={[tenant?.region, tenant?.timezone].filter(Boolean).join(' · ')}
+        />
+      }
+    >
       {contextHolder}
-      <PageHeader
-        title="Organization Settings"
-        description="Configure alerts, display preferences, and view your organization details."
-        statusChips={[{ label: tenant?.region ?? 'Unknown region' }, { label: tenant?.timezone ?? '' }]}
-      />
 
       <Row gutter={spacingToNumber(spacing[5])}>
         {/* ================================================================
@@ -284,7 +296,7 @@ export const SettingsRoute = () => {
                 <Tooltip title="Reset all alert settings back to platform defaults">
                   <Button
                     size="small"
-                    icon={<RollbackOutlined />}
+                    icon={<GatewayIcon name="RollbackOutlined" />}
                     loading={resettingAlert}
                     onClick={() => {
                       Modal.confirm({
@@ -315,24 +327,16 @@ export const SettingsRoute = () => {
             }
           >
             {uiConfigLoading || uiOverrideLoading ? (
-              <Skeleton active paragraph={{ rows: 3 }} />
+              <StatePanel glyph="connecting" tone="busy" title="Loading alert settings" size="compact" />
             ) : (
-              <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
+              <Space direction="vertical" size={spacingToNumber(spacing[4])} className="console-width-full">
                 {/* Toggle row */}
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingBottom: spacingToNumber(spacing[3]),
-                    borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                  }}
+                  className="settings-toggle-row"
                 >
                   <div>
                     <Text strong>Failure email reports</Text>
-                    <Paragraph
-                      style={{ margin: 0, marginTop: 2, color: token.colorTextSecondary, fontSize: token.fontSizeSM }}
-                    >
+                    <Paragraph className="console-settings-helper console-margin-top-1 console-margin-bottom-none">
                       Automatically email a digest when integration deliveries fail
                     </Paragraph>
                   </div>
@@ -350,34 +354,26 @@ export const SettingsRoute = () => {
                 {reportEnabled && (
                   <>
                     <div>
-                      <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                      <Text type="secondary" className="console-type-caption">
                         Report recipient email
                       </Text>
-                      <Paragraph
-                        style={{ margin: 0, marginTop: 2, fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
-                      >
+                      <Paragraph className="console-settings-helper console-settings-helper--tertiary console-margin-top-1 console-margin-bottom-none">
                         Leave empty to use the org's primary email ({tenant?.tenantEmail || 'none on file'})
                       </Paragraph>
                       <Input
                         placeholder={tenant?.tenantEmail || 'alerts@example.com'}
                         value={overrideEmail}
                         onChange={(e) => setOverrideEmail(e.target.value)}
-                        style={{ marginTop: spacingToNumber(spacing[2]) }}
+                        className="console-margin-top-2"
                       />
                     </div>
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: spacingToNumber(spacing[3]),
-                      }}
-                    >
+                    <div className="settings-responsive-control-grid">
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Check every&nbsp;
                           <Tooltip title="How often the system checks for new failures">
-                            <InfoCircleOutlined />
+                            <GatewayIcon name="InfoCircleOutlined" />
                           </Tooltip>
                         </Text>
                         <InputNumber
@@ -386,14 +382,14 @@ export const SettingsRoute = () => {
                           value={intervalMinutes}
                           onChange={(v) => setIntervalMinutes(Number(v || 1))}
                           addonAfter="min"
-                          style={{ width: '100%', marginTop: spacingToNumber(spacing[2]) }}
+                          className="console-width-full-margin-top-2"
                         />
                       </div>
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Scan window&nbsp;
                           <Tooltip title="How far back to look for failures each check">
-                            <InfoCircleOutlined />
+                            <GatewayIcon name="InfoCircleOutlined" />
                           </Tooltip>
                         </Text>
                         <InputNumber
@@ -402,14 +398,14 @@ export const SettingsRoute = () => {
                           value={lookbackMinutes}
                           onChange={(v) => setLookbackMinutes(Number(v || 60))}
                           addonAfter="min"
-                          style={{ width: '100%', marginTop: spacingToNumber(spacing[2]) }}
+                          className="console-width-full-margin-top-2"
                         />
                       </div>
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Alert threshold&nbsp;
                           <Tooltip title="Minimum number of failures before sending a report">
-                            <InfoCircleOutlined />
+                            <GatewayIcon name="InfoCircleOutlined" />
                           </Tooltip>
                         </Text>
                         <InputNumber
@@ -418,14 +414,14 @@ export const SettingsRoute = () => {
                           value={minFailures}
                           onChange={(v) => setMinFailures(Number(v || 1))}
                           addonAfter="failures"
-                          style={{ width: '100%', marginTop: spacingToNumber(spacing[2]) }}
+                          className="console-width-full-margin-top-2"
                         />
                       </div>
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Max per report&nbsp;
                           <Tooltip title="Maximum number of failure records included in each email">
-                            <InfoCircleOutlined />
+                            <GatewayIcon name="InfoCircleOutlined" />
                           </Tooltip>
                         </Text>
                         <InputNumber
@@ -434,7 +430,7 @@ export const SettingsRoute = () => {
                           value={maxItems}
                           onChange={(v) => setMaxItems(Number(v || 25))}
                           addonAfter="items"
-                          style={{ width: '100%', marginTop: spacingToNumber(spacing[2]) }}
+                          className="console-width-full-margin-top-2"
                         />
                       </div>
                     </div>
@@ -453,25 +449,23 @@ export const SettingsRoute = () => {
           {/* ---- 2. Display & Behavior ---- */}
           <Card title="Display & Behavior" style={{ ...cardStyle, ...mt }}>
             {uiConfigLoading || uiOverrideLoading ? (
-              <Skeleton active paragraph={{ rows: 3 }} />
+              <StatePanel glyph="connecting" tone="busy" title="Loading display settings" size="compact" />
             ) : (
-              <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Space direction="vertical" size={0} className="console-width-full">
                 {/* Dashboard auto-refresh */}
-                <div style={{ paddingBottom: spacingToNumber(spacing[4]) }}>
+                <div className="console-padding-bottom-4">
                   <Text strong>Dashboard auto-refresh</Text>
-                  <Paragraph
-                    style={{ margin: '2px 0 12px', color: token.colorTextSecondary, fontSize: token.fontSizeSM }}
-                  >
+                  <Paragraph className="console-settings-helper console-settings-helper--section">
                     How often the dashboard automatically reloads live data. Set to 0 to disable.
                   </Paragraph>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: spacingToNumber(spacing[3]) }}>
+                  <div className="console-settings-input-actions">
                     <InputNumber
                       min={0}
                       max={3600}
                       value={dashboardRefreshSeconds}
                       onChange={(v) => setDashboardRefreshSeconds(Number(v ?? 30))}
                       addonAfter="seconds"
-                      style={{ flex: 1, marginTop: 4 }}
+                      className="console-flex-fill console-margin-top-1"
                     />
                     <Button
                       type="primary"
@@ -492,29 +486,27 @@ export const SettingsRoute = () => {
                       Save
                     </Button>
                   </div>
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                  <Text type="secondary" className="console-type-caption">
                     Platform default: {uiConfig?.dashboard?.autoRefreshSeconds ?? 30}s
                   </Text>
                 </div>
 
-                <Divider style={{ margin: `${spacingToNumber(spacing[2])}px 0 ${spacingToNumber(spacing[4])}px` }} />
+                <Divider className="console-settings-divider" />
 
                 {/* Multi-action delay */}
                 <div>
                   <Text strong>Delay between integration actions</Text>
-                  <Paragraph
-                    style={{ margin: '2px 0 12px', color: token.colorTextSecondary, fontSize: token.fontSizeSM }}
-                  >
+                  <Paragraph className="console-settings-helper console-settings-helper--section">
                     For integrations with multiple sequential actions, add a pause between each step. 0 = no delay.
                   </Paragraph>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: spacingToNumber(spacing[3]) }}>
+                  <div className="console-settings-input-actions">
                     <InputNumber
                       min={0}
                       max={600000}
                       value={multiActionDelayMs}
                       onChange={(v) => setMultiActionDelayMs(Number(v ?? 0))}
                       addonAfter="ms"
-                      style={{ flex: 1, marginTop: 4 }}
+                      className="console-flex-fill console-margin-top-1"
                     />
                     <Button
                       type="primary"
@@ -535,7 +527,7 @@ export const SettingsRoute = () => {
                       Save
                     </Button>
                   </div>
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                  <Text type="secondary" className="console-type-caption">
                     Platform default: {uiConfig?.worker?.multiActionDelayMs ?? 0} ms
                   </Text>
                 </div>
@@ -550,49 +542,45 @@ export const SettingsRoute = () => {
               {
                 key: 'checkpoint',
                 label: (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <DatabaseOutlined />
-                    <span style={{ fontWeight: 600 }}>Event Processing</span>
-                    <Tag color="warning" icon={<WarningOutlined />} style={{ marginLeft: 4 }}>
+                  <div className="console-flex-center-gap-2">
+                    <GatewayIcon name="DatabaseOutlined" />
+                    <span className="console-font-weight-semibold">Event Processing</span>
+                    <Text type="secondary" className="console-type-caption">
                       Advanced
-                    </Tag>
+                    </Text>
                   </div>
                 ),
                 children: checkpointLoading ? (
-                  <Skeleton active paragraph={{ rows: 2 }} />
+                  <StatePanel glyph="connecting" tone="busy" title="Loading event processing" size="compact" />
                 ) : eventSourceMode === 'kafka' ? (
                   // ---- Kafka mode ----
-                  <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
-                    <Alert
-                      type="info"
-                      showIcon
-                      message="Kafka consumer offsets are managed by Kafka internally. Use Kafka admin tools to reset offsets when needed."
-                    />
-                    <div style={{ display: 'flex', gap: spacingToNumber(spacing[6]), flexWrap: 'wrap' }}>
+                  <Space direction="vertical" size={spacingToNumber(spacing[4])} className="console-width-full">
+                    <InlineHint>
+                      Kafka manages consumer offsets. Use Kafka admin tools to reset offsets when needed.
+                    </InlineHint>
+                    <div className="console-settings-metadata-wrap">
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Consumer group
                         </Text>
-                        <div style={{ fontFamily: token.fontFamilyCode, marginTop: 4 }}>
+                        <div className="console-font-mono console-margin-top-1">
                           {checkpointData?.consumerGroup}
                         </div>
                       </div>
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Topic
                         </Text>
-                        <div style={{ fontFamily: token.fontFamilyCode, marginTop: 4 }}>{checkpointData?.topic}</div>
+                        <div className="console-font-mono console-margin-top-1">
+                          {checkpointData?.topic}
+                        </div>
                       </div>
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Total lag
                         </Text>
-                        <div style={{ fontFamily: token.fontFamilyCode, marginTop: 4 }}>
-                          <span
-                            style={{
-                              color: (checkpointData?.totalLag || 0) > 100 ? token.colorError : token.colorSuccess,
-                            }}
-                          >
+                        <div className="console-font-mono console-margin-top-1">
+                          <span className="settings-lag-value" data-level={(checkpointData?.totalLag || 0) > 100 ? 'high' : 'normal'}>
                             {checkpointData?.totalLag || 0} messages
                           </span>
                         </div>
@@ -600,31 +588,18 @@ export const SettingsRoute = () => {
                     </div>
                     {(checkpointData?.partitions?.length ?? 0) > 0 && (
                       <div>
-                        <Text strong style={{ fontSize: token.fontSizeSM }}>
+                        <Text strong className="console-type-caption">
                           Partitions
                         </Text>
-                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div className="console-stack-vertical-gap-2 console-margin-top-2">
                           {checkpointData?.partitions?.map((p: any) => (
                             <div
                               key={p.partition}
-                              style={{
-                                padding: spacingToNumber(spacing[3]),
-                                background: cssVar.bg.surface,
-                                border: `1px solid ${token.colorBorder}`,
-                                borderRadius: token.borderRadiusSM,
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                              }}
+                              className="settings-partition-row"
                             >
                               <Text strong>Partition {p.partition}</Text>
                               <div
-                                style={{
-                                  display: 'flex',
-                                  gap: spacingToNumber(spacing[5]),
-                                  fontFamily: token.fontFamilyCode,
-                                  fontSize: token.fontSizeSM,
-                                }}
+                                  className="settings-partition-metrics"
                               >
                                 <span>
                                   <Text type="secondary">Offset: </Text>
@@ -636,7 +611,7 @@ export const SettingsRoute = () => {
                                 </span>
                                 <span>
                                   <Text type="secondary">Lag: </Text>
-                                  <span style={{ color: p.lag > 100 ? token.colorError : token.colorSuccess }}>
+                                  <span className="settings-lag-value" data-level={p.lag > 100 ? 'high' : 'normal'}>
                                     {p.lag}
                                   </span>
                                 </span>
@@ -647,40 +622,37 @@ export const SettingsRoute = () => {
                       </div>
                     )}
                     {checkpointData?.error && (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        message="Unable to fetch Kafka consumer group details"
+                      <Banner
+                        status="warning"
+                        title="Unable to fetch Kafka consumer group details"
                         description={checkpointData.message}
                       />
                     )}
                   </Space>
                 ) : eventSourceMode === 'mysql' ? (
                   // ---- MySQL polling mode ----
-                  <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
-                    <Alert
-                      type="warning"
-                      showIcon
-                      message="Resetting the cursor to 0 will cause the worker to reprocess all events from the beginning, which may trigger duplicate deliveries to all integrations."
+                  <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
+                    <Banner
+                      status="warning"
+                      title="Resetting this cursor may resend events"
+                      description="Setting it to 0 makes the worker reprocess all events from the beginning, which may trigger duplicate deliveries to integrations."
                     />
                     <div>
                       <Text strong>Processing cursor</Text>
-                      <Paragraph
-                        style={{ margin: '2px 0 12px', color: token.colorTextSecondary, fontSize: token.fontSizeSM }}
-                      >
+                      <Paragraph className="console-settings-helper console-settings-helper--section">
                         The ID of the last event row processed. Set to 0 to replay all events from the start.
                       </Paragraph>
-                      <div style={{ display: 'flex', gap: spacingToNumber(spacing[3]) }}>
+                      <div className="console-settings-input-actions console-settings-input-actions--start">
                         <InputNumber
                           min={0}
                           value={checkpointValue}
                           onChange={(v) => setCheckpointValue(v !== null ? Number(v) : 0)}
-                          style={{ flex: 1, fontFamily: token.fontFamilyCode }}
+                          className="console-flex-fill console-font-mono"
                           placeholder="0"
                         />
                         <Button
                           type="primary"
-                          icon={<SyncOutlined />}
+                          icon={<GatewayIcon name="SyncOutlined" />}
                           loading={savingCheckpoint}
                           onClick={async () => {
                             if (checkpointValue === null) return;
@@ -729,18 +701,18 @@ export const SettingsRoute = () => {
                         </Button>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="console-flex-between-center">
                       <div>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        <Text type="secondary" className="console-type-caption">
                           Current value in DB
                         </Text>
-                        <div style={{ fontFamily: token.fontFamilyCode, fontWeight: 600 }}>
+                        <div className="console-font-mono console-font-weight-semibold">
                           {checkpointData?.lastProcessedId ?? '—'}
                         </div>
                       </div>
                       <Button
                         size="small"
-                        icon={<ReloadOutlined />}
+                        icon={<GatewayIcon name="ReloadOutlined" />}
                         onClick={async () => {
                           await refetchCheckpoint();
                         }}
@@ -751,12 +723,10 @@ export const SettingsRoute = () => {
                   </Space>
                 ) : (
                   // ---- HTTP Push / no event source ----
-                  <Alert
-                    type="info"
-                    showIcon
-                    message="No cursor management needed"
-                    description="Your event source is either HTTP Push or not yet configured. Events are delivered directly — there is no polling cursor to manage."
-                  />
+                  <InlineHint>
+                    No cursor management is needed. HTTP Push delivers events directly; polling cursors apply only to
+                    configured database or Kafka sources.
+                  </InlineHint>
                 ),
               },
             ]}
@@ -773,20 +743,13 @@ export const SettingsRoute = () => {
             style={cardStyle}
             extra={
               <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: token.borderRadiusSM,
-                  background: `linear-gradient(135deg, ${colors.primary[500]} 0%, ${colors.primary[700]} 100%)`,
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
+                className="settings-organization-icon"
               >
-                <KeyOutlined style={{ color: '#fff', fontSize: 14 }} />
+                <GatewayIcon size="xsm" name="KeyOutlined" className="console-text-secondary" />
               </div>
             }
           >
-            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+            <Space direction="vertical" size={0} className="console-width-full">
               <FieldRow label="Name" value={tenant?.tenantName} />
               <FieldRow label="Org code" value={tenant?.tenantCode} mono />
               <FieldRow label="Org ID" value={tenant?.orgId} mono />
@@ -796,21 +759,21 @@ export const SettingsRoute = () => {
               <FieldRow label="Phone" value={tenant?.tenantPhone} />
               <FieldRow label="Address" value={tenant?.tenantAddress} />
               {(tenant?.tenantTags?.length ?? 0) > 0 && (
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8 }}
-                >
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM, flexShrink: 0, marginRight: 12 }}>
+                <div className="settings-field-row">
+                  <Text type="secondary" className="settings-field-label">
                     Tags
                   </Text>
-                  <Space size={4} wrap style={{ justifyContent: 'flex-end' }}>
+                  <Space size={4} wrap className="ui-extracted-7fb78f0ecc">
                     {tenant?.tenantTags?.map((t: string) => (
-                      <Tag key={t}>{t}</Tag>
+                      <Text key={t} type="secondary">
+                        {t}
+                      </Text>
                     ))}
                   </Space>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                <div className="settings-field-row">
+                <Text type="secondary" className="console-type-caption">
                   Branches
                 </Text>
                 <Text strong>{childBranches.length}</Text>
@@ -823,9 +786,9 @@ export const SettingsRoute = () => {
             <Card
               title={
                 <Space>
-                  <ApartmentOutlined />
+                  <GatewayIcon name="ApartmentOutlined" />
                   <span>Branches</span>
-                  <Tag>{childBranches.length}</Tag>
+                  <Text type="secondary">{childBranches.length}</Text>
                 </Space>
               }
               style={{ ...cardStyle, ...mt }}
@@ -843,14 +806,16 @@ export const SettingsRoute = () => {
                     key: 'rid',
                     width: 80,
                     render: (rid: number) => (
-                      <Text style={{ fontFamily: token.fontFamilyCode, fontSize: token.fontSizeSM }}>{rid ?? '—'}</Text>
+                      <Text className="console-font-mono console-type-caption">
+                        {rid ?? '—'}
+                      </Text>
                     ),
                   },
                   { title: 'Code', dataIndex: 'code', key: 'code', width: 110 },
                 ]}
               />
               {childBranches.length > pageSize && (
-                <div style={{ marginTop: 12, textAlign: 'right' }}>
+                <div className="console-margin-top-3 console-text-align-right">
                   <Pagination
                     size="small"
                     current={page}
@@ -872,61 +837,61 @@ export const SettingsRoute = () => {
           <Card
             title={
               <Space>
-                <SettingOutlined />
+                <GatewayIcon name="SettingOutlined" />
                 <span>Related Settings</span>
               </Space>
             }
             style={{ ...cardStyle, ...mt }}
           >
-            <Space direction="vertical" style={{ width: '100%' }} size={spacingToNumber(spacing[2])}>
+            <Space direction="vertical" className="console-width-full" size={spacingToNumber(spacing[2])}>
               <Button
                 block
-                icon={<ThunderboltOutlined />}
+                icon={<GatewayIcon name="ThunderboltOutlined" />}
                 onClick={() => navigate('/settings/event-source')}
-                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                className="console-text-align-left"
               >
                 Event Source Configuration
               </Button>
               <Button
                 block
-                icon={<MailOutlined />}
+                icon={<GatewayIcon name="MailOutlined" />}
                 onClick={() => navigate('/settings/sender-profiles')}
-                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                className="console-text-align-left"
               >
                 Sender Profiles
               </Button>
               <Button
                 block
-                icon={<AppstoreOutlined />}
+                icon={<GatewayIcon name="AppstoreOutlined" />}
                 onClick={() => navigate('/settings/providers')}
-                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                className="console-text-align-left"
               >
                 Providers
               </Button>
               {isAdmin && (
                 <Button
                   block
-                  icon={<DatabaseOutlined />}
+                  icon={<GatewayIcon name="DatabaseOutlined" />}
                   onClick={() => navigate('/settings/mysql-pool')}
-                  style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                  className="console-text-align-left"
                 >
                   MySQL Shared Pool
                 </Button>
               )}
               <Button
                 block
-                icon={<TeamOutlined />}
+                icon={<GatewayIcon name="TeamOutlined" />}
                 onClick={() => navigate('/admin/users')}
-                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                className="console-text-align-left"
               >
                 User Management
               </Button>
               {isAdmin && (
                 <Button
                   block
-                  icon={<AuditOutlined />}
+                  icon={<GatewayIcon name="AuditOutlined" />}
                   onClick={() => navigate('/admin/audit-logs')}
-                  style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                  className="console-text-align-left"
                 >
                   Audit Logs
                 </Button>
@@ -940,10 +905,10 @@ export const SettingsRoute = () => {
           ADMIN-ONLY SECTION
           ================================================================ */}
       {isAdmin && (
-        <div style={{ marginTop: spacingToNumber(spacing[8]) }}>
+        <div className="console-margin-top-8">
           <Divider>
             <Space>
-              <WarningOutlined style={{ color: token.colorWarning }} />
+              <GatewayIcon name="WarningOutlined" className="console-text-warning" />
               <Text type="secondary">Platform Admin Settings</Text>
             </Space>
           </Divider>
@@ -951,16 +916,16 @@ export const SettingsRoute = () => {
           <Row gutter={spacingToNumber(spacing[5])}>
             <Col xs={24} lg={12}>
               <Card title="Organization Scope" style={cardStyle}>
-                <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+                <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
                   <Text type="secondary">
                     Switch the data view context to any organization, or start an impersonation session as that org's
                     admin.
                   </Text>
                   <div>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                    <Text type="secondary" className="console-type-caption">
                       Current org context
                     </Text>
-                    <div style={{ fontFamily: token.fontFamilyCode, fontWeight: 600, marginTop: 2 }}>
+                    <div className="console-font-mono console-font-weight-semibold console-margin-top-1">
                       {orgId || 'None'}
                     </div>
                   </div>
@@ -972,7 +937,7 @@ export const SettingsRoute = () => {
                       label: org.name ? `${org.name} (${org.orgId})` : `Org ${org.orgId}`,
                       value: org.orgId,
                     }))}
-                    style={{ width: '100%' }}
+                    className="console-width-full"
                     showSearch
                     optionFilterProp="label"
                   />
@@ -980,7 +945,7 @@ export const SettingsRoute = () => {
                     placeholder="Or type an org ID"
                     value={adminImpersonateOrgId ?? undefined}
                     onChange={(v) => setAdminImpersonateOrgId(Number(v || 0))}
-                    style={{ width: '100%' }}
+                    className="console-width-full"
                   />
                   <Space wrap>
                     <Button
@@ -1027,17 +992,17 @@ export const SettingsRoute = () => {
               </Card>
 
               <Card title="Global UI Config" style={{ ...cardStyle, ...mt }}>
-                <Paragraph type="secondary" style={{ marginBottom: 8 }}>
+                <Paragraph type="secondary" className="console-margin-bottom-2">
                   Changes apply to all organizations. Must be valid JSON.
                 </Paragraph>
                 <Input.TextArea
                   value={adminUiConfigText}
                   onChange={(e) => setAdminUiConfigText(e.target.value)}
                   rows={12}
-                  style={{ fontFamily: token.fontFamilyCode }}
+                  className="console-font-mono"
                   disabled={!adminUiConfigEditable}
                 />
-                <Space style={{ marginTop: 12 }}>
+                <Space className="console-margin-top-3">
                   <Button onClick={() => setAdminUiConfigEditable((v) => !v)}>
                     {adminUiConfigEditable ? 'Lock' : 'Unlock editing'}
                   </Button>
@@ -1056,14 +1021,14 @@ export const SettingsRoute = () => {
                         Modal.confirm({
                           title: 'Apply global UI config?',
                           content: (
-                            <div style={{ maxHeight: 240, overflow: 'auto' }}>
+                            <div className="console-scroll-max-height-60">
                               {changes.map((c) => (
-                                <div key={c.key} style={{ marginBottom: 12 }}>
+                                <div key={c.key} className="console-margin-bottom-3">
                                   <Text strong>{c.key}</Text>
-                                  <pre style={{ fontSize: 12, margin: '4px 0', whiteSpace: 'pre-wrap' }}>
+                                  <pre className="console-code-caption-margin-y-1-pre-wrap">
                                     {JSON.stringify(c.before, null, 2)}
                                   </pre>
-                                  <pre style={{ fontSize: 12, margin: 0, whiteSpace: 'pre-wrap' }}>
+                                  <pre className="console-code-caption-reset-wrap">
                                     {JSON.stringify(c.after, null, 2)}
                                   </pre>
                                 </div>
@@ -1094,8 +1059,12 @@ export const SettingsRoute = () => {
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card title="System Config" style={cardStyle} extra={<Tag color="error">Requires restart</Tag>}>
-                <Paragraph type="secondary" style={{ marginBottom: 8 }}>
+              <Card
+                title="System Config"
+                style={cardStyle}
+                extra={<StatusBadge label="Requires restart" variant="warning" />}
+              >
+                <Paragraph type="secondary" className="console-margin-bottom-2">
                   Only safe fields are exposed here. Changes are written to <Text code>config.json</Text> and take
                   effect after a backend restart.
                 </Paragraph>
@@ -1103,10 +1072,10 @@ export const SettingsRoute = () => {
                   value={adminSystemConfigText}
                   onChange={(e) => setAdminSystemConfigText(e.target.value)}
                   rows={10}
-                  style={{ fontFamily: token.fontFamilyCode }}
+                  className="console-font-mono"
                   disabled={!adminSystemConfigEditable}
                 />
-                <Space style={{ marginTop: 12 }}>
+                <Space className="console-margin-top-3">
                   <Button onClick={() => setAdminSystemConfigEditable((v) => !v)}>
                     {adminSystemConfigEditable ? 'Lock' : 'Unlock editing'}
                   </Button>
@@ -1125,14 +1094,14 @@ export const SettingsRoute = () => {
                         Modal.confirm({
                           title: 'Apply system config changes?',
                           content: (
-                            <div style={{ maxHeight: 240, overflow: 'auto' }}>
+                            <div className="console-scroll-max-height-60">
                               {changes.map((c) => (
-                                <div key={c.key} style={{ marginBottom: 12 }}>
+                                <div key={c.key} className="console-margin-bottom-3">
                                   <Text strong>{c.key}</Text>
-                                  <pre style={{ fontSize: 12, margin: '4px 0', whiteSpace: 'pre-wrap' }}>
+                                  <pre className="console-code-caption-margin-y-1-pre-wrap">
                                     {JSON.stringify(c.before, null, 2)}
                                   </pre>
-                                  <pre style={{ fontSize: 12, margin: 0, whiteSpace: 'pre-wrap' }}>
+                                  <pre className="console-code-caption-reset-wrap">
                                     {JSON.stringify(c.after, null, 2)}
                                   </pre>
                                 </div>
@@ -1164,6 +1133,6 @@ export const SettingsRoute = () => {
           </Row>
         </div>
       )}
-    </div>
+    </PageTemplate>
   );
 };

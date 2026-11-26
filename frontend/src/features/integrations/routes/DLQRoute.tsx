@@ -1,66 +1,20 @@
-import { useState } from 'react';
-import { Card, Typography, Space, Alert } from 'antd';
-import { WarningOutlined } from '@ant-design/icons';
 import { DLQManagement } from '../components/DLQManagement';
-import { useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import { PageHeader } from '../../../components/common/PageHeader';
-
-const { Paragraph } = Typography;
+import { PageTemplate } from '../../../components/common/PageTemplate';
 
 export const DLQRoute = () => {
-  const { spacing } = useDesignTokens();
-  const [infoAlertDismissed, setInfoAlertDismissed] = useState(
-    () => sessionStorage.getItem('dlq-info-dismissed') === 'true'
-  );
-
-  const handleDismissInfo = () => {
-    sessionStorage.setItem('dlq-info-dismissed', 'true');
-    setInfoAlertDismissed(true);
-  };
-
   return (
-    <div className="dlq-page" style={{ width: '100%', maxWidth: '100%', margin: '0 auto' }}>
-      <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
+    <PageTemplate
+      className="dlq-workspace"
+      header={
         <PageHeader
-          title="Dead Letter Queue (DLQ)"
-          description="Manage failed integration deliveries. Review errors, retry failed messages, or abandon entries that cannot be processed."
+          title="Dead letter queue"
+          description="Review failed deliveries, inspect the trace, and choose a safe recovery action."
           compact
         />
-
-        {/* Info Alert — dismissed state persisted in sessionStorage so it doesn't reopen on every navigation */}
-        {!infoAlertDismissed && (
-          <Alert
-            type="info"
-            showIcon
-            icon={<WarningOutlined />}
-            message="About the Dead Letter Queue"
-            description={
-              <div>
-                <p style={{ marginBottom: 8 }}>
-                  Failed integration deliveries are automatically added to the DLQ for retry. The system will:
-                </p>
-                <ul style={{ marginBottom: 8, paddingLeft: 20 }}>
-                  <li>Automatically retry failed deliveries using exponential backoff</li>
-                  <li>Categorize errors (timeout, network, server error, etc.)</li>
-                  <li>Abandon entries that exceed the maximum retry count</li>
-                  <li>Track resolution history for audit purposes</li>
-                </ul>
-                <p style={{ marginBottom: 0 }}>
-                  You can manually retry or abandon entries at any time. Bulk operations are available for managing multiple entries.
-                </p>
-              </div>
-            }
-            closable
-            onClose={handleDismissInfo}
-            style={{ marginBottom: spacing[2], maxWidth: '100%' }}
-          />
-        )}
-
-        {/* DLQ Management Component */}
-        <Card size="small" className="panel">
-          <DLQManagement />
-        </Card>
-      </Space>
-    </div>
+      }
+    >
+      <DLQManagement />
+    </PageTemplate>
   );
 };

@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { Modal, Upload, Button, Progress, Alert, Space, Tabs, Input, message, Checkbox } from 'antd';
-import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
-import type { UploadFile } from 'antd/es/upload/interface';
+import { Modal, Upload, Progress, Space, Input, message, Checkbox } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import type { UploadFile } from "@/components/common/LegacyAntdControls";
 import { bulkImportEvents, bulkImportEventsJSON, downloadImportTemplate } from '../../../services/api';
+import { cssVar } from '../../../design-system/utils';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface ImportResult {
   success: boolean;
@@ -67,11 +71,7 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
           return;
         }
 
-        data = await bulkImportEvents(
-          fileList[0].originFileObj as File,
-          validateOnly,
-          continueOnError
-        );
+        data = await bulkImportEvents(fileList[0].originFileObj as File, validateOnly, continueOnError);
       } else {
         if (!jsonInput.trim()) {
           message.error('Please enter JSON data to import');
@@ -146,12 +146,7 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
         <Button key="close" onClick={handleClose} disabled={importing}>
           Close
         </Button>,
-        <Button
-          key="validate"
-          onClick={() => handleImport(true)}
-          disabled={importing}
-          loading={importing}
-        >
+        <Button key="validate" onClick={() => handleImport(true)} disabled={importing} loading={importing}>
           Validate Only
         </Button>,
         <Button
@@ -165,80 +160,92 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
         </Button>,
       ]}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Alert
-          message="Import up to 1000 events at once"
+      <Space direction="vertical" className="console-width-full" size="large">
+        <Banner
+          title="Import up to 1000 events at once"
           description="Events will be processed through existing OUTBOUND integrations automatically. Supported formats: CSV, Excel (XLSX/XLS), JSON."
-          type="info"
-          showIcon
+          status="info"
         />
 
-        <Tabs
-          activeKey={importMode}
+        <TabList
+          role="tablist"
+          aria-label="Import input format"
+          value={importMode}
           onChange={(key) => {
             setImportMode(key as 'file' | 'json');
             setResult(null);
           }}
-          items={[
-            {
-              key: 'file',
-              label: 'File Upload',
-              children: (
-                <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                  <Upload
-                    maxCount={1}
-                    fileList={fileList}
-                    onChange={({ fileList: newFileList }) => {
-                      setFileList(newFileList);
-                      setResult(null);
-                    }}
-                    beforeUpload={() => false}
-                    accept=".csv,.xlsx,.xls,.json"
-                    onRemove={() => {
-                      setFileList([]);
-                      setResult(null);
-                    }}
-                  >
-                    <Button icon={<UploadOutlined />}>Select File (CSV, Excel, JSON)</Button>
-                  </Upload>
+          hasDivider
+        >
+          <Tab id="file-upload-tab" value="file" label="File Upload" panelId="file-upload-panel" />
+          <Tab id="json-input-tab" value="json" label="JSON Input" panelId="json-input-panel" />
+        </TabList>
 
-                  <div>
-                    <strong>Download Templates:</strong>
-                    <Space style={{ marginLeft: 12 }}>
-                      <Button
-                        size="small"
-                        icon={<DownloadOutlined />}
-                        onClick={() => handleDownloadTemplate('xlsx')}
-                      >
-                        Excel
-                      </Button>
-                      <Button
-                        size="small"
-                        icon={<DownloadOutlined />}
-                        onClick={() => handleDownloadTemplate('csv')}
-                      >
-                        CSV
-                      </Button>
-                      <Button
-                        size="small"
-                        icon={<DownloadOutlined />}
-                        onClick={() => handleDownloadTemplate('json')}
-                      >
-                        JSON
-                      </Button>
-                    </Space>
-                  </div>
-                </Space>
-              ),
-            },
-            {
-              key: 'json',
-              label: 'JSON Input',
-              children: (
-                <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                  <Input.TextArea
-                    rows={12}
-                    placeholder={`Paste JSON array or object with events array:
+        <div
+          id="file-upload-panel"
+          role="tabpanel"
+          aria-labelledby="file-upload-tab"
+          hidden={importMode !== 'file'}
+          tabIndex={0}
+        >
+          <Space direction="vertical" className="console-width-full" size="middle">
+            <Upload
+              maxCount={1}
+              fileList={fileList}
+              onChange={({ fileList: newFileList }) => {
+                setFileList(newFileList);
+                setResult(null);
+              }}
+              beforeUpload={() => false}
+              accept=".csv,.xlsx,.xls,.json"
+              onRemove={() => {
+                setFileList([]);
+                setResult(null);
+              }}
+            >
+              <Button icon={<GatewayIcon name="UploadOutlined" />}>Select File (CSV, Excel, JSON)</Button>
+            </Upload>
+
+            <div>
+              <strong>Download Templates:</strong>
+              <Space className="ui-extracted-6d1808fc27">
+                <Button
+                  size="small"
+                  icon={<GatewayIcon name="DownloadOutlined" />}
+                  onClick={() => handleDownloadTemplate('xlsx')}
+                >
+                  Excel
+                </Button>
+                <Button
+                  size="small"
+                  icon={<GatewayIcon name="DownloadOutlined" />}
+                  onClick={() => handleDownloadTemplate('csv')}
+                >
+                  CSV
+                </Button>
+                <Button
+                  size="small"
+                  icon={<GatewayIcon name="DownloadOutlined" />}
+                  onClick={() => handleDownloadTemplate('json')}
+                >
+                  JSON
+                </Button>
+              </Space>
+            </div>
+          </Space>
+        </div>
+
+        <div
+          id="json-input-panel"
+          role="tabpanel"
+          aria-labelledby="json-input-tab"
+          hidden={importMode !== 'json'}
+          tabIndex={0}
+        >
+          <Space direction="vertical" className="console-width-full" size="middle">
+            <Input.TextArea
+              rows={12}
+              placeholder={`Paste JSON array or object with events array:
 [
   {
     "eventType": "APPOINTMENT_SCHEDULED",
@@ -252,72 +259,75 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
     "sourceId": "optional-id"
   }
 ]`}
-                    value={jsonInput}
-                    onChange={(e) => {
-                      setJsonInput(e.target.value);
-                      setResult(null);
-                    }}
-                    style={{ fontFamily: 'monospace', fontSize: 12 }}
-                  />
+              value={jsonInput}
+              onChange={(e) => {
+                setJsonInput(e.target.value);
+                setResult(null);
+              }}
+              className="console-mono-caption"
+            />
 
-                  <Button
-                    size="small"
-                    icon={<DownloadOutlined />}
-                    onClick={() => handleDownloadTemplate('json')}
-                  >
-                    Download JSON Template
-                  </Button>
-                </Space>
-              ),
-            },
-          ]}
-        />
+            <Button
+              size="small"
+              icon={<GatewayIcon name="DownloadOutlined" />}
+              onClick={() => handleDownloadTemplate('json')}
+            >
+              Download JSON Template
+            </Button>
+          </Space>
+        </div>
 
-        <Checkbox
-          checked={continueOnError}
-          onChange={(e) => setContinueOnError(e.target.checked)}
-        >
+        <Checkbox checked={continueOnError} onChange={(e) => setContinueOnError(e.target.checked)}>
           Continue on error (import valid events even if some fail)
         </Checkbox>
 
         {importing && (
           <div>
             <Progress percent={100} status="active" />
-            <div style={{ textAlign: 'center', marginTop: 8, color: '#666' }}>
+            <div className="ui-extracted-e22abc11d6">
               Processing import...
             </div>
           </div>
         )}
 
         {result && (
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <Alert
-              type={result.success ? 'success' : result.summary.successful > 0 ? 'warning' : 'error'}
-              message={`Import ${result.summary.failed === 0 && result.summary.duplicates === 0 ? 'Successful' : 'Completed with Issues'}`}
+          <Space direction="vertical" className="console-width-full" size="middle">
+            <Banner
+              status={result.success ? 'success' : result.summary.successful > 0 ? 'warning' : 'error'}
+              title={`Import ${result.summary.failed === 0 && result.summary.duplicates === 0 ? 'Successful' : 'Completed with Issues'}`}
               description={
-                <div style={{ fontSize: 13 }}>
-                  <div><strong>Total:</strong> {result.summary.total}</div>
-                  <div style={{ color: '#52c41a' }}><strong>Successful:</strong> {result.summary.successful}</div>
-                  <div style={{ color: '#faad14' }}><strong>Duplicates:</strong> {result.summary.duplicates}</div>
-                  <div style={{ color: '#ff4d4f' }}><strong>Failed:</strong> {result.summary.failed}</div>
+                <div className="console-type-body">
+                  <div>
+                    <strong>Total:</strong> {result.summary.total}
+                  </div>
+                  <div className="console-text-success">
+                    <strong>Successful:</strong> {result.summary.successful}
+                  </div>
+                  <div style={{ color: cssVar.warning.text }}>
+                    <strong>Duplicates:</strong> {result.summary.duplicates}
+                  </div>
+                  <div className="console-text-error">
+                    <strong>Failed:</strong> {result.summary.failed}
+                  </div>
                 </div>
               }
-              showIcon
             />
 
             {result.parseErrors && result.parseErrors.length > 0 && (
-              <Alert
-                type="warning"
-                message={`${result.parseErrors.length} Parse Errors`}
+              <Banner
+                status="warning"
+                title={`${result.parseErrors.length} Parse Errors`}
                 description={
-                  <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
+                  <div
+                    className="ui-extracted-85050fcaa5"
+                  >
                     {result.parseErrors.slice(0, 10).map((err, idx) => (
-                      <div key={idx} style={{ marginBottom: 4 }}>
+                      <div key={idx} className="console-margin-bottom-1">
                         <strong>Row {err.row}:</strong> {err.error}
                       </div>
                     ))}
                     {result.parseErrors.length > 10 && (
-                      <div style={{ marginTop: 8, fontStyle: 'italic' }}>
+                      <div className="ui-extracted-f40f2d91e4">
                         ... and {result.parseErrors.length - 10} more parse errors
                       </div>
                     )}
@@ -327,18 +337,20 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
             )}
 
             {result.results.failed.length > 0 && (
-              <Alert
-                type="error"
-                message={`${result.results.failed.length} Validation Failures`}
+              <Banner
+                status="error"
+                title={`${result.results.failed.length} Validation Failures`}
                 description={
-                  <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
+                  <div
+                    className="ui-extracted-85050fcaa5"
+                  >
                     {result.results.failed.slice(0, 10).map((err, idx) => (
-                      <div key={idx} style={{ marginBottom: 4 }}>
+                      <div key={idx} className="console-margin-bottom-1">
                         <strong>Event {err.index + 1}</strong> ({err.eventType || 'unknown'}): {err.error}
                       </div>
                     ))}
                     {result.results.failed.length > 10 && (
-                      <div style={{ marginTop: 8, fontStyle: 'italic' }}>
+                      <div className="ui-extracted-f40f2d91e4">
                         ... and {result.results.failed.length - 10} more validation errors
                       </div>
                     )}
@@ -348,11 +360,11 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
             )}
 
             {result.results.duplicates.length > 0 && (
-              <Alert
-                type="warning"
-                message={`${result.results.duplicates.length} Duplicate Events Skipped`}
+              <Banner
+                status="warning"
+                title={`${result.results.duplicates.length} Duplicate Events Skipped`}
                 description={
-                  <div style={{ maxHeight: 150, overflow: 'auto', fontSize: 12 }}>
+                  <div className="ui-extracted-17a1ad90e6">
                     Events with duplicate eventKey were skipped to avoid reprocessing.
                   </div>
                 }
@@ -360,9 +372,9 @@ export const BulkImportModal = ({ open, onClose, onSuccess }: BulkImportModalPro
             )}
 
             {result.summary.successful > 0 && result.summary.failed === 0 && result.summary.duplicates === 0 && (
-              <Alert
-                type="success"
-                message="All events imported successfully"
+              <Banner
+                status="success"
+                title="All events imported successfully"
                 description="Events are now being processed through OUTBOUND integrations."
               />
             )}

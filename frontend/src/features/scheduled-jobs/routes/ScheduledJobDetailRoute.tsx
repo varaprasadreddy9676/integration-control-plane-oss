@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,48 +9,24 @@ import {
   Select,
   Card,
   Space,
-  Button,
   Radio,
   Divider,
-  Alert,
   message,
-  Tabs,
-  Tag,
-  Typography,
   Collapse,
   Modal,
   Spin,
   Segmented,
-} from 'antd';
-import {
-  SaveOutlined,
-  PlayCircleOutlined,
-  DatabaseOutlined,
-  ApiOutlined,
-  CodeOutlined,
-  LockOutlined,
-  ThunderboltOutlined,
-  ClockCircleOutlined,
-  HistoryOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
-  LoadingOutlined,
-  ReloadOutlined,
-  CheckCircleOutlined,
-  ExperimentOutlined,
-  CloseCircleOutlined,
-  CopyOutlined,
-  InfoCircleOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-  SyncOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import Editor from '@monaco-editor/react';
 import { IntegrationHistoryButton } from '../../integration-history';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { RetainedTabs, type RetainedTabItem } from '../../../components/common/RetainedTabs';
 import { InlineHint } from '../../../components/common/InlineHint';
 import { CronBuilder } from '../components/CronBuilder';
-import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { cssVar, editorFontSize, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { useThemeMode } from '../../../app/theme-provider';
 import {
   getScheduledJobById,
   createScheduledJob,
@@ -66,14 +43,17 @@ import { copyTextToClipboard } from '../../../utils/clipboard';
 import { AuthenticationFields } from '../../../shared/integration-forms';
 import { useAuth } from '../../../app/auth-context';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge, type StatusBadgeVariant } from '../../../components/common/StatusBadge';
+import { Banner } from '@astryxdesign/core/Banner';
 
 const { TextArea } = Input;
 const { Text } = Typography;
 
 const DATA_SOURCE_TYPES = [
-  { value: 'SQL', label: 'SQL Query', icon: <DatabaseOutlined /> },
-  { value: 'MONGODB', label: 'MongoDB Aggregation', icon: <DatabaseOutlined /> },
-  { value: 'API', label: 'Internal API', icon: <ApiOutlined /> },
+  { value: 'SQL', label: 'SQL Query', icon: <GatewayIcon name="DatabaseOutlined" /> },
+  { value: 'MONGODB', label: 'MongoDB Aggregation', icon: <GatewayIcon name="DatabaseOutlined" /> },
+  { value: 'API', label: 'Internal API', icon: <GatewayIcon name="ApiOutlined" /> },
 ];
 
 type DestinationType = 'HTTP_API' | 'INTERNAL_EVENT' | 'SQL_WRITE' | 'MONGODB_WRITE';
@@ -157,6 +137,7 @@ export const ScheduledJobDetailRoute = () => {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { spacing, token } = useDesignTokens();
+  const { mode } = useThemeMode();
   const colors = cssVar.legacy;
   const [form] = Form.useForm();
   // Script jobs in particular hold a lot of typed-in work (the script body,
@@ -657,10 +638,10 @@ export const ScheduledJobDetailRoute = () => {
 
   const renderEnvironmentVariables = () => (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[2] }}>
+      <div className="console-row-between-center-spaced">
         <div>
           <Text strong>Environment Variables</Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+          <Text type="secondary" className="console-caption-block">
             Saved values are encrypted and exposed to the script as {isNodeProcess ? 'process.env.KEY' : 'env.KEY'}.
             Click the eye icon to see and edit a saved value (Super Admin only).
           </Text>
@@ -669,21 +650,13 @@ export const ScheduledJobDetailRoute = () => {
 
       <Form.List name="environmentVariables">
         {(fields, { add, remove }) => (
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space direction="vertical" size="small" className="console-width-full">
             {fields.map(({ key, name, ...restField }) => {
               const row = form.getFieldValue(['environmentVariables', name]) || {};
               const isFetched = fetchedEnvVars[name];
               const isRevealing = revealingEnvVar === name;
               return (
-                <div
-                  key={key}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(180px, 1fr) minmax(220px, 2fr) 40px',
-                    gap: spacing[2],
-                    alignItems: 'start',
-                  }}
-                >
+                <div key={key} className="script-env-var-row">
                   <Form.Item {...restField} name={[name, 'secretKey']} hidden>
                     <Input />
                   </Form.Item>
@@ -716,7 +689,13 @@ export const ScheduledJobDetailRoute = () => {
                       // and every click on a value the user is actively typing — is
                       // just the normal password show/hide toggle.
                       iconRender={(visible) =>
-                        isRevealing ? <LoadingOutlined /> : visible ? <EyeOutlined /> : <EyeInvisibleOutlined />
+                        isRevealing ? (
+                          <GatewayIcon name="LoadingOutlined" />
+                        ) : visible ? (
+                          <GatewayIcon name="EyeOutlined" />
+                        ) : (
+                          <GatewayIcon name="EyeInvisibleOutlined" />
+                        )
                       }
                       visibilityToggle={{
                         visible: !!visibleEnvVars[name],
@@ -736,7 +715,7 @@ export const ScheduledJobDetailRoute = () => {
                   </Form.Item>
                   <Button
                     aria-label="Remove environment variable"
-                    icon={<DeleteOutlined />}
+                    icon={<GatewayIcon name="DeleteOutlined" />}
                     onClick={() => remove(name)}
                     danger
                   />
@@ -744,7 +723,11 @@ export const ScheduledJobDetailRoute = () => {
               );
             })}
 
-            <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ key: '', value: '' })}>
+            <Button
+              type="dashed"
+              icon={<GatewayIcon name="PlusOutlined" />}
+              onClick={() => add({ key: '', value: '' })}
+            >
               Add Variable
             </Button>
           </Space>
@@ -753,11 +736,11 @@ export const ScheduledJobDetailRoute = () => {
     </div>
   );
 
-  const depsStatusTag: Record<string, { color: string; label: string }> = {
-    pending: { color: 'default', label: 'Not installed yet' },
-    installing: { color: 'processing', label: 'Installing…' },
-    installed: { color: 'success', label: 'Installed' },
-    failed: { color: 'error', label: 'Failed' },
+  const depsStatusTag: Record<string, { variant: StatusBadgeVariant; label: string }> = {
+    pending: { variant: 'neutral', label: 'Not installed yet' },
+    installing: { variant: 'info', label: 'Installing' },
+    installed: { variant: 'success', label: 'Installed' },
+    failed: { variant: 'error', label: 'Failed' },
   };
 
   const renderExecutionMode = () => (
@@ -770,7 +753,7 @@ export const ScheduledJobDetailRoute = () => {
           { label: 'Node.js Process', value: 'NODE_PROCESS' },
         ]}
       />
-      <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: spacing[2] }}>
+      <Text type="secondary" className="console-display-block console-type-caption console-margin-top-2">
         {isNodeProcess
           ? 'No code-level restrictions — full require() access, filesystem, and network, and SQL writes if you use your own driver. Only isolated at the OS-process level (a crash or timeout only kills this job, not the gateway). Use for scripts you trust with real write access.'
           : 'Runs inside a restricted JS sandbox with managed helpers (mysql, email, http) — no require(), no filesystem, no shell access, and the mysql helper only allows read-only SELECT/WITH queries. Safer default for report-style scripts.'}
@@ -783,22 +766,23 @@ export const ScheduledJobDetailRoute = () => {
 
     return (
       <div>
-        <div
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[2] }}
-        >
+        <div className="console-row-between-center-spaced">
           <div>
             <Text strong>npm Dependencies</Text>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            <Text type="secondary" className="console-caption-block">
               Declared packages are installed once and available via require() in your script.
             </Text>
           </div>
           {!isCreate && (
             <Space>
-              {status && <Tag color={status.color}>{status.label}</Tag>}
+              {status && <StatusBadge status={(job as any).depsStatus} label={status.label} variant={status.variant} />}
               <Button
                 size="small"
                 icon={
-                  <SyncOutlined spin={installDepsMutation.isPending || (job as any)?.depsStatus === 'installing'} />
+                  <GatewayIcon
+                    name="SyncOutlined"
+                    spin={installDepsMutation.isPending || (job as any)?.depsStatus === 'installing'}
+                  />
                 }
                 onClick={() => installDepsMutation.mutate()}
                 loading={installDepsMutation.isPending}
@@ -812,24 +796,24 @@ export const ScheduledJobDetailRoute = () => {
         {isCreate && <InlineHint>Dependencies install automatically the first time you save this job.</InlineHint>}
 
         {Array.isArray((job as any)?.depsValidation) && (job as any).depsValidation.length > 0 && (
-          <div style={{ marginBottom: spacing[2] }}>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: spacing[1] }}>
+          <div className="console-margin-bottom-2">
+            <Text type="secondary" className="console-caption-block-margin-bottom-1">
               Checked against this server's Node.js runtime
               {(job as any)?.depsNodeVersion ? ` (${(job as any).depsNodeVersion})` : ''}:
             </Text>
-            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+            <Space direction="vertical" size={2} className="console-width-full">
               {(job as any).depsValidation.map((dep: { name: string; ok: boolean; error: string | null }) => (
                 <Space key={dep.name} size={6} align="start">
                   {dep.ok ? (
-                    <CheckCircleOutlined style={{ color: cssVar.legacy.success[600] }} />
+                    <GatewayIcon name="CheckCircleOutlined" className="console-text-success" />
                   ) : (
-                    <CloseCircleOutlined style={{ color: cssVar.legacy.error[600] }} />
+                    <GatewayIcon name="CloseCircleOutlined" className="console-text-error" />
                   )}
-                  <Text code style={{ fontSize: 12 }}>
+                  <Text code className="console-type-caption">
                     {dep.name}
                   </Text>
                   {!dep.ok && dep.error && (
-                    <Text type="danger" style={{ fontSize: 12 }}>
+                    <Text type="danger" className="console-type-caption">
                       {dep.error}
                     </Text>
                   )}
@@ -840,39 +824,18 @@ export const ScheduledJobDetailRoute = () => {
         )}
 
         {(job as any)?.depsStatus === 'failed' && (job as any)?.depsInstallLog && (
-          <Collapse size="small" style={{ marginBottom: spacing[2] }}>
+          <Collapse size="small" className="console-margin-bottom-2">
             <Collapse.Panel header={<Text type="danger">View install log</Text>} key="install-log">
-              <pre
-                style={{
-                  background: '#1e1e1e',
-                  color: '#f87171',
-                  padding: spacing[2],
-                  borderRadius: token.borderRadiusLG,
-                  fontSize: 11,
-                  maxHeight: 200,
-                  overflow: 'auto',
-                  margin: 0,
-                }}
-              >
-                {(job as any).depsInstallLog}
-              </pre>
+              <pre className="console-script-dependency-error-log">{(job as any).depsInstallLog}</pre>
             </Collapse.Panel>
           </Collapse>
         )}
 
         <Form.List name="dependencies">
           {(fields, { add, remove }) => (
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space direction="vertical" size="small" className="console-width-full">
               {fields.map(({ key, name, ...restField }) => (
-                <div
-                  key={key}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(160px, 1fr) minmax(120px, 1fr) 40px',
-                    gap: spacing[2],
-                    alignItems: 'start',
-                  }}
-                >
+                <div key={key} className="script-dependency-row">
                   <Form.Item
                     {...restField}
                     name={[name, 'name']}
@@ -885,14 +848,18 @@ export const ScheduledJobDetailRoute = () => {
                   </Form.Item>
                   <Button
                     aria-label="Remove dependency"
-                    icon={<DeleteOutlined />}
+                    icon={<GatewayIcon name="DeleteOutlined" />}
                     onClick={() => remove(name)}
                     danger
                   />
                 </div>
               ))}
 
-              <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ name: '', version: 'latest' })}>
+              <Button
+                type="dashed"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => add({ name: '', version: 'latest' })}
+              >
                 Add Package
               </Button>
             </Space>
@@ -915,7 +882,7 @@ export const ScheduledJobDetailRoute = () => {
         return (
           <>
             <div>
-              <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+              <Text strong className="console-block-margin-bottom-2">
                 Connection Method
               </Text>
               <Radio.Group
@@ -946,7 +913,7 @@ export const ScheduledJobDetailRoute = () => {
                     <Input size="middle" placeholder="3306" type="number" />
                   </Form.Item>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing[3] }}>
+                <div className="console-grid-two-gap-3">
                   <Form.Item label="Username" name="sqlUsername">
                     <Input size="middle" placeholder="db_user" />
                   </Form.Item>
@@ -977,7 +944,7 @@ export const ScheduledJobDetailRoute = () => {
               <Editor
                 height="200px"
                 language="sql"
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
                 value={sqlQuery}
                 onChange={(value) => {
                   setSqlQuery(value || '');
@@ -985,7 +952,7 @@ export const ScheduledJobDetailRoute = () => {
                 }}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   lineNumbers: 'on',
                   wordWrap: 'on',
                   automaticLayout: true,
@@ -1007,7 +974,7 @@ export const ScheduledJobDetailRoute = () => {
             >
               <Input size="middle" placeholder="mongodb://localhost:27017" />
             </Form.Item>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing[3] }}>
+            <div className="console-grid-two-gap-3">
               <Form.Item
                 label="Database Name"
                 name="mongoDatabase"
@@ -1044,7 +1011,7 @@ export const ScheduledJobDetailRoute = () => {
               <Editor
                 height="200px"
                 language="json"
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
                 value={mongoPipeline}
                 onChange={(value) => {
                   setMongoPipeline(value || '');
@@ -1052,7 +1019,7 @@ export const ScheduledJobDetailRoute = () => {
                 }}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   automaticLayout: true,
                 }}
               />
@@ -1066,7 +1033,7 @@ export const ScheduledJobDetailRoute = () => {
             <Form.Item label="API URL" name="apiUrl" rules={[{ required: true, message: 'API URL is required' }]}>
               <Input size="middle" placeholder="http://localhost:4000/api/v1/analytics" />
             </Form.Item>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing[3] }}>
+            <div className="console-grid-two-gap-3">
               <Form.Item label="HTTP Method" name="apiMethod" initialValue="GET">
                 <Select size="middle">
                   <Select.Option value="GET">GET</Select.Option>
@@ -1096,7 +1063,7 @@ export const ScheduledJobDetailRoute = () => {
               <Editor
                 height="100px"
                 language="json"
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
                 value={apiHeaders}
                 onChange={(value) => {
                   setApiHeaders(value || '');
@@ -1104,7 +1071,7 @@ export const ScheduledJobDetailRoute = () => {
                 }}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   automaticLayout: true,
                 }}
               />
@@ -1130,7 +1097,7 @@ export const ScheduledJobDetailRoute = () => {
               <Editor
                 height="150px"
                 language="json"
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
                 value={apiBody}
                 onChange={(value) => {
                   setApiBody(value || '');
@@ -1138,7 +1105,7 @@ export const ScheduledJobDetailRoute = () => {
                 }}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   automaticLayout: true,
                 }}
               />
@@ -1149,51 +1116,28 @@ export const ScheduledJobDetailRoute = () => {
   };
 
   return (
-    <div>
-      <PageHeader
-        title={isCreate ? 'Create Scheduled Job' : job?.name || passedTitle || 'Scheduled Job'}
-        morphTitle={!isCreate}
-        breadcrumb={[
-          { label: 'Configuration', path: '/integrations' },
-          { label: 'Scheduled Jobs', path: `/scheduled-jobs?orgId=${orgId}` },
-          { label: isCreate ? 'New' : job?.name || 'Details' },
-        ]}
-        dense
-        actions={
-          <IntegrationHistoryButton
-            integrationId={isCreate ? undefined : id}
-            onRestored={() => queryClient.invalidateQueries({ queryKey: ['scheduled-job', id] })}
-          />
-        }
-        statusChips={
-          !isCreate && job
-            ? [
-                {
-                  label: job.isActive ? 'Active' : 'Paused',
-                  color: job.isActive ? colors.success[600] : colors.warning[600],
-                },
-                { label: job.schedule?.type || 'CRON' },
-                ...((job as any).direction === 'SCRIPT_JOB'
-                  ? [
-                      {
-                        label: (job as any).runtime === 'NODE_PROCESS' ? 'Node.js Process' : 'Managed Sandbox',
-                        color: colors.primary[600],
-                      },
-                    ]
-                  : [
-                      { label: job.dataSource?.type || 'SQL', color: colors.primary[600] },
-                      {
-                        label:
-                          DESTINATION_TYPES.find((d) => d.value === ((job as any).destinationType || 'HTTP_API'))
-                            ?.label || 'HTTP API',
-                        color: colors.neutral[600],
-                      },
-                    ]),
-              ]
-            : undefined
-        }
-      />
-
+    <PageTemplate
+      className="scheduled-job-detail-template"
+      header={
+        <PageHeader
+          title={isCreate ? 'Create Scheduled Job' : job?.name || passedTitle || 'Scheduled Job'}
+          morphTitle={!isCreate}
+          breadcrumb={[
+            { label: 'Configuration', path: '/integrations' },
+            { label: 'Scheduled Jobs', path: `/scheduled-jobs?orgId=${orgId}` },
+            { label: isCreate ? 'New' : job?.name || 'Details' },
+          ]}
+          dense
+          actions={
+            <IntegrationHistoryButton
+              integrationId={isCreate ? undefined : id}
+              label="Change history"
+              onRestored={() => queryClient.invalidateQueries({ queryKey: ['scheduled-job', id] })}
+            />
+          }
+        />
+      }
+    >
       <Form
         form={form}
         layout="vertical"
@@ -1220,10 +1164,12 @@ export const ScheduledJobDetailRoute = () => {
           runtime: 'NODE_PROCESS',
         }}
       >
-        <Tabs
-          defaultActiveKey="basic"
-          size="middle"
-          tabBarStyle={{ marginBottom: spacing[2] }}
+        <RetainedTabs
+          key={id || 'new'}
+          ariaLabel="Scheduled job configuration"
+          idPrefix="scheduled-job"
+          initialKey="basic"
+          wrap
           items={(() => {
             // Check completion status for progressive disclosure
             const values = form.getFieldsValue();
@@ -1256,17 +1202,12 @@ export const ScheduledJobDetailRoute = () => {
             return [
               {
                 key: 'basic',
-                label: (
-                  <Space size={6}>
-                    <ThunderboltOutlined />
-                    Basic Info
-                    {basicComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-                  </Space>
-                ),
+                label: 'Basic Info',
+                icon: <GatewayIcon name="ThunderboltOutlined" />,
                 disabled: false, // First tab always enabled
                 children: (
-                  <Card style={{ marginTop: spacing[2] }} size="small">
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <Card className="console-margin-top-2" size="small">
+                    <Space direction="vertical" size="middle" className="console-width-full">
                       <Form.Item
                         label="Job Name"
                         name="name"
@@ -1313,23 +1254,18 @@ export const ScheduledJobDetailRoute = () => {
               },
               {
                 key: 'schedule',
-                label: (
-                  <Space size={6}>
-                    <ClockCircleOutlined />
-                    Schedule
-                    {scheduleComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-                  </Space>
-                ),
+                label: 'Schedule',
+                icon: <GatewayIcon name="ClockCircleOutlined" />,
                 disabled: !basicComplete, // Requires Basic Info to be complete
                 // Force this pane's Form.Items (cronExpression/intervalMs) to mount immediately so
                 // form.getFieldsValue() reflects loaded data right away — otherwise editing an existing
                 // job keeps Script/Review disabled until the user manually visits this tab once.
                 forceRender: true,
                 children: (
-                  <Card style={{ marginTop: spacing[2] }} size="small">
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <Card className="console-margin-top-2" size="small">
+                    <Space direction="vertical" size="middle" className="console-width-full">
                       <div>
-                        <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                        <Text strong className="console-block-margin-bottom-2">
                           Schedule Type
                         </Text>
                         <Radio.Group
@@ -1378,21 +1314,14 @@ export const ScheduledJobDetailRoute = () => {
                 ? [
                     {
                       key: 'datasource',
-                      label: (
-                        <Space size={6}>
-                          <DatabaseOutlined />
-                          Data Source
-                          {datasourceComplete && (
-                            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                          )}
-                        </Space>
-                      ),
+                      label: 'Data Source',
+                      icon: <GatewayIcon name="DatabaseOutlined" />,
                       disabled: !basicComplete || !scheduleComplete,
                       children: (
-                        <Card style={{ marginTop: spacing[2] }} size="small">
-                          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                        <Card className="console-margin-top-2" size="small">
+                          <Space direction="vertical" size="middle" className="console-width-full">
                             <div>
-                              <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                              <Text strong className="console-block-margin-bottom-2">
                                 Data Source Type
                               </Text>
                               <Radio.Group
@@ -1413,30 +1342,14 @@ export const ScheduledJobDetailRoute = () => {
 
                             {renderDataSourceConfig()}
 
-                            <div style={{ paddingTop: spacing[2] }}>
-                              <Alert
-                                message="Test Your Data Source"
-                                description={
-                                  <div>
-                                    <Text>Click below to validate your configuration and preview sample data.</Text>
-                                    <ul style={{ marginTop: spacing[2], marginBottom: 0, paddingLeft: spacing[4] }}>
-                                      <li>
-                                        Variables like <code>{'{{config.tenantId}}'}</code> will be substituted with
-                                        actual values
-                                      </li>
-                                      <li>Test may take up to 30 seconds for complex queries</li>
-                                      <li>Returns up to 10 sample records for preview</li>
-                                    </ul>
-                                  </div>
-                                }
-                                type="info"
-                                showIcon
-                                icon={<InfoCircleOutlined />}
-                                style={{ marginBottom: spacing[3] }}
-                              />
-                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <div className="console-padding-top-2">
+                              <InlineHint>
+                                Test with the current configuration. Variables are substituted, complex queries may take
+                                up to 30 seconds, and the preview returns up to 10 records.
+                              </InlineHint>
+                              <div className="console-flex-justify-end">
                                 <Button
-                                  icon={<ExperimentOutlined />}
+                                  icon={<GatewayIcon name="ExperimentOutlined" />}
                                   onClick={() => testDataSourceMutation.mutate()}
                                   loading={testDataSourceMutation.isPending}
                                   disabled={!canTestDataSource()}
@@ -1447,41 +1360,35 @@ export const ScheduledJobDetailRoute = () => {
                               </div>
                             </div>
 
-                            <Alert
-                              message="Variable Substitution"
-                              description={
-                                <div>
-                                  <Text>
-                                    Available variables (works in connection strings, queries, and pipelines):
-                                  </Text>
-                                  <ul style={{ marginTop: spacing[2], marginBottom: 0 }}>
-                                    <li>
-                                      <code>{'{{config.tenantId}}'}</code> - Current tenant ID
-                                    </li>
-                                    <li>
-                                      <code>{'{{date.today()}}'}</code> - Today's date (YYYY-MM-DD)
-                                    </li>
-                                    <li>
-                                      <code>{'{{date.yesterday()}}'}</code> - Yesterday's date
-                                    </li>
-                                    <li>
-                                      <code>{'{{date.todayStart()}}'}</code> - Today at 00:00:00 (ISO)
-                                    </li>
-                                    <li>
-                                      <code>{'{{date.todayEnd()}}'}</code> - Today at 23:59:59 (ISO)
-                                    </li>
-                                    <li>
-                                      <code>{'{{date.now()}}'}</code> - Current timestamp (ISO)
-                                    </li>
-                                    <li>
-                                      <code>{'{{env.VAR_NAME}}'}</code> - Environment variable
-                                    </li>
-                                  </ul>
-                                </div>
-                              }
-                              type="info"
-                              showIcon
-                            />
+                            <div>
+                              <Text strong>Available variables</Text>
+                              <Text type="secondary" className="console-display-block">
+                                Use in connection strings, queries, and pipelines.
+                              </Text>
+                              <ul className="console-margin-top-2-reset-bottom">
+                                <li>
+                                  <code>{'{{config.tenantId}}'}</code> - Current tenant ID
+                                </li>
+                                <li>
+                                  <code>{'{{date.today()}}'}</code> - Today's date (YYYY-MM-DD)
+                                </li>
+                                <li>
+                                  <code>{'{{date.yesterday()}}'}</code> - Yesterday's date
+                                </li>
+                                <li>
+                                  <code>{'{{date.todayStart()}}'}</code> - Today at 00:00:00 (ISO)
+                                </li>
+                                <li>
+                                  <code>{'{{date.todayEnd()}}'}</code> - Today at 23:59:59 (ISO)
+                                </li>
+                                <li>
+                                  <code>{'{{date.now()}}'}</code> - Current timestamp (ISO)
+                                </li>
+                                <li>
+                                  <code>{'{{env.VAR_NAME}}'}</code> - Environment variable
+                                </li>
+                              </ul>
+                            </div>
                           </Space>
                         </Card>
                       ),
@@ -1490,20 +1397,15 @@ export const ScheduledJobDetailRoute = () => {
                 : []),
               {
                 key: 'transformation',
-                label: (
-                  <Space size={6}>
-                    <CodeOutlined />
-                    {isScriptJob ? 'Script' : 'Transformation'}
-                    {transformComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-                  </Space>
-                ),
+                label: isScriptJob ? 'Script' : 'Transformation',
+                icon: <GatewayIcon name="CodeOutlined" />,
                 disabled: !basicComplete || !scheduleComplete || !datasourceComplete, // Requires Basic Info, Schedule, and Data Source to be complete
                 // Force this pane's transformScript Form.Item to mount immediately so Review & Submit's
                 // transformComplete check reflects loaded data right away instead of requiring a manual visit.
                 forceRender: true,
                 children: (
-                  <Card style={{ marginTop: spacing[2] }} size="small">
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <Card className="console-margin-top-2" size="small">
+                    <Space direction="vertical" size="middle" className="console-width-full">
                       {isScriptJob && renderExecutionMode()}
 
                       <Form.Item
@@ -1526,7 +1428,7 @@ export const ScheduledJobDetailRoute = () => {
                         <Editor
                           height="300px"
                           language="javascript"
-                          theme="vs-dark"
+                          theme={mode === 'dark' ? 'vs-dark' : 'light'}
                           value={transformScript}
                           onChange={(value) => {
                             setTransformScript(value || '');
@@ -1534,7 +1436,7 @@ export const ScheduledJobDetailRoute = () => {
                           }}
                           options={{
                             minimap: { enabled: false },
-                            fontSize: 13,
+                            fontSize: editorFontSize('body'),
                             lineNumbers: 'on',
                             wordWrap: 'on',
                             automaticLayout: true,
@@ -1546,56 +1448,47 @@ export const ScheduledJobDetailRoute = () => {
 
                       {isScriptJob && isNodeProcess && renderDependencies()}
 
-                      <Alert
-                        message={isScriptJob ? 'Available Helpers' : 'Available Context'}
-                        description={
-                          <div>
-                            <Text>{isScriptJob ? 'The script can use:' : 'The script receives:'}</Text>
-                            <ul style={{ marginTop: spacing[2], marginBottom: 0 }}>
-                              {isScriptJob ? (
-                                isNodeProcess ? (
-                                  <>
-                                    <li>
-                                      <code>require('package')</code> - Any package declared under npm Dependencies
-                                    </li>
-                                    <li>
-                                      <code>process.env.KEY</code> - Job environment variables and connection
-                                      credentials
-                                    </li>
-                                    <li>
-                                      <code>console.log</code>, <code>console.error</code> - Captured into execution
-                                      logs
-                                    </li>
-                                  </>
-                                ) : (
-                                  <>
-                                    <li>
-                                      <code>env.KEY</code> - Job environment variables
-                                    </li>
-                                    <li>
-                                      <code>http</code>, <code>mysql</code>, <code>email</code> - Managed I/O helpers
-                                    </li>
-                                    <li>
-                                      <code>date</code>, <code>report</code>, <code>log</code> - Utility helpers
-                                    </li>
-                                  </>
-                                )
-                              ) : (
-                                <>
-                                  <li>
-                                    <code>payload.data</code> - Query results (array or object)
-                                  </li>
-                                  <li>
-                                    <code>payload.metadata</code> - Job execution metadata
-                                  </li>
-                                </>
-                              )}
-                            </ul>
-                          </div>
-                        }
-                        type="info"
-                        showIcon
-                      />
+                      <div>
+                        <Text strong>{isScriptJob ? 'Available helpers' : 'Available context'}</Text>
+                        <ul className="console-margin-top-2-reset-bottom">
+                          {isScriptJob ? (
+                            isNodeProcess ? (
+                              <>
+                                <li>
+                                  <code>require('package')</code> - Any package declared under npm Dependencies
+                                </li>
+                                <li>
+                                  <code>process.env.KEY</code> - Job environment variables and connection credentials
+                                </li>
+                                <li>
+                                  <code>console.log</code>, <code>console.error</code> - Captured into execution logs
+                                </li>
+                              </>
+                            ) : (
+                              <>
+                                <li>
+                                  <code>env.KEY</code> - Job environment variables
+                                </li>
+                                <li>
+                                  <code>http</code>, <code>mysql</code>, <code>email</code> - Managed I/O helpers
+                                </li>
+                                <li>
+                                  <code>date</code>, <code>report</code>, <code>log</code> - Utility helpers
+                                </li>
+                              </>
+                            )
+                          ) : (
+                            <>
+                              <li>
+                                <code>payload.data</code> - Query results (array or object)
+                              </li>
+                              <li>
+                                <code>payload.metadata</code> - Job execution metadata
+                              </li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
                     </Space>
                   </Card>
                 ),
@@ -1604,22 +1497,15 @@ export const ScheduledJobDetailRoute = () => {
                 ? [
                     {
                       key: 'target',
-                      label: (
-                        <Space size={6}>
-                          <ApiOutlined />
-                          Destination
-                          {targetComplete && (
-                            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                          )}
-                        </Space>
-                      ),
+                      label: 'Destination',
+                      icon: <GatewayIcon name="ApiOutlined" />,
                       disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete,
                       children: (
-                        <Card style={{ marginTop: spacing[2] }} size="small">
-                          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                        <Card className="console-margin-top-2" size="small">
+                          <Space direction="vertical" size="middle" className="console-width-full">
                             {/* Destination type selector — matches Data Source Type pattern */}
                             <div>
-                              <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                              <Text strong className="console-block-margin-bottom-2">
                                 Delivery Destination
                               </Text>
                               <Radio.Group
@@ -1633,7 +1519,14 @@ export const ScheduledJobDetailRoute = () => {
                                   </Radio.Button>
                                 ))}
                               </Radio.Group>
-                              <Text type="secondary" style={{ display: 'block', marginTop: spacing[2], fontSize: 12 }}>
+                              <Text
+                                type="secondary"
+                                style={{
+                                  display: 'block',
+                                  marginTop: spacing[2],
+                                  fontSize: 'var(--console-type-caption)',
+                                }}
+                              >
                                 {DESTINATION_TYPES.find((d) => d.value === destinationType)?.description}
                               </Text>
                             </div>
@@ -1754,13 +1647,8 @@ export const ScheduledJobDetailRoute = () => {
                     },
                     {
                       key: 'auth',
-                      label: (
-                        <Space size={6}>
-                          <LockOutlined />
-                          Authentication
-                          <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                        </Space>
-                      ),
+                      label: 'Authentication',
+                      icon: <GatewayIcon name="LockOutlined" />,
                       disabled:
                         !basicComplete ||
                         !scheduleComplete ||
@@ -1768,7 +1656,7 @@ export const ScheduledJobDetailRoute = () => {
                         !transformComplete ||
                         !targetComplete,
                       children: (
-                        <Card style={{ marginTop: spacing[2] }} size="small">
+                        <Card className="console-margin-top-2" size="small">
                           {destinationType !== 'HTTP_API' ? (
                             <InlineHint>
                               Authentication not required — the selected destination type (
@@ -1793,20 +1681,13 @@ export const ScheduledJobDetailRoute = () => {
                 : []),
               {
                 key: 'review',
-                label: (
-                  <Space size={6}>
-                    <EyeOutlined />
-                    Review & Submit
-                    {basicComplete && scheduleComplete && datasourceComplete && transformComplete && targetComplete && (
-                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                    )}
-                  </Space>
-                ),
+                label: 'Review & Submit',
+                icon: <GatewayIcon name="EyeOutlined" />,
                 disabled:
                   !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete || !targetComplete, // Requires all previous tabs to be complete
                 children: (
-                  <Card style={{ marginTop: spacing[2] }} size="small">
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <Card className="console-margin-top-2" size="small">
+                    <Space direction="vertical" size="middle" className="console-width-full">
                       <Text type="secondary">
                         Please review all settings before {isCreate ? 'creating' : 'saving'} the scheduled job. You can
                         click on any tab above to make changes.
@@ -1814,38 +1695,38 @@ export const ScheduledJobDetailRoute = () => {
 
                       {/* Basic Info Summary */}
                       <div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
-                        >
-                          <ThunderboltOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                          <Text strong style={{ fontSize: 16 }}>
+                        <div className="console-flex-center-gap-2-margin-bottom-3">
+                          <GatewayIcon name="ThunderboltOutlined" className="console-title-accent" />
+                          <Text strong className="console-type-section">
                             Basic Information
                           </Text>
                         </div>
-                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                        <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Job Name:
                             </Text>
                             <Text strong>{form.getFieldValue('name') || <Text type="secondary">Not set</Text>}</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Job Type:
                             </Text>
                             <Text strong>{form.getFieldValue('type') || <Text type="secondary">Not set</Text>}</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Status:
                             </Text>
-                            <Tag color={form.getFieldValue('isActive') ? 'success' : 'default'}>
-                              {form.getFieldValue('isActive') ? 'Active' : 'Paused'}
-                            </Tag>
+                            <StatusBadge
+                              status={form.getFieldValue('isActive') ? 'ACTIVE' : 'PAUSED'}
+                              label={form.getFieldValue('isActive') ? 'Active' : 'Paused'}
+                              variant={form.getFieldValue('isActive') ? 'success' : 'neutral'}
+                            />
                           </div>
                           {form.getFieldValue('description') && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Description:
                               </Text>
                               <Text>{form.getFieldValue('description')}</Text>
@@ -1854,28 +1735,26 @@ export const ScheduledJobDetailRoute = () => {
                         </Space>
                       </div>
 
-                      <Divider style={{ margin: 0 }} />
+                      <Divider className="console-margin-none" />
 
                       {/* Schedule Summary */}
                       <div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
-                        >
-                          <ClockCircleOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                          <Text strong style={{ fontSize: 16 }}>
+                        <div className="console-flex-center-gap-2-margin-bottom-3">
+                          <GatewayIcon name="ClockCircleOutlined" className="console-title-accent" />
+                          <Text strong className="console-type-section">
                             Schedule
                           </Text>
                         </div>
-                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                        <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Schedule Type:
                             </Text>
-                            <Tag color={scheduleType === 'CRON' ? 'blue' : 'purple'}>{scheduleType}</Tag>
+                            <Text code>{scheduleType}</Text>
                           </div>
                           {scheduleType === 'CRON' && form.getFieldValue('cronExpression') && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Cron Expression:
                               </Text>
                               <Text strong>
@@ -1884,16 +1763,16 @@ export const ScheduledJobDetailRoute = () => {
                             </div>
                           )}
                           {scheduleType === 'INTERVAL' && form.getFieldValue('intervalMs') && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Interval:
                               </Text>
                               <Text strong>{form.getFieldValue('intervalMs')}ms</Text>
                             </div>
                           )}
                           {form.getFieldValue('timezone') && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Timezone:
                               </Text>
                               <Text>{form.getFieldValue('timezone')}</Text>
@@ -1904,7 +1783,7 @@ export const ScheduledJobDetailRoute = () => {
 
                       {!isScriptJob && (
                         <>
-                          <Divider style={{ margin: 0 }} />
+                          <Divider className="console-margin-none" />
 
                           {/* Data Source Summary */}
                           <div>
@@ -1916,32 +1795,22 @@ export const ScheduledJobDetailRoute = () => {
                                 marginBottom: spacing[3],
                               }}
                             >
-                              <DatabaseOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                              <Text strong style={{ fontSize: 16 }}>
+                              <GatewayIcon name="DatabaseOutlined" className="console-title-accent" />
+                              <Text strong className="console-type-section">
                                 Data Source
                               </Text>
                             </div>
-                            <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                              <div style={{ display: 'flex', gap: spacing[2] }}>
-                                <Text type="secondary" style={{ minWidth: 150 }}>
+                            <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                              <div className="console-flex-gap-2">
+                                <Text type="secondary" className="console-label-min-width">
                                   Source Type:
                                 </Text>
-                                <Tag
-                                  color={
-                                    dataSourceType === 'SQL'
-                                      ? 'blue'
-                                      : dataSourceType === 'MONGODB'
-                                        ? 'green'
-                                        : 'purple'
-                                  }
-                                >
-                                  {dataSourceType}
-                                </Tag>
+                                <Text>{dataSourceType}</Text>
                               </div>
                               {dataSourceType === 'SQL' && (
                                 <>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Connection:
                                     </Text>
                                     {sqlConnectionMode === 'FIELDS' &&
@@ -1952,7 +1821,7 @@ export const ScheduledJobDetailRoute = () => {
                                         {form.getFieldValue('sqlDatabase') || 'database'}
                                       </Text>
                                     ) : form.getFieldValue('sqlConnectionString') ? (
-                                      <Text code style={{ fontSize: '11px' }}>
+                                      <Text code className="console-type-caption">
                                         {form.getFieldValue('sqlConnectionString')?.substring(0, 30)}...
                                       </Text>
                                     ) : (
@@ -1960,8 +1829,8 @@ export const ScheduledJobDetailRoute = () => {
                                     )}
                                   </div>
                                   {form.getFieldValue('sqlQuery') && (
-                                    <div style={{ display: 'flex', gap: spacing[2] }}>
-                                      <Text type="secondary" style={{ minWidth: 150 }}>
+                                    <div className="console-flex-gap-2">
+                                      <Text type="secondary" className="console-label-min-width">
                                         SQL Query:
                                       </Text>
                                       <Text type="secondary">
@@ -1973,28 +1842,28 @@ export const ScheduledJobDetailRoute = () => {
                               )}
                               {dataSourceType === 'MONGODB' && form.getFieldValue('mongoCollection') && (
                                 <>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Connection:
                                     </Text>
-                                    <Text code style={{ fontSize: '11px' }}>
+                                    <Text code className="console-type-caption">
                                       {form.getFieldValue('mongoConnectionString')?.substring(0, 30)}...
                                     </Text>
                                   </div>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Database:
                                     </Text>
                                     <Text strong>{form.getFieldValue('mongoDatabase')}</Text>
                                   </div>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Collection:
                                     </Text>
                                     <Text strong>{form.getFieldValue('mongoCollection')}</Text>
                                   </div>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Aggregation:
                                     </Text>
                                     <Text type="secondary">
@@ -2004,8 +1873,8 @@ export const ScheduledJobDetailRoute = () => {
                                 </>
                               )}
                               {dataSourceType === 'API' && form.getFieldValue('apiUrl') && (
-                                <div style={{ display: 'flex', gap: spacing[2] }}>
-                                  <Text type="secondary" style={{ minWidth: 150 }}>
+                                <div className="console-flex-gap-2">
+                                  <Text type="secondary" className="console-label-min-width">
                                     API URL:
                                   </Text>
                                   <Text strong>{form.getFieldValue('apiUrl')}</Text>
@@ -2016,21 +1885,19 @@ export const ScheduledJobDetailRoute = () => {
                         </>
                       )}
 
-                      <Divider style={{ margin: 0 }} />
+                      <Divider className="console-margin-none" />
 
                       {/* Transformation Summary */}
                       <div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
-                        >
-                          <CodeOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                          <Text strong style={{ fontSize: 16 }}>
+                        <div className="console-flex-center-gap-2-margin-bottom-3">
+                          <GatewayIcon name="CodeOutlined" className="console-title-accent" />
+                          <Text strong className="console-type-section">
                             {isScriptJob ? 'Script' : 'Transformation'}
                           </Text>
                         </div>
-                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                        <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               {isScriptJob ? 'Script:' : 'Transform Script:'}
                             </Text>
                             {form.getFieldValue('transformScript') ? (
@@ -2042,8 +1909,8 @@ export const ScheduledJobDetailRoute = () => {
                             )}
                           </div>
                           {isScriptJob && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Env Variables:
                               </Text>
                               <Text type="secondary">
@@ -2054,8 +1921,8 @@ export const ScheduledJobDetailRoute = () => {
                             </div>
                           )}
                           {isScriptJob && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Execution Mode:
                               </Text>
                               <Text strong>
@@ -2064,8 +1931,8 @@ export const ScheduledJobDetailRoute = () => {
                             </div>
                           )}
                           {isScriptJob && isNodeProcess && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 npm Dependencies:
                               </Text>
                               <Text type="secondary">
@@ -2079,7 +1946,7 @@ export const ScheduledJobDetailRoute = () => {
 
                       {!isScriptJob && (
                         <>
-                          <Divider style={{ margin: 0 }} />
+                          <Divider className="console-margin-none" />
 
                           {/* Destination Summary */}
                           <div>
@@ -2091,51 +1958,41 @@ export const ScheduledJobDetailRoute = () => {
                                 marginBottom: spacing[3],
                               }}
                             >
-                              <ApiOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                              <Text strong style={{ fontSize: 16 }}>
+                              <GatewayIcon name="ApiOutlined" className="console-title-accent" />
+                              <Text strong className="console-type-section">
                                 Destination
                               </Text>
                             </div>
-                            <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                              <div style={{ display: 'flex', gap: spacing[2] }}>
-                                <Text type="secondary" style={{ minWidth: 150 }}>
+                            <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                              <div className="console-flex-gap-2">
+                                <Text type="secondary" className="console-label-min-width">
                                   Delivery Type:
                                 </Text>
-                                <Tag
-                                  color={
-                                    destinationType === 'HTTP_API'
-                                      ? 'blue'
-                                      : destinationType === 'INTERNAL_EVENT'
-                                        ? 'purple'
-                                        : destinationType === 'SQL_WRITE'
-                                          ? 'cyan'
-                                          : 'green'
-                                  }
-                                >
+                                <Text>
                                   {DESTINATION_TYPES.find((d) => d.value === destinationType)?.label || destinationType}
-                                </Tag>
+                                </Text>
                               </div>
                               {destinationType === 'HTTP_API' && (
                                 <>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Target URL:
                                     </Text>
                                     <Text strong>
                                       {form.getFieldValue('targetUrl') || <Text type="secondary">Not set</Text>}
                                     </Text>
                                   </div>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       HTTP Method:
                                     </Text>
-                                    <Tag color="blue">{form.getFieldValue('httpMethod') || 'POST'}</Tag>
+                                    <Text code>{form.getFieldValue('httpMethod') || 'POST'}</Text>
                                   </div>
                                 </>
                               )}
                               {destinationType === 'INTERNAL_EVENT' && (
-                                <div style={{ display: 'flex', gap: spacing[2] }}>
-                                  <Text type="secondary" style={{ minWidth: 150 }}>
+                                <div className="console-flex-gap-2">
+                                  <Text type="secondary" className="console-label-min-width">
                                     Event Type:
                                   </Text>
                                   <Text strong>
@@ -2146,8 +2003,8 @@ export const ScheduledJobDetailRoute = () => {
                                 </div>
                               )}
                               {destinationType === 'SQL_WRITE' && (
-                                <div style={{ display: 'flex', gap: spacing[2] }}>
-                                  <Text type="secondary" style={{ minWidth: 150 }}>
+                                <div className="console-flex-gap-2">
+                                  <Text type="secondary" className="console-label-min-width">
                                     Destination Query:
                                   </Text>
                                   <Text type="secondary">
@@ -2161,26 +2018,26 @@ export const ScheduledJobDetailRoute = () => {
                               )}
                               {destinationType === 'MONGODB_WRITE' && (
                                 <>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Collection:
                                     </Text>
                                     <Text strong>
                                       {form.getFieldValue('destCollection') || <Text type="secondary">Not set</Text>}
                                     </Text>
                                   </div>
-                                  <div style={{ display: 'flex', gap: spacing[2] }}>
-                                    <Text type="secondary" style={{ minWidth: 150 }}>
+                                  <div className="console-flex-gap-2">
+                                    <Text type="secondary" className="console-label-min-width">
                                       Operation:
                                     </Text>
-                                    <Tag color="green">{form.getFieldValue('destOperation') || 'insert'}</Tag>
+                                    <Text code>{form.getFieldValue('destOperation') || 'insert'}</Text>
                                   </div>
                                 </>
                               )}
                             </Space>
                           </div>
 
-                          <Divider style={{ margin: 0 }} />
+                          <Divider className="console-margin-none" />
 
                           {/* Authentication Summary — only relevant for HTTP_API */}
                           {destinationType === 'HTTP_API' && (
@@ -2193,21 +2050,17 @@ export const ScheduledJobDetailRoute = () => {
                                   marginBottom: spacing[3],
                                 }}
                               >
-                                <LockOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                                <Text strong style={{ fontSize: 16 }}>
+                                <GatewayIcon name="LockOutlined" className="console-title-accent" />
+                                <Text strong className="console-type-section">
                                   Authentication
                                 </Text>
                               </div>
-                              <Space
-                                direction="vertical"
-                                size="small"
-                                style={{ width: '100%', paddingLeft: spacing[4] }}
-                              >
-                                <div style={{ display: 'flex', gap: spacing[2] }}>
-                                  <Text type="secondary" style={{ minWidth: 150 }}>
+                              <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                                <div className="console-flex-gap-2">
+                                  <Text type="secondary" className="console-label-min-width">
                                     Auth Type:
                                   </Text>
-                                  <Tag color={authType === 'NONE' ? 'default' : 'blue'}>{authType || 'NONE'}</Tag>
+                                  <Text>{authType || 'NONE'}</Text>
                                 </div>
                               </Space>
                             </div>
@@ -2222,21 +2075,17 @@ export const ScheduledJobDetailRoute = () => {
                 ? [
                     {
                       key: 'history',
-                      label: (
-                        <Space size={6}>
-                          <HistoryOutlined />
-                          Execution History
-                        </Space>
-                      ),
+                      label: 'Execution History',
+                      icon: <GatewayIcon name="HistoryOutlined" />,
                       disabled: false, // History tab always enabled when viewing existing job
                       children: (
                         <Card
-                          style={{ marginTop: spacing[2] }}
+                          className="console-margin-top-2"
                           size="small"
                           extra={
                             <Button
                               size="small"
-                              icon={<ReloadOutlined />}
+                              icon={<GatewayIcon name="ReloadOutlined" />}
                               loading={executionsLoading}
                               onClick={() => refetchExecutions()}
                             >
@@ -2245,7 +2094,11 @@ export const ScheduledJobDetailRoute = () => {
                           }
                         >
                           <ModernTable
-                            dataSource={(executions || []).map((log: any) => ({ ...log, key: log._id }))}
+                            dataSource={(executions || []).map((log: any, index: number) => ({
+                              ...log,
+                              key: log._id || log.id || `execution-${index}`,
+                            }))}
+                            rowKey="key"
                             loading={executionsLoading}
                             size="small"
                             pagination={false}
@@ -2261,21 +2114,12 @@ export const ScheduledJobDetailRoute = () => {
                                 dataIndex: 'status',
                                 key: 'status',
                                 width: 110,
-                                render: (status: string) => (
-                                  <Tag
-                                    color={
-                                      status === 'SUCCESS'
-                                        ? 'success'
-                                        : status === 'RUNNING'
-                                          ? 'processing'
-                                          : status === 'SKIPPED'
-                                            ? 'default'
-                                            : 'error'
-                                    }
-                                  >
-                                    {status}
-                                  </Tag>
-                                ),
+                                render: (status: string) =>
+                                  status === 'RUNNING' ? (
+                                    <StatusBadge status={status} label="Running" variant="info" />
+                                  ) : (
+                                    <StatusBadge status={status} />
+                                  ),
                               },
                               {
                                 title: 'Started',
@@ -2302,7 +2146,7 @@ export const ScheduledJobDetailRoute = () => {
                                 dataIndex: 'trigger',
                                 key: 'trigger',
                                 width: 110,
-                                render: (trigger: string) => <Tag>{trigger || 'SCHEDULE'}</Tag>,
+                                render: (trigger: string) => <Text code>{trigger || 'SCHEDULE'}</Text>,
                               },
                               {
                                 title: 'Result',
@@ -2313,21 +2157,17 @@ export const ScheduledJobDetailRoute = () => {
                                   // without a trip to Delivery Logs.
                                   const detail = log?.error?.message || log?.errorMessage || log?.message || null;
                                   if (detail) {
-                                    return (
-                                      <Text type="danger" style={{ fontSize: 12 }}>
-                                        {String(detail).slice(0, 200)}
-                                      </Text>
-                                    );
+                                    return <Text className="console-type-caption">{String(detail).slice(0, 200)}</Text>;
                                   }
                                   if (typeof log?.recordsFetched === 'number') {
                                     return (
-                                      <Text type="secondary" style={{ fontSize: 12 }}>
+                                      <Text type="secondary" className="console-type-caption">
                                         {log.recordsFetched} record(s) fetched
                                       </Text>
                                     );
                                   }
                                   return (
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <Text type="secondary" className="console-type-caption">
                                       —
                                     </Text>
                                   );
@@ -2335,7 +2175,10 @@ export const ScheduledJobDetailRoute = () => {
                               },
                             ]}
                           />
-                          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: spacing[2] }}>
+                          <Text
+                            type="secondary"
+                            className="console-type-caption console-display-block console-margin-top-2"
+                          >
                             Showing the {Math.min((executions || []).length, 20)} most recent run(s). Full console
                             output for each run is available in Delivery Logs.
                           </Text>
@@ -2344,7 +2187,7 @@ export const ScheduledJobDetailRoute = () => {
                     },
                   ]
                 : []),
-            ];
+            ] as RetainedTabItem[];
           })()}
         />
 
@@ -2363,19 +2206,19 @@ export const ScheduledJobDetailRoute = () => {
             marginTop: spacing[2],
             borderTop: `1px solid ${cssVar.border.default}`,
             background: cssVar.bg.base,
-            boxShadow: `0 -8px 18px ${withAlpha(colors.neutral[900], 0.08)}`,
+            boxShadow: token.boxShadowSecondary,
           }}
         >
           <Space direction="vertical" size={4}>
             {!isCreate && (
               <>
-                <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                <Text type="secondary" className="console-type-caption">
                   Testing tools
                 </Text>
                 <Space wrap>
                   <Button
                     size="middle"
-                    icon={<PlayCircleOutlined />}
+                    icon={<GatewayIcon name="PlayCircleOutlined" />}
                     onClick={() => executeMutation.mutate(undefined)}
                     loading={executeMutation.isPending}
                     disabled={!job?.isActive}
@@ -2384,7 +2227,7 @@ export const ScheduledJobDetailRoute = () => {
                   </Button>
                   <Button
                     size="middle"
-                    icon={<ExperimentOutlined />}
+                    icon={<GatewayIcon name="ExperimentOutlined" />}
                     onClick={() =>
                       executeMutation.mutate({
                         dryRun: true,
@@ -2407,7 +2250,7 @@ export const ScheduledJobDetailRoute = () => {
             <Button
               type="primary"
               size="middle"
-              icon={<SaveOutlined />}
+              icon={<GatewayIcon name="SaveOutlined" />}
               onClick={() => form.submit()}
               loading={saveMutation.isPending}
               disabled={
@@ -2430,9 +2273,9 @@ export const ScheduledJobDetailRoute = () => {
         title={
           <Space>
             {testResult?.success ? (
-              <CheckCircleOutlined style={{ color: colors.success[600] }} />
+              <GatewayIcon name="CheckCircleOutlined" className="console-text-success" />
             ) : (
-              <CloseCircleOutlined style={{ color: colors.error[600] }} />
+              <GatewayIcon name="CloseCircleOutlined" className="console-text-error" />
             )}
             <span>Data Source Test Result</span>
           </Space>
@@ -2443,7 +2286,7 @@ export const ScheduledJobDetailRoute = () => {
           testResult?.success && testResult?.sampleData && (
             <Button
               key="copy"
-              icon={<CopyOutlined />}
+              icon={<GatewayIcon name="CopyOutlined" />}
               onClick={async () => {
                 const copied = await copyTextToClipboard(JSON.stringify(testResult.sampleData, null, 2));
                 if (copied) {
@@ -2458,7 +2301,7 @@ export const ScheduledJobDetailRoute = () => {
           ),
           <Button
             key="retest"
-            icon={<ExperimentOutlined />}
+            icon={<GatewayIcon name="ExperimentOutlined" />}
             onClick={() => {
               setTestModalOpen(false);
               setTimeout(() => testDataSourceMutation.mutate(), 100);
@@ -2474,15 +2317,18 @@ export const ScheduledJobDetailRoute = () => {
         width={900}
       >
         {testResult && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space direction="vertical" size="middle" className="console-width-full">
             {testResult.success ? (
               <>
-                <Alert message="Connection Successful" description={testResult.message} type="success" showIcon />
+                <div>
+                  <StatusBadge status="SUCCESS" label="Connection successful" />
+                  {testResult.message && <Text className="console-margin-left-2">{testResult.message}</Text>}
+                </div>
 
                 <div>
                   <Text strong>Records Fetched: </Text>
-                  <Tag color="blue">{testResult.recordsFetched}</Tag>
-                  {testResult.limitedRecords && <Tag color="orange">Showing first 10 records</Tag>}
+                  <Text code>{testResult.recordsFetched}</Text>
+                  {testResult.limitedRecords && <Text type="secondary"> (first 10 records shown)</Text>}
                 </div>
 
                 {testResult.sampleData && (
@@ -2498,7 +2344,7 @@ export const ScheduledJobDetailRoute = () => {
                       <Text strong>Sample Data:</Text>
                       <Button
                         size="small"
-                        icon={<CopyOutlined />}
+                        icon={<GatewayIcon name="CopyOutlined" />}
                         onClick={async () => {
                           const copied = await copyTextToClipboard(JSON.stringify(testResult.sampleData, null, 2));
                           if (copied) {
@@ -2536,7 +2382,7 @@ export const ScheduledJobDetailRoute = () => {
                                     if (value === undefined) return <Text type="secondary">undefined</Text>;
                                     if (typeof value === 'object') {
                                       return (
-                                        <Text code style={{ fontSize: '11px' }}>
+                                        <Text code className="console-type-caption">
                                           {JSON.stringify(value)}
                                         </Text>
                                       );
@@ -2546,7 +2392,7 @@ export const ScheduledJobDetailRoute = () => {
                                 }));
 
                                 return (
-                                  <div style={{ marginTop: spacing[2] }}>
+                                  <div className="console-margin-top-2">
                                     <ModernTable
                                       dataSource={testResult.sampleData.map((item: any, idx: number) => ({
                                         ...item,
@@ -2559,12 +2405,9 @@ export const ScheduledJobDetailRoute = () => {
                                       bordered
                                     />
                                     {keys.length > 8 && (
-                                      <Alert
-                                        message={`Showing first 8 of ${keys.length} columns`}
-                                        type="info"
-                                        showIcon
-                                        style={{ marginTop: spacing[2] }}
-                                      />
+                                      <Text type="secondary" className="console-display-block console-margin-top-2">
+                                        Showing the first 8 of {keys.length} columns.
+                                      </Text>
                                     )}
                                   </div>
                                 );
@@ -2573,25 +2416,8 @@ export const ScheduledJobDetailRoute = () => {
 
                             // Fall back to JSON view
                             return (
-                              <div
-                                style={{
-                                  maxHeight: '400px',
-                                  overflow: 'auto',
-                                  border: `1px solid ${colors.neutral[200]}`,
-                                  borderRadius: token.borderRadius,
-                                  padding: spacing[2],
-                                  backgroundColor: colors.neutral[50],
-                                }}
-                              >
-                                <pre
-                                  style={{
-                                    margin: 0,
-                                    fontSize: '12px',
-                                    fontFamily: 'monospace',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                  }}
-                                >
+                              <div className="scheduled-test-result-json-frame">
+                                <pre className="scheduled-test-result-json">
                                   {JSON.stringify(testResult.sampleData, null, 2)}
                                 </pre>
                               </div>
@@ -2599,33 +2425,11 @@ export const ScheduledJobDetailRoute = () => {
                           })()}
                         </>
                       ) : (
-                        <Alert
-                          message="No data returned"
-                          description="The query executed successfully but returned no results."
-                          type="info"
-                          showIcon
-                        />
+                        <InlineHint>The query completed successfully but returned no records.</InlineHint>
                       )
                     ) : (
-                      <div
-                        style={{
-                          maxHeight: '400px',
-                          overflow: 'auto',
-                          border: `1px solid ${colors.neutral[200]}`,
-                          borderRadius: token.borderRadius,
-                          padding: spacing[2],
-                          backgroundColor: colors.neutral[50],
-                        }}
-                      >
-                        <pre
-                          style={{
-                            margin: 0,
-                            fontSize: '12px',
-                            fontFamily: 'monospace',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                          }}
-                        >
+                      <div className="scheduled-test-result-json-frame">
+                        <pre className="scheduled-test-result-json">
                           {JSON.stringify(testResult.sampleData, null, 2)}
                         </pre>
                       </div>
@@ -2635,26 +2439,18 @@ export const ScheduledJobDetailRoute = () => {
               </>
             ) : (
               <>
-                <Alert
-                  message="Connection Failed"
-                  description={testResult.error || 'An error occurred while testing the data source'}
-                  type="error"
-                  showIcon
+                <Banner
+                  status="error"
+                  title="Connection failed"
+                  description={testResult.error || 'An error occurred while testing the data source.'}
                 />
 
                 {/* Common error hints */}
-                <div
-                  style={{
-                    padding: spacing[3],
-                    backgroundColor: colors.warning[50],
-                    border: `1px solid ${colors.warning[200]}`,
-                    borderRadius: token.borderRadius,
-                  }}
-                >
-                  <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
-                    💡 Common Issues:
+                <div className="console-warning-hint">
+                  <Text strong className="console-block-margin-bottom-2 console-inline-flex-center-gap-1">
+                    <GatewayIcon name="BulbOutlined" /> Common issues
                   </Text>
-                  <ul style={{ margin: 0, paddingLeft: spacing[4] }}>
+                  <ul className="console-list-reset-indent-4">
                     {dataSourceType === 'SQL' && (
                       <>
                         <li>Check SQL syntax and table/column names</li>
@@ -2694,14 +2490,14 @@ export const ScheduledJobDetailRoute = () => {
                           <div
                             style={{
                               padding: spacing[2],
-                              backgroundColor: colors.neutral[50],
+                              backgroundColor: cssVar.table.codeBg,
                               border: `1px solid ${colors.neutral[200]}`,
                               borderRadius: token.borderRadius,
                               maxHeight: '200px',
                               overflow: 'auto',
                             }}
                           >
-                            <pre style={{ margin: 0, fontSize: '11px', whiteSpace: 'pre-wrap' }}>
+                            <pre className="console-code-caption-reset-wrap">
                               {typeof testResult.details === 'string'
                                 ? testResult.details
                                 : JSON.stringify(testResult.details, null, 2)}
@@ -2717,6 +2513,6 @@ export const ScheduledJobDetailRoute = () => {
           </Space>
         )}
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

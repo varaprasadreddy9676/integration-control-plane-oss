@@ -1,10 +1,7 @@
-import { Typography, Badge, Space, Tag, Tooltip } from 'antd';
+import { Badge, Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
 import type { ReactNode } from 'react';
-import {
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  CloseCircleOutlined
-} from '@ant-design/icons';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { spacingToNumber, withAlpha, cssVar } from '../../../../../design-system/utils';
 
 const { Text } = Typography;
@@ -35,7 +32,7 @@ export const EnhancedSectionHeader = ({
   description,
   spacing,
   completionStatus,
-  badge
+  badge,
 }: EnhancedSectionHeaderProps) => {
   const colors = cssVar.legacy;
 
@@ -45,25 +42,25 @@ export const EnhancedSectionHeader = ({
 
     if (completionStatus.errors.length > 0) {
       return {
-        icon: <CloseCircleOutlined />,
+        icon: <GatewayIcon name="CloseCircleOutlined" />,
         color: colors.error[500],
-        tooltip: `${completionStatus.errors.length} error${completionStatus.errors.length > 1 ? 's' : ''}`
+        tooltip: `${completionStatus.errors.length} error${completionStatus.errors.length > 1 ? 's' : ''}`,
       };
     }
 
     if (completionStatus.missingRequiredCount > 0) {
       return {
-        icon: <ExclamationCircleOutlined />,
+        icon: <GatewayIcon name="ExclamationCircleOutlined" />,
         color: colors.warning[500],
-        tooltip: `${completionStatus.missingRequiredCount} required field${completionStatus.missingRequiredCount > 1 ? 's' : ''} missing`
+        tooltip: `${completionStatus.missingRequiredCount} required field${completionStatus.missingRequiredCount > 1 ? 's' : ''} missing`,
       };
     }
 
     if (completionStatus.isComplete) {
       return {
-        icon: <CheckCircleOutlined />,
+        icon: <GatewayIcon name="CheckCircleOutlined" />,
         color: colors.success[500],
-        tooltip: 'Section complete'
+        tooltip: 'Section complete',
       };
     }
 
@@ -74,35 +71,25 @@ export const EnhancedSectionHeader = ({
 
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%'
-      }}
+      className="ui-extracted-83bc32acad"
     >
       {/* Left: Icon, Title, Description */}
       <Space size={spacingToNumber(spacing[2])} align="start">
-        <div style={{ paddingTop: 2 }}>
-          {icon}
-        </div>
-        <div style={{ flex: 1 }}>
+        <div className="ui-extracted-be5bfff7e4">{icon}</div>
+        <div className="console-flex-fill">
           <Space size={spacingToNumber(spacing[2])}>
-            <Text strong style={{ fontSize: 15 }}>
+            <Text strong className="console-type-section">
               {title}
             </Text>
             {badge && (
-              <Tag
-                color={badge.color || 'default'}
-                style={{ margin: 0, fontSize: 11 }}
-              >
+              <Text type="secondary" className="console-type-caption">
                 {badge.text || badge.count}
-              </Tag>
+              </Text>
             )}
           </Space>
           {description && (
             <div style={{ marginTop: spacingToNumber(spacing[1]) }}>
-              <Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
+              <Text type="secondary" className="console-caption-secondary">
                 {description}
               </Text>
             </div>
@@ -115,11 +102,11 @@ export const EnhancedSectionHeader = ({
         <Tooltip title={statusIndicator.tooltip} placement="left">
           <div
             style={{
-              fontSize: 16,
+              fontSize: 'var(--console-type-section)',
               color: statusIndicator.color,
               display: 'flex',
               alignItems: 'center',
-              paddingRight: spacing[2]
+              paddingRight: spacing[2],
             }}
           >
             {statusIndicator.icon}
@@ -142,7 +129,7 @@ export const computeSectionCompletion = (
   requiredFields: string[],
   validationErrors: string[] = []
 ): SectionCompletionStatus => {
-  const missingRequiredCount = requiredFields.filter(field => {
+  const missingRequiredCount = requiredFields.filter((field) => {
     const value = getNestedValue(formValues, field);
     return value === undefined || value === null || value === '';
   }).length;
@@ -153,7 +140,7 @@ export const computeSectionCompletion = (
     isComplete,
     requiredFieldsCount: requiredFields.length,
     missingRequiredCount,
-    errors: validationErrors
+    errors: validationErrors,
   };
 };
 

@@ -1,8 +1,10 @@
-import { Button, Checkbox, Input, InputNumber, Select, Space, Typography } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Checkbox, Input, InputNumber, Select, Space } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import type { SchemaField } from '../../../../services/stages-api';
 import { MonacoEditorInput } from '../../../integrations/components/MonacoEditorInput';
 import { CheckScheduleEditor } from '../../../integrations/components/detail/DeliveryFollowUpSection';
+import { Button } from '../../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -44,15 +46,15 @@ export const KeyValueEditor = ({ value, onChange, label, disabled }: Omit<Widget
   const entries: Array<[string, string]> = Object.entries(value || {});
   const write = (next: Array<[string, string]>) => onChange(next.length ? Object.fromEntries(next) : undefined);
   return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+    <Space direction="vertical" size={6} className="console-width-full">
       {entries.map(([key, val], index) => (
-        <Space key={index} style={{ width: '100%' }} align="start">
+        <Space key={index} className="console-width-full" align="start">
           <Input
             aria-label={`${label} name ${index + 1}`}
             value={key}
             placeholder="Name"
             disabled={disabled}
-            style={{ width: 200 }}
+            className="ui-extracted-3bb9bbf2f0"
             onChange={(e) => write(entries.map((entry, i) => (i === index ? [e.target.value, entry[1]] : entry)))}
           />
           <Input
@@ -60,13 +62,13 @@ export const KeyValueEditor = ({ value, onChange, label, disabled }: Omit<Widget
             value={val}
             placeholder="Value, may use {{ }}"
             disabled={disabled}
-            style={{ width: 320 }}
+            className="ui-extracted-9852709426"
             onChange={(e) => write(entries.map((entry, i) => (i === index ? [entry[0], e.target.value] : entry)))}
           />
           <Button
             type="text"
             danger
-            icon={<DeleteOutlined />}
+            icon={<GatewayIcon name="DeleteOutlined" />}
             aria-label={`Remove ${label} ${index + 1}`}
             disabled={disabled}
             onClick={() => write(entries.filter((_, i) => i !== index))}
@@ -74,7 +76,7 @@ export const KeyValueEditor = ({ value, onChange, label, disabled }: Omit<Widget
         </Space>
       ))}
       <Button
-        icon={<PlusOutlined />}
+        icon={<GatewayIcon name="PlusOutlined" />}
         size="small"
         disabled={disabled}
         aria-label={`Add ${label}`}
@@ -91,7 +93,7 @@ const RowsEditor = ({ field, value, onChange, label, disabled }: WidgetProps) =>
   const columns = field.columns || [];
   const write = (next: Array<Record<string, any>>) => onChange(next.length ? next : undefined);
   return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+    <Space direction="vertical" size={6} className="console-width-full">
       {rows.map((row, index) => (
         <Space key={index} wrap align="center">
           {columns.map((column) => (
@@ -109,7 +111,7 @@ const RowsEditor = ({ field, value, onChange, label, disabled }: WidgetProps) =>
           <Button
             type="text"
             danger
-            icon={<DeleteOutlined />}
+            icon={<GatewayIcon name="DeleteOutlined" />}
             aria-label={`Remove ${label} ${index + 1}`}
             disabled={disabled}
             onClick={() => write(rows.filter((_, i) => i !== index))}
@@ -117,7 +119,7 @@ const RowsEditor = ({ field, value, onChange, label, disabled }: WidgetProps) =>
         </Space>
       ))}
       <Button
-        icon={<PlusOutlined />}
+        icon={<GatewayIcon name="PlusOutlined" />}
         size="small"
         disabled={disabled}
         onClick={() =>
@@ -154,7 +156,7 @@ const CodeText = ({ value, onChange, label, disabled, field }: WidgetProps) => {
       disabled={disabled}
       readOnly={field.readOnly}
       autoSize={{ minRows: 4, maxRows: 16 }}
-      style={{ fontFamily: 'var(--font-mono, ui-monospace, monospace)', fontSize: 12 }}
+      className="ui-extracted-a32b7ba7ed"
       onChange={(e) => {
         const next = e.target.value;
         if (next.trim() === '') return onChange(undefined);
@@ -176,7 +178,7 @@ export const Widget = ({ field, value, onChange, label, disabled }: WidgetProps)
           aria-label={label}
           value={value ?? field.default}
           disabled={disabled}
-          style={{ minWidth: 140 }}
+          className="ui-extracted-3292a37181"
           options={(field.options || []).map((option) => ({ value: option, label: option }))}
           onChange={onChange}
         />
@@ -205,7 +207,7 @@ export const Widget = ({ field, value, onChange, label, disabled }: WidgetProps)
           mode="tags"
           value={Array.isArray(value) ? value.map(String) : []}
           disabled={disabled}
-          style={{ minWidth: 240 }}
+          className="ui-extracted-a399b9f5e4"
           tokenSeparators={[',']}
           onChange={(next: string[]) => {
             const list = field.valueType === 'number' ? next.map(Number).filter((n) => Number.isFinite(n)) : next;
@@ -245,14 +247,14 @@ interface SchemaFormProps {
 }
 
 export const SchemaForm = ({ fields, value, onChange, errors = {}, disabled }: SchemaFormProps) => (
-  <Space direction="vertical" size={14} style={{ width: '100%' }}>
+  <Space direction="vertical" size={14} className="console-width-full">
     {fields.map((field) => {
       const id = `stage-field-${field.name}`;
       const error = errors[field.name];
       return (
         <div key={field.name}>
           {field.widget !== 'checkbox' && (
-            <label htmlFor={id} style={{ display: 'block', marginBottom: 4 }}>
+            <label htmlFor={id} className="ui-extracted-30b80cec02">
               <Text strong>
                 {field.label}
                 {field.required ? ' *' : ''}
@@ -269,12 +271,12 @@ export const SchemaForm = ({ fields, value, onChange, errors = {}, disabled }: S
             />
           </div>
           {field.hint && !error && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="console-type-caption">
               {field.hint}
             </Text>
           )}
           {error && (
-            <Text type="danger" role="alert" style={{ fontSize: 12, display: 'block' }}>
+            <Text type="danger" role="alert" className="console-caption-block">
               {error}
             </Text>
           )}

@@ -1,32 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  Descriptions,
-  Empty,
-  Grid,
-  List,
-  Row,
-  Space,
-  Statistic,
-  Switch,
-  Tabs,
-  Tag,
-  Typography,
-} from 'antd';
-import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  DatabaseOutlined,
-  ExclamationCircleOutlined,
-  ReloadOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Card, Col, Descriptions, List, Row, Space, Statistic, Switch } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
+import { StatusBadge, type StatusBadgeVariant } from '../../../components/common/StatusBadge';
 import { PortalScopeBadge } from '../../../components/portal/PortalScopeBadge';
 import { useAuth } from '../../../app/auth-context';
 import { useTenant } from '../../../app/tenant-context';
@@ -52,6 +34,8 @@ import {
 } from '../system-status-utils';
 import { useSearchParams } from 'react-router-dom';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
 
 const { Text, Paragraph } = Typography;
 
@@ -61,7 +45,15 @@ type TabKey = (typeof TAB_KEYS)[number];
 const AUTO_REFRESH_INTERVAL_MS = 30000;
 
 function statusTag(label: string, color: string) {
-  return <Tag color={color}>{label}</Tag>;
+  const variants: Record<string, StatusBadgeVariant> = {
+    default: 'neutral',
+    blue: 'blue',
+    green: 'green',
+    orange: 'orange',
+    red: 'red',
+    warning: 'warning',
+  };
+  return <StatusBadge label={label} variant={variants[color] || 'neutral'} showIcon={false} />;
 }
 
 function DataAgeLabel({ timestamp }: { timestamp?: string | null }) {
@@ -104,7 +96,7 @@ function WorkerTable({ workers }: { workers: SystemStatusWorker[] }) {
           render: (_, worker) => (
             <Space direction="vertical" size={0}>
               <Text strong>{worker.displayName}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type="secondary" className="console-type-caption">
                 {worker.workerName}
               </Text>
             </Space>
@@ -140,11 +132,12 @@ function WorkerTable({ workers }: { workers: SystemStatusWorker[] }) {
             const entries = Object.entries(worker.meta || {});
             if (!entries.length) return '—';
             return (
-              <Space size={[4, 4]} wrap>
-                {entries.slice(0, 4).map(([key, value]) => (
-                  <Tag key={key}>{`${key}: ${String(value)}`}</Tag>
-                ))}
-              </Space>
+              <Text type="secondary">
+                {entries
+                  .slice(0, 4)
+                  .map(([key, value]) => `${humanizeKey(key)}: ${String(value)}`)
+                  .join(' · ')}
+              </Text>
             );
           },
         },
@@ -178,7 +171,7 @@ function EventSourceTable({ adapters }: { adapters: SystemStatusAdapter[] }) {
           render: (_, adapter) => (
             <Space direction="vertical" size={0}>
               <Text strong>{adapter.sourceType?.toUpperCase() || 'Unknown'}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type="secondary" className="console-type-caption">
                 {adapter.name}
               </Text>
             </Space>
@@ -220,24 +213,16 @@ function EventSourceTable({ adapters }: { adapters: SystemStatusAdapter[] }) {
           title: 'Details',
           key: 'details',
           render: (_, adapter) => {
-            const tags: string[] = [];
-            if (adapter.topic) tags.push(`topic: ${adapter.topic}`);
-            if (adapter.groupId) tags.push(`group: ${adapter.groupId}`);
-            if (adapter.table) tags.push(`table: ${adapter.table}`);
-            if (adapter.reconnectAttempt) tags.push(`retries: ${adapter.reconnectAttempt}`);
-            if (adapter.lastBackoffMs) tags.push(`backoff: ${adapter.lastBackoffMs}ms`);
-            if (adapter.lastRowsFetched !== undefined) tags.push(`rows: ${adapter.lastRowsFetched}`);
+            const details: string[] = [];
+            if (adapter.topic) details.push(`Topic: ${adapter.topic}`);
+            if (adapter.groupId) details.push(`Group: ${adapter.groupId}`);
+            if (adapter.table) details.push(`Table: ${adapter.table}`);
+            if (adapter.reconnectAttempt) details.push(`Retries: ${adapter.reconnectAttempt}`);
+            if (adapter.lastBackoffMs) details.push(`Backoff: ${adapter.lastBackoffMs} ms`);
+            if (adapter.lastRowsFetched !== undefined) details.push(`Rows: ${adapter.lastRowsFetched}`);
             if (adapter.lastCheckpoint !== null && adapter.lastCheckpoint !== undefined)
-              tags.push(`checkpoint: ${String(adapter.lastCheckpoint)}`);
-            return tags.length ? (
-              <Space size={[4, 4]} wrap>
-                {tags.map((tag) => (
-                  <Tag key={tag}>{tag}</Tag>
-                ))}
-              </Space>
-            ) : (
-              '—'
-            );
+              details.push(`Checkpoint: ${String(adapter.lastCheckpoint)}`);
+            return details.length ? <Text type="secondary">{details.join(' · ')}</Text> : '—';
           },
         },
       ]}
@@ -259,7 +244,7 @@ function OrganizationStatusTable({ organizations }: { organizations: SystemStatu
           render: (_, row) => (
             <Space direction="vertical" size={0}>
               <Text strong>{row.name || `Org ${row.orgId}`}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type="secondary" className="console-type-caption">
                 {row.code || `Org ${row.orgId}`}
               </Text>
             </Space>
@@ -293,7 +278,7 @@ function OrganizationStatusTable({ organizations }: { organizations: SystemStatu
           key: 'eventSources',
           render: (_, row) => {
             if (!row.eventSources?.configured) {
-              return statusTag('Not Configured', 'blue');
+              return <Text type="secondary">Not configured</Text>;
             }
             const adapterLabel = row.eventSources?.adapterStatus || row.eventSources?.state || 'configured';
             return statusTag(
@@ -321,7 +306,7 @@ function SenderProfilesTable({ items }: { items: SystemStatusResponse['senderPro
           render: (_, row) => (
             <Space direction="vertical" size={0}>
               <Text strong>{row.name}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type="secondary" className="console-type-caption">
                 {row.fromEmail || '—'}
               </Text>
             </Space>
@@ -331,32 +316,23 @@ function SenderProfilesTable({ items }: { items: SystemStatusResponse['senderPro
           title: 'Provider',
           dataIndex: 'provider',
           key: 'provider',
-          render: (value: string) => <Tag color="blue">{value || 'UNKNOWN'}</Tag>,
+          render: (value: string) => value || 'Unknown',
         },
         {
           title: 'Flags',
           key: 'flags',
           render: (_, row) => (
             <Space size={[4, 4]} wrap>
-              {row.isDefault && <Tag color="green">Default</Tag>}
-              {!row.isActive && <Tag color="red">Inactive</Tag>}
-              {row.key && <Tag>{row.key}</Tag>}
+              {row.isDefault && <Text type="secondary">Default</Text>}
+              {!row.isActive && statusTag('Inactive', 'red')}
+              {row.key && <Text code>{row.key}</Text>}
             </Space>
           ),
         },
         {
           title: 'Aliases',
           key: 'aliases',
-          render: (_, row) =>
-            row.aliases?.length ? (
-              <Space size={[4, 4]} wrap>
-                {row.aliases.map((alias) => (
-                  <Tag key={alias}>{alias}</Tag>
-                ))}
-              </Space>
-            ) : (
-              '—'
-            ),
+          render: (_, row) => (row.aliases?.length ? <Text type="secondary">{row.aliases.join(' · ')}</Text> : '—'),
         },
       ]}
     />
@@ -372,7 +348,7 @@ function AlertsList({ data }: { data: SystemStatusResponse }) {
       <Col xs={24} lg={12}>
         <Card title="Alerts" size="small">
           {alertItems.length === 0 ? (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active alerts" />
+            <StatePanel size="compact" glyph="searching" title="No active alerts" />
           ) : (
             <List
               dataSource={alertItems}
@@ -405,13 +381,13 @@ function AlertsList({ data }: { data: SystemStatusResponse }) {
       <Col xs={24} lg={12}>
         <Card title="Checks" size="small">
           {checkEntries.length === 0 ? (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No check data" />
+            <StatePanel size="compact" glyph="searching" title="No check data" />
           ) : (
             <List
               dataSource={checkEntries}
               renderItem={([key, value]) => (
                 <List.Item>
-                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <Space className="console-width-full-between">
                     <Text>{key}</Text>
                     {statusTag(
                       String(value),
@@ -575,13 +551,14 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   const { spacing } = useDesignTokens();
   const { user } = useAuth();
   const { orgId, tenant, clearOrgId } = useTenant();
-  const screens = Grid.useBreakpoint();
   const isStandalone = mode === 'standalone';
   const isPortalSession = !!(user as any)?.isPortalSession;
   const [searchParams, setSearchParams] = useSearchParams();
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [manualRefreshPending, setManualRefreshPending] = useState(false);
   const activeTab = (searchParams.get('tab') || 'overview') as TabKey;
+  const selectedTab = TAB_KEYS.includes(activeTab) ? activeTab : 'overview';
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set<TabKey>([selectedTab]));
   const allowedViews = useMemo(() => {
     try {
       const stored = localStorage.getItem('integration_gateway_user');
@@ -620,6 +597,10 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
     next.set('tab', key);
     setSearchParams(next, { replace: true });
   };
+
+  useEffect(() => {
+    setVisitedTabs((current) => new Set(current).add(selectedTab));
+  }, [selectedTab]);
 
   const lastUpdatedAge = dataUpdatedAt ? Math.floor((Date.now() - dataUpdatedAt) / 1000) : null;
   const dataStale = !!(autoRefresh && dataUpdatedAt && Date.now() - dataUpdatedAt > AUTO_REFRESH_INTERVAL_MS * 2);
@@ -660,10 +641,9 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   if (isPortalSession && !canViewPortalStatus) {
     return (
       <div style={{ padding: spacing[6] }}>
-        <Alert
-          type="error"
-          showIcon
-          message="System Status is not allowed for this portal profile"
+        <StatePanel
+          size="regular"
+          title="System Status is unavailable"
           description="Ask your administrator to add the System Status view to this portal profile."
         />
       </div>
@@ -675,9 +655,9 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
       key: 'overview',
       label: 'Overview',
       children: (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Card size="small" title="Health Drivers">
-            {overallHealthFactors.length > 0 ? (
+        <Space direction="vertical" size={16} className="console-width-full">
+          {overallHealthFactors.length > 0 && (
+            <Card size="small" title="Health Drivers">
               <List
                 size="small"
                 dataSource={overallHealthFactors}
@@ -702,52 +682,50 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                   </List.Item>
                 )}
               />
-            ) : (
-              <Text type="secondary">No warning or critical factors are currently driving the overall status.</Text>
-            )}
-          </Card>
+            </Card>
+          )}
 
           <Row gutter={[16, 16]}>
-            <Col xs={24} md={12} xl={4}>
+            <Col xs={12} sm={12} xl={6}>
               <Card size="small">
                 <Statistic
                   title="Overall Health"
                   value={overallStatus.label}
                   prefix={
                     overallStatus.color === 'green' ? (
-                      <CheckCircleOutlined />
+                      <GatewayIcon name="CheckCircleOutlined" />
                     ) : overallStatus.color === 'red' ? (
-                      <ExclamationCircleOutlined />
+                      <GatewayIcon name="ExclamationCircleOutlined" />
                     ) : (
-                      <WarningOutlined />
+                      <GatewayIcon name="WarningOutlined" />
                     )
                   }
                 />
               </Card>
             </Col>
-            <Col xs={24} md={12} xl={4}>
+            <Col xs={12} sm={12} xl={6}>
               <Card size="small">
                 <Statistic
                   title="Process State"
                   value={lifecycleStatus.label}
                   prefix={
                     lifecycleStatus.color === 'green' ? (
-                      <CheckCircleOutlined />
+                      <GatewayIcon name="CheckCircleOutlined" />
                     ) : lifecycleStatus.color === 'orange' ? (
-                      <WarningOutlined />
+                      <GatewayIcon name="WarningOutlined" />
                     ) : (
-                      <ClockCircleOutlined />
+                      <GatewayIcon name="ClockCircleOutlined" />
                     )
                   }
                 />
               </Card>
             </Col>
-            <Col xs={24} md={12} xl={4}>
+            <Col xs={12} sm={12} xl={6}>
               <Card size="small">
                 <Statistic title="Alerts" value={data?.overall?.alertCount?.total ?? 0} />
               </Card>
             </Col>
-            <Col xs={24} md={12} xl={4}>
+            <Col xs={12} sm={12} xl={6}>
               <Card size="small">
                 <Statistic
                   title={isGlobalScope ? 'Organizations' : 'Deliveries (24h)'}
@@ -756,39 +734,6 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                       ? (data?.globalSummary?.organizationCount ?? 0)
                       : (data?.overall?.summary?.deliveries24h ?? 0)
                   }
-                />
-              </Card>
-            </Col>
-            <Col xs={24} md={12} xl={4}>
-              <Card size="small">
-                <Statistic
-                  title={isGlobalScope ? 'Critical Orgs' : 'Success Rate'}
-                  value={
-                    isGlobalScope
-                      ? (data?.globalSummary?.organizationStatusCounts?.critical ?? 0)
-                      : formatPercentage(data?.overall?.summary?.successRate24h)
-                  }
-                />
-              </Card>
-            </Col>
-            <Col xs={24} md={12} xl={4}>
-              <Card size="small">
-                <Statistic
-                  title={isGlobalScope ? 'Warning Orgs' : 'P95 Response'}
-                  value={
-                    isGlobalScope
-                      ? (data?.globalSummary?.organizationStatusCounts?.warning ?? 0)
-                      : formatDuration(data?.overall?.summary?.p95ResponseTimeMs)
-                  }
-                />
-              </Card>
-            </Col>
-            <Col xs={24} md={12} xl={4}>
-              <Card size="small">
-                <Statistic
-                  title="Uptime"
-                  value={data?.process?.uptime?.formatted || '—'}
-                  prefix={<ClockCircleOutlined />}
                 />
               </Card>
             </Col>
@@ -802,8 +747,18 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                     { label: 'Deliveries · 5m', value: data?.traffic?.deliveries?.last5m ?? 0 },
                     { label: 'Deliveries · 15m', value: data?.traffic?.deliveries?.last15m ?? 0 },
                     { label: 'Deliveries · 60m', value: data?.traffic?.deliveries?.last60m ?? 0 },
+                    ...(!isGlobalScope
+                      ? [
+                          {
+                            label: 'Success Rate · 24h',
+                            value: formatPercentage(data?.overall?.summary?.successRate24h),
+                          },
+                          { label: 'P95 Response', value: formatDuration(data?.overall?.summary?.p95ResponseTimeMs) },
+                        ]
+                      : []),
                     { label: 'Inbound Events · 60m', value: data?.traffic?.inboundEvents?.last60m ?? 0 },
                     { label: 'Inbound Events · 24h', value: data?.traffic?.inboundEvents?.last24h ?? 0 },
+                    { label: 'Uptime', value: data?.process?.uptime?.formatted || '—' },
                   ]}
                 />
               </Card>
@@ -855,6 +810,18 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
 
           {isGlobalScope && (
             <Card size="small" title="Organization Health">
+              <KeyValueTable
+                rows={[
+                  {
+                    label: 'Critical organizations',
+                    value: data?.globalSummary?.organizationStatusCounts?.critical ?? 0,
+                  },
+                  {
+                    label: 'Warning organizations',
+                    value: data?.globalSummary?.organizationStatusCounts?.warning ?? 0,
+                  },
+                ]}
+              />
               <OrganizationStatusTable organizations={organizations} />
             </Card>
           )}
@@ -870,7 +837,7 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
       key: 'event-sources',
       label: 'Event Sources',
       children: (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space direction="vertical" size={16} className="console-width-full">
           <Card size="small" title="Configuration">
             <KeyValueTable
               rows={
@@ -915,33 +882,26 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                   },
                   {
                     label: 'Providers',
-                    value: Object.keys(data?.senderProfiles?.summary?.providers || {}).length ? (
-                      <Space size={[4, 4]} wrap>
-                        {Object.entries(data?.senderProfiles?.summary?.providers || {}).map(([provider, count]) => (
-                          <Tag key={provider}>{`${provider}: ${count}`}</Tag>
-                        ))}
-                      </Space>
-                    ) : (
-                      '—'
-                    ),
+                    value: Object.keys(data?.senderProfiles?.summary?.providers || {}).length
+                      ? Object.entries(data?.senderProfiles?.summary?.providers || {})
+                          .map(([provider, count]) => `${provider}: ${count}`)
+                          .join(' · ')
+                      : '—',
                   },
                 ]}
               />
             ) : (data?.senderProfiles?.items?.length || 0) > 0 ? (
               <SenderProfilesTable items={data?.senderProfiles?.items || []} />
             ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No sender profiles configured" />
+              <StatePanel size="compact" glyph="searching" title="No sender profiles" />
             )}
           </Card>
           {!isGlobalScope &&
           (data?.eventSources?.configuration?.state === 'not_configured' ||
             (data?.eventSources?.orgAdapters?.length || 0) === 0) ? (
-            <Alert
-              type="info"
-              showIcon
-              message="No event source configured"
-              description="This org does not currently have a running event source adapter. That is different from a failed adapter."
-            />
+            <Text type="secondary">
+              No event source is configured for this organization. This is different from a failed adapter.
+            </Text>
           ) : (
             <EventSourceTable adapters={data?.eventSources?.orgAdapters || []} />
           )}
@@ -1107,13 +1067,13 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
           <Col xs={24} xl={12}>
             <Card size="small" title="Direction Mix (60m)">
               {Object.keys(directionMix).length === 0 ? (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No direction mix data" />
+                <StatePanel size="compact" glyph="searching" title="No direction data" />
               ) : (
-                <Space size={[8, 8]} wrap>
-                  {Object.entries(directionMix).map(([direction, count]) => (
-                    <Tag key={direction}>{`${direction}: ${count}`}</Tag>
-                  ))}
-                </Space>
+                <Text type="secondary">
+                  {Object.entries(directionMix)
+                    .map(([direction, count]) => `${humanizeKey(direction)}: ${count}`)
+                    .join(' · ')}
+                </Text>
               )}
             </Card>
           </Col>
@@ -1121,32 +1081,26 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
             <Card size="small" title="Backlog Breakdown">
               <Descriptions size="small" bordered column={1}>
                 <Descriptions.Item label="Pending Deliveries">
-                  <Space size={[4, 4]} wrap>
-                    {Object.entries(data?.backlogs?.pendingDeliveries || {}).map(([key, value]) => (
-                      <Tag key={key}>{`${key}: ${value}`}</Tag>
-                    ))}
-                  </Space>
+                  {Object.entries(data?.backlogs?.pendingDeliveries || {})
+                    .map(([key, value]) => `${humanizeKey(key)}: ${value}`)
+                    .join(' · ') || '0'}
                 </Descriptions.Item>
                 <Descriptions.Item label="DLQ">
-                  <Space size={[4, 4]} wrap>
-                    {Object.entries(data?.backlogs?.dlq || {}).map(([key, value]) => (
-                      <Tag key={key}>{`${key}: ${value}`}</Tag>
-                    ))}
-                  </Space>
+                  {Object.entries(data?.backlogs?.dlq || {})
+                    .map(([key, value]) => `${humanizeKey(key)}: ${value}`)
+                    .join(' · ') || '0'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Scheduled Integrations">
-                  <Space size={[4, 4]} wrap>
-                    {Object.entries(data?.backlogs?.scheduledIntegrations || {}).map(([key, value]) => (
-                      <Tag key={key}>{`${key}: ${value}`}</Tag>
-                    ))}
-                  </Space>
+                  {Object.entries(data?.backlogs?.scheduledIntegrations || {})
+                    .map(([key, value]) => `${humanizeKey(key)}: ${value}`)
+                    .join(' · ') || '0'}
                 </Descriptions.Item>
               </Descriptions>
             </Card>
           </Col>
           <Col xs={24}>
             <Card size="small" title="Scheduled Jobs">
-              <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Row gutter={[16, 16]} className="console-margin-bottom-4">
                 <Col xs={24} md={8}>
                   <Statistic title="Total" value={data?.scheduledJobs?.summary?.total ?? 0} />
                 </Col>
@@ -1192,177 +1146,141 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
 
   return (
     <div style={{ padding: isStandalone ? spacing[4] : spacing[6] }}>
-      <PageHeader
-        title="System Status"
-        description={
-          dataUpdatedAt
-            ? `Last updated ${lastUpdatedAge}s ago`
-            : isGlobalAdminMode
-              ? 'Global application health across all organizations.'
-              : 'Live application health, worker status, traffic, and runtime visibility.'
+      <PageTemplate
+        as="div"
+        header={
+          <PageHeader
+            title="System Status"
+            description={`${viewingLabel} · ${dataUpdatedAt ? `Updated ${lastUpdatedAge}s ago` : 'Live diagnostics'}`}
+            titleSuffix={isPortalSession ? <PortalScopeBadge /> : undefined}
+            actions={
+              <Space wrap>
+                <Space size={8}>
+                  <Text type="secondary" className="console-type-body">
+                    {autoRefresh ? (
+                      <RefreshCountdown intervalMs={AUTO_REFRESH_INTERVAL_MS} lastRefreshAt={dataUpdatedAt} />
+                    ) : (
+                      'Auto-refresh off'
+                    )}
+                  </Text>
+                  <Switch size="small" checked={autoRefresh} onChange={setAutoRefresh} />
+                </Space>
+                <Button
+                  icon={<GatewayIcon name="ReloadOutlined" />}
+                  onClick={handleManualRefresh}
+                  loading={manualRefreshPending}
+                >
+                  {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
+                </Button>
+              </Space>
+            }
+          />
         }
-        titleSuffix={isPortalSession ? <PortalScopeBadge /> : undefined}
-        statusChips={[
-          { label: viewingLabel, color: isGlobalScope ? '#1677ff' : undefined },
-          {
-            label: overallStatus.label,
-            color:
-              overallStatus.color === 'orange'
-                ? '#faad14'
-                : overallStatus.color === 'green'
-                  ? '#52c41a'
-                  : overallStatus.color === 'red'
-                    ? '#ff4d4f'
-                    : undefined,
-          },
-          {
-            label: lifecycleStatus.label,
-            color:
-              lifecycleStatus.color === 'orange'
-                ? '#faad14'
-                : lifecycleStatus.color === 'green'
-                  ? '#52c41a'
-                  : lifecycleStatus.color === 'red'
-                    ? '#ff4d4f'
-                    : lifecycleStatus.color === 'blue'
-                      ? '#1677ff'
-                      : undefined,
-          },
-          {
-            label: `${data?.overall?.alertCount?.total ?? 0} alerts`,
-            color: (data?.overall?.alertCount?.total || 0) > 0 ? '#faad14' : undefined,
-          },
-          { label: data?.processLifecycle?.abruptRestart?.detected ? 'Abrupt restart detected' : 'No abrupt restart' },
-          isGlobalScope
-            ? { label: `${data?.globalSummary?.organizationCount ?? 0} orgs`, color: '#1677ff' }
-            : {
-                label: configurationPresentation.label,
-                color:
-                  configurationPresentation.color === 'orange'
-                    ? '#faad14'
-                    : configurationPresentation.color === 'green'
-                      ? '#52c41a'
-                      : configurationPresentation.color === 'red'
-                        ? '#ff4d4f'
-                        : configurationPresentation.color === 'blue'
-                          ? '#1677ff'
-                          : undefined,
-              },
-          {
-            label: workerSummary
-              ? `${workerSummary.healthy}/${workerSummary.total} workers healthy`
-              : 'Workers unknown',
-          },
-        ]}
-        actions={
-          <Space wrap>
-            <Space size={8}>
-              <Text type="secondary" style={{ fontSize: 13 }}>
-                {autoRefresh ? (
-                  <RefreshCountdown intervalMs={AUTO_REFRESH_INTERVAL_MS} lastRefreshAt={dataUpdatedAt} />
-                ) : (
-                  'Auto-refresh off'
-                )}
-              </Text>
-              <Switch size="small" checked={autoRefresh} onChange={setAutoRefresh} />
-            </Space>
-            <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={manualRefreshPending}>
-              {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
-            </Button>
-          </Space>
-        }
-      />
+      >
+        {canReturnToGlobal && (
+          <Banner
+            status="info"
+            title="Viewing one organization"
+            description={
+              <div className="system-status-scope-notice__body">
+                <span>
+                  {tenant?.tenantName
+                    ? `Showing detailed diagnostics for ${tenant.tenantName}.`
+                    : 'Showing detailed diagnostics for the selected organization.'}{' '}
+                  Return to global status to compare organizations.
+                </span>
+                <Button size="small" onClick={() => clearOrgId()}>
+                  Back to all organizations
+                </Button>
+              </div>
+            }
+            className="console-margin-bottom-4"
+          />
+        )}
 
-      {isGlobalScope && (
-        <Alert
-          type="info"
-          showIcon
-          message="Global Scope"
-          description="This view aggregates application and organization status across all orgs. Use the org switcher in the header to move into a single org's detailed diagnostics."
-          style={{ marginBottom: spacing[4] }}
-        />
-      )}
+        {error && <Banner status="error" title="Failed to load system status" description={(error as Error).message} />}
 
-      {canReturnToGlobal && (
-        <Alert
-          type="info"
-          showIcon
-          message={`Org Scope Active${tenant?.tenantName ? `: ${tenant.tenantName}` : ''}`}
-          description="You are viewing detailed status for one organization. Clear the current org selection to return to the global all-organizations view."
-          action={
-            <Button size="small" onClick={() => clearOrgId()}>
-              Return to Global View
-            </Button>
-          }
-          style={{ marginBottom: spacing[4] }}
-        />
-      )}
+        {data?.processLifecycle?.current?.status === 'draining' && (
+          <Banner
+            status="warning"
+            title="Application is draining"
+            description={
+              data?.processLifecycle?.current?.reason
+                ? `New traffic should be routed away from this instance. Drain reason: ${data.processLifecycle.current.reason}`
+                : 'New traffic should be routed away from this instance while background work winds down.'
+            }
+            className="console-margin-bottom-4"
+          />
+        )}
 
-      {error && (
-        <Alert
-          type="error"
-          showIcon
-          message="Failed to load system status"
-          description={(error as Error).message}
-          style={{ marginBottom: spacing[4] }}
-        />
-      )}
+        {data?.processLifecycle?.abruptRestart?.detected && (
+          <Banner
+            status="warning"
+            title="Abrupt previous restart detected"
+            description={`The previous process did not record a clean stop. Detected ${formatAgeLabel(data.processLifecycle.abruptRestart.detectedAt)}.`}
+            className="console-margin-bottom-4"
+          />
+        )}
 
-      {data?.processLifecycle?.current?.status === 'draining' && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<WarningOutlined />}
-          message="Application is draining"
-          description={
-            data?.processLifecycle?.current?.reason
-              ? `New traffic should be routed away from this instance. Drain reason: ${data.processLifecycle.current.reason}`
-              : 'New traffic should be routed away from this instance while background work winds down.'
-          }
-          style={{ marginBottom: spacing[4] }}
-        />
-      )}
+        {dataStale && (
+          <Banner
+            status="warning"
+            title="Status data is stale"
+            description="Auto-refresh is enabled, but the last successful update is older than expected. The data below may no longer reflect the current system state."
+            className="console-margin-bottom-4"
+          />
+        )}
 
-      {data?.processLifecycle?.abruptRestart?.detected && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<ExclamationCircleOutlined />}
-          message="Abrupt previous restart detected"
-          description={`The previous process did not record a clean stop. Detected ${formatAgeLabel(data.processLifecycle.abruptRestart.detectedAt)}.`}
-          style={{ marginBottom: spacing[4] }}
-        />
-      )}
-
-      {dataStale && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<WarningOutlined />}
-          message="Status data is stale"
-          description="Auto-refresh is enabled, but the last successful update is older than expected. The data below may no longer reflect the current system state."
-          style={{ marginBottom: spacing[4] }}
-        />
-      )}
-
-      {isLoading && !data ? (
-        <Card>
-          <Paragraph type="secondary" style={{ margin: 0 }}>
-            Loading system status…
-          </Paragraph>
-        </Card>
-      ) : !data ? (
-        <Card>
-          <Empty description="No system status data" />
-        </Card>
-      ) : (
-        <Tabs
-          activeKey={TAB_KEYS.includes(activeTab) ? activeTab : 'overview'}
-          onChange={setTab}
-          items={tabItems}
-          tabBarGutter={screens.md ? 24 : 12}
-        />
-      )}
+        {isLoading && !data ? (
+          <Card>
+            <Paragraph type="secondary" className="console-margin-none">
+              Loading system status…
+            </Paragraph>
+          </Card>
+        ) : !data ? (
+          <Card>
+            <StatePanel size="regular" glyph="searching" title="No system status data" />
+          </Card>
+        ) : (
+          <div className="system-status-tabs">
+            <TabList
+              aria-label="System status sections"
+              className="system-status-tab-list"
+              hasDivider
+              onChange={setTab}
+              overflow="visible"
+              role="tablist"
+              size="md"
+              value={selectedTab}
+            >
+              {tabItems.map((item) => (
+                <Tab
+                  key={item.key}
+                  id={`system-status-${item.key}-tab`}
+                  value={item.key}
+                  label={item.label}
+                  panelId={`system-status-${item.key}-panel`}
+                />
+              ))}
+            </TabList>
+            {tabItems.map(
+              (item) =>
+                visitedTabs.has(item.key as TabKey) && (
+                  <div
+                    key={item.key}
+                    id={`system-status-${item.key}-panel`}
+                    role="tabpanel"
+                    aria-labelledby={`system-status-${item.key}-tab`}
+                    hidden={selectedTab !== item.key}
+                    tabIndex={0}
+                  >
+                    {item.children}
+                  </div>
+                )
+            )}
+          </div>
+        )}
+      </PageTemplate>
     </div>
   );
 }

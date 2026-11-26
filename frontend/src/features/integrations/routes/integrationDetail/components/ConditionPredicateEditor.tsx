@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Col, Form, Input, Row, Select, Space, Spin, Typography } from 'antd';
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Col, Form, Input, Row, Select, Space, Spin } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import type { ConditionPredicateValueType } from '../../../../../mocks/types';
 import { ConditionValueInput } from './ConditionValueInput';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -128,7 +130,7 @@ export const ConditionPredicateEditor = ({
   };
 
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+    <Space direction="vertical" size={8} className="console-width-full">
       {!followUpEventType ? (
         <Text type="secondary">Choose the follow-up event first.</Text>
       ) : !enabled && isLoadingFieldOptions ? (
@@ -139,7 +141,7 @@ export const ConditionPredicateEditor = ({
       ) : !enabled && fieldOptions.length === 0 ? (
         <Text type="secondary">No comparable fields were found for the selected follow-up event.</Text>
       ) : !enabled && canAddCondition ? (
-        <Button icon={<PlusOutlined />} onClick={() => enableCondition(true)}>
+        <Button icon={<GatewayIcon name="PlusOutlined" />} onClick={() => enableCondition(true)}>
           Add condition
         </Button>
       ) : (
@@ -149,7 +151,7 @@ export const ConditionPredicateEditor = ({
             <Button
               type="link"
               size="small"
-              icon={<CloseOutlined />}
+              icon={<GatewayIcon name="CloseOutlined" />}
               onClick={() => form.setFieldValue(conditionsPath, [])}
             >
               Remove condition
@@ -158,7 +160,7 @@ export const ConditionPredicateEditor = ({
 
           <Row gutter={[8, 8]}>
             <Col xs={24} lg={9}>
-              <Form.Item name={[...relativeConditionPath, 'fieldPath']} style={{ marginBottom: 0 }}>
+              <Form.Item name={[...relativeConditionPath, 'fieldPath']} className="console-margin-bottom-none">
                 <Select
                   open={fieldDropdownOpen}
                   showSearch
@@ -178,17 +180,17 @@ export const ConditionPredicateEditor = ({
               </Form.Item>
             </Col>
             <Col xs={24} lg={7}>
-              <Form.Item name={[...relativeConditionPath, 'operator']} style={{ marginBottom: 0 }}>
+              <Form.Item name={[...relativeConditionPath, 'operator']} className="console-margin-bottom-none">
                 <Select options={operators} placeholder="Condition" />
               </Form.Item>
             </Col>
             <Col xs={24} lg={8}>
               {expectsValue ? (
-                <Form.Item name={[...relativeConditionPath, 'value']} style={{ marginBottom: 0 }}>
+                <Form.Item name={[...relativeConditionPath, 'value']} className="console-margin-bottom-none">
                   <ConditionValueInput valueType={valueType} fieldType={selectedField?.type} />
                 </Form.Item>
               ) : (
-                <div style={{ paddingTop: 6, minHeight: 32 }}>
+                <div className="ui-extracted-358de36696">
                   <Text type="secondary">No value needed</Text>
                 </div>
               )}

@@ -1,8 +1,9 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Form, Row, Select, Tooltip } from 'antd';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
+import { Card, Col, Form, Row, Select, Tooltip } from "@/components/common/LegacyAntdControls";
 import { useEffect } from 'react';
 import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { SingleEventTypeSelectField } from './SingleEventTypeSelectField';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 const ACTION_OPTIONS = [
   { label: 'Cancel pending delivery', value: 'CANCEL_PENDING' },
@@ -47,8 +48,7 @@ export const LifecycleRuleCard = ({ field, eventTypeOptions, onRemove, token, co
             name={[field.name, 'action']}
             label="Then"
             initialValue="CANCEL_PENDING"
-            rules={[{ required: true, message: 'Action is required' }]}
-            style={{ marginBottom: 0 }}
+            rules={[{ required: true, message: 'Action is required' }]} className="console-margin-bottom-none"
           >
             <Select options={ACTION_OPTIONS} />
           </Form.Item>
@@ -59,7 +59,7 @@ export const LifecycleRuleCard = ({ field, eventTypeOptions, onRemove, token, co
               danger
               title="Remove"
               aria-label="Remove lifecycle rule"
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               onClick={() => onRemove(field.name)}
             />
           </Tooltip>

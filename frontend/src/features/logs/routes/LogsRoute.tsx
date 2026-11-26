@@ -1,57 +1,40 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   App,
-  Button,
   Card,
   DatePicker,
   Input,
   Select,
   Space,
-  Tag,
-  Typography,
   Timeline,
   Divider,
-  Tabs,
   Grid,
   Dropdown,
   Modal,
   Skeleton,
   Tooltip,
   Drawer,
-} from 'antd';
-import {
-  DownloadOutlined,
-  RedoOutlined,
-  HistoryOutlined,
-  ReloadOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  MinusCircleOutlined,
-  DatabaseOutlined,
-  DeleteOutlined,
-  CopyOutlined,
-  LeftOutlined,
-  RightOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { RetainedTabs, type RetainedTabItem } from '../../../components/common/RetainedTabs';
 import { ModernTable } from '../../../components/common/ModernTable';
-import { StatusBadge } from '../../../components/common/StatusBadge';
+import { getStatusLabel, StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { StatPillRow } from '../../../components/common/StatPillRow';
 import { DeliveryFollowUpPanel, FollowUpTag } from '../components/DeliveryFollowUpPanel';
 import { buildStageTabItems, StageSummaryTags } from '../../stages/components/DeliveryStageTabs';
 import { DeliveryFlow } from '../../stages/components/DeliveryFlow';
+import { isLiveStatus } from '../utils/liveRun';
+import { LiveRunNotice } from '../../../components/common/LiveRunNotice';
 import { getDeliveryStages, type StageRun, type StageState } from '../../../services/stages-api';
 import { DeliveryFollowUpSummary } from '../components/DeliveryFollowUpSummary';
 import { FollowUpChecks } from '../components/FollowUpChecks';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
 import { StatePanel } from '../../../components/common/StatePanel';
+import { SearchInput } from '../../../components/common/ListControls';
 import {
   getLogs,
   getIntegrations,
@@ -88,6 +71,8 @@ import { useAuth } from '../../../app/auth-context';
 import { useTenant } from '../../../app/tenant-context';
 import { Hl7LogPanel, isHl7LogLike } from '../components/Hl7LogPanel';
 import dayjs, { type Dayjs } from 'dayjs';
+import { Button } from '../../../components/common/LegacyButton';
+import { Text } from '@astryxdesign/core/Text';
 
 const { RangePicker } = DatePicker;
 
@@ -122,6 +107,12 @@ const maskSecret = (value: unknown): string | null => {
   if (value.length <= 4) return '****';
   return `${value.slice(0, 2)}${'*'.repeat(Math.max(4, value.length - 4))}${value.slice(-2)}`;
 };
+
+/** A script job that has not finished: its output is still being written and the drawer follows it. */
+const isLiveScriptRun = (log: Partial<DeliveryLog> | null | undefined): boolean =>
+  isScriptJobLogLike(log) && isLiveStatus(log?.status);
+
+const LIVE_OUTPUT_POLL_MS = 3000;
 
 const DAY_OF_WEEK_OPTIONS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SCHEDULED_TRIGGER_TYPES = new Set(['SCHEDULE', 'SCHEDULED']);
@@ -165,7 +156,10 @@ const deriveDateRangeFromDays = (value: string | null): [string, string] | null 
 // questions people actually bring to this screen ("did it break today?",
 // "what happened this week?"). One click covers almost all of them.
 const DATE_RANGE_PRESETS = [
-  { label: 'Today', value: () => [dayjs().startOf('day'), dayjs().endOf('day')] as [Dayjs, Dayjs] },
+  {
+    label: 'Today',
+    value: () => [dayjs().startOf('day'), dayjs().endOf('day')] as [Dayjs, Dayjs],
+  },
   {
     label: 'Yesterday',
     value: () => [dayjs().subtract(1, 'day').startOf('day'), dayjs().subtract(1, 'day').endOf('day')] as [Dayjs, Dayjs],
@@ -235,14 +229,6 @@ interface ExecutionSpan {
   children?: ExecutionSpan[];
 }
 
-const SPAN_KIND_COLOR: Record<string, string> = {
-  AUTH: 'var(--color-text-secondary)',
-  POLICY: 'var(--color-info-text)',
-  TRANSFORM: 'var(--color-text-secondary)',
-  HTTP: 'var(--color-text-secondary)',
-  LOG: 'var(--color-text-secondary)',
-};
-
 const TraceSpanRow = ({
   span,
   depth,
@@ -252,130 +238,51 @@ const TraceSpanRow = ({
   depth: number;
   totalDuration: number;
 }) => {
-  const { token } = useDesignTokens();
   const [open, setOpen] = useState(false);
-  const kindColor = SPAN_KIND_COLOR[span.kind] || 'var(--color-info-text)';
   const isError = span.status === 'error';
-  const barColor = kindColor;
   const pct = Math.max(2, ((span.duration || 0) / (totalDuration || 1)) * 100);
   const hasDetail = span.requestBody || span.responseBody || span.error || span.message;
   return (
-    <div style={{ marginBottom: 6, paddingLeft: depth * 16 }}>
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: hasDetail ? 'pointer' : 'default' }}
-        onClick={() => hasDetail && setOpen((v) => !v)}
-      >
-        <span
-          style={{
-            minWidth: 76,
-            fontSize: 11,
-            color: token.colorTextSecondary,
-            fontFamily: 'monospace',
-            textAlign: 'right',
-          }}
-        >
-          {span.duration != null ? `${span.duration}ms` : ''}
-        </span>
-        {isError && (
-          <span
-            aria-label="Span failed"
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: 'var(--color-error-text)',
-              flexShrink: 0,
-            }}
-          />
-        )}
-        <Tag
-          color={barColor}
-          style={{ fontSize: 10, padding: '0 5px', lineHeight: '18px', minWidth: 64, textAlign: 'center' }}
-        >
-          {span.kind}
-        </Tag>
-        <span style={{ flex: 1, fontSize: 12, color: isError ? 'var(--color-error-text)' : token.colorText }}>
+    <div className="logs-trace-span" style={{ paddingLeft: depth * 16 }}>
+      <div className="logs-trace-span-row" data-interactive={hasDetail} onClick={() => hasDetail && setOpen((v) => !v)}>
+        <span className="logs-trace-duration">{span.duration != null ? `${span.duration}ms` : ''}</span>
+        {isError && <span aria-label="Span failed" className="logs-trace-error-dot" />}
+        <Text type="code">{span.kind}</Text>
+        <span className="logs-trace-name" data-error={isError}>
           {span.name}
           {span.method ? ` ${span.method}` : ''}
-          {span.url ? (
-            <span style={{ color: token.colorTextSecondary, fontFamily: 'monospace', fontSize: 11 }}> {span.url}</span>
-          ) : null}
-          {span.message ? <span style={{ color: token.colorTextSecondary }}> — {span.message}</span> : null}
+          {span.url ? <span className="logs-trace-url"> {span.url}</span> : null}
+          {span.message ? <span className="console-text-secondary"> — {span.message}</span> : null}
           {span.statusCode != null ? (
-            <Tag style={{ marginLeft: 6, fontSize: 10 }} color={span.statusCode < 400 ? 'green' : 'red'}>
+            <Text
+              type="code"
+              className={span.statusCode >= 400 ? 'console-margin-left-2 console-text-error' : 'console-margin-left-2'}
+            >
               {span.statusCode}
-            </Tag>
+            </Text>
           ) : null}
-          {span.authType ? (
-            <span style={{ marginLeft: 6, fontSize: 10, color: token.colorTextSecondary }}>[{span.authType}]</span>
-          ) : null}
-          {span.attempt != null ? (
-            <span style={{ marginLeft: 6, fontSize: 10, color: token.colorTextSecondary }}>attempt {span.attempt}</span>
-          ) : null}
+          {span.authType ? <span className="logs-trace-metadata">[{span.authType}]</span> : null}
+          {span.attempt != null ? <span className="logs-trace-metadata">attempt {span.attempt}</span> : null}
         </span>
-        <div
-          style={{
-            width: 120,
-            height: 8,
-            background: withAlpha(barColor, 0.15),
-            borderRadius: 4,
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 4 }} />
+        <div className="logs-trace-progress" data-kind={span.kind} data-error={isError}>
+          <div className="logs-trace-progress-fill" style={{ width: `${pct}%` }} />
         </div>
       </div>
       {open && hasDetail && (
-        <div
-          style={{
-            marginTop: 4,
-            marginLeft: 84,
-            paddingLeft: 8,
-            borderLeft: `2px solid ${isError ? 'var(--color-error-text)' : barColor}`,
-          }}
-        >
-          {span.error && (
-            <div style={{ fontSize: 11, color: 'var(--color-error-text)', marginBottom: 4 }}>{span.error}</div>
-          )}
+        <div className="logs-trace-span-details" data-kind={span.kind} data-error={isError}>
+          {span.error && <div className="logs-trace-error-message">{span.error}</div>}
           {span.requestBody && (
-            <div style={{ marginBottom: 4 }}>
-              <div style={{ fontSize: 10, color: token.colorTextSecondary, marginBottom: 2 }}>Request</div>
-              <pre
-                style={{
-                  fontSize: 10,
-                  margin: 0,
-                  background: token.colorFillQuaternary,
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  maxHeight: 120,
-                  overflow: 'auto',
-                  color: token.colorText,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
+            <div className="console-margin-bottom-1">
+              <div className="logs-trace-section-label">Request</div>
+              <pre className="logs-trace-code-preview">
                 {typeof span.requestBody === 'string' ? span.requestBody : JSON.stringify(span.requestBody, null, 2)}
               </pre>
             </div>
           )}
           {span.responseBody && (
             <div>
-              <div style={{ fontSize: 10, color: token.colorTextSecondary, marginBottom: 2 }}>Response</div>
-              <pre
-                style={{
-                  fontSize: 10,
-                  margin: 0,
-                  background: token.colorFillQuaternary,
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  maxHeight: 120,
-                  overflow: 'auto',
-                  color: token.colorText,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
+              <div className="logs-trace-section-label">Response</div>
+              <pre className="logs-trace-code-preview">
                 {typeof span.responseBody === 'string' ? span.responseBody : JSON.stringify(span.responseBody, null, 2)}
               </pre>
             </div>
@@ -390,11 +297,11 @@ const TraceSpanRow = ({
 };
 
 const TraceWaterfall = ({ spans }: { spans: ExecutionSpan[] }) => {
-  const { token, spacing } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const totalDuration = spans.reduce((s, sp) => s + (sp.duration || 0), 0) || 1;
   return (
-    <div style={{ padding: `${spacing[2]} 0` }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: spacing[2], fontSize: 11, color: token.colorTextSecondary }}>
+    <div className="console-padding-y-2">
+      <div className="logs-trace-summary">
         <span>{spans.length} spans</span>
         <span>·</span>
         <span>total {spans.reduce((s, sp) => s + (sp.duration || 0), 0)}ms</span>
@@ -407,7 +314,7 @@ const TraceWaterfall = ({ spans }: { spans: ExecutionSpan[] }) => {
 };
 
 export const LogsRoute = () => {
-  const { spacing, token, borderRadius, shadows } = useDesignTokens();
+  const { spacing, token } = useDesignTokens();
   const { isSuperAdmin } = usePermissions();
   // cURL previews mask credentials by default — they get pasted into tickets.
   // Admins can reveal them to get a command that actually runs; deliberately
@@ -727,7 +634,7 @@ export const LogsRoute = () => {
         direction: resolvedDirection,
         triggerType: resolvedTriggerType,
         errorCategory: errorCategoryFilter,
-      clientIp: clientIpFilter,
+        clientIp: clientIpFilter,
         hour: hourFilter,
         dayOfWeek: dayOfWeekFilter,
         timezoneOffset,
@@ -768,7 +675,7 @@ export const LogsRoute = () => {
         direction: resolvedDirection,
         triggerType: resolvedTriggerType,
         errorCategory: errorCategoryFilter,
-      clientIp: clientIpFilter,
+        clientIp: clientIpFilter,
         hour: hourFilter,
         dayOfWeek: dayOfWeekFilter,
         timezoneOffset,
@@ -784,7 +691,11 @@ export const LogsRoute = () => {
   const { data: followUpStats } = useQuery({
     enabled: Boolean(integrationFilter),
     queryKey: ['logs-follow-up-stats', orgId, integrationFilter, resolvedDateRange],
-    queryFn: () => getDeliveryFollowUpStats({ integrationId: integrationFilter, dateRange: resolvedDateRange }),
+    queryFn: () =>
+      getDeliveryFollowUpStats({
+        integrationId: integrationFilter,
+        dateRange: resolvedDateRange,
+      }),
     refetchInterval: refreshInterval,
     staleTime: logsQueryStaleTime,
   });
@@ -873,7 +784,17 @@ export const LogsRoute = () => {
   const exportFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; onClear?: () => void }> = [];
     if (statusFilter) {
-      chips.push({ key: 'status', label: `Status: ${statusFilter}`, onClear: () => clearExportFilter('status') });
+      const label =
+        statusFilter === 'FAILED'
+          ? 'Failed (including abandoned)'
+          : statusFilter === 'QUEUED'
+            ? 'Pending (queued)'
+            : getStatusLabel(statusFilter);
+      chips.push({
+        key: 'status',
+        label: `Status: ${label}`,
+        onClear: () => clearExportFilter('status'),
+      });
     }
     if (flowFilter) {
       const flowLabel =
@@ -884,7 +805,11 @@ export const LogsRoute = () => {
             : flowFilter === 'COMMUNICATION'
               ? 'Communication'
               : 'Outbound';
-      chips.push({ key: 'flow', label: `Flow: ${flowLabel}`, onClear: () => clearExportFilter('flow') });
+      chips.push({
+        key: 'flow',
+        label: `Flow: ${flowLabel}`,
+        onClear: () => clearExportFilter('flow'),
+      });
     }
     if (integrationFilter) {
       const __KEEP_integrationName__ =
@@ -931,17 +856,29 @@ export const LogsRoute = () => {
       });
     }
     if (dayOfWeekFilter) {
-      chips.push({ key: 'dayOfWeek', label: `Day: ${dayOfWeekFilter}`, onClear: () => clearExportFilter('dayOfWeek') });
+      chips.push({
+        key: 'dayOfWeek',
+        label: `Day: ${dayOfWeekFilter}`,
+        onClear: () => clearExportFilter('dayOfWeek'),
+      });
     }
     if (dateRange?.[0] && dateRange?.[1]) {
       const startLabel = dayjs(dateRange[0]).format('YYYY-MM-DD');
       const endLabel = dayjs(dateRange[1]).format('YYYY-MM-DD');
-      chips.push({ key: 'date', label: `Date: ${startLabel} → ${endLabel}`, onClear: () => clearExportFilter('date') });
+      chips.push({
+        key: 'date',
+        label: `Date: ${startLabel} → ${endLabel}`,
+        onClear: () => clearExportFilter('date'),
+      });
     }
     const trimmedSearch = search.trim();
     if (trimmedSearch) {
       const display = trimmedSearch.length > 28 ? `${trimmedSearch.slice(0, 28)}…` : trimmedSearch;
-      chips.push({ key: 'search', label: `Search: ${display}`, onClear: () => clearExportFilter('search') });
+      chips.push({
+        key: 'search',
+        label: `Search: ${display}`,
+        onClear: () => clearExportFilter('search'),
+      });
     }
     return chips;
   }, [
@@ -995,32 +932,6 @@ export const LogsRoute = () => {
       ? `Export filtered (${exportCount.toLocaleString()})`
       : `Export (${exportCount.toLocaleString()})`;
 
-  const tagTone = (base: string) => ({
-    borderRadius: borderRadius.full,
-    borderColor: withAlpha(base, 0.25),
-    background: withAlpha(base, 0.1),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing[2],
-    paddingBlock: spacing['0.5'],
-    fontSize: token.fontSizeSM,
-  });
-  const mutedSurface = withAlpha(token.colorTextBase, 0.04);
-  const errorSurface = withAlpha(colors.error[500], 0.1);
-  const panelStyle = {
-    borderRadius: token.borderRadiusLG,
-    border: `1px solid ${token.colorBorderSecondary}`,
-    background: token.colorBgContainer,
-    boxShadow: shadows.xl,
-  } as const;
-  const tableFullBleedStyle = isNarrow
-    ? {}
-    : {
-        marginLeft: 0,
-        marginRight: `-${spacing[4]}`,
-        paddingRight: spacing[1],
-      };
-
   const handleExportCsv = async () => {
     const { onProgress, finish } = createExportProgress(msgApi, 'Export CSV');
     try {
@@ -1058,6 +969,32 @@ export const LogsRoute = () => {
     setRevealCredentials(false);
     setRevealedConfig(null);
   }, [detailRecord?.id]);
+
+  // A running script job shows its output as it appears: follow it until it finishes.
+  const followedLog = detailRecord ? expandedLogDetails[detailRecord.id] || detailRecord : null;
+  const followingLiveRun = isLiveScriptRun(followedLog);
+  useEffect(() => {
+    if (!detailRecord || !followingLiveRun) return undefined;
+    const id = detailRecord.id;
+    let cancelled = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const latest = await getLogById(id);
+        if (cancelled || !latest) return;
+        setExpandedLogDetails((prev) => ({ ...prev, [id]: latest }));
+        if (!isLiveScriptRun(latest)) {
+          setDetailRecord((prev) => (prev && prev.id === id ? { ...prev, status: latest.status } : prev));
+          void refetchLogs();
+        }
+      } catch {
+        // A missed poll is harmless: the next one catches up.
+      }
+    }, LIVE_OUTPUT_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [detailRecord?.id, followingLiveRun]);
 
   const openDeliveryDetail = async (record: DeliveryLog) => {
     setDetailRecord(record);
@@ -1344,14 +1281,20 @@ export const LogsRoute = () => {
 
       if (exportType === 'selected') {
         // Server-side export for selected logs
-        await exportSelectedLogs(selectedRowKeys as string[], format, { onProgress });
+        await exportSelectedLogs(selectedRowKeys as string[], format, {
+          onProgress,
+        });
         finish(`Exported ${count} log(s)`);
       } else {
         // For all/filtered, use backend export
         if (format === 'csv') {
-          await exportLogsToCsv(exportType === 'all' ? {} : filters, { onProgress });
+          await exportLogsToCsv(exportType === 'all' ? {} : filters, {
+            onProgress,
+          });
         } else {
-          await exportLogsToJson(exportType === 'all' ? {} : filters, { onProgress });
+          await exportLogsToJson(exportType === 'all' ? {} : filters, {
+            onProgress,
+          });
         }
         finish(`Exported ${count} log(s)`);
       }
@@ -1404,6 +1347,9 @@ export const LogsRoute = () => {
     const isScriptJobLog = isScriptJobLogLike(fullLog);
     const scriptLogs = getScriptLogs(fullLog);
     const hasScriptLogs = Array.isArray(scriptLogs) && scriptLogs.length > 0;
+    const isLiveRun = isLiveScriptRun(fullLog);
+    // A running job gets its output tab straight away, even before the first line, so it is there to watch.
+    const showScriptTab = hasScriptLogs || isLiveRun;
     // A skipped delivery never sent a request: no HTTP status, no
     // cURL — what the operator needs is the event that was skipped.
     const isSkippedLog = fullLog.status === 'SKIPPED';
@@ -1510,7 +1456,18 @@ export const LogsRoute = () => {
         subject: payloadForProvider.subject || requestBodyForProvider.subject || null,
       },
     };
-    const formattedResponseBody = formatForCodeBlock(fullLog.responseBody);
+    const hasResponseBody =
+      fullLog.responseBody !== null && fullLog.responseBody !== undefined && fullLog.responseBody !== '';
+    // With no body to show, say why instead of printing "No response body": the reason is the error, and for a script job its output.
+    const formattedResponseBody = hasResponseBody
+      ? formatForCodeBlock(fullLog.responseBody)
+      : [
+          isScriptJobLog ? 'This job did not return a result.' : 'No response body was recorded.',
+          fullLog.errorMessage ? `Reason: ${fullLog.errorMessage}` : '',
+          hasScriptLogs ? "The job's step-by-step output, with the cause, is in the Script Output tab." : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n');
     const isHl7Log = isHl7LogLike({
       httpMethod: fullLog.httpMethod,
       metadata: (fullLog as any).metadata,
@@ -1519,18 +1476,20 @@ export const LogsRoute = () => {
     });
 
     return (
-      <div style={{ padding: 0, background: 'transparent' }}>
+      <div className="console-padding-0">
         {isLoading ? (
-          <div style={{ padding: spacing[3] }}>
-            <Skeleton active paragraph={{ rows: 4 }} />
-            <Skeleton active paragraph={{ rows: 6 }} />
-          </div>
+          <StatePanel glyph="connecting" tone="busy" title="Loading delivery details" size="compact" />
         ) : (
           <Card
             variant="outlined"
-            style={{ ...panelStyle, boxShadow: 'none', margin: 0 }}
+            className="logs-detail-card"
             styles={{
-              body: { padding: spacing[2], display: 'flex', flexDirection: 'column', gap: spacing[2] },
+              body: {
+                padding: spacing[2],
+                display: 'flex',
+                flexDirection: 'column',
+                gap: spacing[2],
+              },
             }}
           >
             {/* Why it failed, first. The payload and cURL below are
@@ -1538,56 +1497,38 @@ export const LogsRoute = () => {
                             find out what went wrong, and previously had to scroll
                             past hundreds of lines of body to reach it. */}
             {fullLog.errorMessage && (
-              <div
-                style={{
-                  border: `1px solid ${withAlpha(stateColor[500], 0.35)}`,
-                  background: isSkippedLog ? withAlpha(colors.warning[500], 0.1) : errorSurface,
-                  borderRadius: token.borderRadiusLG,
-                  padding: spacing[3],
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: spacing[2],
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: spacing[2], flexWrap: 'wrap' }}>
-                  <Typography.Text strong style={{ fontSize: 15, color: stateColor[800] }}>
+              <div className={`logs-error-summary${isSkippedLog ? ' logs-error-summary--warning' : ''}`}>
+                <div className="console-flex-baseline-wrap">
+                  <Text
+                    weight="semibold"
+                    size="lg"
+                    className={isSkippedLog ? 'console-text-warning' : 'console-text-error'}
+                  >
                     {isSkippedLog
                       ? 'Delivery skipped'
                       : fullLog.status === 'ABANDONED'
                         ? 'Delivery abandoned'
                         : 'Delivery failed'}
                     {!isSkippedLog && fullLog.responseStatus ? ` · HTTP ${fullLog.responseStatus}` : ''}
-                  </Typography.Text>
+                  </Text>
                   {fullLog.status === 'ABANDONED' && (
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="supporting" size="sm" color="secondary">
                       retries exhausted — no further attempts will be made
-                    </Typography.Text>
+                    </Text>
                   )}
                 </div>
 
-                <Typography.Text
-                  style={{
-                    fontSize: 13,
-                    color: stateColor[800],
-                    fontFamily: 'ui-monospace, monospace',
-                    whiteSpace: 'pre-wrap',
-                    overflowWrap: 'anywhere',
-                  }}
+                <Text
+                  as="div"
+                  type="code"
+                  className={`${isSkippedLog ? 'console-text-warning' : 'console-text-error'} console-code-wrap`}
                 >
                   {fullLog.errorMessage}
-                </Typography.Text>
+                </Text>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: spacing[4],
-                    flexWrap: 'wrap',
-                    fontSize: 12,
-                    color: cssVar.text.secondary,
-                  }}
-                >
+                <div className="logs-error-metadata">
                   {fullLog.targetUrl && (
-                    <span style={{ fontFamily: 'ui-monospace, monospace' }}>
+                    <span className="console-font-mono">
                       {fullLog.httpMethod || 'POST'} {fullLog.targetUrl}
                     </span>
                   )}
@@ -1616,17 +1557,28 @@ export const LogsRoute = () => {
 
             <DeliveryFollowUpPanel followUp={fullLog.followUp} />
 
-            {(curlCommand || isCommunicationLog || isHl7Log || hasScriptLogs || showSourceEvent || fullLog.followUp || stageTabs.length > 0) && (
-              <Tabs
-                size="small"
-                defaultActiveKey={
+            {isLiveRun && <LiveRunNotice startedAt={fullLog.createdAt} lines={scriptLogs.length} />}
+
+            {(curlCommand ||
+              isCommunicationLog ||
+              isHl7Log ||
+              showScriptTab ||
+              showSourceEvent ||
+              fullLog.followUp ||
+              (fullLog as any).traceId ||
+              stageTabs.length > 0) && (
+              <RetainedTabs
+                key={String(fullLog.id)}
+                ariaLabel="Delivery details"
+                idPrefix={`delivery-${String(fullLog.id)}`}
+                initialKey={
                   isSkippedLog && showSourceEvent
                     ? 'source-event'
                     : isHl7Log
                       ? 'hl7'
                       : isCommunicationLog
                         ? 'provider'
-                        : hasScriptLogs
+                        : showScriptTab
                           ? 'script-logs'
                           : curlCommand
                             ? 'curl'
@@ -1636,433 +1588,341 @@ export const LogsRoute = () => {
                                 ? stageTabs[0].key
                                 : 'source-event'
                 }
-                items={[
-                  // The event that triggered this delivery, so the
-                  // operator needn't hunt for it in Event Audit.
-                  ...(showSourceEvent
-                    ? [
-                        {
-                          key: 'source-event',
-                          label: 'Source event',
-                          children: (
-                            <SourceEventPanel
-                              messageId={fullLog.messageId as string}
-                              fallbackPayload={fullLog.originalPayload}
-                            />
-                          ),
-                        },
-                      ]
-                    : []),
-                  ...(hasScriptLogs
-                    ? [
-                        {
-                          key: 'script-logs',
-                          label: 'Script Output',
-                          children: (
-                            <div style={{ position: 'relative' }}>
-                              <Button
-                                size="small"
-                                icon={<CopyOutlined />}
-                                aria-label="Copy script output"
-                                onClick={() =>
-                                  copyToClipboard(
-                                    scriptLogs
-                                      .map(
-                                        (l: any) =>
-                                          `[${new Date(l.ts).toLocaleTimeString()}] ${String(l.level).toUpperCase()} ${l.message}`
-                                      )
-                                      .join('\n')
-                                  )
-                                }
-                                style={{
-                                  position: 'absolute',
-                                  top: spacing[2],
-                                  left: spacing[2],
-                                  zIndex: 1,
-                                }}
-                              />
-                              <div
-                                style={{
-                                  background: 'var(--color-code-bg)',
-                                  borderRadius: token.borderRadiusLG,
-                                  padding: spacing[3],
-                                  paddingTop: 40,
-                                  fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                                  fontSize: token.fontSizeSM,
-                                  maxHeight: 280,
-                                  overflow: 'auto',
-                                }}
-                              >
-                                {scriptLogs.map((entry: any, i: number) => (
-                                  <div
-                                    key={i}
-                                    style={{
-                                      display: 'flex',
-                                      gap: spacing[2],
-                                      padding: '3px 0',
-                                      borderBottom:
-                                        i < scriptLogs.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                                    }}
-                                  >
-                                    <span style={{ color: 'var(--color-text-muted)', flexShrink: 0, fontSize: 11 }}>
-                                      {new Date(entry.ts).toLocaleTimeString()}
-                                    </span>
-                                    <span
-                                      style={{
-                                        color:
-                                          entry.level === 'error'
-                                            ? 'var(--color-error-text)'
-                                            : entry.level === 'warn'
-                                              ? 'var(--color-warning-text)'
-                                              : 'var(--color-text-secondary)',
-                                        fontWeight: 600,
-                                        flexShrink: 0,
-                                      }}
-                                    >
-                                      {String(entry.level).toUpperCase()}
-                                    </span>
-                                    <span style={{ color: 'var(--color-text-primary)', wordBreak: 'break-word' }}>
-                                      {entry.message}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ),
-                        },
-                      ]
-                    : []),
-                  ...(isHl7Log
-                    ? [
-                        {
-                          key: 'hl7',
-                          label: 'HL7',
-                          children: (
-                            <Hl7LogPanel
-                              compact
-                              httpMethod={fullLog.httpMethod}
-                              metadata={(fullLog as any).metadata}
-                              status={fullLog.status}
-                              errorMessage={fullLog.errorMessage}
-                              responseStatus={fullLog.responseStatus}
-                              responseTimeMs={fullLog.responseTimeMs}
-                              targetUrl={fullLog.targetUrl}
-                              createdAt={fullLog.createdAt}
-                              originalPayload={(fullLog as any).originalPayload}
-                              requestPayload={fullLog.requestPayload}
-                              responseBody={fullLog.responseBody}
-                              canReplay={['FAILED', 'ABANDONED'].includes(fullLog.status)}
-                              onReplayPayload={(options) => handleReplayWithPayload(fullLog, options)}
-                            />
-                          ),
-                        },
-                      ]
-                    : []),
-                  ...(isCommunicationLog
-                    ? [
-                        {
-                          key: 'provider',
-                          label: 'Provider',
-                          children: (
-                            <div style={{ position: 'relative' }}>
-                              <Button
-                                size="small"
-                                icon={<CopyOutlined />}
-                                aria-label="Copy provider details"
-                                onClick={() => copyToClipboard(formatForCodeBlock(providerDetails))}
-                                style={{
-                                  position: 'absolute',
-                                  top: spacing[2],
-                                  left: spacing[2],
-                                  zIndex: 1,
-                                }}
-                              />
-                              <pre
-                                className="clamped-code-block"
-                                tabIndex={0}
-                                style={{
-                                  background: withAlpha(cssVar.bg.overlay, 0.96),
-                                  color: cssVar.text.primary,
-                                  padding: spacing[3],
-                                  borderRadius: token.borderRadiusLG,
-                                  overflow: 'auto',
-                                  maxHeight: 280,
-                                  border: `1px solid ${cssVar.border.default}`,
-                                  fontSize: token.fontSizeSM,
-                                  whiteSpace: 'pre-wrap',
-                                  overflowWrap: 'anywhere',
-                                  wordBreak: 'break-word',
-                                  outline: 'none',
-                                }}
-                              >
-                                {formatForCodeBlock(providerDetails)}
-                              </pre>
-                            </div>
-                          ),
-                        },
-                      ]
-                    : isScriptJobLog || isSkippedLog
-                      ? []
-                      : [
+                items={
+                  [
+                    // The event that triggered this delivery, so the
+                    // operator needn't hunt for it in Event Audit.
+                    ...(showSourceEvent
+                      ? [
                           {
-                            key: 'curl',
-                            label: outboundCurlCommand ? 'Inbound cURL' : 'cURL',
+                            key: 'source-event',
+                            label: 'Source event',
                             children: (
-                              <div style={{ position: 'relative' }}>
-                                {outboundCurlCommand && (
-                                  <div
-                                    style={{
-                                      marginBottom: spacing[2],
-                                      fontSize: token.fontSizeSM,
-                                      color: cssVar.text.secondary,
-                                    }}
-                                  >
-                                    Caller → Gateway
-                                  </div>
-                                )}
+                              <SourceEventPanel
+                                messageId={fullLog.messageId as string}
+                                fallbackPayload={fullLog.originalPayload}
+                              />
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...(showScriptTab
+                      ? [
+                          {
+                            key: 'script-logs',
+                            label: isLiveRun ? 'Script Output · live' : 'Script Output',
+                            children: (
+                              <div className="console-position-relative">
+                                <Button
+                                  size="small"
+                                  icon={<GatewayIcon name="CopyOutlined" />}
+                                  aria-label="Copy script output"
+                                  onClick={() =>
+                                    copyToClipboard(
+                                      scriptLogs
+                                        .map(
+                                          (l: any) =>
+                                            `[${new Date(l.ts).toLocaleTimeString()}] ${String(l.level).toUpperCase()} ${l.message}`
+                                        )
+                                        .join('\n')
+                                    )
+                                  }
+                                  className="console-overlay-copy-action-left"
+                                />
                                 <div
-                                  style={{
-                                    position: 'absolute',
-                                    top: outboundCurlCommand ? 28 : spacing[2],
-                                    left: spacing[2],
-                                    zIndex: 1,
-                                    display: 'flex',
-                                    gap: spacing[1],
-                                  }}
-                                >
-                                  <Button
-                                    size="small"
-                                    icon={<CopyOutlined />}
-                                    aria-label="Copy inbound cURL"
-                                    onClick={() => copyToClipboard(curlCommand || '')}
-                                  />
-                                  {isSuperAdmin() && (
-                                    <Tooltip
-                                      title={
-                                        revealCredentials
-                                          ? 'Hide credentials'
-                                          : 'Show real credentials so the command runs as-is. Do not paste the result into a ticket.'
-                                      }
-                                    >
-                                      <Button
-                                        size="small"
-                                        icon={revealCredentials ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                                        aria-label={
-                                          revealCredentials ? 'Hide credentials in cURL' : 'Show credentials in cURL'
-                                        }
-                                        aria-pressed={revealCredentials}
-                                        danger={revealCredentials}
-                                        onClick={toggleRevealCredentials}
-                                      />
-                                    </Tooltip>
-                                  )}
-                                </div>
-                                <pre
-                                  className="clamped-code-block"
                                   ref={(el) => {
-                                    if (el) {
-                                      el.onkeydown = (e) => {
-                                        if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                                          e.preventDefault();
-                                          const selection = window.getSelection();
-                                          const range = document.createRange();
-                                          range.selectNodeContents(el);
-                                          selection?.removeAllRanges();
-                                          selection?.addRange(range);
-                                        }
-                                      };
-                                    }
+                                    // Follow the newest line while the job runs.
+                                    if (el && isLiveRun) el.scrollTop = el.scrollHeight;
                                   }}
-                                  tabIndex={0}
-                                  style={{
-                                    background: withAlpha(cssVar.bg.overlay, 0.96),
-                                    color: cssVar.text.primary,
-                                    padding: spacing[3],
-                                    borderRadius: token.borderRadiusLG,
-                                    overflow: 'auto',
-                                    maxHeight: 280,
-                                    border: `1px solid ${cssVar.border.default}`,
-                                    fontSize: token.fontSizeSM,
-                                    whiteSpace: 'pre-wrap',
-                                    overflowWrap: 'anywhere',
-                                    wordBreak: 'break-word',
-                                    outline: 'none',
-                                  }}
+                                  className="console-script-output"
                                 >
-                                  {curlCommand}
+                                  {scriptLogs.length === 0 && (
+                                    <span className="console-text-muted">Waiting for the first line of output…</span>
+                                  )}
+                                  {scriptLogs.map((entry: any, i: number) => (
+                                    <div key={i} className="console-script-output__line">
+                                      <span className="console-script-output__time">
+                                        {new Date(entry.ts).toLocaleTimeString()}
+                                      </span>
+                                      <span
+                                        className="console-script-output__level"
+                                        data-level={String(entry.level).toLowerCase()}
+                                      >
+                                        {String(entry.level).toUpperCase()}
+                                      </span>
+                                      <span className="console-script-output__message">{entry.message}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...(isHl7Log
+                      ? [
+                          {
+                            key: 'hl7',
+                            label: 'HL7',
+                            children: (
+                              <Hl7LogPanel
+                                compact
+                                httpMethod={fullLog.httpMethod}
+                                metadata={(fullLog as any).metadata}
+                                status={fullLog.status}
+                                errorMessage={fullLog.errorMessage}
+                                responseStatus={fullLog.responseStatus}
+                                responseTimeMs={fullLog.responseTimeMs}
+                                targetUrl={fullLog.targetUrl}
+                                createdAt={fullLog.createdAt}
+                                originalPayload={(fullLog as any).originalPayload}
+                                requestPayload={fullLog.requestPayload}
+                                responseBody={fullLog.responseBody}
+                                canReplay={['FAILED', 'ABANDONED'].includes(fullLog.status)}
+                                onReplayPayload={(options) => handleReplayWithPayload(fullLog, options)}
+                              />
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...(isCommunicationLog
+                      ? [
+                          {
+                            key: 'provider',
+                            label: 'Provider',
+                            children: (
+                              <div className="console-position-relative">
+                                <Button
+                                  size="small"
+                                  icon={<GatewayIcon name="CopyOutlined" />}
+                                  aria-label="Copy provider details"
+                                  onClick={() => copyToClipboard(formatForCodeBlock(providerDetails))}
+                                  className="console-overlay-copy-action-left"
+                                />
+                                <pre tabIndex={0} className="clamped-code-block console-code-preview">
+                                  {formatForCodeBlock(providerDetails)}
                                 </pre>
                               </div>
                             ),
                           },
-                          ...(outboundCurlCommand
-                            ? [
-                                {
-                                  key: 'outbound-curl',
-                                  label: 'Outbound cURL',
-                                  children: (
-                                    <div style={{ position: 'relative' }}>
-                                      <div
-                                        style={{
-                                          marginBottom: spacing[2],
-                                          fontSize: token.fontSizeSM,
-                                          color: cssVar.text.secondary,
-                                        }}
+                        ]
+                      : isScriptJobLog || isSkippedLog
+                        ? []
+                        : [
+                            {
+                              key: 'curl',
+                              label: outboundCurlCommand ? 'Inbound cURL' : 'cURL',
+                              children: (
+                                <div className="console-position-relative">
+                                  {outboundCurlCommand && (
+                                    <div className="console-code-preview__caption">Caller → Gateway</div>
+                                  )}
+                                  <div
+                                    className={
+                                      outboundCurlCommand
+                                        ? 'console-overlay-copy-action-left console-overlay-copy-action-left--offset console-flex-gap-1'
+                                        : 'console-overlay-copy-action-left console-flex-gap-1'
+                                    }
+                                  >
+                                    <Button
+                                      size="small"
+                                      icon={<GatewayIcon name="CopyOutlined" />}
+                                      aria-label="Copy inbound cURL"
+                                      onClick={() => copyToClipboard(curlCommand || '')}
+                                    />
+                                    {isSuperAdmin() && (
+                                      <Tooltip
+                                        title={
+                                          revealCredentials
+                                            ? 'Hide credentials'
+                                            : 'Show real credentials so the command runs as-is. Do not paste the result into a ticket.'
+                                        }
                                       >
-                                        Gateway → External API
-                                      </div>
-                                      <Button
-                                        size="small"
-                                        icon={<CopyOutlined />}
-                                        aria-label="Copy outbound cURL"
-                                        onClick={() => copyToClipboard(outboundCurlCommand)}
-                                        style={{
-                                          position: 'absolute',
-                                          top: 28,
-                                          left: spacing[2],
-                                          zIndex: 1,
-                                        }}
-                                      />
-                                      <pre
-                                        className="clamped-code-block"
-                                        ref={(el) => {
-                                          if (el) {
-                                            el.onkeydown = (e) => {
-                                              if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                                                e.preventDefault();
-                                                const selection = window.getSelection();
-                                                const range = document.createRange();
-                                                range.selectNodeContents(el);
-                                                selection?.removeAllRanges();
-                                                selection?.addRange(range);
-                                              }
-                                            };
+                                        <Button
+                                          size="small"
+                                          icon={
+                                            revealCredentials ? (
+                                              <GatewayIcon name="EyeInvisibleOutlined" />
+                                            ) : (
+                                              <GatewayIcon name="EyeOutlined" />
+                                            )
                                           }
-                                        }}
-                                        tabIndex={0}
-                                        style={{
-                                          background: withAlpha(cssVar.bg.overlay, 0.96),
-                                          color: cssVar.text.primary,
-                                          padding: spacing[3],
-                                          borderRadius: token.borderRadiusLG,
-                                          overflow: 'auto',
-                                          maxHeight: 280,
-                                          border: `1px solid ${cssVar.border.default}`,
-                                          fontSize: token.fontSizeSM,
-                                          whiteSpace: 'pre-wrap',
-                                          overflowWrap: 'anywhere',
-                                          wordBreak: 'break-word',
-                                          outline: 'none',
-                                        }}
-                                      >
-                                        {outboundCurlCommand}
-                                      </pre>
-                                    </div>
-                                  ),
-                                },
-                              ]
-                            : []),
-                        ]),
-                  ...(callerInfo
-                    ? [{ key: 'caller', label: 'Caller', children: <CallerCard info={callerInfo} onFilterIp={showCallsFromIp} /> }]
-                    : []),
-                  ...((fullLog as any).executionTrace?.length
-                    ? [
-                        {
-                          key: 'trace',
-                          label: 'Trace',
-                          children: <TraceWaterfall spans={(fullLog as any).executionTrace as ExecutionSpan[]} />,
-                        },
-                      ]
-                    : []),
-                  {
-                    key: 'response',
-                    label: 'Response',
-                    children: (
-                      <div style={{ position: 'relative' }}>
-                        <Button
-                          size="small"
-                          icon={<CopyOutlined />}
-                          aria-label="Copy response body"
-                          onClick={() => copyToClipboard(formattedResponseBody)}
-                          style={{
-                            position: 'absolute',
-                            top: spacing[2],
-                            left: spacing[2],
-                            zIndex: 1,
-                          }}
-                        />
-                        <pre
-                          className="clamped-code-block"
-                          ref={(el) => {
-                            if (el) {
-                              el.onkeydown = (e) => {
-                                if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                                  e.preventDefault();
-                                  const selection = window.getSelection();
-                                  const range = document.createRange();
-                                  range.selectNodeContents(el);
-                                  selection?.removeAllRanges();
-                                  selection?.addRange(range);
-                                }
-                              };
-                            }
-                          }}
-                          tabIndex={0}
-                          style={{
-                            background: mutedSurface,
-                            color: token.colorText,
-                            padding: spacing[3],
-                            borderRadius: token.borderRadiusLG,
-                            overflow: 'auto',
-                            maxHeight: 280,
-                            fontSize: token.fontSizeSM,
-                            whiteSpace: 'pre-wrap',
-                            overflowWrap: 'anywhere',
-                            wordBreak: 'break-word',
-                            outline: 'none',
-                          }}
-                        >
-                          {formattedResponseBody}
-                        </pre>
-                      </div>
-                    ),
-                  },
-                  // The gateway records an execution trace per
-                  // delivery and never showed it. Only offered when
-                  // the record actually carries a traceId. Inbound calls that
-                  // have the Trace tab already see these same stages there, with
-                  // bodies and retries, so the Timeline would only repeat it.
-                  // One tab per pipeline stage that ran, titled with the stage's own name.
-                  ...(stageTabs.length > 0 && fullLog.integrationConfigId && !isInboundLog && !isScriptJobLog
-                    ? [
-                        {
-                          key: 'diagram',
-                          label: 'Diagram',
-                          children: <DeliveryFlow integrationId={String(fullLog.integrationConfigId)} logId={String(fullLog.id)} />,
-                        },
-                      ]
-                    : []),
-                  ...stageTabs,
-                  // What the integration's follow-up script asked the provider after the send, and what came back.
-                  ...(fullLog.followUp
-                    ? [
-                        {
-                          key: 'follow-up',
-                          label: 'Follow-up',
-                          children: <FollowUpChecks followUp={fullLog.followUp} />,
-                        },
-                      ]
-                    : []),
-                  ...((fullLog as any).traceId && !(isInboundLog && (fullLog as any).executionTrace?.length)
-                    ? [
-                        {
-                          key: 'timeline',
-                          label: 'Timeline',
-                          children: <DeliveryTraceTimeline traceId={(fullLog as any).traceId} stageRuns={stageDetails[record.id]?.runs} />,
-                        },
-                      ]
-                    : []),
-                ]}
+                                          aria-label={
+                                            revealCredentials ? 'Hide credentials in cURL' : 'Show credentials in cURL'
+                                          }
+                                          aria-pressed={revealCredentials}
+                                          danger={revealCredentials}
+                                          onClick={toggleRevealCredentials}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                  <pre
+                                    ref={(el) => {
+                                      if (el) {
+                                        el.onkeydown = (e) => {
+                                          if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                                            e.preventDefault();
+                                            const selection = window.getSelection();
+                                            const range = document.createRange();
+                                            range.selectNodeContents(el);
+                                            selection?.removeAllRanges();
+                                            selection?.addRange(range);
+                                          }
+                                        };
+                                      }
+                                    }}
+                                    tabIndex={0}
+                                    className="clamped-code-block console-code-preview"
+                                  >
+                                    {curlCommand}
+                                  </pre>
+                                </div>
+                              ),
+                            },
+                            ...(outboundCurlCommand
+                              ? [
+                                  {
+                                    key: 'outbound-curl',
+                                    label: 'Outbound cURL',
+                                    children: (
+                                      <div className="console-position-relative">
+                                        <div className="console-margin-bottom-2 console-text-secondary console-type-caption">
+                                          Gateway → External API
+                                        </div>
+                                        <Button
+                                          size="small"
+                                          icon={<GatewayIcon name="CopyOutlined" />}
+                                          aria-label="Copy outbound cURL"
+                                          onClick={() => copyToClipboard(outboundCurlCommand)}
+                                          className="console-overlay-copy-action-left console-overlay-copy-action-left--offset"
+                                        />
+                                        <pre
+                                          ref={(el) => {
+                                            if (el) {
+                                              el.onkeydown = (e) => {
+                                                if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                                                  e.preventDefault();
+                                                  const selection = window.getSelection();
+                                                  const range = document.createRange();
+                                                  range.selectNodeContents(el);
+                                                  selection?.removeAllRanges();
+                                                  selection?.addRange(range);
+                                                }
+                                              };
+                                            }
+                                          }}
+                                          tabIndex={0}
+                                          className="clamped-code-block console-code-preview"
+                                        >
+                                          {outboundCurlCommand}
+                                        </pre>
+                                      </div>
+                                    ),
+                                  },
+                                ]
+                              : []),
+                          ]),
+                    ...(callerInfo
+                      ? [
+                          {
+                            key: 'caller',
+                            label: 'Caller',
+                            children: <CallerCard info={callerInfo} onFilterIp={showCallsFromIp} />,
+                          },
+                        ]
+                      : []),
+                    ...((fullLog as any).executionTrace?.length
+                      ? [
+                          {
+                            key: 'trace',
+                            label: 'Trace',
+                            children: <TraceWaterfall spans={(fullLog as any).executionTrace as ExecutionSpan[]} />,
+                          },
+                        ]
+                      : []),
+                    {
+                      key: 'response',
+                      label: 'Response',
+                      children: (
+                        <div className="console-position-relative">
+                          <Button
+                            size="small"
+                            icon={<GatewayIcon name="CopyOutlined" />}
+                            aria-label="Copy response body"
+                            onClick={() => copyToClipboard(formattedResponseBody)}
+                            className="console-overlay-copy-action-left"
+                          />
+                          <pre
+                            ref={(el) => {
+                              if (el) {
+                                el.onkeydown = (e) => {
+                                  if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                                    e.preventDefault();
+                                    const selection = window.getSelection();
+                                    const range = document.createRange();
+                                    range.selectNodeContents(el);
+                                    selection?.removeAllRanges();
+                                    selection?.addRange(range);
+                                  }
+                                };
+                              }
+                            }}
+                            tabIndex={0}
+                            className="clamped-code-block console-code-preview console-code-preview--muted"
+                          >
+                            {formattedResponseBody}
+                          </pre>
+                        </div>
+                      ),
+                    },
+                    // The gateway records an execution trace per
+                    // delivery and never showed it. Only offered when
+                    // the record actually carries a traceId. Inbound calls that
+                    // have the Trace tab already see these same stages there, with
+                    // bodies and retries, so the Timeline would only repeat it.
+                    // One tab per pipeline stage that ran, titled with the stage's own name.
+                    ...(stageTabs.length > 0 && fullLog.integrationConfigId && !isInboundLog && !isScriptJobLog
+                      ? [
+                          {
+                            key: 'diagram',
+                            label: 'Diagram',
+                            children: (
+                              <DeliveryFlow
+                                integrationId={String(fullLog.integrationConfigId)}
+                                logId={String(fullLog.id)}
+                              />
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...stageTabs,
+                    // What the integration's follow-up script asked the provider after the send, and what came back.
+                    ...(fullLog.followUp
+                      ? [
+                          {
+                            key: 'follow-up',
+                            label: 'Follow-up',
+                            children: <FollowUpChecks followUp={fullLog.followUp} />,
+                          },
+                        ]
+                      : []),
+                    ...((fullLog as any).traceId && !(isInboundLog && (fullLog as any).executionTrace?.length)
+                      ? [
+                          {
+                            key: 'timeline',
+                            label: 'Timeline',
+                            children: (
+                              <DeliveryTraceTimeline
+                                traceId={(fullLog as any).traceId}
+                                stageRuns={stageDetails[record.id]?.runs}
+                              />
+                            ),
+                          },
+                        ]
+                      : []),
+                  ] as RetainedTabItem[]
+                }
               />
             )}
 
@@ -2083,14 +1943,14 @@ export const LogsRoute = () => {
                 const onlyLastAttemptShown = totalAttempts > fullLog.retryAttempts.length;
                 return (
                   <>
-                    <Divider style={{ margin: `${spacing[2]} 0` }} />
-                    <Typography.Text strong>
+                    <Divider className="console-margin-y-2" />
+                    <Text weight="semibold">
                       {onlyLastAttemptShown
                         ? `Retry History (last of ${totalAttempts} attempts)`
                         : `Retry History (${totalAttempts} ${totalAttempts === 1 ? 'attempt' : 'attempts'})`}
-                    </Typography.Text>
+                    </Text>
                     <Timeline
-                      style={{ marginTop: spacing[2] }}
+                      className="console-margin-top-2"
                       items={fullLog.retryAttempts.map((attempt) => ({
                         color:
                           attempt.status === 'SUCCESS'
@@ -2100,110 +1960,65 @@ export const LogsRoute = () => {
                               : colors.warning[600],
                         dot:
                           attempt.status === 'SUCCESS' ? (
-                            <CheckCircleOutlined style={{ fontSize: 14 }} />
+                            <GatewayIcon size="xsm" name="CheckCircleOutlined" />
                           ) : attempt.status === 'FAILED' ? (
-                            <CloseCircleOutlined style={{ fontSize: 14 }} />
+                            <GatewayIcon size="xsm" name="CloseCircleOutlined" />
                           ) : (
-                            <ClockCircleOutlined style={{ fontSize: 14 }} />
+                            <GatewayIcon size="xsm" name="ClockCircleOutlined" />
                           ),
                         children: (
                           <div>
-                            <div style={{ marginBottom: spacing[1] }}>
+                            <div className="console-margin-bottom-1">
                               <Space size={spacingToNumber(spacing[2])}>
-                                <Tag
-                                  style={tagTone(
-                                    attempt.status === 'SUCCESS'
-                                      ? colors.success[600]
-                                      : attempt.status === 'FAILED'
-                                        ? colors.error[600]
-                                        : colors.warning[600]
-                                  )}
-                                >
-                                  Attempt #{attempt.attemptNumber}
-                                </Tag>
-                                <Typography.Text
-                                  type="secondary"
-                                  style={{ fontSize: token.fontSizeSM, color: cssVar.text.secondary }}
-                                >
+                                <StatusBadge status={attempt.status} size="small" />
+                                <Text type="code">Attempt #{attempt.attemptNumber}</Text>
+                                <Text type="supporting" size="sm" color="secondary">
                                   {formatDateTime(attempt.attemptedAt)}
-                                </Typography.Text>
+                                </Text>
                                 {attempt.responseStatus && (
-                                  <Tag
-                                    style={tagTone(
-                                      attempt.responseStatus >= 200 && attempt.responseStatus < 300
-                                        ? colors.success[600]
-                                        : colors.error[600]
-                                    )}
+                                  <Text
+                                    type="code"
+                                    style={{
+                                      color: attempt.responseStatus >= 400 ? cssVar.error.text : undefined,
+                                    }}
                                   >
                                     HTTP {attempt.responseStatus}
-                                  </Tag>
+                                  </Text>
                                 )}
                                 {attempt.responseTimeMs && (
-                                  <Typography.Text
-                                    type="secondary"
-                                    style={{ fontSize: token.fontSizeSM, color: cssVar.text.secondary }}
-                                  >
+                                  <Text type="supporting" size="sm" color="secondary">
                                     {attempt.responseTimeMs}ms
-                                  </Typography.Text>
+                                  </Text>
                                 )}
                               </Space>
                             </div>
                             {attempt.retryReason && (
-                              <Typography.Text
-                                type="secondary"
-                                style={{
-                                  fontSize: token.fontSizeSM,
-                                  display: 'block',
-                                  marginBottom: spacing[1],
-                                  color: cssVar.text.secondary,
-                                }}
+                              <Text
+                                type="supporting"
+                                size="sm"
+                                color="secondary"
+                                className="console-caption-block console-margin-bottom-1 console-text-secondary"
                               >
                                 Reason: {attempt.retryReason}
-                              </Typography.Text>
+                              </Text>
                             )}
                             {attempt.errorMessage &&
                               (attempt.errorMessage === fullLog.errorMessage ? (
                                 // Already shown verbatim in the "Error Details" box above —
                                 // repeating it here just doubles the same text on screen.
-                                <Typography.Text
-                                  type="secondary"
-                                  style={{
-                                    fontSize: token.fontSizeSM,
-                                    display: 'block',
-                                    marginTop: spacing[2],
-                                    fontStyle: 'italic',
-                                  }}
+                                <Text
+                                  type="supporting"
+                                  size="sm"
+                                  color="secondary"
+                                  className="console-display-block console-margin-top-2 console-font-style-italic"
                                 >
                                   Same error as shown in Error Details above.
-                                </Typography.Text>
+                                </Text>
                               ) : (
-                                <pre
-                                  style={{
-                                    background: errorSurface,
-                                    color: colors.error[700],
-                                    padding: spacing[2],
-                                    borderRadius: token.borderRadiusSM,
-                                    fontSize: token.fontSizeSM,
-                                    marginTop: spacing[2],
-                                    marginBottom: spacing[2],
-                                  }}
-                                >
-                                  {attempt.errorMessage}
-                                </pre>
+                                <pre className="logs-attempt-error-code">{attempt.errorMessage}</pre>
                               ))}
                             {attempt.responseBody && (
-                              <pre
-                                style={{
-                                  background: mutedSurface,
-                                  color: token.colorText,
-                                  padding: spacing[2],
-                                  borderRadius: token.borderRadiusSM,
-                                  fontSize: token.fontSizeSM,
-                                  maxHeight: 150,
-                                  overflow: 'auto',
-                                  marginTop: spacing[2],
-                                }}
-                              >
+                              <pre className="logs-attempt-response-code">
                                 {formatForCodeBlock(attempt.responseBody)}
                               </pre>
                             )}
@@ -2221,140 +2036,113 @@ export const LogsRoute = () => {
   };
 
   return (
-    <div>
-      <PageHeader
-        title="Delivery logs"
-        statusChips={
-          [
-            {
-              // "15 records" next to "Failed: 22" read as a contradiction. 15 is
-              // this page; 22 is the filtered total.
-              label:
-                pagination?.total && pagination.total > filtered.length
-                  ? `Showing ${filtered.length} of ${pagination.total}`
-                  : `${filtered.length} record${filtered.length === 1 ? '' : 's'}`,
-            },
-            stats?.total != null
-              ? { label: `Last updated: ${formatDateTimeWithSeconds(stats?.refreshedAt ?? new Date().toISOString())}` }
-              : undefined,
-          ].filter(Boolean) as Array<{ label: string; color?: string }>
-        }
-        compact
-        actions={
-          <Dropdown
-            disabled={exportLoading}
-            menu={{
-              items: [
-                {
-                  key: 'export-header',
-                  type: 'group',
-                  label: 'Export Format',
-                },
-                {
-                  key: 'csv-all',
-                  label: 'All logs (CSV)',
-                  icon: <DownloadOutlined />,
-                  onClick: () => handleExport('all', 'csv'),
-                  disabled: exportLoading,
-                },
-                {
-                  key: 'json-all',
-                  label: 'All logs (JSON)',
-                  icon: <DownloadOutlined />,
-                  onClick: () => handleExport('all', 'json'),
-                  disabled: exportLoading,
-                },
-                { type: 'divider' },
-                {
-                  key: 'csv-filtered',
-                  label: 'Filtered results (CSV)',
-                  icon: <DownloadOutlined />,
-                  onClick: () => handleExport('filtered', 'csv'),
-                  disabled: exportLoading,
-                },
-                {
-                  key: 'json-filtered',
-                  label: 'Filtered results (JSON)',
-                  icon: <DownloadOutlined />,
-                  onClick: () => handleExport('filtered', 'json'),
-                  disabled: exportLoading,
-                },
-              ],
-            }}
-          >
-            <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
-              {exportLabel}
-            </Button>
-          </Dropdown>
-        }
-      />
-      {(isInitialLogsLoading || stats) && (
-        <div
-          style={{
-            padding: `${spacing[2]} ${spacing[3]}`,
-            borderBottom: `1px solid ${token.colorBorder}`,
-            background: token.colorBgContainer,
-            marginBottom: spacing[2],
+    <PageTemplate
+      title="Delivery logs"
+      description={
+        <>
+          {pagination?.total && pagination.total > filtered.length
+            ? `Showing ${filtered.length} of ${pagination.total}`
+            : `${filtered.length} record${filtered.length === 1 ? '' : 's'}`}
+          {stats?.total != null &&
+            ` · Last updated ${formatDateTimeWithSeconds(stats.refreshedAt ?? new Date().toISOString())}`}
+        </>
+      }
+      actions={
+        <Dropdown
+          disabled={exportLoading}
+          menu={{
+            items: [
+              {
+                key: 'export-header',
+                type: 'group',
+                label: 'Export Format',
+              },
+              {
+                key: 'csv-all',
+                label: 'All logs (CSV)',
+                icon: <GatewayIcon name="DownloadOutlined" />,
+                onClick: () => handleExport('all', 'csv'),
+                disabled: exportLoading,
+              },
+              {
+                key: 'json-all',
+                label: 'All logs (JSON)',
+                icon: <GatewayIcon name="DownloadOutlined" />,
+                onClick: () => handleExport('all', 'json'),
+                disabled: exportLoading,
+              },
+              { type: 'divider' },
+              {
+                key: 'csv-filtered',
+                label: 'Filtered results (CSV)',
+                icon: <GatewayIcon name="DownloadOutlined" />,
+                onClick: () => handleExport('filtered', 'csv'),
+                disabled: exportLoading,
+              },
+              {
+                key: 'json-filtered',
+                label: 'Filtered results (JSON)',
+                icon: <GatewayIcon name="DownloadOutlined" />,
+                onClick: () => handleExport('filtered', 'json'),
+                disabled: exportLoading,
+              },
+            ],
           }}
         >
+          <Button icon={<GatewayIcon name="DownloadOutlined" />} disabled={exportLoading} size="small">
+            {exportLabel}
+          </Button>
+        </Dropdown>
+      }
+    >
+      {(isInitialLogsLoading || stats) && (
+        <div className="logs-summary-strip">
           {isInitialLogsLoading ? (
-            <div
-              role="status"
-              aria-live="polite"
-              aria-busy="true"
-              style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2], alignItems: 'center' }}
-            >
-              <Typography.Text type="secondary" style={{ fontSize: 12, marginRight: spacing[2] }}>
-                Loading delivery logs...
-              </Typography.Text>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton.Input key={i} active size="small" style={{ width: 100, borderRadius: borderRadius.full }} />
-              ))}
-            </div>
+            <StatePanel glyph="connecting" tone="busy" title="Loading delivery logs" size="compact" />
           ) : stats ? (
             <>
-            <StatPillRow
-              activeFilter={statusFilter}
-              onFilterChange={setStatusFilter}
-              items={[
-                {
-                  title: 'Total',
-                  value: stats.total,
-                  icon: <DatabaseOutlined />,
-                  tone: cssVar.text.secondary,
-                  filterValue: null,
-                },
-                {
-                  title: 'Success',
-                  value: stats.success,
-                  icon: <CheckCircleOutlined />,
-                  tone: cssVar.text.secondary,
-                  filterValue: 'SUCCESS',
-                },
-                {
-                  title: 'Failed',
-                  value: stats.failed,
-                  icon: <CloseCircleOutlined />,
-                  tone: stats.failed > 0 ? cssVar.error.text : cssVar.text.secondary,
-                  filterValue: 'FAILED',
-                },
-                {
-                  title: 'Skipped',
-                  value: stats.skipped,
-                  icon: <MinusCircleOutlined />,
-                  tone: cssVar.text.secondary,
-                  filterValue: 'SKIPPED',
-                },
-                {
-                  title: 'Pending',
-                  value: stats.pending,
-                  icon: <ClockCircleOutlined />,
-                  tone: stats.pending > 0 ? cssVar.warning.text : cssVar.text.secondary,
-                  filterValue: 'PENDING_OR_RETRYING',
-                },
-              ]}
-            />
-            {integrationFilter && <DeliveryFollowUpSummary stats={followUpStats} />}
+              <StatPillRow
+                activeFilter={statusFilter}
+                onFilterChange={setStatusFilter}
+                items={[
+                  {
+                    title: 'Total',
+                    value: stats.total,
+                    icon: <GatewayIcon name="DatabaseOutlined" />,
+                    tone: cssVar.text.secondary,
+                    filterValue: null,
+                  },
+                  {
+                    title: 'Delivered',
+                    value: stats.success,
+                    icon: <GatewayIcon name="CheckCircleOutlined" />,
+                    tone: cssVar.text.secondary,
+                    filterValue: 'SUCCESS',
+                  },
+                  {
+                    title: 'Failed',
+                    value: stats.failed,
+                    icon: <GatewayIcon name="CloseCircleOutlined" />,
+                    tone: stats.failed > 0 ? cssVar.error.text : cssVar.text.secondary,
+                    filterValue: 'FAILED',
+                  },
+                  {
+                    title: 'Skipped',
+                    value: stats.skipped,
+                    icon: <GatewayIcon name="MinusCircleOutlined" />,
+                    tone: cssVar.text.secondary,
+                    filterValue: 'SKIPPED',
+                  },
+                  {
+                    title: 'Pending',
+                    value: stats.pending,
+                    icon: <GatewayIcon name="ClockCircleOutlined" />,
+                    tone: stats.pending > 0 ? cssVar.warning.text : cssVar.text.secondary,
+                    filterValue: 'PENDING_OR_RETRYING',
+                  },
+                ]}
+              />
+              {integrationFilter && <DeliveryFollowUpSummary stats={followUpStats} />}
             </>
           ) : null}
         </div>
@@ -2362,56 +2150,28 @@ export const LogsRoute = () => {
       {/* Bulk Action Bar */}
       {selectedRowKeys.length > 0 && (
         <>
-          <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            style={{
-              position: 'absolute',
-              width: 1,
-              height: 1,
-              padding: 0,
-              overflow: 'hidden',
-              clip: 'rect(0, 0, 0, 0)',
-              whiteSpace: 'nowrap',
-              border: 0,
-            }}
-          >
-            {selectedRowKeys.length} log{selectedRowKeys.length !== 1 ? 's' : ''} selected. Bulk actions available.
+          <div role="status" aria-live="polite" aria-atomic="true" className="console-visually-hidden">
+            {selectedRowKeys.length} log
+            {selectedRowKeys.length !== 1 ? 's' : ''} selected. Bulk actions available.
           </div>
-          <div
-            style={{
-              padding: `${spacing[2]} ${spacing[3]}`,
-              borderBottom: `1px solid ${colors.primary[300]}`,
-              background: withAlpha(colors.primary[50], 0.6),
-              marginBottom: spacing[2],
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: spacing[2],
-              }}
-            >
+          <div className="logs-selection-strip">
+            <div className="logs-selection-content">
               <div>
-                <Typography.Text strong style={{ marginRight: spacing[2], color: colors.primary[700] }}>
+                <Text weight="semibold" className="console-margin-right-2 console-text-primary">
                   {selectedRowKeys.length} selected
-                </Typography.Text>
+                </Text>
                 <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
                   Clear selection
                 </Button>
               </div>
               <Space size={spacingToNumber(spacing[2])} wrap>
                 {!isPortalSession && (
-                  <Button size="small" icon={<RedoOutlined />} onClick={handleBulkRetry}>
+                  <Button size="small" icon={<GatewayIcon name="RedoOutlined" />} onClick={handleBulkRetry}>
                     Retry
                   </Button>
                 )}
                 {!isPortalSession && (
-                  <Button size="small" danger icon={<RedoOutlined />} onClick={handleBulkForceRetry}>
+                  <Button size="small" danger icon={<GatewayIcon name="RedoOutlined" />} onClick={handleBulkForceRetry}>
                     Force retry
                   </Button>
                 )}
@@ -2423,26 +2183,26 @@ export const LogsRoute = () => {
                       {
                         key: 'csv-selected',
                         label: 'Export selected (CSV)',
-                        icon: <DownloadOutlined />,
+                        icon: <GatewayIcon name="DownloadOutlined" />,
                         onClick: () => handleExport('selected', 'csv'),
                         disabled: exportLoading,
                       },
                       {
                         key: 'json-selected',
                         label: 'Export selected (JSON)',
-                        icon: <DownloadOutlined />,
+                        icon: <GatewayIcon name="DownloadOutlined" />,
                         onClick: () => handleExport('selected', 'json'),
                         disabled: exportLoading,
                       },
                     ],
                   }}
                 >
-                  <Button size="small" icon={<DownloadOutlined />} disabled={exportLoading}>
+                  <Button size="small" icon={<GatewayIcon name="DownloadOutlined" />} disabled={exportLoading}>
                     Export
                   </Button>
                 </Dropdown>
                 {!isPortalSession && (
-                  <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
+                  <Button size="small" danger icon={<GatewayIcon name="DeleteOutlined" />} onClick={handleBulkDelete}>
                     Delete
                   </Button>
                 )}
@@ -2451,27 +2211,14 @@ export const LogsRoute = () => {
           </div>
         </>
       )}
-      <div
-        style={{
-          padding: `${spacing[2]} ${spacing[3]}`,
-          borderBottom: `1px solid ${token.colorBorder}`,
-          background: token.colorBgContainer,
-          marginBottom: spacing[2],
-          // Always visible. This container holds the only controls for status,
-          // date, integration, flow and search — gating it on an existing
-          // non-date filter made it impossible to create the first one.
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: spacing[2],
-          alignItems: 'center',
-        }}
-      >
-        <Typography.Text type="secondary" style={{ fontWeight: 600, fontSize: 12 }}>
+      {/* Always visible so users can apply the first filter. */}
+      <div className="console-filter-toolbar">
+        <Text type="label" size="sm" color="secondary">
           Filters
-        </Typography.Text>
+        </Text>
         <Select
           placeholder="Status"
-          style={{ minWidth: 160, flex: '1 1 170px' }}
+          className="console-filter-field-narrow"
           allowClear
           size="small"
           value={statusFilter === 'PENDING_OR_RETRYING' ? undefined : statusFilter}
@@ -2480,11 +2227,16 @@ export const LogsRoute = () => {
             value: status,
             // FAILED intentionally spans abandoned deliveries server-side; the
             // label says so rather than letting the result look wrong.
-            label: status === 'FAILED' ? 'FAILED (incl. abandoned)' : status,
+            label:
+              status === 'FAILED'
+                ? 'Failed (including abandoned)'
+                : status === 'QUEUED'
+                  ? 'Pending (queued)'
+                  : getStatusLabel(status),
           }))}
         />
         <RangePicker
-          style={{ flex: '1 1 240px', minWidth: 220 }}
+          className="logs-date-range"
           size="small"
           format="YYYY-MM-DD"
           allowClear
@@ -2505,7 +2257,7 @@ export const LogsRoute = () => {
         />
         <Select
           placeholder="Integration"
-          style={{ minWidth: 200, flex: '1 1 220px' }}
+          className="console-filter-field"
           allowClear
           size="small"
           value={integrationFilter}
@@ -2515,7 +2267,7 @@ export const LogsRoute = () => {
         <Select
           aria-label="Provider filter"
           placeholder="Provider"
-          style={{ minWidth: 180, flex: '1 1 190px' }}
+          className="logs-provider-filter"
           allowClear
           showSearch
           optionFilterProp="label"
@@ -2526,7 +2278,7 @@ export const LogsRoute = () => {
         />
         <Select
           placeholder="Flow"
-          style={{ minWidth: 160, flex: '1 1 170px' }}
+          className="console-filter-field-narrow"
           allowClear
           size="small"
           value={flowFilter}
@@ -2538,28 +2290,27 @@ export const LogsRoute = () => {
             { value: 'COMMUNICATION', label: 'Communication' },
           ]}
         />
-        <Input
-          placeholder="Search message, target URL, or error"
-          allowClear
-          size="small"
+        <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ minWidth: 200, flex: '1 1 220px' }}
-          prefix={<SearchOutlined style={{ color: cssVar.text.muted }} />}
+          onChange={setSearch}
+          isNarrow={isNarrow}
+          label="Search delivery logs"
+          placeholder="Search message, target URL, or error"
+          width={220}
         />
         <Button
           type="text"
           size="small"
           onClick={() => setShowMoreFilters((prev) => !prev)}
-          style={{ color: cssVar.text.secondary }}
+          className="console-text-secondary"
         >
           {showMoreFilters ? 'Less filters' : 'More filters'}
         </Button>
-        <div style={{ marginLeft: isNarrow ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: spacing[2] }}>
+        <div className={`logs-refresh-controls${isNarrow ? ' logs-refresh-controls--narrow' : ''}`}>
           <RefreshCountdown intervalMs={refreshInterval} lastRefreshAt={latestRefreshAt} />
           <Button
             type="default"
-            icon={<ReloadOutlined spin={manualRefreshPending} />}
+            icon={<GatewayIcon name="ReloadOutlined" spin={manualRefreshPending} />}
             loading={false}
             onClick={handleManualRefresh}
             size="small"
@@ -2569,24 +2320,13 @@ export const LogsRoute = () => {
         </div>
       </div>
       {showMoreFilters && (
-        <div
-          style={{
-            padding: `${spacing[2]} ${spacing[3]}`,
-            borderBottom: `1px solid ${token.colorBorder}`,
-            background: token.colorBgContainer,
-            marginBottom: spacing[2],
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: spacing[2],
-            alignItems: 'center',
-          }}
-        >
-          <Typography.Text type="secondary" style={{ fontWeight: 600, fontSize: 12 }}>
+        <div className="console-filter-toolbar">
+          <Text type="label" size="sm" color="secondary">
             More filters
-          </Typography.Text>
+          </Text>
           <Select
             placeholder="Event Type"
-            style={{ minWidth: 200, flex: '1 1 220px' }}
+            className="console-filter-field"
             allowClear
             size="small"
             value={eventTypeFilter}
@@ -2595,7 +2335,7 @@ export const LogsRoute = () => {
           />
           <Input
             placeholder="Error category"
-            style={{ minWidth: 200, flex: '1 1 220px' }}
+            className="console-filter-field"
             allowClear
             size="small"
             value={errorCategoryFilter}
@@ -2603,7 +2343,7 @@ export const LogsRoute = () => {
           />
           <Input
             placeholder="Client IP"
-            style={{ minWidth: 160, flex: '1 1 170px' }}
+            className="console-filter-field-narrow"
             allowClear
             size="small"
             value={clientIpFilter}
@@ -2611,16 +2351,19 @@ export const LogsRoute = () => {
           />
           <Select
             placeholder="Day of week"
-            style={{ minWidth: 160, flex: '1 1 170px' }}
+            className="console-filter-field-narrow"
             allowClear
             size="small"
             value={dayOfWeekFilter}
             onChange={(value) => setDayOfWeekFilter(value)}
-            options={DAY_OF_WEEK_OPTIONS.map((day) => ({ value: day, label: day }))}
+            options={DAY_OF_WEEK_OPTIONS.map((day) => ({
+              value: day,
+              label: day,
+            }))}
           />
           <Select
             placeholder="Hour"
-            style={{ minWidth: 140, flex: '1 1 150px' }}
+            className="logs-hour-filter"
             allowClear
             size="small"
             value={hourFilter}
@@ -2633,134 +2376,50 @@ export const LogsRoute = () => {
         </div>
       )}
       {visibleFilterChips.length > 0 && (
-        <div
-          style={{
-            padding: `${spacing[2]} ${spacing[3]}`,
-            borderBottom: `1px solid ${token.colorBorder}`,
-            background: token.colorBgContainer,
-            marginBottom: spacing[2],
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: spacing[2],
-            alignItems: 'center',
-          }}
-        >
-          <Typography.Text type="secondary" style={{ fontWeight: 600, fontSize: 12 }}>
+        <div className="logs-active-filters">
+          <Text type="label" size="sm" color="secondary">
             Active filters
-          </Typography.Text>
+          </Text>
           <Space wrap size={spacingToNumber(spacing[1])}>
-            {visibleFilterChips.length > 0 ? (
-              <>
-                {visibleFilterChips.map((chip) => (
-                  <Tag
-                    key={chip.key}
-                    onClick={chip.onClear}
-                    role={chip.onClear ? 'button' : undefined}
-                    tabIndex={chip.onClear ? 0 : undefined}
-                    onKeyDown={(event) => {
-                      if (!chip.onClear) return;
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        chip.onClear();
-                      }
-                    }}
-                    title="Click to clear"
-                    style={{
-                      borderRadius: borderRadius.full,
-                      fontSize: 12,
-                      padding: `${spacing['0.5']} ${spacing[2]}`,
-                      borderColor: withAlpha(colors.info[400], 0.25),
-                      background: withAlpha(colors.info[100], 0.5),
-                      color: colors.info[700],
-                      fontWeight: 600,
-                      margin: 0,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {chip.label}
-                  </Tag>
-                ))}
-                <Tag
-                  onClick={() => {
-                    clearExportFilter('status');
-                    clearExportFilter('flow');
-                    clearExportFilter('integration');
-                    clearExportFilter('provider');
-                    clearExportFilter('eventType');
-                    clearExportFilter('errorCategory');
-                    clearExportFilter('hour');
-                    clearExportFilter('dayOfWeek');
-                    clearExportFilter('date');
-                    clearExportFilter('search');
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      clearExportFilter('status');
-                      clearExportFilter('flow');
-                      clearExportFilter('integration');
-                      clearExportFilter('provider');
-                      clearExportFilter('eventType');
-                      clearExportFilter('errorCategory');
-                      clearExportFilter('hour');
-                      clearExportFilter('dayOfWeek');
-                      clearExportFilter('date');
-                      clearExportFilter('search');
-                    }
-                  }}
-                  title="Clear all filters"
-                  style={{
-                    borderRadius: borderRadius.full,
-                    fontSize: 12,
-                    padding: `${spacing['0.5']} ${spacing[2]}`,
-                    borderColor: withAlpha(cssVar.border.default, 0.8),
-                    background: cssVar.bg.elevated,
-                    color: cssVar.text.secondary,
-                    fontWeight: 600,
-                    margin: 0,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Clear all
-                </Tag>
-              </>
-            ) : (
-              <Tag
-                style={{
-                  borderRadius: borderRadius.full,
-                  fontSize: 12,
-                  padding: `${spacing['0.5']} ${spacing[2]}`,
-                  borderColor: withAlpha(cssVar.border.default, 0.8),
-                  background: cssVar.bg.elevated,
-                  color: cssVar.text.secondary,
-                  fontWeight: 600,
-                  margin: 0,
-                }}
+            {visibleFilterChips.map((chip) => (
+              <Button
+                key={chip.key}
+                type="text"
+                size="small"
+                onClick={chip.onClear}
+                title={`Clear filter: ${chip.label}`}
+                aria-label={`Clear filter: ${chip.label}`}
               >
-                All logs
-              </Tag>
-            )}
+                {chip.label} <GatewayIcon name="CloseOutlined" aria-hidden="true" />
+              </Button>
+            ))}
+            <Button
+              type="text"
+              size="small"
+              onClick={() => {
+                clearExportFilter('status');
+                clearExportFilter('flow');
+                clearExportFilter('integration');
+                clearExportFilter('provider');
+                clearExportFilter('eventType');
+                clearExportFilter('errorCategory');
+                clearExportFilter('hour');
+                clearExportFilter('dayOfWeek');
+                clearExportFilter('date');
+                clearExportFilter('search');
+              }}
+              title="Clear all filters"
+              aria-label="Clear all filters"
+            >
+              Clear all
+            </Button>
           </Space>
         </div>
       )}
-      <div className="logs-table-wrapper" style={tableFullBleedStyle}>
-        <div
-          style={{
-            border: `1px solid ${token.colorBorder}`,
-            borderRadius: 8,
-            background: token.colorBgContainer,
-            padding: spacing[2],
-          }}
-        >
+      <div className="logs-table-wrapper">
+        <div className="logs-table-surface">
           {!isInitialLogsLoading && filtered.length === 0 ? (
-            <div
-              style={{
-                background: token.colorBgContainer,
-                borderRadius: token.borderRadiusLG,
-              }}
-            >
+            <div className="logs-empty-surface">
               <StatePanel
                 title={isNarrowedToSingleDay ? 'No deliveries on this date' : 'No matching deliveries'}
                 actions={
@@ -2816,33 +2475,33 @@ export const LogsRoute = () => {
                   title: 'Time',
                   dataIndex: 'createdAt',
                   key: 'createdAt',
-                  width: 180,
+                  width: 160,
                   sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
                   defaultSortOrder: 'descend',
                   render: (date: string) => (
-                    <Typography.Text style={{ fontSize: 13, color: cssVar.text.secondary }}>
+                    <Text type="supporting" size="base" color="secondary">
                       {formatDateTimeWithSeconds(date)}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
                   title: 'Integration',
                   dataIndex: 'integrationName',
                   key: 'integrationName',
-                  width: 210,
+                  width: 180,
                   ellipsis: true,
                   sorter: (a, b) => (a.integrationName || '').localeCompare(b.integrationName || ''),
                   render: (name: string | null, record: DeliveryLog) => {
                     const resolved =
                       name || integrations.find((i: any) => i.id === record.integrationConfigId)?.name || null;
                     return resolved ? (
-                      <Typography.Text style={{ fontSize: 13, fontWeight: 600, color: cssVar.text.primary }} ellipsis>
+                      <Text size="base" weight="semibold" maxLines={1} hasTruncateTooltip>
                         {resolved}
-                      </Typography.Text>
+                      </Text>
                     ) : (
-                      <Typography.Text style={{ fontSize: 13, color: cssVar.text.muted, fontStyle: 'italic' }}>
+                      <Text size="base" color="secondary">
                         Unknown Integration
-                      </Typography.Text>
+                      </Text>
                     );
                   },
                 },
@@ -2850,13 +2509,9 @@ export const LogsRoute = () => {
                   title: 'Flow',
                   dataIndex: 'direction',
                   key: 'direction',
-                  width: 110,
-                  // The row is ~1240px of columns against a ~1270px viewport, so
-                  // something has to give — and it should not be HTTP status,
-                  // latency or attempts, which are what triage actually scans.
-                  // Direction is the most repetitive column (usually all one
-                  // value under a given filter), so it yields first and returns
-                  // on wide screens.
+                  width: 96,
+                  // Direction is repetitive in filtered logs, so keep it on
+                  // wider screens and preserve room for status and diagnostics.
                   responsive: ['xxl'],
                   render: (_: string, record: DeliveryLog) => {
                     const direction = record.direction || 'OUTBOUND';
@@ -2874,7 +2529,7 @@ export const LogsRoute = () => {
                   title: 'Event',
                   dataIndex: 'eventType',
                   key: 'eventType',
-                  width: 180,
+                  width: 145,
                   ellipsis: true,
                   sorter: (a, b) => (a.eventType || '').localeCompare(b.eventType || ''),
                   render: (event: string | null) =>
@@ -2883,21 +2538,23 @@ export const LogsRoute = () => {
                         {event}
                       </MetaTag>
                     ) : (
-                      <Typography.Text style={{ color: cssVar.text.muted, fontSize: 12 }}>—</Typography.Text>
+                      <Text type="supporting" color="secondary">
+                        —
+                      </Text>
                     ),
                 },
                 {
                   title: 'Status',
                   dataIndex: 'status',
                   key: 'status',
-                  width: 130,
+                  width: 124,
                   sorter: (a, b) => a.status.localeCompare(b.status),
                   filters: [
-                    { text: 'Success', value: 'SUCCESS' },
+                    { text: 'Delivered', value: 'SUCCESS' },
                     { text: 'Failed', value: 'FAILED' },
                     { text: 'Retrying', value: 'RETRYING' },
                     { text: 'Pending', value: 'PENDING' },
-                    { text: 'Queued', value: 'QUEUED' },
+                    { text: 'Pending (queued)', value: 'QUEUED' },
                     { text: 'Skipped', value: 'SKIPPED' },
                     { text: 'Abandoned', value: 'ABANDONED' },
                   ],
@@ -2916,7 +2573,7 @@ export const LogsRoute = () => {
                             : undefined
                       }
                     >
-                      <div onClick={() => handleQuickStatusFilter(status)} style={{ cursor: 'pointer' }}>
+                      <div onClick={() => handleQuickStatusFilter(status)} className="console-cursor-pointer">
                         <StatusBadge status={status as any} size="default" />
                         <FollowUpTag followUp={record?.followUp} />
                         <StageSummaryTags summary={record?.stageSummary} />
@@ -2937,7 +2594,9 @@ export const LogsRoute = () => {
                         {category}
                       </MetaTag>
                     ) : (
-                      <Typography.Text style={{ color: cssVar.text.muted, fontSize: 12 }}>—</Typography.Text>
+                      <Text type="supporting" color="secondary">
+                        —
+                      </Text>
                     ),
                 },
                 {
@@ -2945,42 +2604,12 @@ export const LogsRoute = () => {
                   dataIndex: 'responseStatus',
                   key: 'responseStatus',
                   align: 'right',
-                  width: 88,
+                  width: 78,
                   sorter: (a, b) => (a.responseStatus || 0) - (b.responseStatus || 0),
                   render: (status: number | null) => (
-                    <Tag
-                      style={{
-                        borderRadius: borderRadius.full,
-                        fontSize: 12,
-                        padding: `${spacing['1']} ${spacing[2]}`,
-                        borderColor: withAlpha(
-                          !status
-                            ? colors.warning[400]
-                            : status >= 200 && status < 300
-                              ? colors.success[400]
-                              : colors.error[400],
-                          0.3
-                        ),
-                        background: withAlpha(
-                          !status
-                            ? colors.warning[100]
-                            : status >= 200 && status < 300
-                              ? colors.success[100]
-                              : colors.error[100],
-                          0.6
-                        ),
-                        color: !status
-                          ? colors.warning[700]
-                          : status >= 200 && status < 300
-                            ? colors.success[700]
-                            : colors.error[700],
-                        fontWeight: 700,
-                        margin: 0,
-                        fontFamily: 'ui-monospace, monospace',
-                      }}
-                    >
+                    <code className={status != null && status >= 400 ? 'console-text-error' : undefined}>
                       {status ?? '—'}
-                    </Tag>
+                    </code>
                   ),
                 },
                 {
@@ -2988,15 +2617,10 @@ export const LogsRoute = () => {
                   dataIndex: 'responseTimeMs',
                   key: 'responseTimeMs',
                   align: 'right',
-                  width: 100,
+                  width: 88,
                   sorter: (a, b) => a.responseTimeMs - b.responseTimeMs,
                   render: (val: number) => {
-                    const tone = cssVar.text.primary;
-                    return (
-                      <Typography.Text style={{ fontSize: 13, color: tone, fontFamily: 'ui-monospace, monospace' }}>
-                        {val} ms
-                      </Typography.Text>
-                    );
+                    return <Text type="code">{val} ms</Text>;
                   },
                 },
                 {
@@ -3004,29 +2628,29 @@ export const LogsRoute = () => {
                   dataIndex: 'attemptCount',
                   key: 'attemptCount',
                   align: 'right',
-                  width: 88,
+                  width: 76,
                   sorter: (a, b) => a.attemptCount - b.attemptCount,
                   resizable: false,
                   render: (val: number, record) => (
-                    <Space size={spacingToNumber(spacing[1])} style={{ justifyContent: 'flex-end', width: '100%' }}>
-                      <HistoryOutlined style={{ color: cssVar.text.secondary }} />
-                      <Typography.Text style={{ fontSize: 13, fontWeight: 600, color: cssVar.text.secondary }}>
+                    <Space size={spacingToNumber(spacing[1])} className="console-flex-end-full">
+                      <GatewayIcon name="HistoryOutlined" className="console-text-secondary" />
+                      <Text size="base" weight="semibold" color="secondary">
                         {val}
-                      </Typography.Text>
-                      {record.status === 'RETRYING' && <ReloadOutlined spin style={{ color: colors.warning[600] }} />}
+                      </Text>
+                      {record.status === 'RETRYING' && (
+                        <GatewayIcon name="ReloadOutlined" spin className="console-text-warning" />
+                      )}
                     </Space>
                   ),
                 },
                 {
                   title: 'Actions',
                   key: 'actions',
-                  width: 130,
+                  width: 112,
                   align: 'center',
                   resizable: false,
-                  // Retry is the single most common action an operator takes from
-                  // this table during an incident; with 10 columns it scrolled off
-                  // to the right past the visible viewport at typical widths.
-                  fixed: 'right',
+                  // Keep actions in normal table flow: a fixed clone can cover
+                  // status and delivery diagnostics in the compact console shell.
                   render: (_: unknown, record: DeliveryLog) => {
                     const isScriptJob = isScriptJobLogLike(record);
                     // ABANDONED is failed with its automatic retries used up, so it
@@ -3041,12 +2665,16 @@ export const LogsRoute = () => {
                     if (!canRetry || isPortalSession) {
                       if (isScriptJob && ['FAILED', 'ABANDONED'].includes(record.status)) {
                         return (
-                          <Typography.Text style={{ color: cssVar.text.muted, fontSize: 12 }}>
+                          <Text type="supporting" color="secondary">
                             Script job
-                          </Typography.Text>
+                          </Text>
                         );
                       }
-                      return <Typography.Text style={{ color: cssVar.text.muted, fontSize: 12 }}>—</Typography.Text>;
+                      return (
+                        <Text type="supporting" color="secondary">
+                          —
+                        </Text>
+                      );
                     }
 
                     return (
@@ -3054,34 +2682,42 @@ export const LogsRoute = () => {
                         <Button
                           type="text"
                           size="small"
-                          icon={<RedoOutlined spin={isRetrying} />}
+                          icon={<GatewayIcon name="RedoOutlined" spin={isRetrying} />}
                           disabled={!canRetry || isRetrying}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRetry(record);
                           }}
-                          style={{
-                            color: canRetry ? colors.primary[600] : cssVar.text.muted,
-                            fontWeight: 500,
-                          }}
+                          className={canRetry ? 'console-text-link logs-retry-action' : 'console-text-secondary'}
                         >
                           Retry
                         </Button>
-                        <Button
-                          type="text"
-                          size="small"
-                          danger
-                          disabled={!canRetry || isRetrying}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmForceRetry(record);
-                          }}
-                          style={{
-                            fontWeight: 500,
+                        <Dropdown
+                          trigger={['click']}
+                          placement="bottomRight"
+                          menu={{
+                            items: [
+                              {
+                                key: 'force-retry',
+                                label: 'Force retry',
+                                danger: true,
+                                disabled: isRetrying,
+                              },
+                            ],
+                            onClick: ({ key }) => {
+                              if (key === 'force-retry') confirmForceRetry(record);
+                            },
                           }}
                         >
-                          Force
-                        </Button>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<GatewayIcon name="MoreOutlined" aria-hidden="true" />}
+                            aria-label={`More actions for ${record.integrationName || 'delivery'}`}
+                            title="More actions"
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        </Dropdown>
                       </Space>
                     );
                   },
@@ -3095,22 +2731,12 @@ export const LogsRoute = () => {
       <Drawer
         title={
           detailRecord ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], minWidth: 0 }}>
+            <div className="logs-drawer-title">
               <StatusBadge status={detailRecord.status as any} size="default" />
-              <span
-                style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {detailRecord.integrationName || 'Delivery'}
-              </span>
-              <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+              <span className="logs-drawer-title-name">{detailRecord.integrationName || 'Delivery'}</span>
+              <Text type="supporting" size="sm" color="secondary" textWrap="nowrap">
                 {formatDateTimeWithSeconds(detailRecord.createdAt)}
-              </Typography.Text>
+              </Text>
             </div>
           ) : (
             'Delivery'
@@ -3127,13 +2753,13 @@ export const LogsRoute = () => {
             <Space size={spacingToNumber(spacing[1])}>
               {detailIndex >= 0 && (
                 <>
-                  <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                  <Text type="supporting" size="sm" color="secondary" textWrap="nowrap">
                     {detailIndex + 1} of {filtered.length}
-                  </Typography.Text>
+                  </Text>
                   <Tooltip title="Previous delivery (k)">
                     <Button
                       size="small"
-                      icon={<LeftOutlined />}
+                      icon={<GatewayIcon name="LeftOutlined" />}
                       aria-label="Previous delivery"
                       disabled={detailIndex <= 0}
                       onClick={() => stepDetail(-1)}
@@ -3142,7 +2768,7 @@ export const LogsRoute = () => {
                   <Tooltip title="Next delivery (j)">
                     <Button
                       size="small"
-                      icon={<RightOutlined />}
+                      icon={<GatewayIcon name="RightOutlined" />}
                       aria-label="Next delivery"
                       disabled={detailIndex >= filtered.length - 1}
                       onClick={() => stepDetail(1)}
@@ -3156,7 +2782,7 @@ export const LogsRoute = () => {
                   <Button
                     size="small"
                     type="primary"
-                    icon={<ReloadOutlined />}
+                    icon={<GatewayIcon name="ReloadOutlined" />}
                     loading={retryingLogs[detailRecord.id]}
                     onClick={() => handleRetry(detailRecord)}
                   >
@@ -3169,6 +2795,6 @@ export const LogsRoute = () => {
       >
         {detailRecord && renderDeliveryDetail(detailRecord)}
       </Drawer>
-    </div>
+    </PageTemplate>
   );
 };

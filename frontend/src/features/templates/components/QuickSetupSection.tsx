@@ -1,6 +1,18 @@
 import { useState } from 'react';
-import { Alert, App, AutoComplete, Button, Card, Form, Input, Modal, Result, Space, Switch, Tag, Typography } from 'antd';
-import { ApiOutlined, CreditCardOutlined, MessageOutlined, TeamOutlined } from '@ant-design/icons';
+import {
+  App,
+  AutoComplete,
+  Card,
+  Form,
+  Input,
+  Modal,
+  Result,
+  Space,
+  Switch,
+} from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import {
   buildFromTemplateCatalog,
@@ -15,11 +27,15 @@ import {
 import { cssVar } from '../../../design-system/utils';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { useTenant } from '../../../app/tenant-context';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { copyTextToClipboard } from '../../../utils/clipboard';
+import { InlineNotice as Notice } from '../../../components/common';
 
 const CATEGORY_ICON: Record<string, React.ReactNode> = {
-  Messaging: <MessageOutlined aria-hidden />,
-  Payments: <CreditCardOutlined aria-hidden />,
-  CRM: <TeamOutlined aria-hidden />,
+  Messaging: <GatewayIcon name="MessageOutlined" aria-hidden />,
+  Payments: <GatewayIcon name="CreditCardOutlined" aria-hidden />,
+  CRM: <GatewayIcon name="TeamOutlined" aria-hidden />,
 };
 
 /** "Slack: post events to a channel" → "Slack" */
@@ -41,7 +57,11 @@ const InputField = ({ input, eventTypes }: { input: TemplateCatalogInput; eventT
     input.type === 'eventType' ? (
       <AutoComplete
         options={eventTypes.map((value) => ({ value }))}
-        filterOption={(text, option) => String(option?.value || '').toLowerCase().includes(text.toLowerCase())}
+        filterOption={(text, option) =>
+          String(option?.value || '')
+            .toLowerCase()
+            .includes(text.toLowerCase())
+        }
         placeholder="Pick or type an event, e.g. ORDER_PLACED"
       />
     ) : input.type === 'secret' ? (
@@ -91,6 +111,12 @@ export const QuickSetupSection = () => {
     setActive(null);
     setCreated(null);
   };
+  const copyEndpointUrl = async () => {
+    if (!created?.endpointUrl) return;
+    const copied = await copyTextToClipboard(created.endpointUrl);
+    if (copied) message.success('Endpoint URL copied');
+    else message.error('Could not copy endpoint URL');
+  };
 
   const submit = async () => {
     if (!active) return;
@@ -125,28 +151,46 @@ export const QuickSetupSection = () => {
   if (catalogQuery.isError || (catalogQuery.isSuccess && catalogQuery.data.length === 0)) return null;
 
   return (
-    <section aria-labelledby="quick-setup-heading" style={{ marginBottom: 24 }}>
-      <Typography.Title level={5} id="quick-setup-heading" style={{ marginBottom: 4 }}>
+    <section aria-labelledby="quick-setup-heading" className="ui-extracted-1a0543ca12">
+      <Heading level={5} id="quick-setup-heading" className="console-margin-bottom-1">
         Quick setup
-      </Typography.Title>
-      <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+      </Heading>
+      <Text as="p" display="block" type="supporting" color="secondary" className="console-margin-bottom-3">
         Connect a common service in one step. You can edit everything afterwards.
-      </Typography.Paragraph>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+      </Text>
+      <div
+        className="ui-extracted-2d8d511c2c"
+      >
         {(catalogQuery.data || []).map((template) => (
           <Card key={template.id} size="small" style={{ borderColor: cssVar.border.default }}>
-            <Space align="start" size={12} style={{ width: '100%' }}>
-              <span style={{ fontSize: 20, color: cssVar.accent.text }}>
-                {CATEGORY_ICON[template.category] || <ApiOutlined aria-hidden />}
+            <Space align="start" size={12} className="console-width-full">
+              <span style={{ fontSize: 'var(--console-type-title)', color: cssVar.accent.text }}>
+                {CATEGORY_ICON[template.category] || <GatewayIcon name="ApiOutlined" aria-hidden />}
               </span>
-              <div style={{ minWidth: 0 }}>
-                <Typography.Text strong>{template.name}</Typography.Text>
-                <Typography.Paragraph type="secondary" style={{ margin: '4px 0 8px', fontSize: 13 }}>
+              <div className="console-min-width-0">
+                <Text weight="semibold">{template.name}</Text>
+                <Text
+                  as="p"
+                  display="block"
+                  type="supporting"
+                  size="base"
+                  color="secondary"
+                  className="ui-extracted-b805e0ab82"
+                >
                   {template.description}
-                </Typography.Paragraph>
+                </Text>
                 <Space size={6} wrap>
-                  <Tag>{template.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}</Tag>
-                  <Button size="small" type="primary" onClick={() => open(template)} aria-label={`Set up ${serviceName(template)}`}>
+                  <StatusBadge
+                    label={template.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}
+                    variant="info"
+                    showIcon={false}
+                  />
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={() => open(template)}
+                    aria-label={`Set up ${serviceName(template)}`}
+                  >
                     Set up
                   </Button>
                 </Space>
@@ -160,7 +204,7 @@ export const QuickSetupSection = () => {
         open={Boolean(active)}
         title={active?.name}
         onCancel={close}
-        destroyOnClose
+        destroyOnHidden
         footer={
           created
             ? [
@@ -183,27 +227,27 @@ export const QuickSetupSection = () => {
       >
         {active && !created && (
           <Form form={form} layout="vertical" requiredMark="optional">
-            <Typography.Paragraph type="secondary">
+            <Text as="p" display="block" type="supporting" color="secondary">
               {active.description}
               {active.docsUrl && (
                 <>
                   {' '}
-                  <Typography.Link href={active.docsUrl} target="_blank" rel="noreferrer">
+                  <a href={active.docsUrl} target="_blank" rel="noreferrer">
                     {serviceName(active)} docs
-                  </Typography.Link>
+                  </a>
                 </>
               )}
-            </Typography.Paragraph>
+            </Text>
             {active.inputs.map((input) => (
               <InputField key={input.key} input={input} eventTypes={eventTypesQuery.data || []} />
             ))}
             <Space>
               <Switch checked={activate} onChange={setActivate} aria-label="Activate immediately" />
-              <Typography.Text>Activate immediately</Typography.Text>
+              <Text>Activate immediately</Text>
             </Space>
-            <Typography.Paragraph type="secondary" style={{ marginTop: 4, fontSize: 12 }}>
+            <Text as="p" display="block" type="supporting" size="sm" color="secondary" className="console-margin-top-1">
               Leave it off to review and test first; it is created as a draft.
-            </Typography.Paragraph>
+            </Text>
           </Form>
         )}
         {created && (
@@ -213,15 +257,23 @@ export const QuickSetupSection = () => {
             subTitle={activate ? 'It is active.' : 'It is a draft: open it to test, then switch it on.'}
             extra={
               created.endpointUrl && (
-                <Alert
+                <Notice
                   type="info"
-                  showIcon
-                  style={{ textAlign: 'left' }}
+                  className="ui-extracted-10c394e423"
                   message={`Give this URL to ${serviceName(created.template)}`}
                   description={
-                    <Typography.Paragraph copyable style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>
-                      {created.endpointUrl}
-                    </Typography.Paragraph>
+                    <Space align="start" className="console-width-full-between">
+                      <Text type="code" wordBreak="break-word" className="ui-extracted-17e73af734">
+                        {created.endpointUrl}
+                      </Text>
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={<GatewayIcon name="CopyOutlined" />}
+                        aria-label="Copy endpoint URL"
+                        onClick={() => void copyEndpointUrl()}
+                      />
+                    </Space>
                   }
                 />
               )

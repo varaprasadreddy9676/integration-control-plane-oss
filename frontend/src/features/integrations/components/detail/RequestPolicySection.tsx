@@ -1,10 +1,9 @@
-import { Col, Form, Input, InputNumber, Row, Space, Tag, Typography } from 'antd';
-import { GlobalOutlined, SafetyCertificateOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Col, Form, Input, InputNumber, Row, Space } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import { cssVar, spacingToNumber } from '../../../../design-system/utils';
 import { InlineHint } from '../../../../components/common/InlineHint';
 import { ToggleSettingRow } from '../../../../components/common/ToggleSettingRow';
-
-const { Text } = Typography;
+import { Text } from '@astryxdesign/core/Text';
 
 interface RequestPolicySectionProps {
   form?: any;
@@ -28,16 +27,16 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
   const perHour = Math.floor((maxRequests / windowSeconds) * 3600);
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+    <Space direction="vertical" size="large" className="console-width-full">
+      <Text as="p" display="block" type="supporting" color="secondary" className="console-margin-bottom-none">
         Configure the inbound guardrail once here: browser-origin checks, source IP allowlists, and per-integration rate
         limiting.
-      </Typography.Paragraph>
+      </Text>
 
       <div>
-        <Space size={8} style={{ marginBottom: spacing[2] }}>
-          <SafetyCertificateOutlined />
-          <Text strong>Source IP allowlist</Text>
+        <Space size={8} className="console-margin-bottom-2">
+          <GatewayIcon name="SafetyCertificateOutlined" />
+          <Text weight="semibold">Source IP allowlist</Text>
         </Space>
         <Form.Item
           name={['requestPolicy', 'allowedIpCidrsText']}
@@ -58,10 +57,12 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
       </div>
 
       <div>
-        <Space size={8} style={{ marginBottom: spacing[2] }}>
-          <GlobalOutlined />
-          <Text strong>Allowed browser origins</Text>
-          <Tag color="gold">For frontend apps</Tag>
+        <Space size={8} className="console-margin-bottom-2">
+          <GatewayIcon name="GlobalOutlined" />
+          <Text weight="semibold">Allowed browser origins</Text>
+          <Text type="supporting" color="secondary">
+            For frontend apps
+          </Text>
         </Space>
         <Form.Item
           name={['requestPolicy', 'allowedBrowserOriginsText']}
@@ -88,7 +89,7 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
       <div>
         <ToggleSettingRow
           name={['requestPolicy', 'rateLimit', 'enabled']}
-          icon={<ThunderboltOutlined />}
+          icon={<GatewayIcon name="ThunderboltOutlined" />}
           title="Per-integration rate limiting"
           description="Limit requests to this integration to prevent abuse or accidental traffic spikes."
         />
@@ -105,7 +106,7 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
                     { type: 'number', min: 1, max: 10000, message: 'Must be between 1 and 10,000 requests' },
                   ]}
                 >
-                  <InputNumber min={1} max={10000} step={10} style={{ width: '100%' }} addonAfter="requests" />
+                  <InputNumber min={1} max={10000} step={10} className="console-width-full" addonAfter="requests" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
@@ -117,7 +118,7 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
                     { type: 'number', min: 1, max: 3600, message: 'Must be between 1 and 3,600 seconds' },
                   ]}
                 >
-                  <InputNumber min={1} max={3600} step={10} style={{ width: '100%' }} addonAfter="seconds" />
+                  <InputNumber min={1} max={3600} step={10} className="console-width-full" addonAfter="seconds" />
                 </Form.Item>
               </Col>
             </Row>
@@ -130,8 +131,8 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
                 padding: spacing[3],
               }}
             >
-              <Space direction="vertical" size={spacing[2]} style={{ width: '100%' }}>
-                <Text strong style={{ color: colors.primary[700] }}>
+              <Space direction="vertical" size={spacing[2]} className="console-width-full">
+                <Text weight="semibold" style={{ color: colors.primary[700] }}>
                   Rate limit preview
                 </Text>
                 <div
@@ -142,18 +143,18 @@ export const RequestPolicySection = ({ form, spacing }: RequestPolicySectionProp
                   }}
                 >
                   <div>
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                    <Text type="supporting" size="sm" color="secondary" display="block">
                       Per {windowSeconds}s window
                     </Text>
-                    <Text strong style={{ fontSize: 18 }}>
+                    <Text weight="semibold" size="lg">
                       {maxRequests} reqs
                     </Text>
                   </div>
                   <div>
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                    <Text type="supporting" size="sm" color="secondary" display="block">
                       Per hour
                     </Text>
-                    <Text strong style={{ fontSize: 18 }}>
+                    <Text weight="semibold" size="lg">
                       ≈ {perHour.toLocaleString()} reqs
                     </Text>
                   </div>

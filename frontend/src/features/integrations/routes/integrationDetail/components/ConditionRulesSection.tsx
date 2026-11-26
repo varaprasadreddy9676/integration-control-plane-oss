@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Form, InputNumber, Space } from 'antd';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
+import { Card, Form, InputNumber, Space } from '@/components/common/LegacyAntdControls';
 import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { ConditionRuleCard } from './ConditionRuleCard';
+import { StatePanel } from '../../../../../components/common/StatePanel';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 interface ConditionRulesSectionProps extends LifecyclePanelSurfaceProps {
   eventTypeOptions: Array<{ label: string; value: string }>;
@@ -39,14 +41,16 @@ export const ConditionRulesSection = ({
   const expiryActionLabel = useMemo(() => (showExpiry ? 'Remove expiry' : 'Set expiry'), [showExpiry]);
 
   return (
-    <Card size="small" title="Hold until this happens" style={{ borderRadius: token.borderRadiusLG }}>
+    <Card size="small" title="Hold until this happens" className="console-card-radius">
       <Form.List name="conditionRules">
         {(fields, { add, remove }) => (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space direction="vertical" size={12} className="console-width-full">
             {fields.length === 0 && (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="Add the follow-up event that should release or discard this held delivery."
+              <StatePanel
+                size="compact"
+                glyph="searching"
+                title="No condition rules"
+                description="Add a release condition below."
               />
             )}
             {fields.map((field) => {
@@ -65,7 +69,7 @@ export const ConditionRulesSection = ({
               {fields.length === 0 && (
                 <Button
                   type="dashed"
-                  icon={<PlusOutlined />}
+                  icon={<GatewayIcon name="PlusOutlined" />}
                   onClick={() =>
                     add({
                       eventTypes: [],
@@ -96,7 +100,7 @@ export const ConditionRulesSection = ({
                   }
                   setShowExpiry(true);
                 }}
-                style={{ paddingInline: 0 }}
+                className="ui-extracted-a5e72678a9"
               >
                 {expiryActionLabel}
               </Button>
@@ -105,9 +109,9 @@ export const ConditionRulesSection = ({
               <Form.Item
                 name="conditionExpiresAfterHours"
                 label="Expire if nothing happens within (hours)"
-                style={{ marginBottom: 0, maxWidth: 320 }}
+                className="ui-extracted-32ed79c63d"
               >
-                <InputNumber min={0.1} step={0.5} style={{ width: '100%' }} placeholder="Optional" />
+                <InputNumber min={0.1} step={0.5} className="console-width-full" placeholder="Optional" />
               </Form.Item>
             )}
           </Space>

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from "@/components/common/LegacyAntdControls";
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 import { formatNumber } from '../../utils/format';
 
@@ -54,10 +54,10 @@ export function FunnelChart({ data, height = 400, showPercentages = true, onSegm
               key={`funnel-${index}`}
               title={
                 <div>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.name}</div>
+                  <div className="ui-extracted-8a7601359d">{item.name}</div>
                   <div>{formatNumber(item.value)} events</div>
                   {index > 0 && (
-                    <div style={{ fontSize: 12, opacity: 0.9 }}>
+                    <div className="ui-extracted-5b8a4c270e">
                       {item.conversionRate.toFixed(1)}% of previous stage
                     </div>
                   )}
@@ -101,10 +101,10 @@ export function FunnelChart({ data, height = 400, showPercentages = true, onSegm
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{item.name}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{formatNumber(item.value)}</div>
+                  <div className="ui-extracted-dbcdf3ed65">{item.name}</div>
+                  <div className="ui-extracted-cd9b1e1e1f">{formatNumber(item.value)}</div>
                   {showPercentages && index > 0 && (
-                    <div style={{ fontSize: 12, opacity: 0.95, marginTop: 2 }}>
+                    <div className="ui-extracted-f41d59be09">
                       {item.conversionRate.toFixed(1)}% conversion
                     </div>
                   )}

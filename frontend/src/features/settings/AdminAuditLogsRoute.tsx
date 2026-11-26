@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Input, Select, Space, Tag, Typography, message } from 'antd';
+import { Card, DatePicker, Input, Select, Space, message } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../app/auth-context';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
-import { exportAdminAuditLogs, exportAdminAuditTrend, listAdminAuditLogs, type AdminAuditLog } from '../../services/api';
+import {
+  exportAdminAuditLogs,
+  exportAdminAuditTrend,
+  listAdminAuditLogs,
+  type AdminAuditLog,
+} from '../../services/api';
 import { createExportProgress } from '../../utils/export-progress';
 import { ModernTable } from '../../components/common/ModernTable';
+import { StatePanel } from '../../components/common/StatePanel';
+import { Button } from '../../components/common/LegacyButton';
 
 const { RangePicker } = DatePicker;
 
@@ -46,23 +55,26 @@ export const AdminAuditLogsRoute = () => {
   const [pageSize, setPageSize] = useState(10);
   const [bucketDays, setBucketDays] = useState(7);
 
-  const filterPayload = useMemo(() => ({
-    action: actionFilter,
-    role: roleFilter,
-    adminId: adminIdFilter || undefined,
-    search: search || undefined,
-    startDate: dateRange?.[0] || undefined,
-    endDate: dateRange?.[1] || undefined,
-    days: bucketDays,
-    page,
-    limit: pageSize
-  }), [actionFilter, roleFilter, adminIdFilter, search, dateRange, bucketDays, page, pageSize]);
+  const filterPayload = useMemo(
+    () => ({
+      action: actionFilter,
+      role: roleFilter,
+      adminId: adminIdFilter || undefined,
+      search: search || undefined,
+      startDate: dateRange?.[0] || undefined,
+      endDate: dateRange?.[1] || undefined,
+      days: bucketDays,
+      page,
+      limit: pageSize,
+    }),
+    [actionFilter, roleFilter, adminIdFilter, search, dateRange, bucketDays, page, pageSize]
+  );
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['adminAuditLogs', filterPayload],
     queryFn: () => listAdminAuditLogs(filterPayload),
     enabled: isAdmin,
-    staleTime: 5 * 1000
+    staleTime: 5 * 1000,
   });
 
   const items = data?.items || [];
@@ -78,69 +90,69 @@ export const AdminAuditLogsRoute = () => {
       title: 'Timestamp',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (value: string) => formatDate(value)
+      render: (value: string) => formatDate(value),
     },
     {
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      render: (value: string) => <Tag>{value}</Tag>
+      render: (value: string) => <Text type="code">{value}</Text>,
     },
     {
       title: 'Admin',
       key: 'admin',
       render: (_: any, record: AdminAuditLog) => (
         <Space direction="vertical" size={0}>
-          <Typography.Text>{record.adminEmail || '—'}</Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Text>{record.adminEmail || '—'}</Text>
+          <Text type="supporting" color="secondary">
             {record.adminId || '—'}
-          </Typography.Text>
+          </Text>
         </Space>
-      )
+      ),
     },
     {
       title: 'Role',
       dataIndex: 'adminRole',
       key: 'adminRole',
-      render: (value: string) => value || '—'
+      render: (value: string) => value || '—',
     },
     {
       title: 'Summary',
       key: 'summary',
-      render: (_: any, record: AdminAuditLog) => buildSummary(record)
-    }
+      render: (_: any, record: AdminAuditLog) => buildSummary(record),
+    },
   ];
 
   return (
     <div>
       {contextHolder}
-      <PageHeader
-        title="Admin Audit Logs"
-        description="Track admin changes and bulk operations."
-      />
+      <PageHeader title="Admin Audit Logs" description="Track admin changes and bulk operations." />
 
       {!isAdmin ? (
-        <Alert
-          type="error"
-          message="Admin access only"
+        <StatePanel
+          title="Admin access required"
           description="You need an admin account to view audit logs."
-          showIcon
+          size="compact"
         />
       ) : (
         <>
-          <Card className="panel" style={{ borderRadius: token.borderRadiusLG, marginBottom: spacingToNumber(spacing[3]) }}>
-            <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
-              <Typography.Text strong>Summary</Typography.Text>
+          <Card className="panel admin-audit-summary-panel">
+            <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
+              <Text weight="semibold">Summary</Text>
               <Space wrap>
-                <Card size="small" style={{ minWidth: 180 }}>
-                  <Typography.Text type="secondary">Total Events</Typography.Text>
-                  <Typography.Title level={4} style={{ margin: 0 }}>
+                <Card size="small" className="admin-audit-total-card">
+                  <Text type="supporting" color="secondary">
+                    Total Events
+                  </Text>
+                  <Heading level={3} className="console-margin-none">
                     {summary?.total ?? total}
-                  </Typography.Title>
+                  </Heading>
                 </Card>
-                <Card size="small" style={{ minWidth: 360 }}>
-                  <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-                    <Typography.Text type="secondary">Trend</Typography.Text>
+                <Card size="small" className="admin-audit-trend-card">
+                  <Space align="center" className="console-width-full-between">
+                    <Text type="supporting" color="secondary">
+                      Trend
+                    </Text>
                     <Select
                       value={bucketDays}
                       onChange={(value) => {
@@ -150,47 +162,52 @@ export const AdminAuditLogsRoute = () => {
                       options={[
                         { label: 'Last 7 days', value: 7 },
                         { label: 'Last 30 days', value: 30 },
-                        { label: 'Last 90 days', value: 90 }
+                        { label: 'Last 90 days', value: 90 },
                       ]}
                       size="small"
-                      style={{ minWidth: 130 }}
+                      className="admin-audit-trend-range"
                     />
                   </Space>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 12 }}>
+                  <div className="admin-audit-trend-bars">
                     {trendData.length === 0 && (
-                      <Typography.Text type="secondary">No data</Typography.Text>
+                      <Text type="supporting" color="secondary">
+                        No data
+                      </Text>
                     )}
                     {trendData.map((item) => (
-                      <div key={item.date} style={{ textAlign: 'center' }}>
+                      <div key={item.date} className="admin-audit-trend-day">
                         <div
                           style={{
                             width: 16,
                             height: Math.max(6, Math.round((item.count / trendMax) * 64)),
-                            borderRadius: 6,
-                            background: token.colorPrimary
+                            borderRadius: 4,
+                            background: token.colorPrimary,
                           }}
                         />
-                        <Typography.Text type="secondary" style={{ fontSize: 10 }}>
+                        <Text type="supporting" color="secondary">
                           {bucketDays > 14 ? item.date.slice(5) : item.date.slice(5)}
-                        </Typography.Text>
+                        </Text>
                       </div>
                     ))}
                   </div>
                   <Button
                     size="small"
-                    style={{ marginTop: 12 }}
+                    className="console-margin-top-3"
                     onClick={async () => {
                       const { onProgress, finish } = createExportProgress(messageApi, 'Export Trend CSV');
                       try {
-                        await exportAdminAuditTrend({
-                          action: actionFilter,
-                          role: roleFilter,
-                          adminId: adminIdFilter || undefined,
-                          search: search || undefined,
-                          startDate: dateRange?.[0] || undefined,
-                          endDate: dateRange?.[1] || undefined,
-                          days: bucketDays
-                        }, { onProgress });
+                        await exportAdminAuditTrend(
+                          {
+                            action: actionFilter,
+                            role: roleFilter,
+                            adminId: adminIdFilter || undefined,
+                            search: search || undefined,
+                            startDate: dateRange?.[0] || undefined,
+                            endDate: dateRange?.[1] || undefined,
+                            days: bucketDays,
+                          },
+                          { onProgress }
+                        );
                         finish('Trend export complete');
                       } catch (error: any) {
                         finish(error?.message || 'Trend export failed', true);
@@ -200,42 +217,50 @@ export const AdminAuditLogsRoute = () => {
                     Export Trend CSV
                   </Button>
                 </Card>
-                <Card size="small" style={{ minWidth: 320 }}>
-                  <Typography.Text type="secondary">Top Actions</Typography.Text>
-                  <Space direction="vertical" size={6} style={{ marginTop: 8, width: '100%' }}>
-                    {(actionBreakdown.length === 0) && (
-                      <Typography.Text type="secondary">No data</Typography.Text>
+                <Card size="small" className="admin-audit-breakdown-card">
+                  <Text type="supporting" color="secondary">
+                    Top Actions
+                  </Text>
+                  <Space direction="vertical" size={6} className="console-margin-top-2 console-width-full">
+                    {actionBreakdown.length === 0 && (
+                      <Text type="supporting" color="secondary">
+                        No data
+                      </Text>
                     )}
                     {actionBreakdown.map((item) => (
-                      <div key={item.action} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Typography.Text style={{ minWidth: 180 }} ellipsis>
+                      <div key={item.action} className="console-flex-center-gap-2">
+                        <Text className="admin-audit-action-label" maxLines={1}>
                           {item.action}
-                        </Typography.Text>
-                        <div style={{ flex: 1, height: 8, background: token.colorFillSecondary, borderRadius: borderRadius.full }}>
+                        </Text>
+                        <div className="admin-audit-breakdown-track">
                           <div
                             style={{
                               height: 8,
                               width: `${Math.round((item.count / actionMax) * 100)}%`,
                               background: token.colorPrimaryHover,
-                              borderRadius: borderRadius.full
+                              borderRadius: borderRadius.full,
                             }}
                           />
                         </div>
-                        <Typography.Text>{item.count}</Typography.Text>
+                        <Text hasTabularNumbers>{item.count}</Text>
                       </div>
                     ))}
                   </Space>
                 </Card>
-                <Card size="small" style={{ minWidth: 260 }}>
-                  <Typography.Text type="secondary">Top Admins</Typography.Text>
-                  <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
+                <Card size="small" className="admin-audit-admins-card">
+                  <Text type="supporting" color="secondary">
+                    Top Admins
+                  </Text>
+                  <Space direction="vertical" size={4} className="console-margin-top-2">
                     {(summary?.topAdmins || []).length === 0 && (
-                      <Typography.Text type="secondary">No data</Typography.Text>
+                      <Text type="supporting" color="secondary">
+                        No data
+                      </Text>
                     )}
                     {(summary?.topAdmins || []).map((item) => (
                       <Space key={item.adminEmail} size="small">
-                        <Tag>{item.adminEmail}</Tag>
-                        <Typography.Text>{item.count}</Typography.Text>
+                        <Text type="code">{item.adminEmail}</Text>
+                        <Text hasTabularNumbers>{item.count}</Text>
                       </Space>
                     ))}
                   </Space>
@@ -244,8 +269,8 @@ export const AdminAuditLogsRoute = () => {
             </Space>
           </Card>
 
-          <Card className="panel" style={{ borderRadius: token.borderRadiusLG }}>
-            <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+          <Card className="panel console-card-radius">
+            <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
               <Space wrap>
                 <Select
                   allowClear
@@ -258,9 +283,9 @@ export const AdminAuditLogsRoute = () => {
                   options={[
                     { label: 'RATE_LIMITS_BULK_APPLY', value: 'RATE_LIMITS_BULK_APPLY' },
                     { label: 'RATE_LIMITS_BULK_RESET', value: 'RATE_LIMITS_BULK_RESET' },
-                    { label: 'RATE_LIMITS_EXPORT', value: 'RATE_LIMITS_EXPORT' }
+                    { label: 'RATE_LIMITS_EXPORT', value: 'RATE_LIMITS_EXPORT' },
                   ]}
-                  style={{ minWidth: 220 }}
+                  className="admin-audit-action-filter"
                 />
                 <Select
                   allowClear
@@ -272,9 +297,9 @@ export const AdminAuditLogsRoute = () => {
                   }}
                   options={[
                     { label: 'ADMIN', value: 'ADMIN' },
-                    { label: 'ORG_ADMIN', value: 'ORG_ADMIN' }
+                    { label: 'ORG_ADMIN', value: 'ORG_ADMIN' },
                   ]}
-                  style={{ minWidth: 160 }}
+                  className="admin-audit-role-filter"
                 />
                 <Input
                   placeholder="Admin ID"
@@ -283,7 +308,7 @@ export const AdminAuditLogsRoute = () => {
                     setAdminIdFilter(event.target.value);
                     setPage(1);
                   }}
-                  style={{ minWidth: 200 }}
+                  className="admin-audit-admin-filter"
                 />
                 <Input.Search
                   placeholder="Search action/admin"
@@ -294,7 +319,7 @@ export const AdminAuditLogsRoute = () => {
                     setPage(1);
                     refetch();
                   }}
-                  style={{ minWidth: 220 }}
+                  className="admin-audit-search-filter"
                 />
                 <RangePicker
                   onChange={(values) => {
@@ -302,10 +327,7 @@ export const AdminAuditLogsRoute = () => {
                       setDateRange(null);
                       return;
                     }
-                    setDateRange([
-                      values[0]?.toISOString() || null,
-                      values[1]?.toISOString() || null
-                    ]);
+                    setDateRange([values[0]?.toISOString() || null, values[1]?.toISOString() || null]);
                   }}
                 />
                 <Button onClick={() => refetch()}>Refresh</Button>
@@ -313,14 +335,17 @@ export const AdminAuditLogsRoute = () => {
                   onClick={async () => {
                     const { onProgress, finish } = createExportProgress(messageApi, 'Export CSV');
                     try {
-                      await exportAdminAuditLogs({
-                        action: actionFilter,
-                        role: roleFilter,
-                        adminId: adminIdFilter || undefined,
-                        search: search || undefined,
-                        startDate: dateRange?.[0] || undefined,
-                        endDate: dateRange?.[1] || undefined
-                      }, { onProgress });
+                      await exportAdminAuditLogs(
+                        {
+                          action: actionFilter,
+                          role: roleFilter,
+                          adminId: adminIdFilter || undefined,
+                          search: search || undefined,
+                          startDate: dateRange?.[0] || undefined,
+                          endDate: dateRange?.[1] || undefined,
+                        },
+                        { onProgress }
+                      );
                       finish('Export complete');
                     } catch (error: any) {
                       finish(error?.message || 'Export failed', true);
@@ -338,17 +363,21 @@ export const AdminAuditLogsRoute = () => {
                 loading={isLoading}
                 expandable={{
                   expandedRowRender: (record) => (
-                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                      <Typography.Text type="secondary">Filters:</Typography.Text>
-                      <pre className="clamped-code-block" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                    <Space direction="vertical" size={8} className="console-width-full">
+                      <Text type="supporting" color="secondary">
+                        Filters:
+                      </Text>
+                      <pre className="clamped-code-block console-code-reset-wrap">
                         {JSON.stringify(record.filters || {}, null, 2)}
                       </pre>
-                      <Typography.Text type="secondary">Rate Limits:</Typography.Text>
-                      <pre className="clamped-code-block" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                      <Text type="supporting" color="secondary">
+                        Rate Limits:
+                      </Text>
+                      <pre className="clamped-code-block console-code-reset-wrap">
                         {JSON.stringify(record.rateLimits || {}, null, 2)}
                       </pre>
                     </Space>
-                  )
+                  ),
                 }}
                 pagination={{
                   current: page,
@@ -358,7 +387,7 @@ export const AdminAuditLogsRoute = () => {
                   onChange: (nextPage, nextPageSize) => {
                     setPage(nextPage);
                     setPageSize(nextPageSize || pageSize);
-                  }
+                  },
                 }}
               />
             </Space>

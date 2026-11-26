@@ -1,7 +1,11 @@
-import { Alert, Space, Tag, Typography } from 'antd';
+import { Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
+import { Banner } from '@astryxdesign/core/Banner';
 import type { DeliveryFollowUp } from '../../../mocks/types';
 import { formatDateTimeWithSeconds } from '../../../utils/format';
-import { followUpStatusColor, followUpStatusLabel } from './followUpStatus';
+import { followUpStatusLabel, followUpStatusVariant } from './followUpStatus';
+import { cssVar } from '../../../design-system/utils';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Text } = Typography;
 
@@ -16,13 +20,15 @@ const OWN_MEANING: Record<string, string> = {
 export const FollowUpTag = ({ followUp }: { followUp?: DeliveryFollowUp | null }) => {
   if (!followUp || followUp.status === 'NOT_TRACKED') return null;
   return (
-    <Tag
-      color={followUpStatusColor(followUp.status, followUp.done)}
-      title={OWN_MEANING[followUp.status]}
-      style={{ margin: 0 }}
-    >
-      {followUpStatusLabel(followUp.status)}
-    </Tag>
+    <Tooltip title={OWN_MEANING[followUp.status]}>
+      <span>
+        <StatusBadge
+          label={followUpStatusLabel(followUp.status)}
+          variant={followUpStatusVariant(followUp.status, followUp.done)}
+          showIcon={false}
+        />
+      </span>
+    </Tooltip>
   );
 };
 
@@ -34,14 +40,16 @@ export const DeliveryFollowUpPanel = ({ followUp }: { followUp?: DeliveryFollowU
   return (
     <div
       aria-label="Delivery follow-up"
-      style={{ border: '1px solid var(--border-subtle, #e5e7eb)', borderRadius: 8, padding: 12 }}
+      style={{ border: `1px solid ${cssVar.border.subtle}`, borderRadius: 4, padding: 'var(--spacing-3)' }}
     >
-      <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      <Space direction="vertical" size={6} className="console-width-full">
         <Space wrap>
           <Text strong>Delivery follow-up</Text>
-          <Tag color={followUpStatusColor(followUp.status, followUp.done)} style={{ margin: 0 }}>
-            {followUpStatusLabel(followUp.status)}
-          </Tag>
+          <StatusBadge
+            label={followUpStatusLabel(followUp.status)}
+            variant={followUpStatusVariant(followUp.status, followUp.done)}
+            showIcon={false}
+          />
         </Space>
         {OWN_MEANING[followUp.status] && <Text type="secondary">{OWN_MEANING[followUp.status]}</Text>}
 
@@ -49,19 +57,18 @@ export const DeliveryFollowUpPanel = ({ followUp }: { followUp?: DeliveryFollowU
         {followUp.readAt && <Text>Read {when(followUp.readAt)}</Text>}
 
         {(followUp.errorCode || followUp.errorMessage) && (
-          <Alert
-            type="error"
-            showIcon
-            message={followUp.errorCode ? `Reason ${followUp.errorCode}` : 'Reason'}
+          <Banner
+            status="error"
+            title={followUp.errorCode ? `Reason ${followUp.errorCode}` : 'Reason'}
             description={followUp.errorMessage || undefined}
           />
         )}
         {followUp.reason && <Text type="secondary">{followUp.reason}</Text>}
         {followUp.lastError && (
-          <Alert type="warning" showIcon message="The last check did not complete" description={followUp.lastError} />
+          <Banner status="warning" title="The last check did not complete" description={followUp.lastError} />
         )}
 
-        <Text type="secondary" style={{ fontSize: 12 }}>
+        <Text type="secondary" className="console-type-caption">
           {followUp.checks} {followUp.checks === 1 ? 'check' : 'checks'} so far
           {followUp.lastCheckedAt ? `, last ${when(followUp.lastCheckedAt)}` : ''}
           {!followUp.done && followUp.nextCheckAt ? `, next ${when(followUp.nextCheckAt)}` : ''}

@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { Skeleton, Typography, Row, Col, Alert } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { spacingToNumber } from '../../../../../design-system/utils';
 import { MonacoEditorInput } from '../../../components/MonacoEditorInput';
 import { SectionCard } from './SectionCard';
+import { StatePanel } from '../../../../../components/common/StatePanel';
 
 interface TransformationPanelProps {
   isCreate: boolean;
@@ -21,12 +22,17 @@ interface TransformationPanelProps {
 
 export const TransformationPanelHeader = ({
   spacing,
-  colors
+  colors,
 }: Pick<TransformationPanelProps, 'spacing' | 'colors'>) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: spacingToNumber(spacing[2]) }}>
-    <ThunderboltOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+  <div className="console-flex-center-gap-2">
+    <GatewayIcon
+      name="ThunderboltOutlined"
+      className="console-title-accent"
+    />
     <div>
-      <Typography.Text strong style={{ fontSize: 15 }}>Payload Transformation</Typography.Text>
+      <Text weight="semibold" size="lg">
+        Payload Transformation
+      </Text>
     </div>
   </div>
 );
@@ -40,30 +46,20 @@ export const TransformationPanelContent = ({
   spacing,
   token,
   formatScriptForDisplay,
-  isLoading = false
+  isLoading = false,
 }: TransformationPanelProps) => {
   if (isLoading) {
-    return (
-      <div style={{ padding: spacing[3] }}>
-        <Skeleton active paragraph={{ rows: 8 }} />
-      </div>
-    );
+    return <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading transformation" />;
   }
 
   // Disable transformation section until event type is selected
   if (!selectedEventType) {
     return (
-      <Row gutter={[spacingToNumber(spacing[4]), 0]}>
-        <Col xs={24}>
-          <Alert
-            type="info"
-            showIcon
-            message="Select an event type first"
-            description="Payload transformation configuration will be available after you select an event type in the Configuration section above."
-            style={{ marginBottom: 0 }}
-          />
-        </Col>
-      </Row>
+      <StatePanel
+        title="Choose an event type first"
+        description="Transformation settings unlock after selection."
+        size="compact"
+      />
     );
   }
 
@@ -78,13 +74,15 @@ export const TransformationPanelContent = ({
         editor
       ) : scriptValue ? (
         <div>
-          <Typography.Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+          <Text display="block" weight="semibold" className="console-margin-bottom-2">
             Transformation Script:
-          </Typography.Text>
+          </Text>
           <MonacoEditorInput height="300px" value={formatScriptForDisplay(scriptValue)} readOnly />
         </div>
       ) : (
-        <Typography.Text type="secondary">No transformation: the event is sent as it is.</Typography.Text>
+        <Text type="supporting" color="secondary">
+          No transformation: the event is sent as it is.
+        </Text>
       )}
     </SectionCard>
   );

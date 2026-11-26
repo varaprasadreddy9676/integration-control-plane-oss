@@ -1,13 +1,11 @@
-import { Alert, Descriptions, Space, Tag, Timeline, Typography } from 'antd';
-import {
-  ApiOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  FieldTimeOutlined,
-  SendOutlined,
-} from '@ant-design/icons';
+import { Descriptions, Space, Timeline } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { formatDateTime } from '../../../utils/format';
 import { useDesignTokens } from '../../../design-system/utils';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Text } = Typography;
 
@@ -23,13 +21,6 @@ type DeliveryDebugTimelineProps = {
   metadata?: Record<string, any> | null;
   compact?: boolean;
 };
-
-function statusColor(status?: string | null) {
-  if (status === 'SUCCESS') return 'success';
-  if (status === 'FAILED' || status === 'ABANDONED') return 'error';
-  if (status === 'RETRYING' || status === 'PENDING') return 'processing';
-  return 'default';
-}
 
 export function DeliveryDebugTimeline({
   protocol,
@@ -48,31 +39,29 @@ export function DeliveryDebugTimeline({
   const hasResponse = responseStatus !== undefined && responseStatus !== null;
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={compact ? 'small' : 'middle'}>
+    <Space direction="vertical" className="console-width-full" size={compact ? 'small' : 'middle'}>
       {classification && classification !== 'Accepted' && (
-        <Alert
-          type={status === 'SUCCESS' ? 'info' : 'warning'}
-          showIcon
-          message={classification}
+        <Banner
+          status={status === 'SUCCESS' ? 'info' : 'warning'}
+          title={classification}
           description={errorMessage || 'Review request, response, and transformation details for this delivery.'}
         />
       )}
 
-      <Timeline
-        style={{ marginBottom: 0 }}
+      <Timeline className="console-margin-bottom-none"
         items={[
           {
-            dot: <ApiOutlined />,
+            dot: <GatewayIcon name="ApiOutlined" />,
             color: 'blue',
             children: (
               <Descriptions size="small" column={compact ? 1 : 2}>
                 <Descriptions.Item label="Protocol">
-                  <Tag>{protocol}</Tag>
+                  <AstryxText>{protocol}</AstryxText>
                 </Descriptions.Item>
                 {createdAt && <Descriptions.Item label="Started">{formatDateTime(createdAt)}</Descriptions.Item>}
                 {target && (
                   <Descriptions.Item label="Target" span={compact ? 1 : 2}>
-                    <Text code style={{ wordBreak: 'break-all' }}>
+                    <Text code className="console-word-break-all">
                       {target}
                     </Text>
                   </Descriptions.Item>
@@ -81,34 +70,45 @@ export function DeliveryDebugTimeline({
             ),
           },
           {
-            dot: <SendOutlined />,
+            dot: <GatewayIcon name="SendOutlined" />,
             color: 'blue',
             children: (
               <Space size="small" wrap>
                 <Text>Request prepared</Text>
-                {stage === 'transformation' && <Tag color="error">failed at transformation</Tag>}
-                {stage && stage !== 'transformation' && <Tag>{stage}</Tag>}
+                {stage === 'transformation' && <StatusBadge status="FAILED" label="Failed at transformation" />}
+                {stage && stage !== 'transformation' && (
+                  <AstryxText type="supporting" color="secondary">
+                    {stage}
+                  </AstryxText>
+                )}
               </Space>
             ),
           },
           {
-            dot: hasResponse ? <CheckCircleOutlined /> : <FieldTimeOutlined />,
+            dot: hasResponse ? <GatewayIcon name="CheckCircleOutlined" /> : <GatewayIcon name="FieldTimeOutlined" />,
             color: hasResponse ? 'green' : 'gray',
             children: (
               <Space size="small" wrap>
                 <Text>{hasResponse ? 'Response captured' : 'No response captured'}</Text>
-                {hasResponse && <Tag color={responseStatus && responseStatus >= 200 && responseStatus < 300 ? 'success' : 'error'}>{responseStatus}</Tag>}
-                {responseTimeMs !== undefined && responseTimeMs !== null && <Text type="secondary">{responseTimeMs} ms</Text>}
+                {hasResponse && <AstryxText type="code">{responseStatus}</AstryxText>}
+                {responseTimeMs !== undefined && responseTimeMs !== null && (
+                  <Text type="secondary">{responseTimeMs} ms</Text>
+                )}
               </Space>
             ),
           },
           {
-            dot: status === 'SUCCESS' ? <CheckCircleOutlined /> : <CloseCircleOutlined />,
+            dot:
+              status === 'SUCCESS' ? (
+                <GatewayIcon name="CheckCircleOutlined" />
+              ) : (
+                <GatewayIcon name="CloseCircleOutlined" />
+              ),
             color: status === 'SUCCESS' ? 'green' : status === 'FAILED' || status === 'ABANDONED' ? 'red' : 'blue',
             children: (
               <Space size="small" wrap>
                 <Text>Final status</Text>
-                {status && <Tag color={statusColor(status)}>{status}</Tag>}
+                {status && <StatusBadge status={status} />}
                 {classification && <Text type="secondary">{classification}</Text>}
               </Space>
             ),

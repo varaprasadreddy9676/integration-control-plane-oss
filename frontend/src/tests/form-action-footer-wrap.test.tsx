@@ -9,11 +9,10 @@ import { FormActionFooter } from '../features/integrations/routes/integrationDet
 // dropped below it — a visually disconnected, broken-looking layout on narrow viewports.
 
 const spacing = { 2: '8px', 3: '12px' };
-const colors = { neutral: { 900: '#000' } };
 const noop = () => {};
 
 describe('FormActionFooter wraps the whole action row as one unit', () => {
-  it('sets flexWrap: wrap on both the outer container and the inner Space', () => {
+  it('wraps the outer footer and the inner action row', () => {
     const { container } = render(
       <FormActionFooter
         visible
@@ -30,8 +29,6 @@ describe('FormActionFooter wraps the whole action row as one unit', () => {
         testDisabledTooltip="Fix errors first"
         testEnabledTooltip="Send a test event"
         spacing={spacing}
-        token={{ colorBorderSecondary: '#eee', colorBgBase: '#fff' }}
-        colors={colors}
         onActivate={noop}
         showActivate
       />
@@ -40,8 +37,7 @@ describe('FormActionFooter wraps the whole action row as one unit', () => {
     const outerContainer = container.firstElementChild as HTMLElement;
     expect(outerContainer.style.flexWrap).toBe('wrap');
 
-    const innerSpace = container.querySelector('.ant-space') as HTMLElement;
-    expect(innerSpace.style.flexWrap).toBe('wrap');
+    expect(container.querySelector('[data-wrap="wrap"]')).toBeInTheDocument();
   });
 
   it('still renders the Activate button alongside Save Changes when showActivate is true', () => {
@@ -61,8 +57,6 @@ describe('FormActionFooter wraps the whole action row as one unit', () => {
         testDisabledTooltip="Fix errors first"
         testEnabledTooltip="Send a test event"
         spacing={spacing}
-        token={{ colorBorderSecondary: '#eee', colorBgBase: '#fff' }}
-        colors={colors}
         onActivate={noop}
         showActivate
       />

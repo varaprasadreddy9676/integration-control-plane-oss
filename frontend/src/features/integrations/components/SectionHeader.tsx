@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
-import { Space, Typography, Tag, Tooltip } from 'antd';
-import { CheckCircleFilled, WarningFilled, InfoCircleOutlined } from '@ant-design/icons';
-import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { Space, Tooltip } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { cssVar } from '../../../design-system/utils';
 
 interface SectionHeaderProps {
   title: string;
@@ -24,32 +24,16 @@ export const SectionHeader = ({
   errorCount = 0,
   helpText,
   badge,
-  badgeColor
 }: SectionHeaderProps) => {
-  const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
 
   const getStatusIcon = () => {
     if (hasErrors) {
-      return (
-        <WarningFilled
-          style={{
-            color: colors.error[600],
-            fontSize: 18
-          }}
-        />
-      );
+      return <GatewayIcon size="md" name="WarningFilled" style={{ color: colors.error[600] }} />;
     }
 
     if (complete) {
-      return (
-        <CheckCircleFilled
-          style={{
-            color: colors.success[600],
-            fontSize: 18
-          }}
-        />
-      );
+      return <GatewayIcon size="md" name="CheckCircleFilled" style={{ color: colors.success[600] }} />;
     }
 
     return (
@@ -59,7 +43,7 @@ export const SectionHeader = ({
           height: 18,
           borderRadius: '50%',
           border: `2px solid ${colors.neutral[400]}`,
-          background: cssVar.bg.surface
+          background: cssVar.bg.surface,
         }}
       />
     );
@@ -71,75 +55,45 @@ export const SectionHeader = ({
 
       <div>
         <Space align="center" size="small">
-          <Typography.Text strong style={{ fontSize: 15 }}>
+          <Text weight="semibold" size="lg">
             {title}
-          </Typography.Text>
+          </Text>
 
           {optional && (
-            <Tag
-              color="default"
-              style={{
-                fontSize: 11,
-                padding: '0 6px',
-                lineHeight: '18px',
-                background: withAlpha(colors.neutral[500], 0.1),
-                border: `1px solid ${withAlpha(colors.neutral[500], 0.2)}`
-              }}
-            >
+            <Text type="supporting" color="secondary">
               Optional
-            </Tag>
+            </Text>
           )}
 
           {badge && (
-            <Tag
-              color={badgeColor || 'blue'}
-              style={{
-                fontSize: 11,
-                padding: '0 6px',
-                lineHeight: '18px'
-              }}
-            >
+            <Text type="supporting" color="secondary">
               {badge}
-            </Tag>
+            </Text>
           )}
 
           {hasErrors && errorCount > 0 && (
-            <Tag
-              color="error"
-              style={{
-                fontSize: 11,
-                padding: '0 6px',
-                lineHeight: '18px'
-              }}
-            >
+            <Text type="supporting" color="secondary" className="console-text-error">
               {errorCount} {errorCount === 1 ? 'error' : 'errors'}
-            </Tag>
+            </Text>
           )}
 
           {helpText && (
             <Tooltip title={helpText} placement="right">
-              <InfoCircleOutlined
-                style={{
-                  color: colors.info[500],
-                  fontSize: 14,
-                  cursor: 'help'
-                }}
-              />
+              <GatewayIcon size="xsm" name="InfoCircleOutlined" className="console-text-info console-cursor-help" />
             </Tooltip>
           )}
         </Space>
 
         {subtitle && (
-          <Typography.Text
-            type="secondary"
-            style={{
-              fontSize: 12,
-              display: 'block',
-              marginTop: 2
-            }}
+          <Text
+            display="block"
+            type="supporting"
+            color="secondary"
+            size="sm"
+            className="ui-extracted-e0c1796fa1"
           >
             {subtitle}
-          </Typography.Text>
+          </Text>
         )}
       </div>
     </Space>

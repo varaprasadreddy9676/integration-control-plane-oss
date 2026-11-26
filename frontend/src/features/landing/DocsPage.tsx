@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ThemeProvider } from '../../hooks/useTheme';
-import { useTheme } from '../../hooks/useTheme';
-import { Sun, Moon, ArrowLeft, Menu, X } from 'lucide-react';
+import { useThemeMode } from '../../app/theme-provider';
+import { Icon } from '../../components/common/Icon';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import './landing.css';
 
 // Import markdown files as raw strings via Vite
@@ -62,12 +62,7 @@ function SidebarNav({
 }) {
   return (
     <>
-      <p
-        className="px-5 pb-2 text-xs font-heading font-semibold uppercase tracking-wider"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        Features
-      </p>
+      <p className="px-5 pb-2 text-xs font-heading font-semibold landing-text-secondary">Features</p>
       <nav>
         {docs.map((doc) => {
           const isActive = doc.slug === currentSlug;
@@ -103,7 +98,9 @@ function SidebarNav({
 function DocsPageContent() {
   const { slug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
+  const { mode, toggleMode } = useThemeMode();
+  const theme = mode;
+  const toggleTheme = toggleMode;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const currentDoc = docs.find((d) => d.slug === slug) ?? docs[0];
@@ -130,73 +127,47 @@ function DocsPageContent() {
   return (
     // landing-page gives us CSS vars + fonts. We override overflow-x so
     // position:fixed sidebar is never clipped by the ancestor.
-    <div className="landing-page" style={{ minHeight: '100vh', overflowX: 'visible' }}>
+    <PageTemplate as="div" className="landing-page docs-page" contentClassName="docs-page__content">
       {/* ── Fixed header ─────────────────────────────────────────────────── */}
       <header
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '3.5rem',
-          zIndex: 50,
-          borderBottom: '1px solid var(--card-border)',
-          backgroundColor: 'var(--bg-primary)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 4vw',
-        }}
+        className="ui-extracted-5cbfabc471"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="ui-extracted-ad0bfe38ad">
           <Link
             to="/"
-            className="flex items-center gap-2 text-sm transition-colors"
-            style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+            className="flex items-center gap-2 text-sm transition-colors console-link-muted"
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
           >
-            <ArrowLeft className="w-4 h-4" />
+            <Icon name="ArrowLeftOutlined" size="sm" />
             <span className="hidden sm:inline">Home</span>
           </Link>
-          <span style={{ color: 'var(--card-border)' }}>|</span>
-          <span className="font-heading font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
-            Documentation
-          </span>
+          <span className="ui-extracted-233a2de124">|</span>
+          <span className="font-heading font-bold text-sm landing-text-primary">Documentation</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="ui-extracted-9c8768d7ac">
           <button
             onClick={toggleTheme}
             className="theme-toggle"
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
-            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            {theme === 'light' ? <Icon name="MoonOutlined" size="md" /> : <Icon name="SunOutlined" size="md" />}
           </button>
           <button
             className="lg:hidden theme-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Toggle navigation"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {sidebarOpen ? <Icon name="CloseOutlined" size="md" /> : <Icon name="MenuOutlined" size="md" />}
           </button>
         </div>
       </header>
 
       {/* ── Desktop sidebar — truly fixed, always visible ─────────────────── */}
       <aside
-        className="hidden lg:block overflow-y-auto"
-        style={{
-          position: 'fixed',
-          top: '3.5rem',
-          left: 0,
-          width: 240,
-          height: 'calc(100vh - 3.5rem)',
-          zIndex: 40,
-          borderRight: '1px solid var(--card-border)',
-          backgroundColor: 'var(--bg-primary)',
-          padding: '1.25rem 0',
-        }}
+        className="hidden lg:block overflow-y-auto ui-extracted-af4ccd2d81"
+
       >
         {sidebarContent}
       </aside>
@@ -204,60 +175,41 @@ function DocsPageContent() {
       {/* ── Mobile: backdrop ──────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 lg:hidden"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          className="fixed inset-0 z-40 lg:hidden ui-extracted-638bbb2c13"
+
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ── Mobile: sliding sidebar ───────────────────────────────────────── */}
       <aside
-        className={`lg:hidden overflow-y-auto transition-transform duration-200
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{
-          position: 'fixed',
-          top: '3.5rem',
-          left: 0,
-          width: 240,
-          height: 'calc(100vh - 3.5rem)',
-          zIndex: 50,
-          borderRight: '1px solid var(--card-border)',
-          backgroundColor: 'var(--bg-primary)',
-          padding: '1.25rem 0',
-        }}
+        className={[`lg:hidden overflow-y-auto transition-transform duration-200
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`, "ui-extracted-6e2b144012"].filter(Boolean).join(" ")}
+
       >
         {sidebarContent}
       </aside>
 
       {/* ── Main content — offset right so it's never under the sidebar ───── */}
-      <main
-        style={{
-          paddingTop: '3.5rem' /* clear fixed header */,
-          paddingLeft: 'max(2rem, calc(240px + 3vw))' /* clear fixed sidebar on desktop */,
-          paddingRight: '4vw',
-          maxWidth: 'calc(240px + 820px)',
-        }}
-        className="lg:pl-[calc(240px+3vw)] py-10"
-      >
-        <div style={{ maxWidth: 780 }}>
+      <main className="docs-main py-10">
+        <div className="docs-main-content">
           <div className="docs-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoc.content}</ReactMarkdown>
           </div>
 
           {/* Prev / Next */}
           <div
-            className="flex items-center justify-between mt-16 pt-6"
-            style={{ borderTop: '1px solid var(--card-border)' }}
+            className="flex items-center justify-between mt-16 pt-6 ui-extracted-82f87d9558"
+
           >
             {prev ? (
               <button
                 onClick={() => navigate(`/docs/${prev.slug}`)}
-                className="flex items-center gap-2 text-sm transition-colors"
-                style={{ color: 'var(--text-secondary)' }}
+                className="flex items-center gap-2 text-sm transition-colors landing-text-secondary"
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
               >
-                <ArrowLeft className="w-4 h-4" />
+                <Icon name="ArrowLeftOutlined" size="sm" />
                 {prev.title}
               </button>
             ) : (
@@ -266,13 +218,12 @@ function DocsPageContent() {
             {next ? (
               <button
                 onClick={() => navigate(`/docs/${next.slug}`)}
-                className="flex items-center gap-2 text-sm transition-colors"
-                style={{ color: 'var(--text-secondary)' }}
+                className="flex items-center gap-2 text-sm transition-colors landing-text-secondary"
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
               >
                 {next.title}
-                <ArrowLeft className="w-4 h-4 rotate-180" />
+                <Icon name="ArrowLeftOutlined" size="sm" rotate={180} />
               </button>
             ) : (
               <span />
@@ -280,14 +231,10 @@ function DocsPageContent() {
           </div>
         </div>
       </main>
-    </div>
+    </PageTemplate>
   );
 }
 
 export function DocsPage() {
-  return (
-    <ThemeProvider>
-      <DocsPageContent />
-    </ThemeProvider>
-  );
+  return <DocsPageContent />;
 }

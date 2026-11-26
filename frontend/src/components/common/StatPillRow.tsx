@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Typography } from 'antd';
+import type { CSSProperties } from 'react';
+import { Text } from '@astryxdesign/core/Text';
 import { cssVar, useDesignTokens, withAlpha } from '../../design-system/utils';
 import { AnimatedNumber } from '../motion/AnimatedNumber';
 
@@ -41,43 +42,44 @@ export const StatPillRow = ({ items, activeFilter, onFilterChange }: StatPillRow
       {items.map((item) => {
         const isActive = item.filterValue === null ? !activeFilter : activeFilter === item.filterValue;
         return (
-          <div
+          <button
             key={item.title}
+            type="button"
+            className="stat-pill"
             onClick={() => toggle(item.filterValue)}
-            role="button"
-            tabIndex={0}
             aria-label={`Filter by ${item.title}: ${item.value?.toLocaleString() ?? 0}${isActive ? ', currently selected' : ', click to filter'}`}
             aria-pressed={isActive}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggle(item.filterValue);
-              }
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: spacing[1],
-              padding: `${spacing[1]} ${spacing[3]}`,
-              background: isActive ? withAlpha(item.tone, 0.15) : cssVar.bg.surface,
-              border: `1px solid ${isActive ? item.tone : cssVar.border.default}`,
-              borderRadius: borderRadius.full,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) e.currentTarget.style.borderColor = item.tone;
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) e.currentTarget.style.borderColor = cssVar.border.default;
-            }}
+            style={
+              {
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing[1],
+                padding: `${spacing[1]} ${spacing[3]}`,
+                background: isActive ? withAlpha(item.tone, 0.15) : cssVar.bg.surface,
+                border: `1px solid ${isActive ? item.tone : cssVar.border.default}`,
+                borderRadius: borderRadius.full,
+                cursor: 'pointer',
+                font: 'inherit',
+                transition: 'background-color 150ms ease, border-color 150ms ease',
+                '--stat-pill-tone': item.tone,
+              } as CSSProperties
+            }
           >
-            <span style={{ color: item.tone, fontSize: 13, display: 'flex' }}>{item.icon}</span>
-            <Typography.Text style={{ fontSize: 12.5, color: cssVar.text.secondary }}>{item.title}:</Typography.Text>
-            <Typography.Text strong style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+            <span className="stat-pill__icon" style={{ color: item.tone }}>{item.icon}</span>
+            <Text
+              as="span"
+              type="supporting"
+              className="console-caption-secondary"
+            >
+              {item.title}:
+            </Text>
+            <Text
+              as="span"
+              className="stat-pill__value"
+            >
               <AnimatedNumber value={item.value ?? 0} />
-            </Typography.Text>
-          </div>
+            </Text>
+          </button>
         );
       })}
     </div>

@@ -74,6 +74,17 @@ describe('AlertChannelsCard', () => {
     expect(await screen.findByText(/No alert channels yet/)).toBeInTheDocument();
   });
 
+  it('offers retry when channels cannot be loaded', async () => {
+    mockApi.listAlertChannels.mockRejectedValueOnce(new Error('Network unavailable')).mockResolvedValueOnce([]);
+    await renderCard();
+
+    expect(await screen.findByText('Could not load alert channels')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(mockApi.listAlertChannels).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('No alert channels yet')).toBeInTheDocument();
+  });
+
   it('adds a channel with a form built from the plugin’s fields', async () => {
     mockApi.createAlertChannel.mockResolvedValue({ id: 'c1' });
     await renderCard();
@@ -111,6 +122,9 @@ describe('AlertChannelsCard', () => {
     expect(await screen.findByText('On-call')).toBeInTheDocument();
     expect(screen.getByText(/Email service not configured/)).toBeInTheDocument();
     expect(screen.getByText('1 of 2 alerts')).toBeInTheDocument();
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(document.querySelector('.ant-tag')).not.toBeInTheDocument();
+    expect(document.querySelector('.ant-typography')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Send test to On-call' }));
     await waitFor(() => expect(mockApi.testAlertChannel).toHaveBeenCalledWith('c1'));
   });

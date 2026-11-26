@@ -1,6 +1,8 @@
-import { Alert, Button, Divider, Form, Input } from 'antd';
-import type { FormInstance } from 'antd';
-import { WhatsAppOutlined } from '@ant-design/icons';
+import { Divider, Form, Input } from '@/components/common/LegacyAntdControls';
+import type { FormInstance } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Button } from '../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../components/common';
 
 interface MetaWhatsAppConfigFieldsProps {
   spacing: Record<string, string>;
@@ -30,15 +32,14 @@ export function MetaWhatsAppConfigFields({ spacing, httpComplete, onBack, onNext
         <Input.Password size="middle" placeholder="EAAxxxxxxxxxx..." />
       </Form.Item>
 
-      <Alert
+      <Notice
         type="warning"
-        showIcon
-        icon={<WhatsAppOutlined />}
+        icon={<GatewayIcon name="WhatsAppOutlined" />}
         message="Meta Setup Required"
         description={
           <div>
-            <p style={{ marginBottom: 8 }}>To get your WhatsApp Cloud API credentials:</p>
-            <ol style={{ paddingLeft: 20, marginBottom: 8 }}>
+            <p className="console-margin-bottom-2">To get your WhatsApp Cloud API credentials:</p>
+            <ol className="console-indent-5-margin-bottom-2">
               <li>
                 Go to{' '}
                 <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer">
@@ -53,23 +54,23 @@ export function MetaWhatsAppConfigFields({ spacing, httpComplete, onBack, onNext
                 Create a <strong>System User</strong> with WhatsApp permissions and generate a permanent token
               </li>
             </ol>
-            <p style={{ marginBottom: 4 }}>
+            <p className="console-margin-bottom-1">
               <strong>Payload your app must send:</strong>
             </p>
-            <code style={{ fontSize: 11 }}>
+            <code className="console-type-caption">
               {'{ "to": "+919876543210", "type": "text", "text": "Hello!" }'}
             </code>
-            <p style={{ marginTop: 8, marginBottom: 0 }}>
-              Use <code>type: "template"</code> with <code>templateName</code> for pre-approved templates.
-              Free-form text only works within the 24-hour customer service window.
+            <p className="console-margin-top-2-reset-bottom">
+              Use <code>type: "template"</code> with <code>templateName</code> for pre-approved templates. Free-form
+              text only works within the 24-hour customer service window.
             </p>
           </div>
         }
       />
 
-      <Divider style={{ margin: `${spacing[4]} 0` }} />
+      <Divider className="console-margin-y-4" />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div className="console-flex-between">
         <Button size="middle" onClick={onBack}>
           Back to Basic Info
         </Button>

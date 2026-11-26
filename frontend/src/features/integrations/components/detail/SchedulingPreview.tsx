@@ -1,25 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Card, Tag, Space, Typography, Spin, Alert, Statistic, Row, Col, Collapse, Modal, Button, App } from 'antd';
-import {
-  ClockCircleOutlined,
-  CalendarOutlined,
-  CheckCircleOutlined,
-  SyncOutlined,
-  InfoCircleOutlined,
-  EditOutlined,
-  DownOutlined,
-  RightOutlined,
-  UnorderedListOutlined
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Card, Space, Spin, Statistic, Row, Col, Collapse, Modal, App } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
+import { Banner } from '@astryxdesign/core/Banner';
+import { InlineHint } from '../../../../components/common/InlineHint';
 import Editor from '@monaco-editor/react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { testSchedulingScript, type SchedulingTestResult } from '../../../../services/api';
-import { cssVar, useDesignTokens } from '../../../../design-system/utils';
+import { useThemeMode } from '../../../../app/theme-provider';
+import { Button } from '../../../../components/common/LegacyButton';
+import { editorFontSize } from '../../../../design-system/utils';
 
 dayjs.extend(relativeTime);
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 interface SchedulingPreviewProps {
   integrationId?: string; // Can be undefined for new integrations
@@ -43,10 +38,9 @@ export const SchedulingPreview = ({
   script,
   deliveryMode,
   eventType,
-  onPreviewChange
+  onPreviewChange,
 }: SchedulingPreviewProps) => {
-  const { token } = useDesignTokens();
-  const colors = cssVar.legacy;
+  const { mode } = useThemeMode();
   const { message } = App.useApp();
   const [preview, setPreview] = useState<SchedulingTestResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -89,7 +83,7 @@ export const SchedulingPreview = ({
           script,
           deliveryMode,
           eventType, // Send event type so backend can use event-specific sample payload
-          payload: customPayload // Send custom payload if available (overrides event-specific sample)
+          payload: customPayload, // Send custom payload if available (overrides event-specific sample)
         });
         if (!isActive) return;
         setPreview(result);
@@ -121,30 +115,31 @@ export const SchedulingPreview = ({
 
   const handleEditSampleData = () => {
     // Use current sample payload or custom payload as starting point
-    const currentPayload = customPayload || samplePayload || {
-      sample: true,
-      testMode: true,
-      timestamp: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      arrivedAt: new Date().toISOString(),
-      appt: {
-        apptDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        fromDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        apptTime: '14:00:00',
-        fromTime: '14:00:00',
+    const currentPayload = customPayload ||
+      samplePayload || {
+        sample: true,
+        testMode: true,
+        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        arrivedAt: new Date().toISOString(),
+        appt: {
+          apptDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          fromDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          apptTime: '14:00:00',
+          fromTime: '14:00:00',
+          name: 'Test Patient',
+          reasonForVisit: 'new consult',
+        },
+        patient: {
+          fullName: 'Test Patient',
+          phone: '9876543210',
+          uhid: 'TEST_UHID_001',
+        },
+        appointmentDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        entityId: 12345,
+        eventType: eventType || 'TEST_EVENT',
         name: 'Test Patient',
-        reasonForVisit: 'new consult'
-      },
-      patient: {
-        fullName: 'Test Patient',
-        phone: '9876543210',
-        uhid: 'TEST_UHID_001'
-      },
-      appointmentDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      entityId: 12345,
-      eventType: eventType || 'TEST_EVENT',
-      name: 'Test Patient'
-    };
+      };
     setEditedPayloadText(JSON.stringify(currentPayload, null, 2));
     setEditModalOpen(true);
   };
@@ -174,15 +169,9 @@ export const SchedulingPreview = ({
   // Don't show if no script yet
   if (!script || script.trim().length === 0) {
     return (
-      <Card
-        size="small"
-        style={{
-          background: cssVar.bg.subtle,
-          borderColor: cssVar.border.default
-        }}
-      >
+      <Card size="small" className="console-surface-subtle-bordered">
         <Text type="secondary">
-          <ClockCircleOutlined /> Enter a scheduling script to see preview
+          <GatewayIcon name="ClockCircleOutlined" /> Enter a scheduling script to see preview
         </Text>
       </Card>
     );
@@ -195,7 +184,7 @@ export const SchedulingPreview = ({
         size="small"
         title={
           <Space>
-            <ClockCircleOutlined style={{ color: colors.warning[500] }} />
+            <GatewayIcon name="ClockCircleOutlined" className="console-text-warning" />
             <span>No Event Type Selected</span>
           </Space>
         }
@@ -203,20 +192,18 @@ export const SchedulingPreview = ({
           <Button
             type="link"
             size="small"
-            icon={<EditOutlined />}
+            icon={<GatewayIcon name="EditOutlined" />}
             onClick={handleEditSampleData}
-            style={{ padding: 0, height: 'auto' }}
+            className="console-control-reset-padding"
           >
             Use Custom Sample
           </Button>
         }
-        style={{
-          background: cssVar.bg.subtle,
-          borderColor: cssVar.border.default
-        }}
+        className="schedule-preview-panel schedule-preview-panel--neutral"
       >
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          Select an event type to see preview with relevant sample data, or click "Use Custom Sample" to provide your own test data.
+        <Text type="secondary" className="console-type-caption">
+          Select an event type to see preview with relevant sample data, or click "Use Custom Sample" to provide your
+          own test data.
         </Text>
 
         {/* Edit Sample Modal */}
@@ -227,32 +214,20 @@ export const SchedulingPreview = ({
           width={700}
           footer={
             <Space>
-              <Button onClick={handleResetToDefault}>
-                Reset to Default
-              </Button>
-              <Button onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </Button>
+              <Button onClick={handleResetToDefault}>Reset to Default</Button>
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
               <Button type="primary" onClick={handleSaveCustomPayload}>
                 Apply Custom Data
               </Button>
             </Space>
           }
         >
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <Alert
-              type="info"
-              showIcon
-              message="Create custom test data for your scheduling script"
-              description="Since no event type is selected, you can provide custom JSON data to test your script."
-            />
-            <div
-              style={{
-                border: `1px solid ${cssVar.border.default}`,
-                borderRadius: token.borderRadiusLG,
-                overflow: 'hidden'
-              }}
-            >
+          <Space direction="vertical" size={12} className="console-width-full">
+            <InlineHint>
+              Create custom test data for your scheduling script. Since no event type is selected, provide JSON with the
+              fields it needs.
+            </InlineHint>
+            <div className="console-preview-frame">
               <Editor
                 height="400px"
                 language="json"
@@ -260,13 +235,13 @@ export const SchedulingPreview = ({
                 onChange={(value) => setEditedPayloadText(value || '')}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   lineNumbers: 'on',
                   wordWrap: 'on',
                   formatOnPaste: true,
-                  formatOnType: true
+                  formatOnType: true,
                 }}
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
               />
             </div>
           </Space>
@@ -278,13 +253,7 @@ export const SchedulingPreview = ({
   // Loading state
   if (loading) {
     return (
-      <Card
-        size="small"
-        style={{
-          background: cssVar.bg.subtle,
-          borderColor: cssVar.border.default
-        }}
-      >
+      <Card size="small" className="schedule-preview-panel schedule-preview-panel--neutral">
         <Space>
           <Spin size="small" />
           <Text type="secondary">Generating schedule preview...</Text>
@@ -300,55 +269,40 @@ export const SchedulingPreview = ({
         size="small"
         title={
           <Space>
-            <CalendarOutlined style={{ color: colors.error[500] }} />
+            <GatewayIcon name="CalendarOutlined" className="console-text-error" />
             <span>Schedule Preview Error</span>
           </Space>
         }
         extra={
           <Space size={8}>
-            {customPayload && (
-              <Tag color="purple">
-                Custom Data
-              </Tag>
-            )}
-            {!customPayload && (
-              <Tag
-                icon={<InfoCircleOutlined />}
-                color="blue"
-              >
-                Sample Data
-              </Tag>
-            )}
+            <Text type="secondary">{customPayload ? 'Custom test data' : 'Sample event data'}</Text>
             <Button
               type="link"
               size="small"
-              icon={<EditOutlined />}
+              icon={<GatewayIcon name="EditOutlined" />}
               onClick={handleEditSampleData}
-              style={{ padding: 0, height: 'auto' }}
+              className="console-control-reset-padding"
             >
               Edit Sample
             </Button>
           </Space>
         }
-        style={{
-          background: cssVar.bg.subtle,
-          borderColor: colors.error[600]
-        }}
+        className="schedule-preview-panel schedule-preview-panel--error"
       >
-        <Alert
-          type="error"
-          showIcon
-          message="Scheduling script execution failed"
+        <Banner
+          status="error"
+          title="Scheduling script execution failed"
+          collapsible={false}
           description={
             <Space direction="vertical" size={8}>
-              <Text style={{ fontSize: 12 }}>{error}</Text>
-              <Text style={{ fontSize: 12 }}>
-                <strong>Tip:</strong> Click "Edit Sample" above to customize the test data with fields your script needs.
-                {!customPayload && " The default sample may not have the fields your script expects."}
+              <Text className="console-type-caption">{error}</Text>
+              <Text className="console-type-caption">
+                Click "Edit Sample" above to test with the fields your script expects.
+                {!customPayload && ' The default sample may not include them.'}
               </Text>
             </Space>
           }
-          style={{ marginBottom: 0 }}
+          className="console-margin-bottom-none"
         />
 
         {/* Edit Sample Modal */}
@@ -359,32 +313,19 @@ export const SchedulingPreview = ({
           width={700}
           footer={
             <Space>
-              <Button onClick={handleResetToDefault}>
-                Reset to Default
-              </Button>
-              <Button onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </Button>
+              <Button onClick={handleResetToDefault}>Reset to Default</Button>
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
               <Button type="primary" onClick={handleSaveCustomPayload}>
                 Apply Custom Data
               </Button>
             </Space>
           }
         >
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <Alert
-              type="info"
-              showIcon
-              message="Edit the JSON payload below to test your scheduling script with custom data"
-              description="Make sure the JSON is valid and includes all fields your script needs. The preview will update automatically when you apply."
-            />
-            <div
-              style={{
-                border: `1px solid ${cssVar.border.default}`,
-                borderRadius: token.borderRadiusLG,
-                overflow: 'hidden'
-              }}
-            >
+          <Space direction="vertical" size={12} className="console-width-full">
+            <InlineHint>
+              Use valid JSON and include the fields your script needs. The preview updates after you apply the sample.
+            </InlineHint>
+            <div className="schedule-preview-editor">
               <Editor
                 height="400px"
                 language="json"
@@ -392,13 +333,13 @@ export const SchedulingPreview = ({
                 onChange={(value) => setEditedPayloadText(value || '')}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   lineNumbers: 'on',
                   wordWrap: 'on',
                   formatOnPaste: true,
-                  formatOnType: true
+                  formatOnType: true,
                 }}
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
               />
             </div>
           </Space>
@@ -421,94 +362,73 @@ export const SchedulingPreview = ({
     // Extract sample appointment details if available
     const sampleApptDate = samplePayload?.appt?.apptDate || samplePayload?.appt?.fromDate;
     const sampleApptTime = samplePayload?.appt?.apptTime || samplePayload?.appt?.fromTime;
-    const sampleApptDateTime = sampleApptDate && sampleApptTime
-      ? dayjs(`${sampleApptDate}T${sampleApptTime}`)
-      : null;
+    const sampleApptDateTime = sampleApptDate && sampleApptTime ? dayjs(`${sampleApptDate}T${sampleApptTime}`) : null;
 
     return (
       <Card
         size="small"
         title={
           <Space>
-            <CalendarOutlined style={{ color: colors.info[500] }} />
+            <GatewayIcon name="CalendarOutlined" className="console-text-info" />
             <span>Schedule Preview (Test Mode)</span>
           </Space>
         }
         extra={
           <Space size={8}>
-            {customPayload && (
-              <Tag color="purple">
-                Custom Data
-              </Tag>
-            )}
-            {!customPayload && (
-              <Tag
-                icon={<InfoCircleOutlined />}
-                color="blue"
-              >
-                Sample Data
-              </Tag>
-            )}
+            <Text type="secondary">{customPayload ? 'Custom test data' : 'Sample event data'}</Text>
             <Button
               type="link"
               size="small"
-              icon={<EditOutlined />}
+              icon={<GatewayIcon name="EditOutlined" />}
               onClick={handleEditSampleData}
-              style={{ padding: 0, height: 'auto' }}
+              className="console-control-reset-padding"
             >
               Edit
             </Button>
             <Button
               type="text"
               size="small"
-              icon={previewCollapsed ? <RightOutlined /> : <DownOutlined />}
+              icon={previewCollapsed ? <GatewayIcon name="RightOutlined" /> : <GatewayIcon name="DownOutlined" />}
               onClick={() => setPreviewCollapsed((prev) => !prev)}
             >
               {previewCollapsed ? 'Show' : 'Hide'}
             </Button>
           </Space>
         }
-        style={{
-          background: cssVar.bg.subtle,
-          borderColor: colors.info[600]
-        }}
+        className="schedule-preview-panel schedule-preview-panel--info"
       >
         {previewCollapsed ? (
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" className="console-type-caption">
             Preview hidden. Click "Show" to view details.
           </Text>
         ) : (
           <>
-            <Alert
-              type="info"
-              showIcon
-              icon={<InfoCircleOutlined />}
-              message={customPayload ? "Preview based on custom test data" : "Preview based on sample event data"}
-              description={
-                <Space direction="vertical" size={4}>
-                  <Text style={{ fontSize: 12 }}>
-                    Actual scheduled time will vary based on real event data at runtime.
-                    {!customPayload && " Click 'Edit' above to test with custom data."}
+            <InlineHint>
+              <Space direction="vertical" size={4}>
+                <Text>
+                  {customPayload ? 'Preview based on custom test data.' : 'Preview based on sample event data.'}
+                </Text>
+                <Text type="secondary">
+                  Actual scheduled time varies with real event data at runtime.
+                  {!customPayload && ' Select Edit above to test with a custom sample.'}
+                </Text>
+                {sampleApptDateTime && (
+                  <Text type="secondary">
+                    Sample appointment: {sampleApptDateTime.format('MMM D, YYYY [at] h:mm A')}
                   </Text>
-                  {sampleApptDateTime && (
-                    <Text style={{ fontSize: 12 }}>
-                      <strong>Sample appointment:</strong> {sampleApptDateTime.format('MMM D, YYYY [at] h:mm A')}
-                    </Text>
-                  )}
-                </Space>
-              }
-              style={{ marginBottom: 12 }}
-            />
+                )}
+              </Space>
+            </InlineHint>
 
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={12}>
                 <Statistic
                   title="Calculated schedule time"
                   value={scheduledTime.format('MMM D, YYYY')}
-                  valueStyle={{ fontSize: 16, color: colors.info[500] }}
-                  prefix={<CalendarOutlined />}
+                  className="schedule-statistic-value schedule-statistic-value--section schedule-statistic-value--info"
+                  prefix={<GatewayIcon name="CalendarOutlined" />}
                 />
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   {scheduledTime.format('dddd')} at {scheduledTime.format('h:mm A')}
                 </Text>
               </Col>
@@ -516,10 +436,10 @@ export const SchedulingPreview = ({
                 <Statistic
                   title="Delay from sample time"
                   value={preview.result.delayFromNow || fromNow}
-                  valueStyle={{ fontSize: 16, color: colors.success[500] }}
-                  prefix={<ClockCircleOutlined />}
+                  className="schedule-statistic-value schedule-statistic-value--section schedule-statistic-value--success"
+                  prefix={<GatewayIcon name="ClockCircleOutlined" />}
                 />
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   {fromNow}
                 </Text>
               </Col>
@@ -531,27 +451,22 @@ export const SchedulingPreview = ({
               items={[
                 {
                   key: 'sample-data',
-                  label: <Text type="secondary" style={{ fontSize: 12 }}>
-                    {customPayload ? 'View custom test data used' : 'View sample event data used'}
-                  </Text>,
+                  label: (
+                    <Text type="secondary" className="console-type-caption">
+                      {customPayload ? 'View custom test data used' : 'View sample event data used'}
+                    </Text>
+                  ),
                   children: (
-                    <pre style={{
-                      fontSize: 11,
-                      background: cssVar.bg.surface,
-                      padding: 8,
-                      borderRadius: 4,
-                      maxHeight: 200,
-                      overflow: 'auto'
-                    }}>
+                    <pre className="schedule-preview-sample-code">
                       {JSON.stringify(customPayload || samplePayload, null, 2)}
                     </pre>
-                  )
-                }
+                  ),
+                },
               ]}
-              style={{ marginTop: 12 }}
+              className="console-margin-top-3"
             />
 
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>
+            <Text type="secondary" className="console-type-caption console-display-block console-margin-top-2">
               Script execution: {preview.executionTimeMs}ms
             </Text>
           </>
@@ -564,32 +479,19 @@ export const SchedulingPreview = ({
           width={700}
           footer={
             <Space>
-              <Button onClick={handleResetToDefault}>
-                Reset to Default
-              </Button>
-              <Button onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </Button>
+              <Button onClick={handleResetToDefault}>Reset to Default</Button>
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
               <Button type="primary" onClick={handleSaveCustomPayload}>
                 Apply Custom Data
               </Button>
             </Space>
           }
         >
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <Alert
-              type="info"
-              showIcon
-              message="Edit the JSON payload below to test your scheduling script with custom data"
-              description="Make sure the JSON is valid. The preview will update automatically when you apply."
-            />
-            <div
-              style={{
-                border: `1px solid ${cssVar.border.default}`,
-                borderRadius: token.borderRadiusLG,
-                overflow: 'hidden'
-              }}
-            >
+          <Space direction="vertical" size={12} className="console-width-full">
+            <InlineHint>
+              Use valid JSON with the fields your script needs. The preview updates after you apply the sample.
+            </InlineHint>
+            <div className="schedule-preview-editor">
               <Editor
                 height="400px"
                 language="json"
@@ -597,13 +499,13 @@ export const SchedulingPreview = ({
                 onChange={(value) => setEditedPayloadText(value || '')}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   lineNumbers: 'on',
                   wordWrap: 'on',
                   formatOnPaste: true,
-                  formatOnType: true
+                  formatOnType: true,
                 }}
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
               />
             </div>
           </Space>
@@ -622,46 +524,36 @@ export const SchedulingPreview = ({
         size="small"
         title={
           <Space>
-            <SyncOutlined style={{ color: colors.info[500] }} />
+            <GatewayIcon name="SyncOutlined" className="console-text-info" />
             <span>Recurring Schedule Preview</span>
           </Space>
         }
         extra={
           <Space size={8}>
-            {customPayload && (
-              <Tag color="purple">
-                Custom Data
-              </Tag>
-            )}
-            <Tag icon={<CheckCircleOutlined />} color="processing">
-              {preview.result.maxOccurrences || '∞'} occurrences
-            </Tag>
+            {customPayload && <Text type="secondary">Custom test data</Text>}
             <Button
               type="link"
               size="small"
-              icon={<EditOutlined />}
+              icon={<GatewayIcon name="EditOutlined" />}
               onClick={handleEditSampleData}
-              style={{ padding: 0, height: 'auto' }}
+              className="console-control-reset-padding"
             >
               Edit
             </Button>
             <Button
               type="text"
               size="small"
-              icon={previewCollapsed ? <RightOutlined /> : <DownOutlined />}
+              icon={previewCollapsed ? <GatewayIcon name="RightOutlined" /> : <GatewayIcon name="DownOutlined" />}
               onClick={() => setPreviewCollapsed((prev) => !prev)}
             >
               {previewCollapsed ? 'Show' : 'Hide'}
             </Button>
           </Space>
         }
-        style={{
-          background: cssVar.bg.subtle,
-          borderColor: colors.info[600]
-        }}
+        className="schedule-preview-panel schedule-preview-panel--info"
       >
         {previewCollapsed ? (
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" className="console-type-caption">
             Preview hidden. Click "Show" to view details.
           </Text>
         ) : (
@@ -671,10 +563,10 @@ export const SchedulingPreview = ({
                 <Statistic
                   title="First occurrence"
                   value={firstTime.format('MMM D, YYYY')}
-                  valueStyle={{ fontSize: 14, color: colors.info[500] }}
-                  prefix={<CalendarOutlined />}
+                  className="schedule-statistic-value schedule-statistic-value--control schedule-statistic-value--info"
+                  prefix={<GatewayIcon name="CalendarOutlined" />}
                 />
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" className="console-type-caption">
                   {firstTime.format('dddd')} at {firstTime.format('h:mm A')} ({fromNow})
                 </Text>
               </Col>
@@ -682,11 +574,11 @@ export const SchedulingPreview = ({
                 <Statistic
                   title="Interval"
                   value={preview.result.intervalHuman || 'Unknown'}
-                  valueStyle={{ fontSize: 14, color: colors.success[500] }}
-                  prefix={<ClockCircleOutlined />}
+                  className="schedule-statistic-value schedule-statistic-value--control schedule-statistic-value--success"
+                  prefix={<GatewayIcon name="ClockCircleOutlined" />}
                 />
                 {preview.result.intervalMs && (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="secondary" className="console-type-caption">
                     Every {(preview.result.intervalMs / (1000 * 60 * 60)).toFixed(1)} hours
                   </Text>
                 )}
@@ -695,7 +587,7 @@ export const SchedulingPreview = ({
                 <Statistic
                   title="Total occurrences"
                   value={preview.result.maxOccurrences || '∞'}
-                  valueStyle={{ fontSize: 14 }}
+                  className="schedule-statistic-value schedule-statistic-value--control"
                 />
               </Col>
               {preview.result.endDateFormatted && (
@@ -703,9 +595,9 @@ export const SchedulingPreview = ({
                   <Statistic
                     title="End date"
                     value={dayjs(preview.result.endDateFormatted).format('MMM D, YYYY')}
-                    valueStyle={{ fontSize: 14 }}
+                    className="schedule-statistic-value schedule-statistic-value--control"
                   />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="secondary" className="console-type-caption">
                     {dayjs(preview.result.endDateFormatted).format('h:mm A')}
                   </Text>
                 </Col>
@@ -713,24 +605,24 @@ export const SchedulingPreview = ({
             </Row>
 
             {preview.result.sampleOccurrences && preview.result.sampleOccurrences.length > 0 && (
-              <div style={{ marginTop: 12 }}>
+              <div className="console-margin-top-3">
                 <Button
                   type="link"
                   size="small"
-                  icon={<UnorderedListOutlined />}
+                  icon={<GatewayIcon name="UnorderedListOutlined" />}
                   onClick={() => setShowNextRuns((prev) => !prev)}
-                  style={{ padding: 0, height: 'auto' }}
+                  className="console-control-reset-padding"
                 >
                   {showNextRuns ? 'Hide next 5 runs' : 'Show next 5 runs'}
                 </Button>
                 {showNextRuns && (
-                  <div style={{ marginTop: 8 }}>
+                  <div className="console-margin-top-2">
                     {preview.result.sampleOccurrences.map((occurrence) => (
-                      <Space key={occurrence.occurrence} size={8} style={{ display: 'flex', marginBottom: 6 }}>
-                        <Tag color="blue">#{occurrence.occurrence}</Tag>
-                        <Text style={{ fontSize: 12 }}>
-                          {dayjs(occurrence.scheduledFor).format('MMM D, YYYY [at] h:mm A')}
+                      <Space key={occurrence.occurrence} size={8} className="schedule-preview-occurrence">
+                        <Text type="secondary" className="font-mono">
+                          #{occurrence.occurrence}
                         </Text>
+                        <Text type="secondary">{dayjs(occurrence.scheduledFor).format('MMM D, YYYY [at] h:mm A')}</Text>
                       </Space>
                     ))}
                   </div>
@@ -739,15 +631,12 @@ export const SchedulingPreview = ({
             )}
 
             {preview.result.totalDuration && (
-              <Alert
-                type="info"
-                showIcon
-                message={`Total duration: ${preview.result.totalDuration}`}
-                style={{ marginTop: 12, marginBottom: 0 }}
-              />
+              <Text type="secondary" className="console-display-block console-margin-top-3">
+                Total duration: {preview.result.totalDuration}
+              </Text>
             )}
 
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 12 }}>
+            <Text type="secondary" className="console-type-caption console-display-block console-margin-top-3">
               Execution time: {preview.executionTimeMs}ms
             </Text>
           </>
@@ -760,32 +649,19 @@ export const SchedulingPreview = ({
           width={700}
           footer={
             <Space>
-              <Button onClick={handleResetToDefault}>
-                Reset to Default
-              </Button>
-              <Button onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </Button>
+              <Button onClick={handleResetToDefault}>Reset to Default</Button>
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
               <Button type="primary" onClick={handleSaveCustomPayload}>
                 Apply Custom Data
               </Button>
             </Space>
           }
         >
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <Alert
-              type="info"
-              showIcon
-              message="Edit the JSON payload below to test your scheduling script with custom data"
-              description="Make sure the JSON is valid. The preview will update automatically when you apply."
-            />
-            <div
-              style={{
-                border: `1px solid ${cssVar.border.default}`,
-                borderRadius: token.borderRadiusLG,
-                overflow: 'hidden'
-              }}
-            >
+          <Space direction="vertical" size={12} className="console-width-full">
+            <InlineHint>
+              Use valid JSON with the fields your script needs. The preview updates after you apply the sample.
+            </InlineHint>
+            <div className="schedule-preview-editor">
               <Editor
                 height="400px"
                 language="json"
@@ -793,13 +669,13 @@ export const SchedulingPreview = ({
                 onChange={(value) => setEditedPayloadText(value || '')}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 13,
+                  fontSize: editorFontSize('body'),
                   lineNumbers: 'on',
                   wordWrap: 'on',
                   formatOnPaste: true,
-                  formatOnType: true
+                  formatOnType: true,
                 }}
-                theme="vs-dark"
+                theme={mode === 'dark' ? 'vs-dark' : 'light'}
               />
             </div>
           </Space>

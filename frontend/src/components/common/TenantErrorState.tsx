@@ -1,7 +1,8 @@
-import { Button } from 'antd';
-import { ApartmentOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
+
+import { Icon as GatewayIcon } from "./Icon";
 import { ServerOfflineState } from './ServerOfflineState';
 import { classifyTenantError } from '../../utils/tenant-error';
+import { Button } from './LegacyButton';
 
 interface Props {
   error: unknown;
@@ -37,16 +38,16 @@ export const TenantErrorState = ({
 
   const hasOtherOwnOrg = Boolean(userOrgId && userOrgId !== orgId);
   const signOut = (
-    <Button size="large" icon={<LogoutOutlined />} onClick={onSignOut}>
+    <Button size="large" icon={<GatewayIcon name="LogoutOutlined" />} onClick={onSignOut}>
       Sign out
     </Button>
   );
   const wayOut = canBrowseOrgs ? (
-    <Button type="primary" size="large" icon={<ApartmentOutlined />} onClick={onOpenOrgDirectory}>
+    <Button type="primary" size="large" icon={<GatewayIcon name="ApartmentOutlined" />} onClick={onOpenOrgDirectory}>
       Open Org Directory
     </Button>
   ) : hasOtherOwnOrg ? (
-    <Button type="primary" size="large" icon={<HomeOutlined />} onClick={onGoToOwnOrg}>
+    <Button type="primary" size="large" icon={<GatewayIcon name="HomeOutlined" />} onClick={onGoToOwnOrg}>
       Go to my organization
     </Button>
   ) : null;

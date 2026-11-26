@@ -1,47 +1,30 @@
 import { useMemo, useState, useCallback, useRef } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import {
   App,
-  Button,
   Card,
   Input,
   Select,
   Space,
-  Tag,
-  Typography,
   Divider,
   Grid,
   Modal,
-  Skeleton,
   DatePicker,
   Drawer,
-  Tabs,
-  Alert,
   Form,
   Tooltip,
   Badge,
-} from 'antd';
-import {
-  ClockCircleOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  SendOutlined,
-  StopOutlined,
-  DownloadOutlined,
-  ExclamationCircleOutlined,
-  EditOutlined,
-  SaveOutlined,
-  CloseOutlined,
-  RetweetOutlined,
-  LinkOutlined,
-  InfoCircleOutlined,
-  WarningOutlined,
-  FireOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { StatPillRow } from '../../../components/common/StatPillRow';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { InlineHint } from '../../../components/common/InlineHint';
 import {
   getScheduledIntegrations,
   deleteScheduledIntegration,
@@ -59,6 +42,7 @@ import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../de
 import { useNavigateWithParams } from '../../../utils/navigation';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { Button } from '../../../components/common/LegacyButton';
 
 dayjs.extend(relativeTime);
 
@@ -69,34 +53,35 @@ const { Text, Paragraph } = Typography;
 const getStatusIcon = (status: ScheduledIntegration['status']) => {
   switch (status) {
     case 'PENDING':
-      return <ClockCircleOutlined />;
+      return <GatewayIcon name="ClockCircleOutlined" />;
     case 'OVERDUE':
-      return <ExclamationCircleOutlined />;
+      return <GatewayIcon name="ExclamationCircleOutlined" />;
     case 'SENT':
-      return <CheckCircleOutlined />;
+      return <GatewayIcon name="CheckCircleOutlined" />;
     case 'FAILED':
-      return <CloseCircleOutlined />;
+      return <GatewayIcon name="CloseCircleOutlined" />;
     case 'CANCELLED':
-      return <StopOutlined />;
+      return <GatewayIcon name="StopOutlined" />;
     default:
-      return <ClockCircleOutlined />;
+      return <GatewayIcon name="ClockCircleOutlined" />;
   }
 };
 
-const getStatusColor = (status: ScheduledIntegration['status'], colors: Record<string, Record<number, string>>) => {
+const getStatusLabel = (status: ScheduledIntegration['status']) =>
+  status === 'SENT' ? 'Delivered' : status.charAt(0) + status.slice(1).toLowerCase();
+
+const getStatusVariant = (status: ScheduledIntegration['status']) => {
   switch (status) {
-    case 'PENDING':
-      return colors.info[600];
-    case 'OVERDUE':
-      return colors.warning[600];
     case 'SENT':
-      return colors.success[600];
+      return 'success' as const;
     case 'FAILED':
-      return colors.error[600];
-    case 'CANCELLED':
-      return colors.warning[600];
+      return 'error' as const;
+    case 'OVERDUE':
+      return 'warning' as const;
+    case 'PENDING':
+      return 'warning' as const;
     default:
-      return cssVar.text.secondary;
+      return 'neutral' as const;
   }
 };
 
@@ -126,21 +111,11 @@ interface DetailDrawerProps {
   onCancel: (record: ScheduledIntegration) => void;
   onEditTime: (record: ScheduledIntegration) => void;
   navigateTo: (path: string) => void;
-  tagTone: (base: string) => React.CSSProperties;
   colors: Record<string, Record<number, string>>;
 }
 
-const DetailDrawer = ({
-  record,
-  onClose,
-  onRetry,
-  onCancel,
-  onEditTime,
-  navigateTo,
-  tagTone,
-  colors,
-}: DetailDrawerProps) => {
-  const { spacing, token } = useDesignTokens();
+const DetailDrawer = ({ record, onClose, onRetry, onCancel, onEditTime, navigateTo, colors }: DetailDrawerProps) => {
+  const { spacing } = useDesignTokens();
   if (!record) return null;
 
   const canEdit = record.status === 'PENDING' || record.status === 'OVERDUE';
@@ -151,10 +126,13 @@ const DetailDrawer = ({
     <Drawer
       title={
         <Space>
-          <Tag icon={getStatusIcon(record.status)} style={tagTone(getStatusColor(record.status, colors))}>
-            {record.status}
-          </Tag>
-          <Text strong style={{ fontSize: token.fontSize }}>
+          <StatusBadge
+            status={record.status}
+            label={getStatusLabel(record.status)}
+            variant={getStatusVariant(record.status)}
+            size="small"
+          />
+          <Text strong className="console-type-control">
             {record.integrationName || 'Scheduled Delivery'}
           </Text>
         </Space>
@@ -165,27 +143,32 @@ const DetailDrawer = ({
       extra={
         <Space>
           {canEdit && (
-            <Button size="small" icon={<EditOutlined />} onClick={() => onEditTime(record)}>
+            <Button size="small" icon={<GatewayIcon name="EditOutlined" />} onClick={() => onEditTime(record)}>
               Reschedule
             </Button>
           )}
           {canRetry && (
-            <Button size="small" type="primary" icon={<RetweetOutlined />} onClick={() => onRetry(record)}>
+            <Button
+              size="small"
+              type="primary"
+              icon={<GatewayIcon name="RetweetOutlined" />}
+              onClick={() => onRetry(record)}
+            >
               Retry
             </Button>
           )}
           {canCancel && (
-            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => onCancel(record)}>
+            <Button size="small" danger icon={<GatewayIcon name="DeleteOutlined" />} onClick={() => onCancel(record)}>
               Cancel
             </Button>
           )}
         </Space>
       }
     >
-      <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+      <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
         {/* Status explanation */}
-        <Alert
-          type={
+        <InlineHint
+          tone={
             record.status === 'FAILED'
               ? 'error'
               : record.status === 'OVERDUE'
@@ -194,32 +177,19 @@ const DetailDrawer = ({
                   ? 'success'
                   : 'info'
           }
-          message={statusExplanation(record)}
-          showIcon
-        />
+        >
+          {statusExplanation(record)}
+        </InlineHint>
 
         {/* Error detail */}
         {record.errorMessage && (
           <div>
-            <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: spacing[1] }}>
+            <Text type="secondary" className="console-caption-block-margin-bottom-1">
               Error
             </Text>
-            <div
-              style={{
-                background: withAlpha(colors.error[600], 0.06),
-                border: `1px solid ${withAlpha(colors.error[600], 0.2)}`,
-                borderRadius: token.borderRadius,
-                padding: spacing[2],
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: colors.error[700],
-                wordBreak: 'break-word',
-              }}
-            >
-              {record.errorMessage}
-            </div>
+            <div className="scheduled-error-detail">{record.errorMessage}</div>
             {record.attemptCount !== undefined && record.attemptCount > 1 && (
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+              <Text type="secondary" className="console-type-caption">
                 Failed after {record.attemptCount} attempt(s)
               </Text>
             )}
@@ -229,71 +199,64 @@ const DetailDrawer = ({
         {/* Retry history */}
         {record.retryReason && (
           <div>
-            <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: spacing[1] }}>
+            <Text type="secondary" className="console-caption-block-margin-bottom-1">
               Last Retry Reason
             </Text>
-            <Text style={{ fontSize: token.fontSizeSM }}>{record.retryReason}</Text>
+            <Text className="console-type-caption">{record.retryReason}</Text>
             {record.retriedAt && (
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block' }}>
+              <Text type="secondary" className="console-caption-block">
                 Retried {dayjs(record.retriedAt).fromNow()}
               </Text>
             )}
           </div>
         )}
 
-        <Divider style={{ margin: `${spacing[1]} 0` }} />
+        <Divider className="console-margin-y-1" />
 
         {/* Timing */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '140px 1fr',
-            gap: `${spacing[1]} ${spacing[2]}`,
-            alignItems: 'start',
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+        <div className="scheduled-detail-timing-grid">
+          <Text type="secondary" className="console-type-caption">
             Scheduled For
           </Text>
-          <Text style={{ fontSize: token.fontSizeSM }}>
+          <Text className="console-type-caption">
             {formatDateTime(record.scheduledFor)}
-            <Text type="secondary" style={{ marginLeft: spacing[1] }}>
+            <Text type="secondary" className="console-margin-left-1">
               ({dayjs(record.scheduledFor).fromNow()})
             </Text>
           </Text>
 
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+          <Text type="secondary" className="console-type-caption">
             Event Type
           </Text>
-          <Tag style={tagTone(colors.neutral[600])}>{record.eventType}</Tag>
+          <Text>{record.eventType}</Text>
 
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+          <Text type="secondary" className="console-type-caption">
             Target URL
           </Text>
-          <Text style={{ fontSize: token.fontSizeSM, wordBreak: 'break-all' }} ellipsis={{ tooltip: record.targetUrl }}>
+          <Text className="console-type-caption console-word-break-all" ellipsis={{ tooltip: record.targetUrl }}>
             {record.targetUrl}
           </Text>
 
           {record.deliveredAt && (
             <>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+              <Text type="secondary" className="console-type-caption">
                 Delivered At
               </Text>
-              <Text style={{ fontSize: token.fontSizeSM }}>{formatDateTime(record.deliveredAt)}</Text>
+              <Text className="console-type-caption">{formatDateTime(record.deliveredAt)}</Text>
             </>
           )}
 
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+          <Text type="secondary" className="console-type-caption">
             Created
           </Text>
-          <Text style={{ fontSize: token.fontSizeSM }}>{formatDateTime(record.createdAt)}</Text>
+          <Text className="console-type-caption">{formatDateTime(record.createdAt)}</Text>
         </div>
 
-        <Divider style={{ margin: `${spacing[1]} 0` }} />
+        <Divider className="console-margin-y-1" />
 
         {/* Deep links */}
         <div>
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: spacing[1] }}>
+          <Text type="secondary" className="console-caption-block-margin-bottom-1">
             Links
           </Text>
           <Space direction="vertical" size={4}>
@@ -301,9 +264,9 @@ const DetailDrawer = ({
               <Button
                 type="link"
                 size="small"
-                icon={<LinkOutlined />}
+                icon={<GatewayIcon name="LinkOutlined" />}
                 onClick={() => navigateTo(`/integrations/${record.integrationConfigId}`)}
-                style={{ padding: 0, height: 'auto' }}
+                className="console-control-reset-padding"
               >
                 View Source Integration
               </Button>
@@ -312,9 +275,9 @@ const DetailDrawer = ({
               <Button
                 type="link"
                 size="small"
-                icon={<LinkOutlined />}
+                icon={<GatewayIcon name="LinkOutlined" />}
                 onClick={() => navigateTo(`/logs?search=${record.originalEventId}`)}
-                style={{ padding: 0, height: 'auto' }}
+                className="console-control-reset-padding"
               >
                 Find Original Event (ID: {record.originalEventId})
               </Button>
@@ -323,9 +286,9 @@ const DetailDrawer = ({
               <Button
                 type="link"
                 size="small"
-                icon={<LinkOutlined />}
+                icon={<GatewayIcon name="LinkOutlined" />}
                 onClick={() => navigateTo(`/logs?search=${record.deliveryLogId}`)}
-                style={{ padding: 0, height: 'auto' }}
+                className="console-control-reset-padding"
               >
                 View Delivery Log
               </Button>
@@ -336,18 +299,16 @@ const DetailDrawer = ({
         {/* Cancellation info */}
         {record.cancellationInfo && (
           <>
-            <Divider style={{ margin: `${spacing[1]} 0` }} />
+            <Divider className="console-margin-y-1" />
             <div>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: spacing[1] }}>
+              <Text type="secondary" className="console-caption-block-margin-bottom-1">
                 Cancellation Info
               </Text>
               {record.cancellationInfo.entityId && (
-                <Text style={{ fontSize: token.fontSizeSM, display: 'block' }}>
-                  Entity ID: {record.cancellationInfo.entityId}
-                </Text>
+                <Text className="console-caption-block">Entity ID: {record.cancellationInfo.entityId}</Text>
               )}
               {record.cancellationInfo.scheduledDateTime && (
-                <Text style={{ fontSize: token.fontSizeSM, display: 'block' }}>
+                <Text className="console-caption-block">
                   Appointment time: {formatDateTime(record.cancellationInfo.scheduledDateTime)}
                 </Text>
               )}
@@ -358,15 +319,13 @@ const DetailDrawer = ({
         {/* Payload */}
         {record.payload && (
           <>
-            <Divider style={{ margin: `${spacing[1]} 0` }} />
+            <Divider className="console-margin-y-1" />
             <div>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: spacing[1] }}>
+              <Text type="secondary" className="console-caption-block-margin-bottom-1">
                 Payload
               </Text>
-              <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
-                <pre className="clamped-code-block" style={{ margin: 0 }}>
-                  {JSON.stringify(record.payload, null, 2)}
-                </pre>
+              <div className="console-mono-caption">
+                <pre className="clamped-code-block console-margin-none">{JSON.stringify(record.payload, null, 2)}</pre>
               </div>
             </div>
           </>
@@ -379,7 +338,7 @@ const DetailDrawer = ({
 // ─── main component ─────────────────────────────────────────────────────────
 
 export const ScheduledIntegrationsRoute = () => {
-  const { spacing, token, shadows, borderRadius } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const colors = cssVar.legacy;
   const { message: msgApi, modal } = App.useApp();
   const navigate = useNavigateWithParams();
@@ -499,43 +458,6 @@ export const ScheduledIntegrationsRoute = () => {
     scheduledIntegrations.forEach((sw) => types.add(sw.eventType));
     return Array.from(types).sort();
   }, [scheduledIntegrations]);
-
-  const tagTone = useCallback(
-    (base: string): React.CSSProperties => ({
-      borderRadius: borderRadius.full,
-      borderColor: withAlpha(base, 0.25),
-      background: withAlpha(base, 0.1),
-      color: base,
-      fontWeight: 700,
-      paddingInline: spacing[2],
-      paddingBlock: spacing['0.5'],
-      fontSize: token.fontSizeSM,
-    }),
-    [spacing, token.fontSizeSM, borderRadius.full]
-  );
-
-  const panelStyle = useMemo(
-    () =>
-      ({
-        borderRadius: token.borderRadiusLG,
-        border: `1px solid ${cssVar.border.default}`,
-        background: cssVar.bg.surface,
-        boxShadow: shadows.xl,
-      }) as const,
-    [token.borderRadiusLG, shadows.xl]
-  );
-
-  const tableFullBleedStyle = useMemo(
-    () =>
-      isNarrow
-        ? {}
-        : {
-            marginLeft: 0,
-            marginRight: `-${spacing[5]}`,
-            paddingRight: spacing[1],
-          },
-    [isNarrow, spacing]
-  );
 
   const handleEditScheduledFor = useCallback((record: ScheduledIntegration) => {
     setEditingRowId(record.id);
@@ -687,14 +609,14 @@ export const ScheduledIntegrationsRoute = () => {
                   onChange={(date) => setEditingScheduledFor(date)}
                   format="YYYY-MM-DD HH:mm"
                   size="small"
-                  style={{ width: 190 }}
+                  className="scheduled-date-editor"
                   onClick={(e) => e.stopPropagation()}
                   showNow={false}
                 />
                 <Button
                   type="primary"
                   size="small"
-                  icon={<SaveOutlined />}
+                  icon={<GatewayIcon name="SaveOutlined" />}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleSaveScheduledFor(record.id);
@@ -702,7 +624,7 @@ export const ScheduledIntegrationsRoute = () => {
                 />
                 <Button
                   size="small"
-                  icon={<CloseOutlined />}
+                  icon={<GatewayIcon name="CloseOutlined" />}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCancelEdit();
@@ -713,20 +635,20 @@ export const ScheduledIntegrationsRoute = () => {
           }
           return (
             <Space size={4}>
-              <Text style={{ whiteSpace: 'nowrap' }}>{formatDateTime(scheduledFor)}</Text>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM, whiteSpace: 'nowrap' }}>
+              <Text className="console-white-space-nowrap">{formatDateTime(scheduledFor)}</Text>
+              <Text type="secondary" className="console-type-caption console-white-space-nowrap">
                 {dayjs(scheduledFor).fromNow()}
               </Text>
               {canEdit && (
                 <Button
                   type="text"
                   size="small"
-                  icon={<EditOutlined />}
+                  icon={<GatewayIcon name="EditOutlined" />}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEditScheduledFor(record);
                   }}
-                  style={{ padding: '0 4px' }}
+                  className="scheduled-inline-edit-button"
                 />
               )}
             </Space>
@@ -746,7 +668,7 @@ export const ScheduledIntegrationsRoute = () => {
               e.stopPropagation();
               navigate(`/integrations/${record.integrationConfigId}`);
             }}
-            style={{ padding: 0, height: 'auto', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            className="scheduled-integration-link"
           >
             {name}
           </Button>
@@ -757,7 +679,7 @@ export const ScheduledIntegrationsRoute = () => {
         dataIndex: 'eventType',
         key: 'eventType',
         width: 180,
-        render: (eventType: string) => <Tag style={tagTone(colors.neutral[600])}>{eventType}</Tag>,
+        render: (eventType: string) => <Text>{eventType}</Text>,
       },
       {
         title: 'Status',
@@ -766,12 +688,15 @@ export const ScheduledIntegrationsRoute = () => {
         width: 120,
         render: (status: ScheduledIntegration['status'], record: ScheduledIntegration) => (
           <Space size={4}>
-            <Tag icon={getStatusIcon(status)} style={tagTone(getStatusColor(status, colors))}>
-              {status}
-            </Tag>
+            <StatusBadge
+              status={status}
+              label={getStatusLabel(status)}
+              variant={getStatusVariant(status)}
+              size="small"
+            />
             {record.errorMessage && (
               <Tooltip title={record.errorMessage}>
-                <InfoCircleOutlined style={{ color: colors.error[500], fontSize: 12 }} />
+                <GatewayIcon size="xsm" name="InfoCircleOutlined" className="console-text-error" />
               </Tooltip>
             )}
           </Space>
@@ -788,12 +713,12 @@ export const ScheduledIntegrationsRoute = () => {
               <Button
                 type="text"
                 size="small"
-                icon={<RetweetOutlined />}
+                icon={<GatewayIcon name="RetweetOutlined" />}
                 onClick={(e) => {
                   e.stopPropagation();
                   openRetryModal(record);
                 }}
-                style={{ color: colors.info[600] }}
+                className="console-text-info"
               >
                 Retry
               </Button>
@@ -803,7 +728,7 @@ export const ScheduledIntegrationsRoute = () => {
                 type="text"
                 danger
                 size="small"
-                icon={<DeleteOutlined />}
+                icon={<GatewayIcon name="DeleteOutlined" />}
                 onClick={(e) => {
                   e.stopPropagation();
                   openCancelModal(record);
@@ -820,8 +745,6 @@ export const ScheduledIntegrationsRoute = () => {
       editingRowId,
       editingScheduledFor,
       colors,
-      token,
-      tagTone,
       navigate,
       handleEditScheduledFor,
       handleCancelEdit,
@@ -832,112 +755,105 @@ export const ScheduledIntegrationsRoute = () => {
   );
 
   return (
-    <div>
-      <PageHeader
-        title="Delayed Deliveries"
-        description="Individual deliveries held until a specific future time by a real-time event (e.g. an appointment reminder). For recurring cron-based batch jobs, see Scheduled Jobs. Click any row to inspect details."
-        statusChips={[
-          { label: `${filtered.length} shown` },
-          ...(failureCount > 0 ? [{ label: `${failureCount} need attention`, color: colors.error[600] }] : []),
-        ]}
-        compact
-        actions={
-          <Space>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={handleExportCsv}
-              loading={exportLoading}
-              disabled={scheduledFetching}
-              size="small"
-            >
-              Export
-            </Button>
-            <Button
-              icon={<ReloadOutlined />}
-              loading={scheduledFetching}
-              onClick={() => refetchScheduled()}
-              size="small"
-            >
-              Refresh
-            </Button>
-          </Space>
-        }
-      />
-
+    <PageTemplate
+      className="scheduled-deliveries-template"
+      header={
+        <PageHeader
+          title="Delayed Deliveries"
+          description={`Individual deliveries held until a specific future time by a real-time event (e.g. an appointment reminder). For recurring cron-based batch jobs, see Scheduled Jobs. ${filtered.length} shown${failureCount > 0 ? `, ${failureCount} need attention` : ''}. Click any row to inspect details.`}
+          compact
+          actions={
+            <Space>
+              <Button
+                icon={<GatewayIcon name="DownloadOutlined" />}
+                onClick={handleExportCsv}
+                loading={exportLoading}
+                disabled={scheduledFetching}
+                size="small"
+              >
+                Export
+              </Button>
+              <Button
+                icon={<GatewayIcon name="ReloadOutlined" />}
+                loading={scheduledFetching}
+                onClick={() => refetchScheduled()}
+                size="small"
+              >
+                Refresh
+              </Button>
+            </Space>
+          }
+        />
+      }
+    >
       {/* Stats strip */}
       {scheduledFetching ? (
-        <Card style={{ ...panelStyle, marginBottom: spacingToNumber(spacing[2]) }}>
-          <Skeleton active paragraph={{ rows: 1 }} />
-        </Card>
+        <StatePanel glyph="connecting" tone="busy" title="Loading scheduled deliveries" size="compact" />
       ) : (
-        <Card
-          style={{
-            ...panelStyle,
-            marginBottom: spacingToNumber(spacing[2]),
-            padding: `${spacing['1.5']} ${spacing[3]}`,
-          }}
-          styles={{ body: { padding: 0 } }}
-        >
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['1.5'], alignItems: 'center' }}>
-            {[
-              { title: 'Total', value: stats.total, tone: cssVar.text.secondary, filterValue: undefined },
-              { title: 'Pending', value: stats.pending, tone: colors.info[600], filterValue: 'PENDING' },
-              { title: 'Overdue', value: stats.overdue, tone: colors.warning[600], filterValue: 'OVERDUE' },
-              { title: 'Sent', value: stats.sent, tone: colors.success[600], filterValue: 'SENT' },
-              { title: 'Failed', value: stats.failed, tone: colors.error[600], filterValue: 'FAILED' },
-              { title: 'Cancelled', value: stats.cancelled, tone: colors.warning[600], filterValue: 'CANCELLED' },
-            ].map((item) => {
-              const isActive = item.filterValue ? statusFilter === item.filterValue : !statusFilter;
-              return (
-                <Tag
-                  key={item.title}
-                  onClick={() => {
-                    setActiveTab('all');
-                    item.filterValue ? handleQuickStatusFilter(item.filterValue) : setStatusFilter(undefined);
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setActiveTab('all');
-                      item.filterValue ? handleQuickStatusFilter(item.filterValue) : setStatusFilter(undefined);
-                    }
-                  }}
-                  style={{
-                    borderRadius: borderRadius.full,
-                    fontSize: 12,
-                    padding: `${spacing['0.5']} ${spacing[2]}`,
-                    borderColor: withAlpha(item.tone, isActive ? 0.55 : 0.25),
-                    background: withAlpha(item.tone, isActive ? 0.12 : 0.06),
-                    color: item.tone,
-                    fontWeight: 700,
-                    margin: 0,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {item.title}: {item.value?.toLocaleString() ?? 0}
-                </Tag>
-              );
-            })}
-          </div>
-        </Card>
+        <div className="console-margin-bottom-2">
+          <StatPillRow
+            activeFilter={statusFilter}
+            onFilterChange={(filter) => {
+              setActiveTab('all');
+              filter ? handleQuickStatusFilter(filter) : setStatusFilter(undefined);
+            }}
+            items={[
+              {
+                title: 'Total',
+                value: stats.total,
+                icon: <GatewayIcon name="DatabaseOutlined" />,
+                tone: cssVar.text.secondary,
+                filterValue: null,
+              },
+              {
+                title: 'Pending',
+                value: stats.pending,
+                icon: getStatusIcon('PENDING'),
+                tone: colors.info[600],
+                filterValue: 'PENDING',
+              },
+              {
+                title: 'Overdue',
+                value: stats.overdue,
+                icon: getStatusIcon('OVERDUE'),
+                tone: colors.warning[600],
+                filterValue: 'OVERDUE',
+              },
+              {
+                title: 'Sent',
+                value: stats.sent,
+                icon: getStatusIcon('SENT'),
+                tone: colors.success[600],
+                filterValue: 'SENT',
+              },
+              {
+                title: 'Failed',
+                value: stats.failed,
+                icon: getStatusIcon('FAILED'),
+                tone: colors.error[600],
+                filterValue: 'FAILED',
+              },
+              {
+                title: 'Cancelled',
+                value: stats.cancelled,
+                icon: getStatusIcon('CANCELLED'),
+                tone: colors.warning[600],
+                filterValue: 'CANCELLED',
+              },
+            ]}
+          />
+        </div>
       )}
 
       {/* Filters */}
-      <Card style={{ ...panelStyle, marginBottom: spacingToNumber(spacing[2]) }}>
+      <Card className="scheduled-panel scheduled-panel--spaced">
         <Space
           direction={isNarrow ? 'vertical' : 'horizontal'}
           size={spacingToNumber(spacing[2])}
-          style={{ width: '100%', flexWrap: 'wrap' }}
+          className="scheduled-filter-fields"
         >
           {scheduledFetching ? (
-            <>
-              <Skeleton.Input active style={{ minWidth: 160 }} />
-              <Skeleton.Input active style={{ minWidth: 200 }} />
-              <Skeleton.Input active style={{ minWidth: 200 }} />
-              <Skeleton.Input active style={{ minWidth: 250, flex: 1 }} />
-            </>
+            <StatePanel glyph="connecting" tone="busy" title="Loading filters" size="compact" />
           ) : (
             <>
               <Select
@@ -948,7 +864,7 @@ export const ScheduledIntegrationsRoute = () => {
                   setActiveTab('all');
                   setStatusFilter(v);
                 }}
-                style={{ minWidth: 160 }}
+                className="scheduled-status-filter"
                 size="small"
                 options={[
                   { value: 'PENDING', label: 'Pending' },
@@ -964,7 +880,7 @@ export const ScheduledIntegrationsRoute = () => {
                 showSearch
                 value={integrationFilter}
                 onChange={setIntegrationFilter}
-                style={{ minWidth: 200 }}
+                className="scheduled-integration-filter"
                 size="small"
                 options={integrations.map((w) => ({ value: w.id, label: w.name }))}
               />
@@ -974,7 +890,7 @@ export const ScheduledIntegrationsRoute = () => {
                 showSearch
                 value={eventTypeFilter}
                 onChange={setEventTypeFilter}
-                style={{ minWidth: 200 }}
+                className="scheduled-event-filter"
                 size="small"
                 options={eventTypes.map((et) => ({ value: et, label: et }))}
               />
@@ -983,7 +899,7 @@ export const ScheduledIntegrationsRoute = () => {
                 allowClear
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={{ minWidth: 250, flex: 1 }}
+                className="scheduled-search-filter"
                 size="small"
               />
             </>
@@ -993,22 +909,15 @@ export const ScheduledIntegrationsRoute = () => {
 
       {/* Bulk actions */}
       {selectedRowKeys.length > 0 && (
-        <Card
-          style={{
-            ...panelStyle,
-            marginBottom: spacingToNumber(spacing[2]),
-            background: withAlpha(colors.info[500], 0.05),
-            borderColor: colors.info[300],
-          }}
-        >
-          <Space style={{ width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <Card className="scheduled-panel scheduled-panel--spaced scheduled-selection-panel">
+          <Space className="console-width-full-between-wrap">
             <Space>
               <Text strong>{selectedRowKeys.length} selected</Text>
               <Button size="small" onClick={() => setSelectedRowKeys([])}>
                 Clear
               </Button>
             </Space>
-            <Button danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
+            <Button danger icon={<GatewayIcon name="DeleteOutlined" />} onClick={handleBulkDelete}>
               Bulk Cancel
             </Button>
           </Space>
@@ -1016,70 +925,87 @@ export const ScheduledIntegrationsRoute = () => {
       )}
 
       {/* Tabs: All vs Failures */}
-      <Tabs
-        activeKey={activeTab}
-        onChange={(k) => {
-          setActiveTab(k as 'all' | 'failures');
+      <TabList
+        role="tablist"
+        aria-label="Scheduled delivery views"
+        value={activeTab}
+        onChange={(value) => {
+          setActiveTab(value as 'all' | 'failures');
           setStatusFilter(undefined);
         }}
-        size="small"
-        style={{ marginBottom: spacingToNumber(spacing[1]) }}
-        items={[
-          { key: 'all', label: 'All Deliveries' },
-          {
-            key: 'failures',
-            label: (
-              <Space size={4}>
-                <FireOutlined style={{ color: failureCount > 0 ? colors.error[500] : undefined }} />
-                Failures & Overdue
-                {failureCount > 0 && <Badge count={failureCount} size="small" />}
-              </Space>
-            ),
-          },
-        ]}
-      />
+        size="sm"
+        hasDivider
+      >
+        <Tab
+          id="scheduled-deliveries-all-tab"
+          value="all"
+          label="All Deliveries"
+          panelId="scheduled-delivery-results-panel"
+        />
+        <Tab
+          id="scheduled-deliveries-failures-tab"
+          value="failures"
+          label="Failures & Overdue"
+          icon={
+            <GatewayIcon
+              name="FireOutlined"
+              aria-hidden="true"
+              className={failureCount > 0 ? 'console-text-error' : undefined}
+            />
+          }
+          endContent={failureCount > 0 ? <Badge count={failureCount} size="small" /> : undefined}
+          panelId="scheduled-delivery-results-panel"
+        />
+      </TabList>
 
-      {/* Empty state for failures tab */}
-      {activeTab === 'failures' && filtered.length === 0 && !scheduledFetching && (
-        <Card style={panelStyle}>
-          <div style={{ textAlign: 'center', padding: `${spacing[8]} 0` }}>
-            <CheckCircleOutlined style={{ fontSize: 32, color: colors.success[500], marginBottom: spacing[2] }} />
-            <Text type="secondary" style={{ display: 'block' }}>
-              No failed or overdue deliveries — all clear.
-            </Text>
+      <div
+        id="scheduled-delivery-results-panel"
+        role="tabpanel"
+        aria-labelledby={activeTab === 'all' ? 'scheduled-deliveries-all-tab' : 'scheduled-deliveries-failures-tab'}
+        tabIndex={0}
+      >
+        {/* Empty state for failures tab */}
+        {activeTab === 'failures' && filtered.length === 0 && !scheduledFetching && (
+          <Card className="scheduled-panel">
+            <div className="console-empty-centered">
+              <GatewayIcon name="CheckCircleOutlined" className="console-icon-empty-success" />
+              <Text type="secondary" className="console-display-block">
+                No failed or overdue deliveries — all clear.
+              </Text>
+            </div>
+          </Card>
+        )}
+
+        {/* Table */}
+        {(activeTab === 'all' || filtered.length > 0) && (
+          <div className="full-bleed-table">
+            <ModernTable
+              key={`${activeTab}-${statusFilter ?? 'all'}-${integrationFilter ?? 'all'}-${eventTypeFilter ?? 'all'}-${search}`}
+              dataSource={filtered}
+              rowKey="id"
+              rowSelection={{ selectedRowKeys, onChange: (keys) => setSelectedRowKeys(keys) }}
+              scroll={{ x: 950 }}
+              loading={scheduledFetching}
+              size="small"
+              onRow={(record) => ({
+                onClick: () => {
+                  if (editingRowId !== record.id) {
+                    setDrawerRecord(record);
+                  }
+                },
+                style: { cursor: 'pointer' },
+              })}
+              pagination={{
+                defaultPageSize: 20,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                showTotal: (total) => `${total} deliveries`,
+              }}
+              columns={columns}
+            />
           </div>
-        </Card>
-      )}
-
-      {/* Table */}
-      {(activeTab === 'all' || filtered.length > 0) && (
-        <div className="full-bleed-table" style={tableFullBleedStyle}>
-          <ModernTable
-            key={`${activeTab}-${statusFilter ?? 'all'}-${integrationFilter ?? 'all'}-${eventTypeFilter ?? 'all'}-${search}`}
-            dataSource={filtered}
-            rowKey="id"
-            rowSelection={{ selectedRowKeys, onChange: (keys) => setSelectedRowKeys(keys) }}
-            scroll={{ x: 950 }}
-            loading={scheduledFetching}
-            size="small"
-            onRow={(record) => ({
-              onClick: () => {
-                if (editingRowId !== record.id) {
-                  setDrawerRecord(record);
-                }
-              },
-              style: { cursor: 'pointer' },
-            })}
-            pagination={{
-              defaultPageSize: 20,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-              showTotal: (total) => `${total} deliveries`,
-            }}
-            columns={columns}
-          />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Detail drawer */}
       <DetailDrawer
@@ -1098,7 +1024,6 @@ export const ScheduledIntegrationsRoute = () => {
           handleEditScheduledFor(r);
         }}
         navigateTo={navigate}
-        tagTone={tagTone}
         colors={colors}
       />
 
@@ -1117,12 +1042,12 @@ export const ScheduledIntegrationsRoute = () => {
         okButtonProps={{ disabled: false }}
       >
         {cancelTarget && (
-          <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
             <Text>
               Cancel <Text strong>{cancelTarget.integrationName}</Text> scheduled for{' '}
               <Text strong>{formatDateTime(cancelTarget.scheduledFor)}</Text>?
             </Text>
-            <Form.Item label="Reason (optional)" style={{ marginBottom: 0 }}>
+            <Form.Item label="Reason (optional)" className="console-margin-bottom-none">
               <Input.TextArea
                 placeholder="e.g. Customer cancelled the order, duplicate delivery…"
                 value={cancelReason}
@@ -1149,16 +1074,16 @@ export const ScheduledIntegrationsRoute = () => {
         okButtonProps={{ disabled: retryReason.trim().length < 3, loading: retryMutation.isPending }}
       >
         {retryTarget && (
-          <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
-            <Alert type="info" showIcon message="The delivery will be rescheduled to fire in ~30 seconds." />
+          <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
+            <InlineHint>The delivery will be rescheduled to fire in about 30 seconds.</InlineHint>
             {retryTarget.errorMessage && (
               <div>
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                <Text type="secondary" className="console-type-caption">
                   Previous error:
                 </Text>
                 <Paragraph
                   type="danger"
-                  style={{ fontFamily: 'monospace', fontSize: 12, marginTop: spacing[1], marginBottom: 0 }}
+                  className="console-mono-caption console-margin-top-1 console-margin-bottom-0"
                   ellipsis={{ rows: 3, expandable: true }}
                 >
                   {retryTarget.errorMessage}
@@ -1168,7 +1093,7 @@ export const ScheduledIntegrationsRoute = () => {
             <Form.Item
               label="Reason (required)"
               required
-              style={{ marginBottom: 0 }}
+              className="console-margin-bottom-none"
               help={
                 retryReason.trim().length > 0 && retryReason.trim().length < 3
                   ? 'At least 3 characters required'
@@ -1189,6 +1114,6 @@ export const ScheduledIntegrationsRoute = () => {
           </Space>
         )}
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

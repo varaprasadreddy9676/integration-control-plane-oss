@@ -1,4 +1,5 @@
-import { Typography } from 'antd';
+import { Text } from '@astryxdesign/core/Text';
+import { cssVar } from '../../../../../design-system/utils';
 
 /**
  * Pre-built popover content components for common help topics
@@ -10,16 +11,16 @@ import { Typography } from 'antd';
  */
 export const UrlRequirementsHelp = () => (
   <div>
-    <Typography.Paragraph style={{ marginBottom: 8 }}>
+    <Text as="p" display="block" className="console-margin-bottom-2">
       <strong>Blocked for security:</strong>
-    </Typography.Paragraph>
-    <ul style={{ margin: 0, paddingLeft: 20, marginBottom: 8 }}>
+    </Text>
+    <ul className="console-list-reset-indent console-margin-bottom-2">
       <li>localhost, 127.0.0.1</li>
       <li>Private IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)</li>
     </ul>
-    <Typography.Paragraph style={{ marginBottom: 0 }}>
+    <Text as="p" display="block" className="console-margin-bottom-none">
       <strong>Local testing:</strong> Use ngrok or expose.dev
-    </Typography.Paragraph>
+    </Text>
   </div>
 );
 
@@ -28,13 +29,13 @@ export const UrlRequirementsHelp = () => (
  */
 export const DataSecurityHelp = ({ entityCount }: { entityCount: number }) => (
   <div>
-    <Typography.Paragraph>
+    <Text as="p" display="block">
       Events from <strong>{entityCount} entities</strong> (including PHI/PII) will be sent.
-    </Typography.Paragraph>
-    <Typography.Paragraph strong style={{ marginBottom: 4 }}>
+    </Text>
+    <Text as="p" display="block" weight="semibold" className="console-margin-bottom-1">
       Ensure receiving system:
-    </Typography.Paragraph>
-    <ul style={{ margin: 0, paddingLeft: 20 }}>
+    </Text>
+    <ul className="console-list-reset-indent">
       <li>Has authorization for all included entities</li>
       <li>Meets HIPAA compliance (if applicable)</li>
       <li>Maintains audit trails</li>
@@ -50,15 +51,13 @@ export const SchedulingScriptHelp = ({ mode }: { mode?: 'DELAYED' | 'RECURRING' 
   if (mode === 'DELAYED') {
     return (
       <div>
-        <Typography.Paragraph>
+        <Text as="p" display="block">
           Return a single Unix timestamp (milliseconds) in the future.
-        </Typography.Paragraph>
-        <Typography.Paragraph strong style={{ marginBottom: 4 }}>
+        </Text>
+        <Text as="p" display="block" weight="semibold" className="console-margin-bottom-1">
           Example:
-        </Typography.Paragraph>
-        <Typography.Text code style={{ fontSize: 12 }}>
-          addDays(event.appointmentTime, -1)
-        </Typography.Text>
+        </Text>
+        <Text type="code">addDays(event.appointmentTime, -1)</Text>
       </div>
     );
   }
@@ -66,13 +65,21 @@ export const SchedulingScriptHelp = ({ mode }: { mode?: 'DELAYED' | 'RECURRING' 
   if (mode === 'RECURRING') {
     return (
       <div>
-        <Typography.Paragraph style={{ marginBottom: 4 }}>
+        <Text as="p" display="block" className="console-margin-bottom-1">
           Return an object with:
-        </Typography.Paragraph>
-        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13 }}>
-          <li><code>firstOccurrence</code>: timestamp (ms)</li>
-          <li><code>intervalMs</code>: minimum 60000 (1 min)</li>
-          <li><code>maxOccurrences</code>: 2-365 OR <code>endDate</code>: timestamp</li>
+        </Text>
+        <ul
+          className="ui-extracted-216511b78a"
+        >
+          <li>
+            <code>firstOccurrence</code>: timestamp (ms)
+          </li>
+          <li>
+            <code>intervalMs</code>: minimum 60000 (1 min)
+          </li>
+          <li>
+            <code>maxOccurrences</code>: 2-365 OR <code>endDate</code>: timestamp
+          </li>
         </ul>
       </div>
     );
@@ -81,12 +88,12 @@ export const SchedulingScriptHelp = ({ mode }: { mode?: 'DELAYED' | 'RECURRING' 
   // Default: both modes
   return (
     <div>
-      <Typography.Paragraph>
+      <Text as="p" display="block">
         <strong>DELAYED:</strong> Return a single timestamp
-      </Typography.Paragraph>
-      <Typography.Paragraph>
+      </Text>
+      <Text as="p" display="block">
         <strong>RECURRING:</strong> Return an object with firstOccurrence, intervalMs, and maxOccurrences/endDate
-      </Typography.Paragraph>
+      </Text>
     </div>
   );
 };
@@ -95,41 +102,65 @@ export const SchedulingScriptHelp = ({ mode }: { mode?: 'DELAYED' | 'RECURRING' 
  * Utility Functions Help - Available date/time helper functions
  */
 export const UtilityFunctionsHelp = () => (
-  <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
-    <Typography.Paragraph strong style={{ fontFamily: 'inherit', marginBottom: 8 }}>
+  <div>
+    <Text as="p" display="block" type="label" weight="semibold" className="console-margin-bottom-2">
       Date/Time Utilities:
-    </Typography.Paragraph>
-    <div style={{ marginBottom: 12 }}>
-      <div><code>parseDate(dateString)</code> - Parse date string to timestamp</div>
-      <div><code>now()</code> - Current timestamp</div>
-      <div><code>toTimestamp(date)</code> - Convert to timestamp</div>
+    </Text>
+    <div className="console-margin-bottom-3">
+      <div>
+        <code>parseDate(dateString)</code> - Parse date string to timestamp
+      </div>
+      <div>
+        <code>now()</code> - Current timestamp
+      </div>
+      <div>
+        <code>toTimestamp(date)</code> - Convert to timestamp
+      </div>
     </div>
 
-    <Typography.Paragraph strong style={{ fontFamily: 'inherit', marginBottom: 8 }}>
+    <Text as="p" display="block" type="label" weight="semibold" className="console-margin-bottom-2">
       Time Math:
-    </Typography.Paragraph>
-    <div style={{ marginBottom: 12 }}>
-      <div><code>addDays(timestamp, days)</code> - Add days</div>
-      <div><code>addHours(timestamp, hours)</code> - Add hours</div>
-      <div><code>addMinutes(timestamp, minutes)</code> - Add minutes</div>
-      <div><code>subtractDays(timestamp, days)</code> - Subtract days</div>
-      <div><code>subtractHours(timestamp, hours)</code> - Subtract hours</div>
+    </Text>
+    <div className="console-margin-bottom-3">
+      <div>
+        <code>addDays(timestamp, days)</code> - Add days
+      </div>
+      <div>
+        <code>addHours(timestamp, hours)</code> - Add hours
+      </div>
+      <div>
+        <code>addMinutes(timestamp, minutes)</code> - Add minutes
+      </div>
+      <div>
+        <code>subtractDays(timestamp, days)</code> - Subtract days
+      </div>
+      <div>
+        <code>subtractHours(timestamp, hours)</code> - Subtract hours
+      </div>
     </div>
 
-    <Typography.Paragraph strong style={{ fontFamily: 'inherit', marginBottom: 8 }}>
+    <Text as="p" display="block" type="label" weight="semibold" className="console-margin-bottom-2">
       Date Boundaries:
-    </Typography.Paragraph>
-    <div style={{ marginBottom: 12 }}>
-      <div><code>startOfDay(timestamp)</code> - Get midnight (00:00:00)</div>
-      <div><code>endOfDay(timestamp)</code> - Get 23:59:59.999</div>
+    </Text>
+    <div className="console-margin-bottom-3">
+      <div>
+        <code>startOfDay(timestamp)</code> - Get midnight (00:00:00)
+      </div>
+      <div>
+        <code>endOfDay(timestamp)</code> - Get 23:59:59.999
+      </div>
     </div>
 
-    <Typography.Paragraph strong style={{ fontFamily: 'inherit', marginBottom: 8 }}>
+    <Text as="p" display="block" type="label" weight="semibold" className="console-margin-bottom-2">
       Available Variables:
-    </Typography.Paragraph>
+    </Text>
     <div>
-      <div><code>event</code> - Event payload data</div>
-      <div><code>context</code> - Metadata (tenantId, eventType, etc.)</div>
+      <div>
+        <code>event</code> - Event payload data
+      </div>
+      <div>
+        <code>context</code> - Metadata (tenantId, eventType, etc.)
+      </div>
     </div>
   </div>
 );
@@ -139,15 +170,15 @@ export const UtilityFunctionsHelp = () => (
  */
 export const MultiActionModeHelp = () => (
   <div>
-    <Typography.Paragraph>
+    <Text as="p" display="block">
       Execute multiple HTTP requests sequentially for a single event.
-    </Typography.Paragraph>
-    <Typography.Paragraph>
+    </Text>
+    <Text as="p" display="block">
       <strong>Use case:</strong> CleverTap profile upload + event upload in one integration
-    </Typography.Paragraph>
-    <Typography.Paragraph style={{ marginBottom: 0 }}>
+    </Text>
+    <Text as="p" display="block" className="console-margin-bottom-none">
       <strong>Note:</strong> All actions share the same authentication configuration
-    </Typography.Paragraph>
+    </Text>
   </div>
 );
 
@@ -156,15 +187,15 @@ export const MultiActionModeHelp = () => (
  */
 export const ScriptSyntaxHelp = () => (
   <div>
-    <Typography.Paragraph>
+    <Text as="p" display="block">
       <strong>Do NOT use 'return' keyword!</strong>
-    </Typography.Paragraph>
-    <Typography.Paragraph style={{ marginBottom: 4 }}>
+    </Text>
+    <Text as="p" display="block" className="console-margin-bottom-1">
       The last expression is automatically returned:
-    </Typography.Paragraph>
-    <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 8 }}>
-      <div style={{ color: '#52c41a' }}>✓ Correct: addDays(event.appointmentTime, -1)</div>
-      <div style={{ color: '#ff4d4f' }}>✗ Wrong: return addDays(event.appointmentTime, -1)</div>
+    </Text>
+    <div className="ui-extracted-44118e585a">
+      <div className="console-text-success">✓ Correct: addDays(event.appointmentTime, -1)</div>
+      <div className="console-text-error">✗ Wrong: return addDays(event.appointmentTime, -1)</div>
     </div>
   </div>
 );

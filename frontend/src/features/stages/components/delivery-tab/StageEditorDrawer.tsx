@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import type { ReactNode } from 'react';
-import { Alert, Button, Checkbox, Collapse, Drawer, Input, InputNumber, Radio, Select, Space, Tabs, Typography } from 'antd';
+import { Checkbox, Collapse, Drawer, Input, InputNumber, Radio, Select, Space } from "@/components/common/LegacyAntdControls";
+import { Tab, TabList } from '@astryxdesign/core';
+import './stage-editor-drawer.css';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import type { SchemaField, SendBindings, StageConfig, StageRunner, StageValidationError } from '../../../../services/stages-api';
+import type {
+  SchemaField,
+  SendBindings,
+  StageConfig,
+  StageRunner,
+  StageValidationError,
+} from '../../../../services/stages-api';
 import { listCredentialOptions, validateStages } from '../../../../services/stages-api';
 import { CheckScheduleEditor } from '../../../integrations/components/detail/DeliveryFollowUpSection';
 import { hookTitle } from '../../stageLabels';
@@ -10,12 +19,20 @@ import { KeyValueEditor, SchemaForm, Widget } from './SchemaForm';
 import { StageTestPanel } from './StageTestPanel';
 import { StepSignIn } from './StepSignIn';
 import { errorsForStage, isInline, issueText, outputsOf } from './stageDraft';
+import { Button } from '../../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../../components/common';
 
 const { Text } = Typography;
 
 const OUTPUT_COLUMNS: SchemaField[] = [
   { name: 'name', label: 'Name', widget: 'text' },
-  { name: 'type', label: 'Type', widget: 'select', options: ['string', 'number', 'boolean', 'object'], default: 'string' },
+  {
+    name: 'type',
+    label: 'Type',
+    widget: 'select',
+    options: ['string', 'number', 'boolean', 'object'],
+    default: 'string',
+  },
   { name: 'sensitive', label: 'Sensitive', widget: 'checkbox' },
 ];
 
@@ -33,15 +50,29 @@ const ERROR_ACTIONS = {
   ],
 };
 
-const Field = ({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) => (
+const Field = ({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+}) => (
   <div>
-    <Text strong style={{ display: 'block', marginBottom: 4 }}>
+    <Text strong className="ui-extracted-30b80cec02">
       {label}
     </Text>
     {children}
-    {hint && !error && <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{hint}</Text>}
+    {hint && !error && (
+      <Text type="secondary" className="console-caption-block">
+        {hint}
+      </Text>
+    )}
     {error && (
-      <Text type="danger" role="alert" style={{ display: 'block', fontSize: 12 }}>
+      <Text type="danger" role="alert" className="console-caption-block">
         {error}
       </Text>
     )}
@@ -108,13 +139,20 @@ export const StageEditor = ({
     setErrors([]);
   }, [stage, initialTab]);
 
-  const credentials = useQuery({ queryKey: ['stage-credentials'], queryFn: listCredentialOptions, enabled: open, retry: false });
+  const credentials = useQuery({
+    queryKey: ['stage-credentials'],
+    queryFn: listCredentialOptions,
+    enabled: open,
+    retry: false,
+  });
   const validate = useMutation({ mutationFn: validateStages });
 
   const runnerOf = (candidate: StageConfig) => runners.find((entry) => entry.type === candidate.runner.type);
   const runner = runners.find((candidate) => candidate.type === draft?.runner.type);
   const { runnerFields, other } = useMemo(() => errorsForStage(errors, index), [errors, index]);
-  const errorAt = (path: string) => other.find((error) => error.path === path || error.path.startsWith(`${path}.`) || error.path.startsWith(`${path}[`))?.message;
+  const errorAt = (path: string) =>
+    other.find((error) => error.path === path || error.path.startsWith(`${path}.`) || error.path.startsWith(`${path}[`))
+      ?.message;
   // Outputs of stages that run before this one, for {{ }} inputs.
   const earlier = stages.slice(0, index).filter((candidate) => candidate.id !== draft?.id);
 
@@ -122,17 +160,26 @@ export const StageEditor = ({
   const update = (patch: Partial<StageConfig>) => setDraft({ ...draft, ...patch });
   const inline = isInline(draft.hook);
   const effect = draft.effect || (inline ? 'gate' : 'observe');
-  const errorOptions = inline ? (effect === 'gate' ? ERROR_ACTIONS.gate : ERROR_ACTIONS.observeInline) : ERROR_ACTIONS.deferred;
+  const errorOptions = inline
+    ? effect === 'gate'
+      ? ERROR_ACTIONS.gate
+      : ERROR_ACTIONS.observeInline
+    : ERROR_ACTIONS.deferred;
   const onError = draft.onError || { action: errorOptions[0].value as 'ignore' };
   const legacy = typeof draft.contract === 'string' && draft.contract.startsWith('legacy:');
-  const callUrl = runner?.type === 'http' && typeof draft.runner.config.url === 'string' ? draft.runner.config.url : undefined;
+  const callUrl =
+    runner?.type === 'http' && typeof draft.runner.config.url === 'string' ? draft.runner.config.url : undefined;
   const signIn = (
     <StepSignIn
       auth={draft.auth}
       onChange={(auth) => update({ auth })}
       credentials={credentials.data}
       url={callUrl}
-      errors={{ credentialRef: errorAt('auth.credentialRef'), headers: errorAt('auth.headers'), allowedOrigins: errorAt('auth.allowedOrigins') }}
+      errors={{
+        credentialRef: errorAt('auth.credentialRef'),
+        headers: errorAt('auth.headers'),
+        allowedOrigins: errorAt('auth.allowedOrigins'),
+      }}
     />
   );
 
@@ -152,20 +199,32 @@ export const StageEditor = ({
   };
 
   const settings = (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space direction="vertical" size={16} className="console-width-full">
       {legacy && (
-        <Alert
+        <Notice
           type="info"
-          showIcon
           message={`Moved here from the old ${draft.migratedFrom || 'configuration'}`}
           description="It runs under the rules it always had, so it behaves exactly as before."
         />
       )}
       {draft.shadow && (
-        <Alert type="warning" showIcon message="Being compared" description="A migration runs this step beside the old configuration to compare them. It has no effect yet." />
+        <Notice
+          type="warning"
+          message="Being compared"
+          description="A migration runs this step beside the old configuration to compare them. It has no effect yet."
+        />
       )}
-      <Field label="Name *" error={errorAt('name')} hint="Shown on the delivery's tab and in results. Renaming keeps the history.">
-        <Input aria-label="Step name" value={draft.name} maxLength={80} onChange={(e) => update({ name: e.target.value })} />
+      <Field
+        label="Name *"
+        error={errorAt('name')}
+        hint="Shown on the delivery's tab and in results. Renaming keeps the history."
+      >
+        <Input
+          aria-label="Step name"
+          value={draft.name}
+          maxLength={80}
+          onChange={(e) => update({ name: e.target.value })}
+        />
       </Field>
       <Text type="secondary">
         {runner?.label || draft.runner.type} · {hookTitle(draft.hook)} · ID <code>{draft.id}</code>
@@ -175,7 +234,11 @@ export const StageEditor = ({
         <Field label="What it may do" error={errorAt('effect')}>
           <Radio.Group value={effect} onChange={(e) => update({ effect: e.target.value })}>
             <Space direction="vertical">
-              <Radio value="gate">{draft.hook === 'before_send' ? 'Decide: it can skip or fail the delivery' : 'Decide: it can turn an accepted send into a failure'}</Radio>
+              <Radio value="gate">
+                {draft.hook === 'before_send'
+                  ? 'Decide: it can skip or fail the delivery'
+                  : 'Decide: it can turn an accepted send into a failure'}
+              </Radio>
               <Radio value="observe">Only record what it finds</Radio>
             </Space>
           </Radio.Group>
@@ -190,12 +253,24 @@ export const StageEditor = ({
           onChange={(config) => update({ runner: { ...draft.runner, config } })}
         />
       ) : (
-        <Alert type="warning" showIcon message={`The ${draft.runner.type} runner is not offered for new steps; its settings are kept as they are.`} />
+        <Notice
+          type="warning"
+          message={`The ${draft.runner.type} runner is not offered for new steps; its settings are kept as they are.`}
+        />
       )}
 
       {runner?.presentation?.outputs?.declaredOnStage && (
-        <Field label="Outputs" error={errorAt('outputs')} hint="What later steps and the Send step may use: return { data: { name: value } }.">
-          <Widget field={{ name: 'outputs', label: 'Output', widget: 'rows', columns: OUTPUT_COLUMNS }} label="Output" value={draft.outputs} onChange={(outputs) => update({ outputs })} />
+        <Field
+          label="Outputs"
+          error={errorAt('outputs')}
+          hint="What later steps and the Send step may use: return { data: { name: value } }."
+        >
+          <Widget
+            field={{ name: 'outputs', label: 'Output', widget: 'rows', columns: OUTPUT_COLUMNS }}
+            label="Output"
+            value={draft.outputs}
+            onChange={(outputs) => update({ outputs })}
+          />
         </Field>
       )}
 
@@ -204,23 +279,41 @@ export const StageEditor = ({
           <Radio.Group
             value={draft.schedule?.everySeconds ? 'repeat' : 'times'}
             onChange={(e) =>
-              update({ schedule: e.target.value === 'repeat' ? { everySeconds: 600, maxAgeSeconds: 86400 } : { checkAfterSeconds: [30, 300, 3600, 86400] } })
+              update({
+                schedule:
+                  e.target.value === 'repeat'
+                    ? { everySeconds: 600, maxAgeSeconds: 86400 }
+                    : { checkAfterSeconds: [30, 300, 3600, 86400] },
+              })
             }
           >
             <Radio value="times">At set times after the send</Radio>
             <Radio value="repeat">Repeat until done</Radio>
           </Radio.Group>
-          <div style={{ marginTop: 8 }}>
+          <div className="console-margin-top-2">
             {draft.schedule?.everySeconds ? (
               <Space wrap>
                 <Text>Every</Text>
-                <InputNumber aria-label="Repeat every (seconds)" min={30} value={draft.schedule.everySeconds} onChange={(v) => update({ schedule: { ...draft.schedule, everySeconds: Number(v) } })} />
+                <InputNumber
+                  aria-label="Repeat every (seconds)"
+                  min={30}
+                  value={draft.schedule.everySeconds}
+                  onChange={(v) => update({ schedule: { ...draft.schedule, everySeconds: Number(v) } })}
+                />
                 <Text>seconds, for at most</Text>
-                <InputNumber aria-label="For at most (seconds)" min={60} value={draft.schedule.maxAgeSeconds} onChange={(v) => update({ schedule: { ...draft.schedule, maxAgeSeconds: Number(v) } })} />
+                <InputNumber
+                  aria-label="For at most (seconds)"
+                  min={60}
+                  value={draft.schedule.maxAgeSeconds}
+                  onChange={(v) => update({ schedule: { ...draft.schedule, maxAgeSeconds: Number(v) } })}
+                />
                 <Text>seconds</Text>
               </Space>
             ) : (
-              <CheckScheduleEditor value={draft.schedule?.checkAfterSeconds} onChange={(checkAfterSeconds) => update({ schedule: { checkAfterSeconds } })} />
+              <CheckScheduleEditor
+                value={draft.schedule?.checkAfterSeconds}
+                onChange={(checkAfterSeconds) => update({ schedule: { checkAfterSeconds } })}
+              />
             )}
           </div>
         </Field>
@@ -234,8 +327,7 @@ export const StageEditor = ({
         >
           <Select
             aria-label="Status words that allow sending again"
-            mode="tags"
-            style={{ width: '100%' }}
+            mode="tags" className="console-width-full"
             tokenSeparators={[',', ' ']}
             value={draft.verification?.resendWhen || []}
             onChange={(words: string[]) => {
@@ -249,10 +341,13 @@ export const StageEditor = ({
 
       {runner?.type === 'http' && (
         <div>
-          <Text strong style={{ display: 'block' }}>
+          <Text strong className="console-display-block">
             Sign-in
           </Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
+          <Text
+            type="secondary"
+            className="ui-extracted-e8bd2112ae"
+          >
             How this step proves who you are to the service it calls.
           </Text>
           {signIn}
@@ -266,18 +361,21 @@ export const StageEditor = ({
             key: 'errors',
             label: 'When it fails',
             children: (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space direction="vertical" size={12} className="console-width-full">
                 <Field label="Then" error={errorAt('onError')}>
                   <Select
-                    aria-label="When it fails"
-                    style={{ width: '100%' }}
+                    aria-label="When it fails" className="console-width-full"
                     value={onError.action}
                     options={errorOptions}
                     onChange={(action) =>
                       update({
                         onError:
                           action === 'retry_stage'
-                            ? { action, maxAttempts: inline ? 2 : 3, ...(inline ? {} : { backoffSeconds: [30, 120, 600] }) }
+                            ? {
+                                action,
+                                maxAttempts: inline ? 2 : 3,
+                                ...(inline ? {} : { backoffSeconds: [30, 120, 600] }),
+                              }
                             : { action },
                       })
                     }
@@ -286,28 +384,54 @@ export const StageEditor = ({
                 {onError.action === 'retry_stage' && (
                   <Space wrap>
                     <Text>Attempts</Text>
-                    <InputNumber aria-label="Attempts" min={2} max={inline ? 3 : 10} value={onError.maxAttempts} onChange={(v) => update({ onError: { ...onError, maxAttempts: Number(v) } })} />
+                    <InputNumber
+                      aria-label="Attempts"
+                      min={2}
+                      max={inline ? 3 : 10}
+                      value={onError.maxAttempts}
+                      onChange={(v) => update({ onError: { ...onError, maxAttempts: Number(v) } })}
+                    />
                   </Space>
                 )}
                 {onError.action === 'retry_stage' && !inline && (
                   <Field label="Wait before each retry">
-                    <CheckScheduleEditor value={onError.backoffSeconds} onChange={(backoffSeconds) => update({ onError: { ...onError, backoffSeconds } })} />
+                    <CheckScheduleEditor
+                      value={onError.backoffSeconds}
+                      onChange={(backoffSeconds) => update({ onError: { ...onError, backoffSeconds } })}
+                    />
                   </Field>
                 )}
                 {onError.action === 'retry_stage' && (
-                  <Checkbox checked={Boolean(onError.allowUncertainSideEffects)} onChange={(e) => update({ onError: { ...onError, allowUncertainSideEffects: e.target.checked } })}>
+                  <Checkbox
+                    checked={Boolean(onError.allowUncertainSideEffects)}
+                    onChange={(e) => update({ onError: { ...onError, allowUncertainSideEffects: e.target.checked } })}
+                  >
                     Retry even when a call that changes something got no answer (it may happen twice)
                   </Checkbox>
                 )}
                 {inline && effect === 'gate' && (
-                  <Checkbox checked={Boolean(draft.allowDeliveryRetry)} onChange={(e) => update({ allowDeliveryRetry: e.target.checked })}>
+                  <Checkbox
+                    checked={Boolean(draft.allowDeliveryRetry)}
+                    onChange={(e) => update({ allowDeliveryRetry: e.target.checked })}
+                  >
                     {draft.hook === 'before_send'
                       ? 'Let it retry the delivery later (nothing has been sent yet)'
                       : 'Let it ask for the message to be sent again (only with fail(..., { retryDelivery: true }))'}
                   </Checkbox>
                 )}
-                <Field label="Time limit (ms)" error={errorAt('timeoutMs')} hint={inline ? 'Steps inside the delivery share one time budget.' : undefined}>
-                  <InputNumber aria-label="Time limit in milliseconds" min={100} step={500} value={draft.timeoutMs} placeholder={inline ? '3000' : '15000'} onChange={(v) => update({ timeoutMs: v === null ? undefined : Number(v) })} />
+                <Field
+                  label="Time limit (ms)"
+                  error={errorAt('timeoutMs')}
+                  hint={inline ? 'Steps inside the delivery share one time budget.' : undefined}
+                >
+                  <InputNumber
+                    aria-label="Time limit in milliseconds"
+                    min={100}
+                    step={500}
+                    value={draft.timeoutMs}
+                    placeholder={inline ? '3000' : '15000'}
+                    onChange={(v) => update({ timeoutMs: v === null ? undefined : Number(v) })}
+                  />
                 </Field>
               </Space>
             ),
@@ -319,10 +443,9 @@ export const StageEditor = ({
             key: 'recording',
             label: 'What is recorded',
             children: (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space direction="vertical" size={12} className="console-width-full">
                 <Select
-                  aria-label="Recording level"
-                  style={{ width: '100%' }}
+                  aria-label="Recording level" className="console-width-full"
                   value={draft.recording?.level || 'full'}
                   options={[
                     { value: 'full', label: 'Every call, with headers and bodies' },
@@ -331,22 +454,39 @@ export const StageEditor = ({
                   ]}
                   onChange={(level) => update({ recording: { ...(draft.recording || {}), level } })}
                 />
-                <Field label="Personal data: key names to hide anywhere" hint="e.g. phone, recipient. Credentials and tokens are always hidden.">
+                <Field
+                  label="Personal data: key names to hide anywhere"
+                  hint="e.g. phone, recipient. Credentials and tokens are always hidden."
+                >
                   <Select
                     aria-label="Sensitive key names"
-                    mode="tags"
-                    style={{ width: '100%' }}
+                    mode="tags" className="console-width-full"
                     value={draft.recording?.sensitiveKeys || []}
-                    onChange={(sensitiveKeys: string[]) => update({ recording: { level: draft.recording?.level || 'full', ...(draft.recording || {}), sensitiveKeys } })}
+                    onChange={(sensitiveKeys: string[]) =>
+                      update({
+                        recording: {
+                          level: draft.recording?.level || 'full',
+                          ...(draft.recording || {}),
+                          sensitiveKeys,
+                        },
+                      })
+                    }
                   />
                 </Field>
                 <Field label="Personal data: exact paths to hide" hint="e.g. data[*].to">
                   <Select
                     aria-label="Sensitive paths"
-                    mode="tags"
-                    style={{ width: '100%' }}
+                    mode="tags" className="console-width-full"
                     value={draft.recording?.sensitivePaths || []}
-                    onChange={(sensitivePaths: string[]) => update({ recording: { level: draft.recording?.level || 'full', ...(draft.recording || {}), sensitivePaths } })}
+                    onChange={(sensitivePaths: string[]) =>
+                      update({
+                        recording: {
+                          level: draft.recording?.level || 'full',
+                          ...(draft.recording || {}),
+                          sensitivePaths,
+                        },
+                      })
+                    }
                   />
                 </Field>
               </Space>
@@ -356,12 +496,27 @@ export const StageEditor = ({
             key: 'inputs',
             label: 'Inputs',
             children: (
-              <Field label="Values the step receives" error={errorAt('inputs')} hint={'Use {{ event.field }}, {{ delivery.response.body.id }} or an earlier step\'s output; add ?? "default" for a fallback.'}>
+              <Field
+                label="Values the step receives"
+                error={errorAt('inputs')}
+                hint={
+                  'Use {{ event.field }}, {{ delivery.response.body.id }} or an earlier step\'s output; add ?? "default" for a fallback.'
+                }
+              >
                 <KeyValueEditor label="Input" value={draft.inputs} onChange={(inputs) => update({ inputs })} />
                 {earlier.some((candidate) => outputsOf(candidate, runnerOf(candidate)).length) && (
-                  <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 6 }}>
+                  <Text
+                    type="secondary"
+                    className="ui-extracted-fe07543ffd"
+                  >
                     Available:{' '}
-                    {earlier.flatMap((candidate) => outputsOf(candidate, runnerOf(candidate)).map((output) => `{{ stages.${candidate.id}.output.${output.name} }}`)).join('  ')}
+                    {earlier
+                      .flatMap((candidate) =>
+                        outputsOf(candidate, runnerOf(candidate)).map(
+                          (output) => `{{ stages.${candidate.id}.output.${output.name} }}`
+                        )
+                      )
+                      .join('  ')}
                   </Text>
                 )}
               </Field>
@@ -369,10 +524,14 @@ export const StageEditor = ({
           },
         ]}
       />
-      {other.filter((error) => !['name', 'effect', 'schedule', 'onError', 'timeoutMs', 'outputs', 'inputs', 'verification'].some((key) => error.path.startsWith(key)) && !error.path.startsWith('auth')).length > 0 && (
-        <Alert
+      {other.filter(
+        (error) =>
+          !['name', 'effect', 'schedule', 'onError', 'timeoutMs', 'outputs', 'inputs', 'verification'].some((key) =>
+            error.path.startsWith(key)
+          ) && !error.path.startsWith('auth')
+      ).length > 0 && (
+        <Notice
           type="error"
-          showIcon
           role="alert"
           message="Fix these before applying"
           description={other.map((error) => issueText(error.path, error.message)).join('; ')}
@@ -407,7 +566,7 @@ export const StageEditorDrawer = ({ open, onClose, ...editorProps }: StageEditor
         title={draft.name || 'New step'}
         destroyOnClose
         footer={
-          <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
+          <Space className="ui-extracted-4b2bef2f43">
             <Button onClick={onClose}>Cancel</Button>
             <Button type="primary" loading={applying} onClick={apply}>
               Apply
@@ -415,15 +574,36 @@ export const StageEditorDrawer = ({ open, onClose, ...editorProps }: StageEditor
           </Space>
         }
       >
-        <Tabs
-          activeKey={tab}
+        <TabList
+          role="tablist"
+          aria-label="Stage editor sections"
+          value={tab}
           onChange={(key) => setTab(key as 'settings' | 'test')}
-          items={[
-            { key: 'settings', label: 'Settings', children: settings },
-            { key: 'test', label: 'Test', children: test },
-          ]}
-        />
-        <Text type="secondary" style={{ fontSize: 12 }}>
+          hasDivider
+          className="stage-editor-tabs"
+        >
+          <Tab id="stage-settings-panel-tab" value="settings" label="Settings" panelId="stage-settings-panel" />
+          <Tab id="stage-test-panel-tab" value="test" label="Test" panelId="stage-test-panel" />
+        </TabList>
+        <div
+          id="stage-settings-panel"
+          role="tabpanel"
+          aria-labelledby="stage-settings-panel-tab"
+          hidden={tab !== 'settings'}
+          tabIndex={0}
+        >
+          {settings}
+        </div>
+        <div
+          id="stage-test-panel"
+          role="tabpanel"
+          aria-labelledby="stage-test-panel-tab"
+          hidden={tab !== 'test'}
+          tabIndex={0}
+        >
+          {test}
+        </div>
+        <Text type="secondary" className="console-type-caption">
           Applying keeps the change in this form; it takes effect when the integration is saved.
         </Text>
       </Drawer>

@@ -58,41 +58,34 @@ export const ExecutionDrawer = ({
       {open && (
         <div className="wf-drawer" role="region" aria-label="Execution trace">
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              height: 40,
-              padding: '0 16px',
-              borderBottom: '1px solid var(--wf-border)',
-            }}
+            className="ui-extracted-a9a78f5196"
           >
-            <strong style={{ fontSize: 13 }}>Trace</strong>
+            <strong className="console-type-body">Trace</strong>
             <span className={`wf-chip wf-chip--${trace.outcome.tone === 'neutral' ? '' : trace.outcome.tone}`}>
               {trace.outcome.label}
             </span>
           </div>
-          <div style={{ overflow: 'auto', flex: 1, padding: '6px 0' }}>
+          <div className="ui-extracted-13ba4b02a0">
             {rows.map((row) => {
               const left = (cursor / total) * 100;
               cursor += row.durationMs;
               return (
                 <div key={row.id} className="wf-trace">
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+                  <span className="ui-extracted-dd98250d76">{row.name}</span>
                   <span className="wf-trace__bar">
                     <i
                       className={row.failed ? 'wf-trace--failed' : ''}
                       style={{ left: `${left}%`, width: `${Math.max((row.durationMs / total) * 100, 1)}%` }}
                     />
                   </span>
-                  <span className="wf-mono" style={{ textAlign: 'right' }}>
+                  <span className="wf-mono ui-extracted-91d5a44878" >
                     {ms(row.durationMs)}
                   </span>
                 </div>
               );
             })}
             {rows.length === 0 && (
-              <div className="wf-help" style={{ padding: '8px 16px' }}>
+              <div className="wf-help ui-extracted-4ee50a45fe" >
                 No steps were recorded for this delivery.
               </div>
             )}
@@ -100,7 +93,7 @@ export const ExecutionDrawer = ({
         </div>
       )}
       <div className="wf-bottombar">
-        <strong style={{ fontSize: 12.5 }}>Execution trace</strong>
+        <strong className="console-type-caption">Execution trace</strong>
         <span>
           <span className={`wf-chip wf-chip--${trace.outcome.tone === 'neutral' ? '' : trace.outcome.tone}`}>
             {trace.outcome.label}
@@ -109,8 +102,8 @@ export const ExecutionDrawer = ({
         </span>
         <button
           type="button"
-          className="wf-btn"
-          style={{ height: 28, marginLeft: 'auto' }}
+          className="wf-btn ui-extracted-f682e993ab"
+
           aria-expanded={open}
           onClick={() => setOpen(!open)}
         >

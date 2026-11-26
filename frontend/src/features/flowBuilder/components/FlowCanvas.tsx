@@ -24,7 +24,7 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { message } from 'antd';
+import { message } from "@/components/common/LegacyAntdControls";
 import { cssVar } from '../../../design-system/utils';
 
 import { nodeTypes } from './nodes';
@@ -55,13 +55,17 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   // Internal state management with external sync
   const [internalNodes, setInternalNodes] = React.useState<FlowNode[]>(externalNodes);
   const [internalEdges, setInternalEdges] = React.useState<FlowEdge[]>(externalEdges);
+  const internalNodesRef = React.useRef(externalNodes);
+  const internalEdgesRef = React.useRef(externalEdges);
 
   // Sync external changes to internal state
   React.useEffect(() => {
+    internalNodesRef.current = externalNodes;
     setInternalNodes(externalNodes);
   }, [externalNodes]);
 
   React.useEffect(() => {
+    internalEdgesRef.current = externalEdges;
     setInternalEdges(externalEdges);
   }, [externalEdges]);
 
@@ -70,16 +74,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     (changes: NodeChange[]) => {
       if (readOnly) return;
 
-      setInternalNodes((nodes) => {
-        const newNodes = applyNodeChanges(changes, nodes) as FlowNode[];
-
-        // Notify parent
-        if (externalOnNodesChange) {
-          externalOnNodesChange(newNodes);
-        }
-
-        return newNodes;
-      });
+      const newNodes = applyNodeChanges(changes, internalNodesRef.current) as FlowNode[];
+      internalNodesRef.current = newNodes;
+      setInternalNodes(newNodes);
+      externalOnNodesChange?.(newNodes);
     },
     [readOnly, externalOnNodesChange]
   );
@@ -89,16 +87,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     (changes: EdgeChange[]) => {
       if (readOnly) return;
 
-      setInternalEdges((edges) => {
-        const newEdges = applyEdgeChanges(changes, edges) as FlowEdge[];
-
-        // Notify parent
-        if (externalOnEdgesChange) {
-          externalOnEdgesChange(newEdges);
-        }
-
-        return newEdges;
-      });
+      const newEdges = applyEdgeChanges(changes, internalEdgesRef.current) as FlowEdge[];
+      internalEdgesRef.current = newEdges;
+      setInternalEdges(newEdges);
+      externalOnEdgesChange?.(newEdges);
     },
     [readOnly, externalOnEdgesChange]
   );
@@ -114,16 +106,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       if (!sourceNode || !targetNode) return false;
 
       // Check if connection is allowed based on schema rules
-      const allowed = isConnectionAllowed(
-        sourceNode.type as FlowNodeType,
-        targetNode.type as FlowNodeType,
-        mode
-      );
+      const allowed = isConnectionAllowed(sourceNode.type as FlowNodeType, targetNode.type as FlowNodeType, mode);
 
       if (!allowed) {
-        message.warning(
-          `Cannot connect ${sourceNode.type} to ${targetNode.type} in ${mode} mode`
-        );
+        message.warning(`Cannot connect ${sourceNode.type} to ${targetNode.type} in ${mode} mode`);
       }
 
       return allowed;
@@ -138,31 +124,24 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
       if (!isValidConnection(connection)) return;
 
-      setInternalEdges((edges) => {
-        const newEdge: FlowEdge = {
-          id: `e-${connection.source}-${connection.target}`,
-          source: connection.source!,
-          target: connection.target!,
-          sourceHandle: connection.sourceHandle || undefined,
-          targetHandle: connection.targetHandle || undefined,
-          type: 'default',
-          animated: false,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 20,
-            height: 20,
-          },
-        };
-
-        const newEdges = addEdge(newEdge, edges) as FlowEdge[];
-
-        // Notify parent
-        if (externalOnEdgesChange) {
-          externalOnEdgesChange(newEdges);
-        }
-
-        return newEdges;
-      });
+      const newEdge: FlowEdge = {
+        id: `e-${connection.source}-${connection.target}`,
+        source: connection.source!,
+        target: connection.target!,
+        sourceHandle: connection.sourceHandle || undefined,
+        targetHandle: connection.targetHandle || undefined,
+        type: 'default',
+        animated: false,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+        },
+      };
+      const newEdges = addEdge(newEdge, internalEdgesRef.current) as FlowEdge[];
+      internalEdgesRef.current = newEdges;
+      setInternalEdges(newEdges);
+      externalOnEdgesChange?.(newEdges);
     },
     [readOnly, isValidConnection, externalOnEdgesChange]
   );
@@ -173,6 +152,13 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       if (onNodeSelect) {
         onNodeSelect(node.id);
       }
+    },
+    [onNodeSelect]
+  );
+
+  const handleSelectionChange = useCallback(
+    ({ nodes }: { nodes: FlowNode[] }) => {
+      onNodeSelect?.(nodes[0]?.id ?? null);
     },
     [onNodeSelect]
   );
@@ -207,14 +193,14 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         type: MarkerType.ArrowClosed,
         width: 20,
         height: 20,
-        color: cssVar.border.default
+        color: cssVar.border.default,
       },
     }),
     []
   );
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div className="ui-extracted-918c638048">
       <ReactFlow
         nodes={internalNodes}
         edges={internalEdges}
@@ -222,6 +208,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}
         onNodeClick={handleNodeClick}
+        onSelectionChange={handleSelectionChange}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
@@ -231,7 +218,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         fitView
         fitViewOptions={{
           padding: 0.2,
-          minZoom: 0.5,
+          minZoom: window.innerWidth <= 767 ? 0.75 : 0.8,
           maxZoom: 1.5,
         }}
         minZoom={0.1}
@@ -244,45 +231,25 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         deleteKeyCode={readOnly ? null : ['Delete', 'Backspace']}
       >
         {/* Grid background */}
-        <Background
-          color="#e0e0e0"
-          gap={15}
-          size={1}
-          variant={BackgroundVariant.Dots}
-        />
+        <Background color={cssVar.border.subtle} gap={15} size={1} variant={BackgroundVariant.Dots} />
 
         {/* Zoom/pan controls */}
-        <Controls
-          showZoom={true}
-          showFitView={true}
-          showInteractive={!readOnly}
-        />
+        <Controls showZoom={true} showFitView={true} showInteractive={!readOnly} />
 
         {/* Minimap */}
-        <MiniMap
-          nodeColor={(node) => {
-            // Color nodes based on type
-            const nodeTypeColors: Record<string, string> = {
-              trigger: '#1890ff',
-              inboundAuth: '#fa8c16',
-              outboundAuth: '#fa8c16',
-              http: '#722ed1',
-              transform: '#52c41a',
-              filter: '#f5222d',
-              scheduleScript: '#2f54eb',
-              delay: '#faad14',
-              multiAction: '#13c2c2',
-              response: '#2f54eb',
-              integration: '#722ed1',
-            };
-            return nodeTypeColors[node.type || 'trigger'] || cssVar.border.default;
-          }}
-          maskColor="rgba(0, 0, 0, 0.1)"
-          style={{
-            background: cssVar.bg.base,
-            border: `1px solid ${cssVar.border.default}`,
-          }}
-        />
+        {internalNodes.length > 0 && (
+          <MiniMap
+            position="top-right"
+            nodeColor={() => cssVar.accent.text}
+            maskColor="rgba(0, 0, 0, 0.1)"
+            style={{
+              width: 112,
+              height: 68,
+              background: cssVar.bg.base,
+              border: `1px solid ${cssVar.border.default}`,
+            }}
+          />
+        )}
       </ReactFlow>
     </div>
   );

@@ -20,6 +20,7 @@ import {
   IntegrationNodeData,
   ScheduleScriptNodeData,
 } from './flowTypes';
+import { layoutFlowGraph } from './flowLayout';
 
 // ============================================================================
 // Node Type Allowlist by Integration Mode
@@ -567,14 +568,18 @@ export function createDefaultFlow(
 ): { nodes: FlowNode[]; edges: FlowEdge[] } {
   switch (mode) {
     case 'INBOUND':
-      return createDefaultInboundFlow(orgId);
+      return withFlowLayout(createDefaultInboundFlow(orgId));
     case 'OUTBOUND_EVENT':
-      return createDefaultOutboundEventFlow(orgId);
+      return withFlowLayout(createDefaultOutboundEventFlow(orgId));
     case 'OUTBOUND_SCHEDULED':
-      return createDefaultOutboundScheduledFlow(orgId);
+      return withFlowLayout(createDefaultOutboundScheduledFlow(orgId));
     default:
       throw new Error(`Unknown integration mode: ${mode}`);
   }
+}
+
+function withFlowLayout(flow: { nodes: FlowNode[]; edges: FlowEdge[] }) {
+  return { ...flow, nodes: layoutFlowGraph(flow.nodes, flow.edges) };
 }
 
 /**

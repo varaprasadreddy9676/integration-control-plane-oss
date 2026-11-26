@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button, Typography } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+
+import { Icon as GatewayIcon } from './Icon';
 import { useDesignTokens, cssVar } from '../../design-system/utils';
 import { StatePanel } from './StatePanel';
+import { Button } from './LegacyButton';
+import { Typography } from './LegacyTypography';
 
 interface Props {
   variant: 'loading' | 'error';
@@ -60,7 +62,7 @@ export const TenantLoadingState = ({ variant, title, description, onRetry }: Pro
           maxWidth: 460,
           background: cssVar.bg.surface,
           border: `1px solid ${cssVar.border.subtle}`,
-          borderRadius: 12,
+          borderRadius: 8,
           boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06)',
         }}
       >
@@ -89,7 +91,7 @@ export const TenantLoadingState = ({ variant, title, description, onRetry }: Pro
           actions={
             isError ? (
               <>
-                <Button type="primary" icon={<ReloadOutlined />} onClick={retry}>
+                <Button type="primary" icon={<GatewayIcon name="ReloadOutlined" />} onClick={retry}>
                   Try again
                 </Button>
                 <Button href="/integration-gateway/docs">View docs</Button>
@@ -98,7 +100,7 @@ export const TenantLoadingState = ({ variant, title, description, onRetry }: Pro
           }
           footnote={
             phase === 'stuck' && variant === 'loading' ? (
-              <Typography.Text style={{ fontSize: 12, color: cssVar.text.muted }}>
+              <Typography.Text style={{ fontSize: 'var(--console-type-caption)', color: cssVar.text.muted }}>
                 If this keeps happening, check the gateway service status with your administrator.
               </Typography.Text>
             ) : undefined

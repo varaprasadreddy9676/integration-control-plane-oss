@@ -1,7 +1,8 @@
-import { Space, Typography } from 'antd';
+import { Space } from '@/components/common/LegacyAntdControls';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
 import type { ReactNode } from 'react';
-import { spacingToNumber, withAlpha, cssVar } from '../../../../../design-system/utils';
-import { shadows } from '../../../../../design-system/tokens/shadows';
+import { spacingToNumber, cssVar } from '../../../../../design-system/utils';
 
 interface SectionCardProps {
   title: string;
@@ -22,20 +23,20 @@ export const SectionCard = ({
   headerExtras,
   spacing,
   token,
-  muted
+  muted,
 }: SectionCardProps) => {
   const colors = cssVar.legacy;
   return (
     <div
+      className={`integration-section-card${muted ? ' integration-section-card--muted' : ''}`}
       style={{
         background: cssVar.bg.surface,
         border: `1px solid ${cssVar.border.default}`,
         borderRadius: token.borderRadiusLG,
-        padding: 0,
-        boxShadow: shadows.sm,
-        opacity: muted ? 0.5 : 1,
+        padding: 'var(--spacing-0)',
+        opacity: muted ? 0.55 : 1,
         pointerEvents: muted ? 'none' : 'auto',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
       <div
@@ -46,42 +47,47 @@ export const SectionCard = ({
           gap: spacingToNumber(spacing[2]),
           padding: `${spacing[3]} ${spacing[4]}`,
           borderBottom: `1px solid ${cssVar.border.default}`,
-          background: cssVar.bg.subtle
+          background: 'transparent',
         }}
       >
         <Space align="start" size={spacingToNumber(spacing['2.5'])}>
           {icon && (
             <div
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: token.borderRadius,
-                background: withAlpha(colors.primary[600], 0.08),
+                width: 20,
+                height: 20,
                 color: colors.primary[600],
                 display: 'grid',
                 placeItems: 'center',
-                fontSize: 16
+                fontSize: 'var(--console-type-section)',
               }}
             >
               {icon}
             </div>
           )}
           <div>
-            <Typography.Title level={5} style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
+            <Heading level={5} className="console-section-heading-inline">
               {title}
-            </Typography.Title>
+            </Heading>
             {description && (
-              <Typography.Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13, color: cssVar.text.secondary }}>
+              <Text
+                type="supporting"
+                as="div"
+                style={{
+                  display: 'block',
+                  marginTop: 'var(--spacing-1)',
+                  fontSize: 'var(--console-type-body)',
+                  color: cssVar.text.secondary,
+                }}
+              >
                 {description}
-              </Typography.Text>
+              </Text>
             )}
           </div>
         </Space>
         {headerExtras && <div style={{ display: 'flex', gap: spacingToNumber(spacing[2]) }}>{headerExtras}</div>}
       </div>
-      <div style={{ padding: `${spacing[4]} ${spacing[4]}` }}>
-        {children}
-      </div>
+      <div style={{ padding: `${spacing[4]} ${spacing[4]}` }}>{children}</div>
     </div>
   );
 };

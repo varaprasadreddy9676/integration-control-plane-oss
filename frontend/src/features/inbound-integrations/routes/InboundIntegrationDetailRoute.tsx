@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
 import { IntegrationHistoryButton } from '../../integration-history';
 import { useLocation, useParams } from 'react-router-dom';
@@ -7,47 +8,23 @@ import { useTenant } from '../../../app/tenant-context';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import {
   Form,
-  Card,
   Space,
-  Button,
   Input,
-  Typography,
   Divider,
-  Alert,
   Switch,
   Modal,
   App,
   Collapse,
-  Tabs,
   Badge,
   Tooltip,
-  Tag,
   Select,
   Radio,
-} from 'antd';
-import {
-  SaveOutlined,
-  ArrowLeftOutlined,
-  ApiOutlined,
-  LockOutlined,
-  CodeOutlined,
-  SendOutlined,
-  CopyOutlined,
-  ThunderboltOutlined,
-  CheckCircleOutlined,
-  EyeOutlined,
-  InfoCircleOutlined,
-  CaretRightOutlined,
-  SafetyOutlined,
-  MailOutlined,
-  MessageOutlined,
-  WhatsAppOutlined,
-  BellOutlined,
-  NodeIndexOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Editor from '@monaco-editor/react';
-import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { cssVar, editorFontSize, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { useThemeMode } from '../../../app/theme-provider';
 import { MetaWhatsAppConfigFields } from '../components/MetaWhatsAppConfigFields';
 import { FcmConfigFields } from '../components/FcmConfigFields';
 import { SmsConfigFields } from '../components/SmsConfigFields';
@@ -65,14 +42,104 @@ import {
   getApiBaseUrl,
 } from '../../../services/api';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { ConfigSection } from '../../../components/common/ConfigSection';
 import { ConfigGrid } from '../../../components/common/ConfigGrid';
 import { ConfigFieldHelp } from '../../../components/common/ConfigFieldHelp';
+import { InlineHint } from '../../../components/common/InlineHint';
 import { AuthenticationFields, HttpConfigFields } from '../../../shared/integration-forms';
 import { RequestPolicySection } from '../../integrations/components/detail/RequestPolicySection';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { Button } from '../../../components/common/LegacyButton';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
+import { Banner } from '@astryxdesign/core/Banner';
 
 const { Text, Paragraph } = Typography;
+
+type InboundTabItem = {
+  key: string;
+  label: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  forceRender?: boolean;
+  title?: string;
+  children?: ReactNode;
+};
+
+function InboundIntegrationTabs({
+  items,
+  activeKey,
+  onChange,
+}: {
+  items: InboundTabItem[];
+  activeKey: string;
+  onChange: (key: string) => void;
+}) {
+  const [visitedKeys, setVisitedKeys] = useState(() => new Set([activeKey]));
+  const selectedKey =
+    items.find((item) => item.key === activeKey && !item.disabled)?.key ??
+    items.find((item) => !item.disabled)?.key ??
+    '';
+
+  useEffect(() => {
+    if (selectedKey && selectedKey !== activeKey) onChange(selectedKey);
+    if (selectedKey) setVisitedKeys((current) => new Set(current).add(selectedKey));
+  }, [activeKey, onChange, selectedKey]);
+
+  const selectTab = (key: string) => {
+    setVisitedKeys((current) => new Set(current).add(key));
+    onChange(key);
+  };
+
+  return (
+    <>
+      <div className="inbound-integration-tabs">
+        <TabList
+          aria-label="Inbound integration configuration"
+          className="inbound-integration-tab-list"
+          hasDivider
+          onChange={selectTab}
+          overflow="visible"
+          role="tablist"
+          size="md"
+          value={selectedKey}
+        >
+          {items.map((item) => (
+            <Tab
+              aria-disabled={item.disabled}
+              icon={item.icon}
+              id={`inbound-tab-${item.key}`}
+              key={item.key}
+              label={item.label}
+              aria-label={item.label}
+              panelId={`inbound-panel-${item.key}`}
+              value={item.key}
+            />
+          ))}
+        </TabList>
+      </div>
+      <div className="inbound-integration-tab-panels">
+        {items.map((item) => {
+          const isActive = item.key === selectedKey;
+          const shouldRender = isActive || item.forceRender || visitedKeys.has(item.key);
+          return (
+            <section
+              aria-labelledby={`inbound-tab-${item.key}`}
+              className="inbound-integration-tab-panel"
+              hidden={!isActive}
+              id={`inbound-panel-${item.key}`}
+              key={item.key}
+              role="tabpanel"
+              tabIndex={isActive ? 0 : -1}
+            >
+              {shouldRender ? item.children : null}
+            </section>
+          );
+        })}
+      </div>
+    </>
+  );
+}
 
 export const InboundIntegrationDetailRoute = () => {
   // The name the list passed along, shown until the record loads (title morph target).
@@ -80,7 +147,8 @@ export const InboundIntegrationDetailRoute = () => {
   const { id } = useParams();
   const navigate = useNavigateWithParams();
   const queryClient = useQueryClient();
-  const { spacing } = useDesignTokens();
+  const { spacing, token } = useDesignTokens();
+  const { mode } = useThemeMode();
   const colors = cssVar.legacy;
   const { message: messageApi, modal } = App.useApp();
   const { orgId } = useTenant();
@@ -371,17 +439,6 @@ return {
 
   // Watch form values
   const authType = Form.useWatch('inboundAuthType', form);
-
-  // HTTP method → color mapping
-  const getMethodColor = (method: string) => {
-    const m = (method || '').toUpperCase();
-    if (m === 'GET') return 'green';
-    if (m === 'POST') return 'blue';
-    if (m === 'PUT') return 'orange';
-    if (m === 'PATCH') return 'gold';
-    if (m === 'DELETE') return 'red';
-    return 'default';
-  };
 
   // Security posture based on auth type
   const getSecurityPosture = (auth: string) => {
@@ -1006,9 +1063,13 @@ return {
 
   // The Delivery tab's diagram edits the fixed steps (the event, the transformation, the send) in place, with the
   // sections the other tabs show: nothing sends you to another tab and back. Same as an outbound integration's.
-  type TabItems = NonNullable<React.ComponentProps<typeof Tabs>['items']>;
+  type TabItems = InboundTabItem[];
   const withStepEditors = (tabs: TabItems): TabItems => {
-    const section = (key: string, title: string) => ({ key, title, node: tabs.find((tab) => tab.key === key)?.children });
+    const section = (key: string, title: string) => ({
+      key,
+      title,
+      node: tabs.find((tab) => tab.key === key)?.children,
+    });
     const stepEditors: StepEditors = {
       trigger: [section('basic', 'Event'), section('policy', 'Request policy'), section('auth', 'Authentication')],
       transform: [section('request-transform', 'Request transformation')],
@@ -1019,7 +1080,7 @@ return {
         ? {
             ...tab,
             children: (
-              <Card style={{ marginTop: spacing[2] }} size="small">
+              <div className="integration-tab-content">
                 <DeliveryTab
                   form={form}
                   integrationId={isCreate ? undefined : id}
@@ -1029,16 +1090,21 @@ return {
                       key: 'action-0',
                       label: null,
                       namePath: [],
-                      protocol: protocolOf({ kind: 'COMMUNICATION', communicationConfig: { channel: communicationChannel } }),
+                      protocol: protocolOf({
+                        kind: 'COMMUNICATION',
+                        communicationConfig: { channel: communicationChannel },
+                      }),
                       actionIndex: 0,
                     },
                   ]}
                   context={() => ({
                     direction: 'INBOUND',
-                    actions: [{ kind: 'COMMUNICATION', communicationConfig: form.getFieldValue('communicationConfig') }],
+                    actions: [
+                      { kind: 'COMMUNICATION', communicationConfig: form.getFieldValue('communicationConfig') },
+                    ],
                   })}
                 />
-              </Card>
+              </div>
             ),
           }
         : tab
@@ -1046,38 +1112,44 @@ return {
   };
 
   return (
-    <div style={{ background: cssVar.bg.base, paddingBottom: spacing[4] }}>
-      {/* Page Header */}
-      <PageHeader
-        title={isCreate ? 'Create Inbound Integration' : integration?.name || passedTitle || 'Edit Inbound Integration'}
-        morphTitle={!isCreate}
-        breadcrumb={[
-          { label: 'Configuration', path: '/integrations' },
-          { label: 'Inbound Integrations', path: '/inbound-integrations' },
-          { label: isCreate ? 'New' : integration?.name || 'Edit' },
-        ]}
-        dense
-        actions={
-          <>
-            <IntegrationHistoryButton
-              integrationId={isCreate ? undefined : id}
-              onRestored={() => queryClient.invalidateQueries({ queryKey: ['inbound-integration', id] })}
-            />
-            <RevealCredentialsButton
-              integrationId={isCreate ? undefined : id}
-              form={form}
-              fetchCredentials={getInboundIntegrationCredentials}
-              toFormValues={(document) => ({
-                inboundAuthConfig: document.inboundAuthConfig,
-                outgoingAuthConfig: document.outgoingAuthConfig,
-                customHeaders: document.customHeaders,
-                communicationConfig: document.actions?.[0]?.communicationConfig,
-              })}
-            />
-          </>
-        }
-      />
-
+    <PageTemplate
+      as="main"
+      className="inbound-integration-detail-template"
+      contentClassName="inbound-integration-detail-template__content"
+      header={
+        <PageHeader
+          title={
+            isCreate ? 'Create Inbound Integration' : integration?.name || passedTitle || 'Edit Inbound Integration'
+          }
+          morphTitle={!isCreate}
+          breadcrumb={[
+            { label: 'Configuration', path: '/integrations' },
+            { label: 'Inbound Integrations', path: '/inbound-integrations' },
+            { label: isCreate ? 'New' : integration?.name || 'Edit' },
+          ]}
+          dense
+          actions={
+            <>
+              <IntegrationHistoryButton
+                integrationId={isCreate ? undefined : id}
+                onRestored={() => queryClient.invalidateQueries({ queryKey: ['inbound-integration', id] })}
+              />
+              <RevealCredentialsButton
+                integrationId={isCreate ? undefined : id}
+                form={form}
+                fetchCredentials={getInboundIntegrationCredentials}
+                toFormValues={(document) => ({
+                  inboundAuthConfig: document.inboundAuthConfig,
+                  outgoingAuthConfig: document.outgoingAuthConfig,
+                  customHeaders: document.customHeaders,
+                  communicationConfig: document.actions?.[0]?.communicationConfig,
+                })}
+              />
+            </>
+          }
+        />
+      }
+    >
       {/* Form */}
       <Form
         form={form}
@@ -1125,31 +1197,18 @@ return {
           },
         }}
       >
-        <Tabs
-          className="inbound-integration-tabs"
+        <InboundIntegrationTabs
           activeKey={activeTab}
           onChange={setActiveTab}
-          size="middle"
-          tabBarStyle={{ marginBottom: spacing[2] }}
-          style={{
-            background: cssVar.bg.surface,
-            border: `1px solid ${cssVar.border.default}`,
-            borderRadius: 8,
-          }}
           items={withStepEditors([
             {
               key: 'basic',
-              label: (
-                <Space size={6}>
-                  <ApiOutlined />
-                  Basic Info
-                  {basicComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-                </Space>
-              ),
+              label: 'Basic Info',
+              icon: <GatewayIcon name="ApiOutlined" />,
               disabled: false, // First tab always enabled
               children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 720 }}>
+                <div className="integration-tab-content">
+                  <Space direction="vertical" size="middle" className="ui-extracted-32ee142ac2">
                     <ConfigGrid columns={2}>
                       <Form.Item
                         name="name"
@@ -1173,7 +1232,7 @@ return {
                                 </div>
                               }
                             >
-                              <InfoCircleOutlined />
+                              <GatewayIcon name="InfoCircleOutlined" />
                             </Tooltip>
                           </Space>
                         }
@@ -1211,13 +1270,13 @@ return {
                       <Radio.Group>
                         <Radio.Button value="HTTP">
                           <Space>
-                            <ApiOutlined />
+                            <GatewayIcon name="ApiOutlined" />
                             HTTP Proxy
                           </Space>
                         </Radio.Button>
                         <Radio.Button value="COMMUNICATION">
                           <Space>
-                            <MailOutlined />
+                            <GatewayIcon name="MailOutlined" />
                             Communication
                           </Space>
                         </Radio.Button>
@@ -1240,25 +1299,25 @@ return {
                           >
                             <Select.Option value="EMAIL">
                               <Space>
-                                <MailOutlined />
+                                <GatewayIcon name="MailOutlined" />
                                 Email
                               </Space>
                             </Select.Option>
                             <Select.Option value="WHATSAPP">
                               <Space>
-                                <WhatsAppOutlined />
+                                <GatewayIcon name="WhatsAppOutlined" />
                                 WhatsApp
                               </Space>
                             </Select.Option>
                             <Select.Option value="PUSH">
                               <Space>
-                                <BellOutlined />
+                                <GatewayIcon name="BellOutlined" />
                                 Push Notification
                               </Space>
                             </Select.Option>
                             <Select.Option value="SMS">
                               <Space>
-                                <MessageOutlined />
+                                <GatewayIcon name="MessageOutlined" />
                                 SMS
                               </Space>
                             </Select.Option>
@@ -1282,7 +1341,7 @@ return {
                               <Select placeholder="Select provider">
                                 <Select.Option value="META">
                                   <Space>
-                                    <WhatsAppOutlined />
+                                    <GatewayIcon name="WhatsAppOutlined" />
                                     Meta WhatsApp Business (Cloud API)
                                   </Space>
                                 </Select.Option>
@@ -1291,7 +1350,7 @@ return {
                               <Select placeholder="Select provider">
                                 <Select.Option value="FCM">
                                   <Space>
-                                    <BellOutlined />
+                                    <GatewayIcon name="BellOutlined" />
                                     Firebase Cloud Messaging (FCM v1)
                                   </Space>
                                 </Select.Option>
@@ -1313,30 +1372,26 @@ return {
                       </ConfigGrid>
                     )}
 
-                    <Divider style={{ margin: `${spacing[2]} 0` }} />
+                    <Divider className="console-margin-y-2" />
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button
-                        type="primary"
-                        onClick={() => setActiveTab('http')}
-                        disabled={!basicComplete}
-                      >
+                    <div className="ui-extracted-8d0d7af51a">
+                      <Button type="primary" onClick={() => setActiveTab('http')} disabled={!basicComplete}>
                         {actionType === 'COMMUNICATION' ? 'Continue to Provider' : 'Continue to Target API'}
                       </Button>
                     </div>
                   </Space>
-                </Card>
+                </div>
               ),
             },
             {
               key: 'http',
-              label: (
-                <Space size={6}>
-                  {actionType === 'COMMUNICATION' ? <MailOutlined /> : <SendOutlined />}
-                  {actionType === 'COMMUNICATION' ? 'Provider Config' : 'Target API'}
-                  {httpComplete && <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />}
-                </Space>
-              ),
+              label: actionType === 'COMMUNICATION' ? 'Provider Config' : 'Target API',
+              icon:
+                actionType === 'COMMUNICATION' ? (
+                  <GatewayIcon name="MailOutlined" />
+                ) : (
+                  <GatewayIcon name="SendOutlined" />
+                ),
               disabled: !basicComplete, // Requires Basic Info to be complete
               // Force this pane's Form.Items to mount immediately so Form.useWatch('targetUrl'/'httpMethod')
               // reflects loaded data right away — otherwise editing an existing integration keeps every
@@ -1344,37 +1399,17 @@ return {
               // user manually visits this tab once, even though the record is already fully configured.
               forceRender: true,
               children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
+                <div className="integration-tab-content">
                   {actionType === 'COMMUNICATION' ? (
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Space direction="vertical" size="middle" className="console-width-full">
                       {communicationChannel === 'WHATSAPP' ? (
-                        <Alert
-                          type="info"
-                          showIcon
-                          message="WhatsApp Business Configuration"
-                          description="Configure your Meta WhatsApp Business credentials. Get these from Meta Business Manager → WhatsApp → API Setup."
-                        />
+                        <InlineHint>Configure Meta WhatsApp Business API credentials in the fields below.</InlineHint>
                       ) : communicationChannel === 'PUSH' ? (
-                        <Alert
-                          type="info"
-                          showIcon
-                          message="Firebase Cloud Messaging Configuration"
-                          description="Configure your Firebase service account credentials. The gateway uses FCM HTTP v1 API with OAuth2 — no legacy server keys."
-                        />
+                        <InlineHint>Use a Firebase service account with the FCM HTTP v1 API.</InlineHint>
                       ) : communicationChannel === 'SMS' ? (
-                        <Alert
-                          type="info"
-                          showIcon
-                          message="SMS Gateway Configuration"
-                          description="Select your SMS provider and configure credentials. Multiple providers are supported — switch vendors by changing the provider without touching your application code."
-                        />
+                        <InlineHint>Select an SMS provider, then enter its credentials.</InlineHint>
                       ) : (
-                        <Alert
-                          type="info"
-                          showIcon
-                          message="Email Provider Configuration"
-                          description="Configure your SMTP credentials to send emails through the Integration Gateway."
-                        />
+                        <InlineHint>Enter the SMTP connection and credential details below.</InlineHint>
                       )}
 
                       {communicationChannel === 'WHATSAPP' && communicationProvider === 'META' && (
@@ -1407,12 +1442,10 @@ return {
 
                       {senderRoutingEnabled && (
                         <>
-                          <Alert
-                            type="info"
-                            showIcon
-                            message="Sender-profile routing"
-                            description="Use one generic inbound email endpoint. The request body can send a from address, and the gateway will resolve the matching configured sender profile."
-                          />
+                          <InlineHint>
+                            Resolve the sender profile from the request's <Text code>from</Text> field; the default
+                            profile is used when it is missing.
+                          </InlineHint>
 
                           <Form.Item
                             name={['communicationConfig', 'senderRouting', 'defaultProfileId']}
@@ -1456,29 +1489,26 @@ return {
                             <Switch checkedChildren="Use default" unCheckedChildren="Reject" />
                           </Form.Item>
 
-                          <Alert
-                            type={senderProfiles.length > 0 ? 'success' : 'warning'}
-                            showIcon
-                            message={
-                              senderProfiles.length > 0
-                                ? `${senderProfiles.length} sender profile${senderProfiles.length === 1 ? '' : 's'} available`
-                                : 'No sender profiles configured'
-                            }
-                            description={
-                              senderProfiles.length > 0
-                                ? 'Manage mailbox-specific credentials centrally and keep the inbound integration generic.'
-                                : 'Create sender profiles first, then return here to enable generic email routing.'
-                            }
-                            action={
-                              <Button size="small" onClick={() => navigate('/settings/sender-profiles')}>
-                                Open Sender Profiles
-                              </Button>
-                            }
-                          />
+                          {senderProfiles.length > 0 ? (
+                            <InlineHint tone="success">
+                              {senderProfiles.length} sender profile{senderProfiles.length === 1 ? '' : 's'} available.
+                            </InlineHint>
+                          ) : (
+                            <Banner
+                              status="warning"
+                              title="No sender profiles configured"
+                              description="Create a sender profile to enable generic email routing."
+                              endContent={
+                                <Button size="small" onClick={() => navigate('/settings/sender-profiles')}>
+                                  Open Sender Profiles
+                                </Button>
+                              }
+                            />
+                          )}
 
-                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+                          <Divider className="console-margin-y-4" />
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div className="console-flex-between">
                             <Button size="middle" onClick={() => setActiveTab('basic')}>
                               Back to Basic Info
                             </Button>
@@ -1558,34 +1588,27 @@ return {
                             <Input placeholder="noreply@yourcompany.com" />
                           </Form.Item>
 
-                          <Alert
-                            type="warning"
-                            showIcon
-                            message="Gmail Setup Required"
+                          <Banner
+                            status="warning"
+                            title="Gmail requires an App Password"
                             description={
-                              <div>
-                                <p style={{ marginBottom: 8 }}>To use Gmail as your SMTP provider:</p>
-                                <ol style={{ paddingLeft: 20, marginBottom: 0 }}>
-                                  <li>Enable 2-factor authentication in your Google account</li>
-                                  <li>
-                                    Generate an App Password at{' '}
-                                    <a
-                                      href="https://myaccount.google.com/apppasswords"
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      myaccount.google.com/apppasswords
-                                    </a>
-                                  </li>
-                                  <li>Use the 16-character app password above (not your regular password)</li>
-                                </ol>
-                              </div>
+                              <>
+                                Enable 2-step verification, then create an{' '}
+                                <a
+                                  href="https://myaccount.google.com/apppasswords"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  App Password
+                                </a>{' '}
+                                and enter it above.
+                              </>
                             }
                           />
 
-                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+                          <Divider className="console-margin-y-4" />
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div className="console-flex-between">
                             <Button size="middle" onClick={() => setActiveTab('basic')}>
                               Back to Basic Info
                             </Button>
@@ -1611,12 +1634,12 @@ return {
                         colors={colors}
                       />
 
-                      <Divider style={{ margin: `${spacing[4]} 0` }} />
+                      <Divider className="console-margin-y-4" />
 
                       <ConfigSection
                         title="Target API Authentication"
                         description="Configure how the gateway authenticates when calling the target API"
-                        icon={<LockOutlined />}
+                        icon={<GatewayIcon name="LockOutlined" />}
                       >
                         <AuthenticationFields
                           form={form}
@@ -1629,9 +1652,9 @@ return {
                         />
                       </ConfigSection>
 
-                      <Divider style={{ margin: `${spacing[4]} 0` }} />
+                      <Divider className="console-margin-y-4" />
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div className="console-flex-between">
                         <Button size="middle" onClick={() => setActiveTab('basic')}>
                           Back to Basic Info
                         </Button>
@@ -1646,29 +1669,22 @@ return {
                       </div>
                     </>
                   )}
-                </Card>
+                </div>
               ),
             },
             {
               key: 'policy',
-              label: (
-                <Space size={6}>
-                  <SafetyOutlined />
-                  Request Policy
-                  {isTabComplete('policy') && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
+              label: 'Request Policy',
+              icon: <GatewayIcon name="SafetyOutlined" />,
               disabled: !basicComplete || !httpComplete,
               children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <div className="integration-tab-content">
+                  <Space direction="vertical" size="middle" className="console-width-full">
                     <RequestPolicySection form={form} spacing={spacing} />
 
-                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+                    <Divider className="console-margin-y-4" />
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div className="console-flex-between">
                       <Button size="middle" onClick={() => setActiveTab('http')}>
                         Back to {actionType === 'COMMUNICATION' ? 'Provider Config' : 'Target API'}
                       </Button>
@@ -1677,23 +1693,16 @@ return {
                       </Button>
                     </div>
                   </Space>
-                </Card>
+                </div>
               ),
             },
             {
               key: 'auth',
-              label: (
-                <Space size={6}>
-                  <LockOutlined />
-                  Authentication
-                  {isTabComplete('auth') && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
+              label: 'Authentication',
+              icon: <GatewayIcon name="LockOutlined" />,
               disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
               children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
+                <div className="integration-tab-content">
                   <Space
                     direction="vertical"
                     size="middle"
@@ -1716,22 +1725,15 @@ return {
                     {(() => {
                       const posture = getSecurityPosture(authType);
                       return (
-                        <Alert
-                          type={authType === 'NONE' ? 'warning' : 'success'}
-                          showIcon
-                          message={
-                            <>
-                              Security posture: <Text strong>{posture.label}</Text>
-                            </>
-                          }
-                          description={posture.tip}
-                        />
+                        <InlineHint tone={authType === 'NONE' ? 'warning' : 'success'}>
+                          Security posture: <Text strong>{posture.label}</Text>. {posture.tip}
+                        </InlineHint>
                       );
                     })()}
 
-                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+                    <Divider className="console-margin-y-4" />
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div className="console-flex-between">
                       <Button size="middle" onClick={() => setActiveTab('http')}>
                         Back to Provider Config
                       </Button>
@@ -1740,24 +1742,17 @@ return {
                       </Button>
                     </div>
                   </Space>
-                </Card>
+                </div>
               ),
             },
             {
               key: 'request-transform',
-              label: (
-                <Space size={6}>
-                  <CodeOutlined />
-                  Request Transform
-                  {isTabComplete('request-transform') && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
+              label: 'Request Transform',
+              icon: <GatewayIcon name="CodeOutlined" />,
               disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
               children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <div className="integration-tab-content">
+                  <Space direction="vertical" size="middle" className="console-width-full">
                     <div
                       style={{
                         display: 'flex',
@@ -1767,7 +1762,7 @@ return {
                         flexWrap: 'wrap',
                       }}
                     >
-                      <Text strong style={{ fontSize: 16 }}>
+                      <Text strong className="console-type-section">
                         Request Transform
                       </Text>
                       <Space size="small">
@@ -1782,61 +1777,44 @@ return {
                     </div>
 
                     {!requestTransformEnabled ? (
-                      <Alert
-                        type="info"
-                        showIcon
-                        message="Request transformation is disabled"
-                        description={
-                          actionType === 'COMMUNICATION'
-                            ? 'Requests will be used as-is for email content. Enable to transform incoming data into email format.'
-                            : 'Requests will be forwarded as-is. Enable to add a transformation script.'
-                        }
-                      />
+                      <InlineHint>
+                        {actionType === 'COMMUNICATION'
+                          ? 'Requests are used as-is for email content. Enable transformation to build the email fields.'
+                          : 'Requests are forwarded as-is. Enable transformation to add a script.'}
+                      </InlineHint>
                     ) : (
                       <>
                         {actionType === 'COMMUNICATION' ? (
-                          <Alert
-                            type="success"
-                            showIcon
-                            message="Transform Request to Email Format"
-                            description={
-                              <div>
-                                <Paragraph style={{ marginBottom: spacing[2] }}>
-                                  Transform incoming request data into email format. The Gateway will send the email
-                                  asynchronously via your configured SMTP provider.
-                                </Paragraph>
-                                <Paragraph style={{ marginBottom: 0 }}>
-                                  <Text strong>Required output:</Text> <code>to</code>, <code>subject</code>,{' '}
-                                  <code>html</code>
-                                  <br />
-                                  <Text strong>Optional output:</Text> <code>text</code>, <code>attachments</code>
-                                </Paragraph>
-                              </div>
-                            }
-                          />
+                          <InlineHint>
+                            Return <Text code>to</Text>, <Text code>subject</Text>, and <Text code>html</Text>;{' '}
+                            <Text code>text</Text> and <Text code>attachments</Text> are optional. Delivery is
+                            asynchronous.
+                          </InlineHint>
                         ) : (
                           <Collapse
                             ghost
                             size="small"
                             defaultActiveKey={[]}
                             expandIconPosition="end"
-                            expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
+                            expandIcon={({ isActive }) => (
+                              <GatewayIcon name="CaretRightOutlined" rotate={isActive ? 90 : 0} />
+                            )}
                             items={[
                               {
                                 key: 'advanced-http',
                                 label: (
                                   <Space size={8}>
-                                    <InfoCircleOutlined />
+                                    <GatewayIcon name="InfoCircleOutlined" />
                                     <Text strong>Advanced HTTP Transformations</Text>
                                   </Space>
                                 ),
                                 children: (
                                   <div>
-                                    <Paragraph style={{ marginBottom: spacing[2] }}>
+                                    <Paragraph className="console-margin-bottom-2">
                                       Transform incoming requests with full async/await support and HTTP client access.
                                       Like <strong>Mirth Connect</strong>, you can:
                                     </Paragraph>
-                                    <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                                    <ul className="ui-extracted-3d770f4917">
                                       <li>
                                         <strong>Fetch lists and loop</strong> - Get patient list, iterate through each
                                         to fetch details
@@ -1853,7 +1831,7 @@ return {
                                         <strong>Data aggregation</strong> - Combine multiple API responses
                                       </li>
                                     </ul>
-                                    <Paragraph style={{ marginTop: spacing[2], marginBottom: 0 }}>
+                                    <Paragraph style={{ marginTop: spacing[2], marginBottom: 'var(--spacing-0)' }}>
                                       <Text strong>Available:</Text> <code>context.http.get()</code>,{' '}
                                       <code>context.http.post()</code>, <code>context.http.put()</code>,{' '}
                                       <code>context.http.patch()</code>, <code>context.http.delete()</code>
@@ -1866,18 +1844,18 @@ return {
                         )}
 
                         <div>
-                          <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                          <Text strong className="console-block-margin-bottom-2">
                             JavaScript Transformation Function
                           </Text>
                           <Editor
                             height="320px"
                             language="javascript"
-                            theme="vs-dark"
+                            theme={mode === 'dark' ? 'vs-dark' : 'light'}
                             value={requestTransformScript}
                             onChange={(value) => setRequestTransformScript(value || '')}
                             options={{
                               minimap: { enabled: false },
-                              fontSize: 14,
+                              fontSize: editorFontSize('control'),
                               lineNumbers: 'on',
                               wordWrap: 'on',
                               scrollBeyondLastLine: false,
@@ -1888,9 +1866,9 @@ return {
                       </>
                     )}
 
-                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+                    <Divider className="console-margin-y-4" />
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div className="console-flex-between">
                       <Button size="middle" onClick={() => setActiveTab('auth')}>
                         Back to Authentication
                       </Button>
@@ -1905,7 +1883,7 @@ return {
                       </Button>
                     </div>
                   </Space>
-                </Card>
+                </div>
               ),
             },
             // Hide Response Transform tab for COMMUNICATION integrations
@@ -1913,24 +1891,12 @@ return {
               ? [
                   {
                     key: 'response-transform',
-                    label: (
-                      <Space size={6}>
-                        <CodeOutlined />
-                        Response Transform
-                        {streamResponse && (
-                          <Tag color="orange" style={{ fontSize: 11, marginLeft: 4 }}>
-                            Disabled
-                          </Tag>
-                        )}
-                        {!streamResponse && isTabComplete('response-transform') && (
-                          <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                        )}
-                      </Space>
-                    ),
+                    label: 'Response Transform',
+                    icon: <GatewayIcon name="CodeOutlined" />,
                     disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
                     children: (
-                      <Card style={{ marginTop: spacing[2] }} size="small">
-                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                      <div className="integration-tab-content">
+                        <Space direction="vertical" size="middle" className="console-width-full">
                           <div
                             style={{
                               display: 'flex',
@@ -1940,7 +1906,7 @@ return {
                               flexWrap: 'wrap',
                             }}
                           >
-                            <Text strong style={{ fontSize: 16 }}>
+                            <Text strong className="console-type-section">
                               Response Transform
                             </Text>
                             <Space size="small">
@@ -1956,66 +1922,40 @@ return {
                           </div>
 
                           {streamResponse ? (
-                            <Alert
-                              type="warning"
-                              showIcon
-                              message="Response Transformation Not Available"
-                              description={
-                                <div>
-                                  <Paragraph style={{ marginBottom: spacing[2] }}>
-                                    Stream Response is enabled in the Target API configuration. Response transformations
-                                    cannot be applied when streaming is enabled because the response is piped directly
-                                    to the client without buffering.
-                                  </Paragraph>
-                                  <Paragraph style={{ marginBottom: 0 }}>
-                                    <Text strong>To enable response transformations:</Text> Go to the Target API tab and
-                                    disable "Stream Response"
-                                  </Paragraph>
-                                </div>
+                            <Banner
+                              status="warning"
+                              title="Disable Stream Response to transform responses"
+                              description="Streaming sends the upstream response directly to the client without buffering."
+                              endContent={
+                                <Button size="small" onClick={() => setActiveTab('http')}>
+                                  Open Target API
+                                </Button>
                               }
                             />
                           ) : !responseTransformEnabled ? (
-                            <Alert
-                              type="info"
-                              showIcon
-                              message="Response transformation is disabled"
-                              description="Responses will be returned as-is. Enable to add a transformation script."
-                            />
+                            <InlineHint>
+                              Responses are returned as-is. Enable transformation to add a script.
+                            </InlineHint>
                           ) : (
-                            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                              <Alert
-                                type="success"
-                                showIcon
-                                message="Transform Response Back to Client App"
-                                description={
-                                  <div>
-                                    <Paragraph style={{ marginBottom: spacing[2] }}>
-                                      Transform external API responses before returning to the client app. You can also
-                                      make additional API calls if needed (e.g., fetch related data, trigger followup
-                                      actions).
-                                    </Paragraph>
-                                    <Paragraph style={{ marginBottom: 0 }}>
-                                      <Text strong>Input shape:</Text> <code>payload.data</code> (response body),{' '}
-                                      <code>payload.status</code> (HTTP status code), <code>payload.headers</code>{' '}
-                                      (response headers)
-                                    </Paragraph>
-                                  </div>
-                                }
-                              />
+                            <Space direction="vertical" size="middle" className="console-width-full">
+                              <InlineHint>
+                                Input is <Text code>payload.data</Text>, <Text code>payload.status</Text>, and{' '}
+                                <Text code>payload.headers</Text>. The script can make additional HTTP calls.
+                              </InlineHint>
 
                               <div>
-                                <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>
+                                <Text strong className="console-block-margin-bottom-2">
                                   JavaScript Transformation Function
                                 </Text>
                                 <Editor
                                   height="320px"
                                   language="javascript"
-                                  theme="vs-dark"
+                                  theme={mode === 'dark' ? 'vs-dark' : 'light'}
                                   value={responseTransformScript}
                                   onChange={(value) => setResponseTransformScript(value || '')}
                                   options={{
                                     minimap: { enabled: false },
-                                    fontSize: 14,
+                                    fontSize: editorFontSize('control'),
                                     lineNumbers: 'on',
                                     wordWrap: 'on',
                                     scrollBeyondLastLine: false,
@@ -2026,9 +1966,9 @@ return {
                             </Space>
                           )}
 
-                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+                          <Divider className="console-margin-y-4" />
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div className="console-flex-between">
                             <Button size="middle" onClick={() => setActiveTab('request-transform')}>
                               Back to Request Transform
                             </Button>
@@ -2037,7 +1977,7 @@ return {
                             </Button>
                           </div>
                         </Space>
-                      </Card>
+                      </div>
                     ),
                   },
                 ]
@@ -2047,12 +1987,8 @@ return {
               ? [
                   {
                     key: 'delivery',
-                    label: (
-                      <Space size={6}>
-                        <NodeIndexOutlined />
-                        Delivery
-                      </Space>
-                    ),
+                    label: 'Delivery',
+                    icon: <GatewayIcon name="NodeIndexOutlined" />,
                     disabled: !basicComplete || !httpComplete,
                     children: null, // built by withStepEditors, once every tab's content exists
                   },
@@ -2060,43 +1996,29 @@ return {
               : []),
             {
               key: 'review',
-              label: (
-                <Space size={6}>
-                  <EyeOutlined />
-                  Review & Submit
-                  {basicComplete && httpComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
+              label: 'Review & Submit',
+              icon: <GatewayIcon name="EyeOutlined" />,
               disabled: !basicComplete || !httpComplete, // Requires Basic Info and Target API to be complete
               children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                    <Alert
-                      type="info"
-                      showIcon
-                      message="Review Your Configuration"
-                      description={`Please review all settings before ${isCreate ? 'creating' : 'saving'} the integration. You can click on any tab above to make changes.`}
-                    />
-
+                <div className="integration-tab-content">
+                  <Space direction="vertical" size="middle" className="console-width-full">
                     {/* Basic Info Summary */}
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <ApiOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>
+                      <div className="console-flex-center-gap-2-margin-bottom-3">
+                        <GatewayIcon name="ApiOutlined" className="console-title-accent" />
+                        <Text strong className="console-type-section">
                           Basic Information
                         </Text>
                       </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>
+                      <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                        <div className="console-flex-gap-2">
+                          <Text type="secondary" className="console-label-min-width">
                             Integration Name:
                           </Text>
                           <Text strong>{form.getFieldValue('name') || <Text type="secondary">Not set</Text>}</Text>
                         </div>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>
+                        <div className="console-flex-gap-2">
+                          <Text type="secondary" className="console-label-min-width">
                             Integration Type:
                           </Text>
                           <Text strong>
@@ -2106,34 +2028,32 @@ return {
                       </Space>
                     </div>
 
-                    <Divider style={{ margin: 0 }} />
+                    <Divider className="console-margin-none" />
 
                     {/* Configuration Summary - HTTP or COMMUNICATION */}
                     {form.getFieldValue('actionType') === 'COMMUNICATION' ? (
                       <div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
-                        >
-                          <MailOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                          <Text strong style={{ fontSize: 16 }}>
+                        <div className="console-flex-center-gap-2-margin-bottom-3">
+                          <GatewayIcon name="MailOutlined" className="console-title-accent" />
+                          <Text strong className="console-type-section">
                             Communication Configuration
                           </Text>
                         </div>
-                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                        <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Channel:
                             </Text>
-                            <Tag color="blue">{form.getFieldValue(['communicationConfig', 'channel']) || 'EMAIL'}</Tag>
+                            <Text code>{form.getFieldValue(['communicationConfig', 'channel']) || 'EMAIL'}</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Provider:
                             </Text>
-                            <Tag color="green">{form.getFieldValue(['communicationConfig', 'provider']) || 'SMTP'}</Tag>
+                            <Text code>{form.getFieldValue(['communicationConfig', 'provider']) || 'SMTP'}</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               SMTP Host:
                             </Text>
                             <Text strong>
@@ -2142,8 +2062,8 @@ return {
                               )}
                             </Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               SMTP Port:
                             </Text>
                             <Text>
@@ -2152,8 +2072,8 @@ return {
                               )}
                             </Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               From Email:
                             </Text>
                             <Text>
@@ -2166,45 +2086,41 @@ return {
                       </div>
                     ) : (
                       <div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}
-                        >
-                          <SendOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                          <Text strong style={{ fontSize: 16 }}>
+                        <div className="console-flex-center-gap-2-margin-bottom-3">
+                          <GatewayIcon name="SendOutlined" className="console-title-accent" />
+                          <Text strong className="console-type-section">
                             Target API Configuration
                           </Text>
                         </div>
-                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                        <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Target URL:
                             </Text>
                             <Text strong>
                               {form.getFieldValue('targetUrl') || <Text type="secondary">Not set</Text>}
                             </Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               HTTP Method:
                             </Text>
-                            <Tag color={getMethodColor(form.getFieldValue('httpMethod') || 'POST')}>
-                              {form.getFieldValue('httpMethod') || 'POST'}
-                            </Tag>
+                            <Text code>{form.getFieldValue('httpMethod') || 'POST'}</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Timeout:
                             </Text>
                             <Text>{form.getFieldValue('timeout') || 10000}ms</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Retry Count:
                             </Text>
                             <Text>{form.getFieldValue('retryCount') || 3}</Text>
                           </div>
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Content-Type:
                             </Text>
                             <Text>{form.getFieldValue('contentType') || 'application/json'}</Text>
@@ -2212,87 +2128,81 @@ return {
                           {String(form.getFieldValue('contentType') || '')
                             .toLowerCase()
                             .includes('multipart/form-data') && (
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Max File Size:
                               </Text>
                               <Text>{form.getFieldValue('maxInboundFileSizeMb') || 50} MB</Text>
                             </div>
                           )}
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Stream Response:
                             </Text>
-                            <Tag color={form.getFieldValue('streamResponse') ? 'green' : 'default'}>
-                              {form.getFieldValue('streamResponse') ? 'Enabled' : 'Disabled'}
-                            </Tag>
+                            <Text>{form.getFieldValue('streamResponse') ? 'Enabled' : 'Disabled'}</Text>
                           </div>
                         </Space>
                       </div>
                     )}
 
-                    <Divider style={{ margin: 0 }} />
+                    <Divider className="console-margin-none" />
 
                     {/* Authentication Summary */}
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <LockOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>
+                      <div className="console-flex-center-gap-2-margin-bottom-3">
+                        <GatewayIcon name="LockOutlined" className="console-title-accent" />
+                        <Text strong className="console-type-section">
                           Authentication
                         </Text>
                       </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>
+                      <Space direction="vertical" size="small" className="console-width-full-indent-4">
+                        <div className="console-flex-gap-2">
+                          <Text type="secondary" className="console-label-min-width">
                             Inbound Auth Type:
                           </Text>
-                          <Tag color={authType === 'NONE' ? 'default' : 'blue'}>{authType || 'NONE'}</Tag>
+                          <Text code>{authType || 'NONE'}</Text>
                         </div>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>
+                        <div className="console-flex-gap-2">
+                          <Text type="secondary" className="console-label-min-width">
                             Security Posture:
                           </Text>
                           <Tooltip title={getSecurityPosture(authType).tip}>
-                            <Tag color={getSecurityPosture(authType).color}>{getSecurityPosture(authType).label}</Tag>
+                            <Text>{getSecurityPosture(authType).label}</Text>
                           </Tooltip>
                         </div>
                         {form.getFieldValue('actionType') !== 'COMMUNICATION' && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                          <div className="console-flex-gap-2">
+                            <Text type="secondary" className="console-label-min-width">
                               Target API Auth Type:
                             </Text>
-                            <Tag color={outgoingAuthTypeValue && outgoingAuthTypeValue !== 'NONE' ? 'blue' : 'default'}>
-                              {outgoingAuthTypeValue || 'NONE'}
-                            </Tag>
+                            <Text code>{outgoingAuthTypeValue || 'NONE'}</Text>
                           </div>
                         )}
                       </Space>
                     </div>
 
-                    <Divider style={{ margin: 0 }} />
+                    <Divider className="console-margin-none" />
 
                     {/* Transformation Summary */}
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <CodeOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>
+                      <div className="console-flex-center-gap-2-margin-bottom-3">
+                        <GatewayIcon name="CodeOutlined" className="console-title-accent" />
+                        <Text strong className="console-type-section">
                           Transformations
                         </Text>
                       </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                      <Space direction="vertical" size="small" className="console-width-full-indent-4">
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>
+                          <Text type="secondary" className="console-label-min-width">
                             {form.getFieldValue('actionType') === 'COMMUNICATION'
                               ? 'Email Content Transform:'
                               : 'Request Transform:'}
                           </Text>
                           <div>
-                            <Tag color={requestTransformEnabled ? 'success' : 'default'}>
-                              {requestTransformEnabled ? 'Enabled' : 'Disabled'}
-                            </Tag>
+                            <Text>{requestTransformEnabled ? 'Enabled' : 'Disabled'}</Text>
                             {requestTransformEnabled && requestTransformScript && (
-                              <div style={{ marginTop: spacing[1] }}>
-                                <Text code style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                              <div className="console-margin-top-1">
+                                <Text code className="console-caption-secondary">
                                   {requestTransformScript.trim().split('\n').slice(0, 2).join(' ').substring(0, 80)}…
                                 </Text>
                               </div>
@@ -2301,16 +2211,14 @@ return {
                         </div>
                         {form.getFieldValue('actionType') !== 'COMMUNICATION' && (
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>
+                            <Text type="secondary" className="console-label-min-width">
                               Response Transform:
                             </Text>
                             <div>
-                              <Tag color={responseTransformEnabled ? 'success' : 'default'}>
-                                {responseTransformEnabled ? 'Enabled' : 'Disabled'}
-                              </Tag>
+                              <Text>{responseTransformEnabled ? 'Enabled' : 'Disabled'}</Text>
                               {responseTransformEnabled && responseTransformScript && (
-                                <div style={{ marginTop: spacing[1] }}>
-                                  <Text code style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                                <div className="console-margin-top-1">
+                                  <Text code className="console-caption-secondary">
                                     {responseTransformScript.trim().split('\n').slice(0, 2).join(' ').substring(0, 80)}…
                                   </Text>
                                 </div>
@@ -2321,29 +2229,27 @@ return {
                       </Space>
                     </div>
 
-                    <Divider style={{ margin: 0 }} />
+                    <Divider className="console-margin-none" />
 
                     {/* Rate Limit Summary */}
-                    <ConfigSection icon={<ThunderboltOutlined />} title="Rate Limiting">
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>
+                    <ConfigSection icon={<GatewayIcon name="ThunderboltOutlined" />} title="Rate Limiting">
+                      <Space direction="vertical" size="small" className="console-width-full">
+                        <div className="console-flex-gap-2">
+                          <Text type="secondary" className="console-label-min-width">
                             Status:
                           </Text>
-                          <Tag color={form.getFieldValue(['rateLimits', 'enabled']) ? 'green' : 'default'}>
-                            {form.getFieldValue(['rateLimits', 'enabled']) ? 'Enabled' : 'Disabled'}
-                          </Tag>
+                          <Text>{form.getFieldValue(['rateLimits', 'enabled']) ? 'Enabled' : 'Disabled'}</Text>
                         </div>
                         {form.getFieldValue(['rateLimits', 'enabled']) && (
                           <>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Max Requests:
                               </Text>
                               <Text>{form.getFieldValue(['rateLimits', 'maxRequests']) || 100}</Text>
                             </div>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>
+                            <div className="console-flex-gap-2">
+                              <Text type="secondary" className="console-label-min-width">
                                 Window (seconds):
                               </Text>
                               <Text>{form.getFieldValue(['rateLimits', 'windowSeconds']) || 60}</Text>
@@ -2353,7 +2259,7 @@ return {
                       </Space>
                     </ConfigSection>
                   </Space>
-                </Card>
+                </div>
               ),
             },
           ])}
@@ -2374,26 +2280,41 @@ return {
             marginTop: spacing[2],
             borderTop: `1px solid ${cssVar.border.default}`,
             background: cssVar.bg.base,
-            boxShadow: `0 -8px 18px ${withAlpha(colors.neutral[900], 0.08)}`,
+            boxShadow: token?.boxShadowSecondary,
           }}
         >
           <Space direction="vertical" size={4}>
-            <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            <Text type="secondary" className="console-type-caption">
               Testing tools
             </Text>
             <Space wrap>
-              <Button size="middle" icon={<CopyOutlined />} onClick={handleCopyCurl} disabled={!integration}>
+              <Button
+                size="middle"
+                icon={<GatewayIcon name="CopyOutlined" />}
+                onClick={handleCopyCurl}
+                disabled={!integration}
+              >
                 Copy curl
               </Button>
 
               {(actionType === 'COMMUNICATION' || integration?.actions?.length > 0) && (
-                <Button size="middle" icon={<MailOutlined />} onClick={handleOpenTestEmailModal} disabled={!integration}>
+                <Button
+                  size="middle"
+                  icon={<GatewayIcon name="MailOutlined" />}
+                  onClick={handleOpenTestEmailModal}
+                  disabled={!integration}
+                >
                   Send Test Email
                 </Button>
               )}
 
               {actionType !== 'COMMUNICATION' && !integration?.actions?.length && (
-                <Button size="middle" icon={<ThunderboltOutlined />} onClick={handleTestRuntime} disabled={!integration}>
+                <Button
+                  size="middle"
+                  icon={<GatewayIcon name="ThunderboltOutlined" />}
+                  onClick={handleTestRuntime}
+                  disabled={!integration}
+                >
                   Test runtime
                 </Button>
               )}
@@ -2404,14 +2325,14 @@ return {
               Cancel
             </Button>
             {activeTab !== 'review' && (
-              <Button size="middle" onClick={() => setActiveTab('review')} icon={<EyeOutlined />}>
+              <Button size="middle" onClick={() => setActiveTab('review')} icon={<GatewayIcon name="EyeOutlined" />}>
                 Review Changes
               </Button>
             )}
             <Button
               type="primary"
               size="middle"
-              icon={<SaveOutlined />}
+              icon={<GatewayIcon name="SaveOutlined" />}
               onClick={() => form.submit()}
               loading={isSaving}
               disabled={isCreate && (!isTabComplete('basic') || !isTabComplete('http'))}
@@ -2429,7 +2350,7 @@ return {
         onCancel={() => setCurlModalOpen(false)}
         okText="Copy"
       >
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Space direction="vertical" size="small" className="console-width-full">
           <Text type="secondary">
             This endpoint is public; add only the integration-level credentials configured for this inbound flow.
           </Text>
@@ -2445,7 +2366,7 @@ return {
           )}
           {curlQueryParams.length > 0 && (
             <>
-              <Divider style={{ margin: '8px 0' }} />
+              <Divider className="console-margin-y-2" />
               <Text type="secondary">Sample query parameters (editable):</Text>
               {curlQueryParams.map((param) => (
                 <Input
@@ -2475,17 +2396,10 @@ return {
         confirmLoading={isSendingTest}
         width={600}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Alert
-            type="info"
-            showIcon
-            message="Test your email configuration"
-            description="Send a test email to verify your SMTP settings and see how the email will be delivered."
-          />
-
+        <Space direction="vertical" size="middle" className="console-width-full">
           {(senderRoutingEnabled || integration?.actions?.[0]?.communicationConfig?.provider === 'ROUTED_EMAIL') && (
             <div>
-              <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              <Text strong className="console-block-margin-bottom-2">
                 From Email (Sender Profile)
               </Text>
               <Select
@@ -2495,7 +2409,7 @@ return {
                 allowClear
                 size="middle"
                 disabled={isSendingTest}
-                style={{ width: '100%' }}
+                className="console-width-full"
                 options={senderProfiles.map((p: any) => ({
                   label: `${p.name} <${p.fromEmail}>`,
                   value: p.fromEmail,
@@ -2505,7 +2419,7 @@ return {
           )}
 
           <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <Text strong className="console-block-margin-bottom-2">
               Recipient Email *
             </Text>
             <Input
@@ -2519,7 +2433,7 @@ return {
           </div>
 
           <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <Text strong className="console-block-margin-bottom-2">
               Subject *
             </Text>
             <Input
@@ -2532,7 +2446,7 @@ return {
           </div>
 
           <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <Text strong className="console-block-margin-bottom-2">
               Email Body (HTML) *
             </Text>
             <Input.TextArea
@@ -2544,14 +2458,9 @@ return {
             />
           </div>
 
-          <Alert
-            type="info"
-            showIcon
-            message="Synchronous Test"
-            description="The test email will be sent immediately using your configured SMTP settings. Check your inbox for delivery."
-          />
+          <InlineHint tone="warning">This sends immediately using the saved SMTP configuration.</InlineHint>
         </Space>
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

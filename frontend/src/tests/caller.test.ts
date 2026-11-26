@@ -3,13 +3,13 @@ import { getCallerInfo, parseUserAgent, resolveClientIpFromChain } from '../util
 
 describe('resolveClientIpFromChain', () => {
   it('skips our own proxy hops on the right', () => {
-    expect(resolveClientIpFromChain('203.0.113.61, 10.0.1.133')).toBe('203.0.113.61');
+    expect(resolveClientIpFromChain('122.15.35.61, 172.31.36.133')).toBe('122.15.35.61');
   });
   it('ignores entries the caller invented on the left', () => {
-    expect(resolveClientIpFromChain('1.1.1.1, 203.0.113.61, 10.0.1.133')).toBe('203.0.113.61');
+    expect(resolveClientIpFromChain('1.1.1.1, 122.15.35.61, 172.31.36.133')).toBe('122.15.35.61');
   });
   it('uses the right-most entry for an internal caller', () => {
-    expect(resolveClientIpFromChain('10.0.4.9, 10.0.1.5')).toBe('10.0.1.5');
+    expect(resolveClientIpFromChain('10.0.4.9, 172.31.1.5')).toBe('172.31.1.5');
   });
   it('returns null with nothing usable', () => {
     expect(resolveClientIpFromChain(null)).toBeNull();
@@ -36,7 +36,7 @@ describe('parseUserAgent', () => {
     ).toBe('Edge 141 on Windows');
   });
   it('shows an unknown client as it is', () => {
-    expect(parseUserAgent('AcmeApp/2.3 (Android)')).toEqual({ label: 'AcmeApp/2.3 (Android)', kind: 'app' });
+    expect(parseUserAgent('MedicsApp/2.3 (Android)')).toEqual({ label: 'MedicsApp/2.3 (Android)', kind: 'app' });
     expect(parseUserAgent('')).toBeNull();
   });
 });
@@ -44,9 +44,9 @@ describe('parseUserAgent', () => {
 describe('getCallerInfo', () => {
   const headers = {
     host: 'localhost:3545',
-    'x-forwarded-for': '203.0.113.61, 10.0.1.133',
+    'x-forwarded-for': '122.15.35.61, 172.31.36.133',
     'x-forwarded-proto': 'https',
-    'x-forwarded-host': 'staging.gateway.example.com',
+    'x-forwarded-host': 'validation.medicsprime.in',
     'user-agent': 'curl/8.7.1',
     'content-length': '74',
     'x-amzn-trace-id': 'Root=1-6acf5048-6218281e516bd752503b14e5',
@@ -54,13 +54,13 @@ describe('getCallerInfo', () => {
   it('summarises the saved headers and resolves the IP for older logs', () => {
     const info = getCallerInfo(headers);
     expect(info).toMatchObject({
-      clientIp: '203.0.113.61',
-      host: 'staging.gateway.example.com',
+      clientIp: '122.15.35.61',
+      host: 'validation.medicsprime.in',
       protocol: 'https',
       contentLength: 74,
       agent: { label: 'curl 8.7.1' },
     });
-    expect(info?.forwardedChain).toEqual(['203.0.113.61', '10.0.1.133']);
+    expect(info?.forwardedChain).toEqual(['122.15.35.61', '172.31.36.133']);
   });
   it('prefers the IP the backend stored', () => {
     expect(getCallerInfo(headers, '203.0.113.9')?.clientIp).toBe('203.0.113.9');

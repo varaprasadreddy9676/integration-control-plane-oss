@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { Typography } from 'antd';
-import { CheckCircleOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
-import { cssVar, useDesignTokens } from '../../design-system/utils';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from './Icon';
+import { cssVar } from '../../design-system/utils';
 
-type InlineHintTone = 'info' | 'warning' | 'success';
+type InlineHintTone = 'info' | 'warning' | 'success' | 'error';
 
 interface InlineHintProps {
   tone?: InlineHintTone;
@@ -12,9 +12,10 @@ interface InlineHintProps {
 }
 
 const toneIcon: Record<InlineHintTone, ReactNode> = {
-  info: <InfoCircleOutlined />,
-  warning: <WarningOutlined />,
-  success: <CheckCircleOutlined />,
+  info: <GatewayIcon name="InfoCircleOutlined" />,
+  warning: <GatewayIcon name="WarningOutlined" />,
+  success: <GatewayIcon name="CheckCircleOutlined" />,
+  error: <GatewayIcon name="CloseCircleOutlined" />,
 };
 
 /**
@@ -24,17 +25,23 @@ const toneIcon: Record<InlineHintTone, ReactNode> = {
  * genuinely need to interrupt the reader.
  */
 export const InlineHint = ({ tone = 'info', icon, children }: InlineHintProps) => {
-  const { spacing } = useDesignTokens();
-  const colors = cssVar.legacy;
   const toneColor =
-    tone === 'warning' ? colors.warning[600] : tone === 'success' ? colors.success[600] : cssVar.text.secondary;
+    tone === 'error'
+      ? cssVar.error.text
+      : tone === 'warning'
+        ? cssVar.warning.text
+        : tone === 'success'
+          ? cssVar.success.text
+          : cssVar.text.secondary;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2], marginTop: spacing[1] }}>
-      <span style={{ color: toneColor, fontSize: 13, lineHeight: 1.6 }}>{icon ?? toneIcon[tone]}</span>
-      <Typography.Text type="secondary" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+    <div data-tone={tone} className="inline-hint">
+      <span className="inline-hint__icon" style={{ color: toneColor }}>
+        {icon ?? toneIcon[tone]}
+      </span>
+      <Text as="span" type="supporting" className="inline-hint__text">
         {children}
-      </Typography.Text>
+      </Text>
     </div>
   );
 };

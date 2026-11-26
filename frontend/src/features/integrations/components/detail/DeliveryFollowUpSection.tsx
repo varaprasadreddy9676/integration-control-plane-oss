@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Collapse, Form, Input, InputNumber, Select, Space, Switch, Tag, Typography } from 'antd';
-import { DeleteOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Collapse, Form, Input, InputNumber, Select, Space, Switch } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getFollowUpPreset, testFollowUpScript, type FollowUpTestResult } from '../../../../services/api';
 import { InlineHint } from '../../../../components/common/InlineHint';
+import { StatusBadge } from '../../../../components/common/StatusBadge';
+import type { StatusBadgeVariant } from '../../../../components/common/StatusBadge';
 import { MonacoEditorInput } from '../MonacoEditorInput';
 import { followUpStatusColor, followUpStatusLabel } from '../../../logs/components/followUpStatus';
+import { Button } from '../../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -45,12 +50,12 @@ export const CheckScheduleEditor = ({ value, onChange }: ScheduleEditorProps) =>
     onChange?.(checks.map((current, i) => (i === index ? (seconds ?? MIN_CHECK_SECONDS) : current)));
 
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+    <Space direction="vertical" size={8} className="console-width-full">
       {checks.map((seconds, index) => {
         const { amount, unit } = splitDuration(seconds);
         return (
           <Space key={index} align="center" wrap>
-            <Text type="secondary" style={{ width: 64, display: 'inline-block' }}>
+            <Text type="secondary" className="ui-extracted-31419e0536">
               Check {index + 1}
             </Text>
             <InputNumber
@@ -59,20 +64,20 @@ export const CheckScheduleEditor = ({ value, onChange }: ScheduleEditorProps) =>
               value={amount}
               aria-label={`Check ${index + 1} time`}
               onChange={(next) => update(index, next === null ? null : Number(next) * unit)}
-              style={{ width: 90 }}
+              className="ui-extracted-4afd2ba631"
             />
             <Select
               value={unit}
               aria-label={`Check ${index + 1} unit`}
               options={UNITS.map((u) => ({ value: u.value, label: u.label }))}
               onChange={(nextUnit) => update(index, amount * nextUnit)}
-              style={{ width: 110 }}
+              className="ui-extracted-77a50c14cf"
             />
             <Text type="secondary">after it is sent</Text>
             <Button
               type="text"
               danger
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               aria-label={`Remove check ${index + 1}`}
               disabled={checks.length <= 1}
               onClick={() => onChange?.(checks.filter((_, i) => i !== index))}
@@ -82,7 +87,7 @@ export const CheckScheduleEditor = ({ value, onChange }: ScheduleEditorProps) =>
       })}
       <Space>
         <Button
-          icon={<PlusOutlined />}
+          icon={<GatewayIcon name="PlusOutlined" />}
           disabled={checks.length >= MAX_CHECKS}
           onClick={() => onChange?.([...checks, Math.min((checks[checks.length - 1] || 60) * 2, MAX_CHECK_SECONDS)])}
         >
@@ -118,6 +123,13 @@ const SCRIPT_HELP = `// delivery.response  what the target answered when the mes
 // Return nothing (or status PENDING) when the provider has no answer yet.`;
 
 const DEFAULT_SAMPLE = '{\n  "status": true,\n  "data": [{ "id": "message-id-from-the-send-response" }]\n}';
+const FOLLOW_UP_VARIANTS: Record<string, StatusBadgeVariant> = {
+  red: 'error',
+  orange: 'warning',
+  green: 'success',
+  blue: 'info',
+  default: 'neutral',
+};
 
 const TestPanel = ({ form, integrationId }: { form: any; integrationId?: string }) => {
   const [sample, setSample] = useState(DEFAULT_SAMPLE);
@@ -139,45 +151,45 @@ const TestPanel = ({ form, integrationId }: { form: any; integrationId?: string 
   const result = run.data;
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space direction="vertical" size={12} className="console-width-full">
       <Text type="secondary">
         Runs the script now against a sample of what the target answered when a message was sent. Nothing is saved.
-        {integrationId && integrationId !== 'new' ? ' It asks the provider for real, with this integration’s headers.' : ''}
+        {integrationId && integrationId !== 'new'
+          ? ' It asks the provider for real, with this integration’s headers.'
+          : ''}
       </Text>
       <Input.TextArea
         rows={5}
         value={sample}
         aria-label="Sample send response"
         onChange={(event) => setSample(event.target.value)}
-        style={{ fontFamily: 'var(--font-mono, monospace)' }}
+        className="ui-extracted-ee5cdfc21b"
       />
-      <Button icon={<PlayCircleOutlined />} loading={run.isPending} onClick={() => run.mutate()}>
+      <Button icon={<GatewayIcon name="PlayCircleOutlined" />} loading={run.isPending} onClick={() => run.mutate()}>
         Run test
       </Button>
-      {run.isError && <Alert type="error" showIcon message={run.error.message} />}
+      {run.isError && <Banner status="error" title={run.error.message} />}
       {result && (
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space direction="vertical" size={8} className="console-width-full">
           {result.outcome === 'RESULT' && result.result && (
-            <Alert
-              type={followUpStatusColor(result.result.status, result.result.done) === 'red' ? 'warning' : 'success'}
-              showIcon
-              message={
-                <Space wrap>
-                  <span>The script answered</span>
-                  <Tag color={followUpStatusColor(result.result.status, result.result.done)}>
-                    {followUpStatusLabel(result.result.status)}
-                  </Tag>
-                  {result.result.done && <Text type="secondary">(done)</Text>}
-                  {result.result.errorCode && <Text code>{result.result.errorCode}</Text>}
-                </Space>
-              }
-              description={result.result.errorMessage || undefined}
-            />
+            <Space direction="vertical" size={4}>
+              <Space wrap>
+                <Text>The script answered</Text>
+                <StatusBadge
+                  status={result.result.status}
+                  label={followUpStatusLabel(result.result.status)}
+                  variant={FOLLOW_UP_VARIANTS[followUpStatusColor(result.result.status, result.result.done)]}
+                />
+                {result.result.done && <Text type="secondary">Done</Text>}
+                {result.result.errorCode && <Text code>{result.result.errorCode}</Text>}
+              </Space>
+              {result.result.errorMessage && <InlineHint tone="warning">{result.result.errorMessage}</InlineHint>}
+            </Space>
           )}
-          {result.outcome === 'SKIPPED' && <Alert type="info" showIcon message={`The script stopped following up: ${result.reason}`} />}
-          {result.outcome === 'ERROR' && <Alert type="error" showIcon message="The script failed" description={result.error} />}
+          {result.outcome === 'SKIPPED' && <InlineHint>The script stopped following up: {result.reason}</InlineHint>}
+          {result.outcome === 'ERROR' && <Banner status="error" title="The script failed" description={result.error} />}
           {result.httpCalls.map((call, index) => (
-            <Text key={index} type="secondary" style={{ display: 'block' }}>
+            <Text key={index} type="secondary" className="console-display-block">
               {call.method} {call.url} → {call.error || call.statusCode} ({call.durationMs ?? '?'} ms)
             </Text>
           ))}
@@ -206,7 +218,10 @@ export const DeliveryFollowUpSection = ({ form, integrationId }: DeliveryFollowU
   // The provider's template, once the URL has settled (not on every keystroke).
   const [settledUrl, setSettledUrl] = useState('');
   useEffect(() => {
-    const timer = setTimeout(() => setSettledUrl(/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(targetUrl || '') ? (targetUrl as string) : ''), 500);
+    const timer = setTimeout(
+      () => setSettledUrl(/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(targetUrl || '') ? (targetUrl as string) : ''),
+      500
+    );
     return () => clearTimeout(timer);
   }, [targetUrl]);
   const presetQuery = useQuery({
@@ -228,13 +243,12 @@ export const DeliveryFollowUpSection = ({ form, integrationId }: DeliveryFollowU
   const applyTemplate = () => form.setFieldValue('deliveryFollowUp', { ...preset!.config });
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space direction="vertical" size={16} className="console-width-full">
       <Form.Item
         name={['deliveryFollowUp', 'enabled']}
         valuePropName="checked"
         label="Follow up on each accepted message"
-        extra="Accepted is not delivered: ask the provider later whether the message was delivered, read, or failed. The answer is shown on the delivery log and counted in the delivery report."
-        style={{ marginBottom: 0 }}
+        extra="Accepted is not delivered: ask the provider later whether the message was delivered, read, or failed. The answer is shown on the delivery log and counted in the delivery report." className="console-margin-bottom-none"
       >
         <Switch />
       </Form.Item>
@@ -251,7 +265,14 @@ export const DeliveryFollowUpSection = ({ form, integrationId }: DeliveryFollowU
             name={['deliveryFollowUp', 'checkAfterSeconds']}
             label="Check after"
             tooltip="Each row is one check, counted from when the message was sent. It stops early once the message is read or has failed."
-            rules={[{ validator: async (_rule, value) => { const problem = scheduleProblem(value); if (problem) throw new Error(problem); } }]}
+            rules={[
+              {
+                validator: async (_rule, value) => {
+                  const problem = scheduleProblem(value);
+                  if (problem) throw new Error(problem);
+                },
+              },
+            ]}
           >
             <CheckScheduleEditor />
           </Form.Item>
@@ -273,9 +294,19 @@ export const DeliveryFollowUpSection = ({ form, integrationId }: DeliveryFollowU
               {
                 key: 'help',
                 label: 'What the script receives and returns',
-                children: <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>{SCRIPT_HELP}</pre>,
+                children: (
+                  <pre
+                    className="ui-extracted-2aea85b556"
+                  >
+                    {SCRIPT_HELP}
+                  </pre>
+                ),
               },
-              { key: 'test', label: 'Test the script', children: <TestPanel form={form} integrationId={integrationId} /> },
+              {
+                key: 'test',
+                label: 'Test the script',
+                children: <TestPanel form={form} integrationId={integrationId} />,
+              },
             ]}
           />
         </>
@@ -292,10 +323,10 @@ export const DeliveryFollowUpView = ({ form }: { form: any }) => {
   const checks: number[] = Array.isArray(config?.checkAfterSeconds) ? config.checkAfterSeconds : DEFAULT_SCHEDULE;
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space direction="vertical" size={12} className="console-width-full">
       <Space wrap>
         <Text strong>Follow up on each accepted message</Text>
-        <Tag color={on ? 'green' : 'default'}>{on ? 'On' : 'Off'}</Tag>
+        <StatusBadge label={on ? 'On' : 'Off'} variant={on ? 'success' : 'neutral'} showIcon={false} />
       </Space>
       {on ? (
         <>

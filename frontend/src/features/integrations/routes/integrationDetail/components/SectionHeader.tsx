@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading } from '@astryxdesign/core/Heading';
 import type { ReactNode } from 'react';
 import { spacingToNumber } from '../../../../../design-system/utils';
 
@@ -9,10 +9,12 @@ interface SectionHeaderProps {
 }
 
 export const SectionHeader = ({ icon, title, spacing }: SectionHeaderProps) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: spacingToNumber(spacing[2]) }}>
+  <div className="console-flex-center-gap-2">
     {icon}
     <div>
-      <Typography.Text strong style={{ fontSize: 15 }}>{title}</Typography.Text>
+      <Heading level={5} className="console-section-heading-inline">
+        {title}
+      </Heading>
     </div>
   </div>
 );

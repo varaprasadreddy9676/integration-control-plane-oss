@@ -1,19 +1,16 @@
-import { Alert, Button, Col, Collapse, Form, Input, Row, Select, Space, Switch, Tag, Typography, } from 'antd';
-import type { FormInstance } from 'antd';
-import {
-  DeleteOutlined,
-  PlusOutlined,
-  BranchesOutlined,
-  DatabaseOutlined,
-  BookOutlined,
-} from '@ant-design/icons';
+import { Col, Collapse, Form, Input, Row, Select, Space, Switch } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import type { FormInstance } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
-import { cssVar, spacingToNumber, withAlpha } from '../../../../../design-system/utils';
+import { spacingToNumber } from '../../../../../design-system/utils';
 import { MonacoEditorInput } from '../../../components/MonacoEditorInput';
 import { ActionTransformPreview } from '../../../components/detail/ActionTransformPreview';
 import { FormAlerts } from '../../../components/common';
 import { SectionCard } from './SectionCard';
 import { getLookupTypes } from '../../../../../services/api';
+import { Button } from '../../../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../../../components/common';
 
 interface MultiActionListProps {
   form: FormInstance;
@@ -59,7 +56,7 @@ export const MultiActionList = ({
 
   return (
     <SectionCard
-      icon={<BranchesOutlined />}
+      icon={<GatewayIcon name="BranchesOutlined" />}
       title="Multi-Action Configuration"
       description="Configure multiple sequential API calls for a single event (e.g., CleverTap profile + event upload)"
       spacing={spacing}
@@ -68,54 +65,48 @@ export const MultiActionList = ({
       <Collapse
         defaultActiveKey={isMultiAction || existingActionsCount > 0 ? ['actions'] : []}
         expandIconPosition="end"
-        style={{ background: 'transparent', border: 'none' }}
+        className="multi-action-collapse"
         items={[
           {
             key: 'actions',
             label: (
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacingToNumber(spacing[2]) }}>
-                <Typography.Text strong style={{ fontSize: 15 }}>
+              <div className="console-flex-center-gap-2">
+                <Text size="base" weight="semibold">
                   Multi-Action Configuration
-                </Typography.Text>
+                </Text>
                 {isMultiAction && (
-                  <Tag color="success">
+                  <Text type="supporting" color="secondary">
                     {actionsCount} action{actionsCount !== 1 ? 's' : ''}
-                  </Tag>
+                  </Text>
                 )}
               </div>
             ),
             children: (
               <Row gutter={[spacingToNumber(spacing[4]), 0]}>
                 <Col xs={24}>
-                  <Alert
+                  <Notice
                     type="info"
                     closable
                     message="Multi-Action Mode"
                     description={
-                      <div style={{ fontSize: token.fontSizeSM }}>
+                      <div className="console-type-caption">
                         Execute multiple HTTP or HL7 MLLP deliveries per event. Actions run sequentially.
-                        <div style={{ marginTop: spacing[2] }}>
+                        <div className="console-margin-top-2">
                           <Button
                             type="primary"
                             size="small"
                             onClick={loadCleverTapTemplate}
-                            style={{ marginRight: spacing[2] }}
+                            className="console-margin-right-2"
                           >
                             Load CleverTap Template
                           </Button>
-                          <Typography.Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
+                          <Text type="supporting" size="sm" color="secondary">
                             Pre-configured example
-                          </Typography.Text>
+                          </Text>
                         </div>
                       </div>
                     }
-                    showIcon
-                    style={{
-                      marginBottom: spacingToNumber(spacing[4]),
-                      background: withAlpha(cssVar.info.bg, 0.6),
-                      border: `1px solid ${cssVar.info.border}`,
-                      color: cssVar.text.primary,
-                    }}
+                    className="multi-action-notice multi-action-notice--info"
                   />
                 </Col>
 
@@ -124,21 +115,16 @@ export const MultiActionList = ({
                     {(fields, { add, remove, move }) => (
                       <>
                         {fields.length === 0 && (
-                          <Alert
+                          <Notice
                             type="info"
                             message="No actions configured yet"
                             description="Add your first action to define the target URL, method, and transformation."
-                            showIcon
-                            style={{
-                              marginBottom: spacingToNumber(spacing[3]),
-                              background: withAlpha(cssVar.info.bg, 0.6),
-                              border: `1px solid ${cssVar.info.border}`,
-                            }}
+                            className="multi-action-notice multi-action-notice--info"
                             action={
                               <Button
                                 type="primary"
                                 size="small"
-                                icon={<PlusOutlined />}
+                                icon={<GatewayIcon name="PlusOutlined" />}
                                 onClick={() =>
                                   add({ kind: 'HTTP', name: '', httpMethod: 'POST', transformationMode: 'SCRIPT' })
                                 }
@@ -151,27 +137,16 @@ export const MultiActionList = ({
                         {fields.map(({ key, name, ...restField }, index) => (
                           <div
                             key={key}
-                            style={{
-                              marginBottom: spacingToNumber(spacing[4]),
-                              padding: spacingToNumber(spacing[4]),
-                              background: cssVar.bg.elevated,
-                              border: `1px solid ${cssVar.border.default}`,
-                              borderRadius: token.borderRadius,
-                            }}
+                            className="multi-action-card"
                           >
                             <Row gutter={[spacingToNumber(spacing[3]), 0]}>
                               <Col xs={24}>
                                 <div
-                                  style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    marginBottom: spacingToNumber(spacing[3]),
-                                  }}
+                                  className="multi-action-card-header"
                                 >
-                                  <Typography.Text strong style={{ fontSize: 15 }}>
+                                  <Text size="base" weight="semibold">
                                     Action {index + 1}
-                                  </Typography.Text>
+                                  </Text>
                                   <Space>
                                     {index > 0 && (
                                       <Button
@@ -196,7 +171,7 @@ export const MultiActionList = ({
                                     <Button
                                       type="text"
                                       danger
-                                      icon={<DeleteOutlined />}
+                                      icon={<GatewayIcon name="DeleteOutlined" />}
                                       onClick={() => remove(name)}
                                       size="small"
                                     >
@@ -303,7 +278,7 @@ export const MultiActionList = ({
                                           </Form.Item>
                                         </Col>
                                         <Col xs={24}>
-                                          <Typography.Text strong>TLS</Typography.Text>
+                                          <Text weight="semibold">TLS</Text>
                                         </Col>
                                         <Col xs={24} md={12}>
                                           <Form.Item
@@ -363,16 +338,11 @@ export const MultiActionList = ({
                                           </Form.Item>
                                         </Col>
                                         <Col xs={24}>
-                                          <Alert
+                                          <Notice
                                             type="info"
                                             message="HL7 MLLP delivery"
                                             description="The transformation script should return an HL7 string or use hl7.ormO01(), hl7.oruR01(), or hl7.adtA08(). Delivery succeeds only when the receiver returns an accepting ACK."
-                                            showIcon
-                                            style={{
-                                              marginBottom: spacingToNumber(spacing[2]),
-                                              background: withAlpha(cssVar.info.bg, 0.65),
-                                              border: `1px solid ${cssVar.info.border}`,
-                                            }}
+                                            className="multi-action-notice multi-action-notice--info"
                                           />
                                         </Col>
                                       </>
@@ -393,7 +363,7 @@ export const MultiActionList = ({
                                           valuePropName="checked"
                                           label="Use provider template"
                                           tooltip="Use a pre-configured provider operation template (e.g. PartnerHub / fetch-profile) instead of entering the URL and auth manually."
-                                          style={{ marginBottom: spacingToNumber(spacing[2]) }}
+                                          className="console-margin-bottom-2"
                                         >
                                           <Switch />
                                         </Form.Item>
@@ -449,21 +419,16 @@ export const MultiActionList = ({
                                                 rows={3}
                                                 placeholder={'{\n  "username": "connector",\n  "password": "secret"\n}'}
                                                 size="middle"
-                                                style={{ fontFamily: 'monospace', fontSize: 12 }}
+                                                className="console-font-mono console-type-caption"
                                               />
                                             </Form.Item>
                                           </Col>
                                           <Col xs={24}>
-                                            <Alert
+                                            <Notice
                                               type="info"
-                                              showIcon
                                               message="Template resolution"
                                               description="At delivery time the platform looks up the template, fills placeholder tokens, and merges the result with any fields you override here (e.g. targetUrl, timeoutMs)."
-                                              style={{
-                                                marginBottom: spacingToNumber(spacing[2]),
-                                                background: withAlpha(cssVar.info.bg, 0.6),
-                                                border: `1px solid ${cssVar.info.border}`,
-                                              }}
+                                              className="multi-action-notice multi-action-notice--info"
                                             />
                                           </Col>
                                         </>
@@ -497,17 +462,11 @@ export const MultiActionList = ({
                                             </Form.Item>
                                           </Col>
                                           <Col xs={24}>
-                                            <Alert
+                                            <Notice
                                               type="warning"
                                               message="No localhost/private IPs"
                                               description="Localhost and private IP addresses are blocked for HTTP actions. Use publicly accessible URLs only."
-                                              showIcon
-                                              style={{
-                                                marginBottom: spacingToNumber(spacing[2]),
-                                                background: withAlpha(cssVar.warning.bg, 0.65),
-                                                border: `1px solid ${cssVar.warning.border}`,
-                                                color: cssVar.warning.text,
-                                              }}
+                                              className="multi-action-notice multi-action-notice--warning"
                                             />
                                           </Col>
                                         </>
@@ -529,31 +488,28 @@ export const MultiActionList = ({
                               </Col>
 
                               {/* A transformation is a script: the mode is kept only so the saved action says so. */}
-                              <Form.Item {...restField} name={[name, 'transformationMode']} initialValue="SCRIPT" hidden>
+                              <Form.Item
+                                {...restField}
+                                name={[name, 'transformationMode']}
+                                initialValue="SCRIPT"
+                                hidden
+                              >
                                 <Input />
                               </Form.Item>
 
                               <Form.Item noStyle shouldUpdate>
                                 {() => {
-                                  const scriptValue = form.getFieldValue([
-                                    'actions',
-                                    name,
-                                    'transformation',
-                                    'script',
-                                  ]);
+                                  const scriptValue = form.getFieldValue(['actions', name, 'transformation', 'script']);
                                   const inViewMode = !isCreate && !isEditMode;
                                   const displayScript = formatScriptForDisplay(scriptValue);
 
                                   return (
                                     <Col xs={24}>
                                       {inViewMode && scriptValue ? (
-                                        <div style={{ marginBottom: spacingToNumber(spacing[3]) }}>
-                                          <Typography.Text
-                                            strong
-                                            style={{ display: 'block', marginBottom: spacing[2] }}
-                                          >
+                                        <div className="console-margin-bottom-3">
+                                          <Text weight="semibold" display="block" className="console-margin-bottom-2">
                                             Transformation Script:
-                                          </Typography.Text>
+                                          </Text>
                                           <MonacoEditorInput height="260px" value={displayScript} readOnly />
                                         </div>
                                       ) : (
@@ -561,49 +517,41 @@ export const MultiActionList = ({
                                           <Collapse
                                             size="small"
                                             ghost
-                                            style={{ marginBottom: spacingToNumber(spacing[3]) }}
+                                            className="console-margin-bottom-3"
                                             items={[
                                               {
                                                 key: 'lookup-help',
                                                 label: (
                                                   <Space size={4}>
-                                                    <DatabaseOutlined style={{ color: colors.primary[600] }} />
-                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                    <GatewayIcon
+                                                      name="DatabaseOutlined"
+                                                      className="console-text-accent"
+                                                    />
+                                                    <Text size="base" weight="semibold">
                                                       Using Lookup Tables in Scripts
-                                                    </Typography.Text>
+                                                    </Text>
                                                   </Space>
                                                 ),
                                                 children: (
                                                   <div>
-                                                    <Typography.Text style={{ fontSize: 12 }}>
+                                                    <Text type="supporting" size="sm">
                                                       Use <code>lookup(sourceCode, mappingType)</code> to translate
                                                       codes:
-                                                    </Typography.Text>
-                                                    <pre
-                                                      style={{
-                                                        background: cssVar.bg.overlay,
-                                                        color: cssVar.text.primary,
-                                                        padding: '8px',
-                                                        borderRadius: 4,
-                                                        fontSize: 11,
-                                                        marginTop: 8,
-                                                        marginBottom: 8,
-                                                      }}
-                                                    >
+                                                    </Text>
+                                                    <pre className="multi-action-lookup-example">
                                                       {`// Simple lookup
 externalCode: lookup(payload.code, 'SERVICE_CODE'),
 
 // With fallback
 providerID: lookup(payload.doctorId, 'PROVIDER_ID') || 'UNKNOWN'`}
                                                     </pre>
-                                                    <Typography.Link
-                                                      href="/help/lookup-guide"
-                                                      target="_blank"
-                                                      style={{ fontSize: 12 }}
-                                                    >
-                                                      <BookOutlined style={{ marginRight: 4 }} />
+                                                    <a href="/help/lookup-guide" target="_blank" rel="noreferrer">
+                                                      <GatewayIcon
+                                                        name="BookOutlined"
+                                                        className="console-margin-right-1"
+                                                      />
                                                       View Complete Guide
-                                                    </Typography.Link>
+                                                    </a>
                                                   </div>
                                                 ),
                                               },
@@ -633,7 +581,6 @@ providerID: lookup(payload.doctorId, 'PROVIDER_ID') || 'UNKNOWN'`}
                                   actionIndex={index}
                                   form={form}
                                   selectedEventTypeData={selectedEventTypeData}
-                                  colors={colors}
                                   spacing={spacing}
                                   token={token}
                                 />
@@ -647,7 +594,7 @@ providerID: lookup(payload.doctorId, 'PROVIDER_ID') || 'UNKNOWN'`}
                           onClick={() => add({ name: '', httpMethod: 'POST', transformationMode: 'SCRIPT' })}
                           block
                           size="middle"
-                          icon={<PlusOutlined />}
+                          icon={<GatewayIcon name="PlusOutlined" />}
                         >
                           Add Action
                         </Button>

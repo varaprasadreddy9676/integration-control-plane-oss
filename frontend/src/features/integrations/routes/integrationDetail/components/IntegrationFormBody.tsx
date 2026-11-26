@@ -1,6 +1,6 @@
-import { Space } from 'antd';
+import { Space } from "@/components/common/LegacyAntdControls";
 import type { ReactNode } from 'react';
-import type { TabsProps } from 'antd';
+import type { IntegrationSectionItem } from './IntegrationSections';
 import { spacingToNumber } from '../../../../../design-system/utils';
 import { DeliveryModeSelector } from './DeliveryModeSelector';
 import { DeliveryLayoutSwitch } from './DeliveryLayoutSwitch';
@@ -34,7 +34,7 @@ interface IntegrationFormBodyProps {
   saveText: string;
   testText: string;
   formAlerts: ReactNode;
-  sectionItems: TabsProps['items'];
+  sectionItems: IntegrationSectionItem[];
 
   // RuleStatusBar props
   missingRequiredCount?: number;
@@ -85,7 +85,7 @@ export const IntegrationFormBody = ({
   const shouldShowActivate = !isCreate && !isActiveValue;
 
   return (
-    <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+    <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
       {formAlerts}
 
       {/* Status Bar - Sticky status indicator only (no action buttons) */}
@@ -107,7 +107,6 @@ export const IntegrationFormBody = ({
         activePanels={activePanels}
         onChange={onPanelsChange}
         items={sectionItems}
-        spacing={spacing}
       />
 
       <FormActionFooter
@@ -125,8 +124,6 @@ export const IntegrationFormBody = ({
         testDisabledTooltip="Fix validation errors before testing"
         testEnabledTooltip="Send a test event to this event rule"
         spacing={spacing}
-        token={token}
-        colors={colors}
         onActivate={shouldShowActivate ? onActivate : undefined}
         showActivate={shouldShowActivate}
       />

@@ -11,7 +11,7 @@ describe('integration save persistence', () => {
       'fetch',
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ id: 'integration-1', provider: 'Northwind LIS' }), {
+          new Response(JSON.stringify({ id: 'integration-1', provider: 'Pathkind LIS' }), {
             status: 200,
             headers: { 'content-type': 'application/json' },
           })
@@ -38,7 +38,7 @@ describe('integration save persistence', () => {
       timeoutMs: 15000,
       retryCount: 3,
       transformationMode: 'SCRIPT',
-      provider: 'Northwind LIS',
+      provider: 'Pathkind LIS',
       excludedOrgUnits: [1451, 1452],
       rateLimits: { enabled: true, maxRequests: 25, windowSeconds: 60 },
       customHeaders: { 'x-facility': 'north' },
@@ -48,7 +48,7 @@ describe('integration save persistence', () => {
 
     const [, request] = (fetch as any).mock.calls[0];
     expect(JSON.parse(request.body)).toMatchObject({
-      provider: 'Northwind LIS',
+      provider: 'Pathkind LIS',
       excludedOrgUnits: [1451, 1452],
       rateLimits: { enabled: true, maxRequests: 25, windowSeconds: 60 },
       customHeaders: { 'x-facility': 'north' },

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import Editor from '@monaco-editor/react';
-import { useDesignTokens, withAlpha, cssVar } from '../../../design-system/utils';
+import { useDesignTokens, cssVar } from '../../../design-system/utils';
+import { useThemeMode } from '../../../app/theme-provider';
 
 interface MonacoEditorInputProps {
   value?: string;
@@ -19,19 +20,18 @@ export const MonacoEditorInput = ({
   onChange,
   placeholder,
   height = '300px',
-  readOnly = false
+  readOnly = false,
 }: MonacoEditorInputProps) => {
-  const { token } = useDesignTokens();
-  const colors = cssVar.legacy;
-
+  const { token, typography } = useDesignTokens();
+  const { mode } = useThemeMode();
   return (
     <div
       style={{
         borderRadius: token.borderRadiusLG,
         overflow: 'hidden',
-        border: `1px solid ${withAlpha(colors.neutral[900], 0.6)}`,
+        border: `1px solid ${cssVar.border.default}`,
         boxShadow: token.boxShadowSecondary,
-        opacity: readOnly ? 0.9 : 1
+        opacity: readOnly ? 0.9 : 1,
       }}
     >
       <Editor
@@ -43,7 +43,7 @@ export const MonacoEditorInput = ({
           readOnly,
           // Display
           minimap: { enabled: false },
-          fontSize: 14,
+          fontSize: Number.parseFloat(typography.fontSize.base) * 16,
           // System monospace fonts only: Monaco measures a character's width once, and a web font that
           // arrives afterwards leaves the highlights and the wrapping out of line with the text.
           fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
@@ -66,7 +66,7 @@ export const MonacoEditorInput = ({
           quickSuggestions: {
             other: true,
             comments: false,
-            strings: true
+            strings: true,
           },
           suggestOnTriggerCharacters: true,
           acceptSuggestionOnCommitCharacter: true,
@@ -77,7 +77,7 @@ export const MonacoEditorInput = ({
             showKeywords: true,
             showSnippets: true,
             showFunctions: true,
-            showVariables: true
+            showVariables: true,
           },
 
           // Bracket matching & pairing
@@ -86,14 +86,14 @@ export const MonacoEditorInput = ({
           autoClosingQuotes: 'always',
           autoSurround: 'languageDefined',
           bracketPairColorization: {
-            enabled: true
+            enabled: true,
           },
 
           // Find/Replace
           find: {
             addExtraSpaceOnTop: false,
             autoFindInSelection: 'never',
-            seedSearchStringFromSelection: 'always'
+            seedSearchStringFromSelection: 'always',
           },
 
           // Scrolling
@@ -106,18 +106,18 @@ export const MonacoEditorInput = ({
 
           // Additional features
           parameterHints: {
-            enabled: true
+            enabled: true,
           },
           hover: {
-            enabled: true
+            enabled: 'on',
           },
           links: true,
           colorDecorators: true,
           comments: {
-            insertSpace: true
-          }
+            insertSpace: true,
+          },
         }}
-        theme="vs-dark"
+        theme={mode === 'dark' ? 'vs-dark' : 'light'}
         onMount={(_editor, monaco) => {
           // Measure again once every font the page uses has settled.
           void document.fonts?.ready.then(() => monaco.editor.remeasureFonts());

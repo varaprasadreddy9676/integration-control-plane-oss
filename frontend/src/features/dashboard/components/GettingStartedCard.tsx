@@ -1,23 +1,14 @@
-import { Button, Typography } from 'antd';
-import { CheckCircleFilled } from '@ant-design/icons';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { getAllEventTypes, getEventSourceConfig } from '../../../services/api';
-import { cssVar, useDesignTokens } from '../../../design-system/utils';
-import { useDashboardPanelStyle } from './DashboardPrimitives';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface GettingStartedCardProps {
   orgId: number;
   onNavigate: (path: string) => void;
 }
-
-const visuallyHidden = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;
 
 interface Step {
   title: string;
@@ -32,9 +23,6 @@ interface Step {
  * what is actually configured.
  */
 export const GettingStartedCard = ({ orgId, onNavigate }: GettingStartedCardProps) => {
-  const { spacing } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-
   const { data: eventSource } = useQuery({
     queryKey: ['eventSourceConfig', orgId],
     queryFn: async () => {
@@ -78,43 +66,29 @@ export const GettingStartedCard = ({ orgId, onNavigate }: GettingStartedCardProp
   ];
 
   return (
-    <section aria-labelledby="getting-started-title" style={{ ...panelStyle, marginTop: 12, padding: spacing[6] }}>
-      <Typography.Title level={4} id="getting-started-title" style={{ margin: 0 }}>
+    <section aria-labelledby="getting-started-title" className="console-dashboard-panel-getting-started">
+      <Heading level={2} id="getting-started-title" className="console-margin-none">
         Get started
-      </Typography.Title>
-      <Typography.Paragraph type="secondary" style={{ marginTop: spacing[1], marginBottom: spacing[5] }}>
+      </Heading>
+      <Text type="supporting" color="secondary" as="p" className="getting-started-intro">
         This organization has no integrations yet. Charts and metrics appear here once the first one runs.
-      </Typography.Paragraph>
+      </Text>
 
-      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: spacing[4] }}>
+      <ol className="getting-started-steps">
         {steps.map((step, index) => (
-          <li key={step.title} style={{ display: 'flex', gap: spacing[3], alignItems: 'flex-start' }}>
-            <span
-              aria-hidden
-              style={{
-                flex: '0 0 28px',
-                height: 28,
-                borderRadius: '50%',
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 600,
-                fontSize: 13,
-                border: `1px solid ${step.done ? cssVar.success.border : cssVar.border.default}`,
-                background: step.done ? cssVar.success.bg : 'transparent',
-                color: step.done ? cssVar.success.text : cssVar.text.secondary,
-              }}
-            >
-              {step.done ? <CheckCircleFilled /> : index + 1}
+          <li key={step.title} className="getting-started-step">
+            <span aria-hidden className="getting-started-step-marker" data-done={step.done}>
+              {step.done ? <GatewayIcon name="CheckCircleFilled" /> : index + 1}
             </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Typography.Text strong delete={step.done} type={step.done ? 'secondary' : undefined}>
+            <div className="console-flex-min-width-0">
+              <Text weight="semibold" color={step.done ? 'secondary' : 'primary'} hasStrikethrough={step.done}>
                 {step.title}
-              </Typography.Text>
-              {step.done && <span style={visuallyHidden}> (done)</span>}
-              <Typography.Paragraph type="secondary" style={{ margin: `${spacing[1]} 0 ${spacing[2]}` }}>
+              </Text>
+              {step.done && <span className="console-visually-hidden"> (done)</span>}
+              <Text type="supporting" color="secondary" as="p" className="getting-started-step-body">
                 {step.body}
-              </Typography.Paragraph>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2] }}>
+              </Text>
+              <div className="getting-started-actions">
                 {step.actions.map((action) => (
                   <Button key={action.path} size="small" onClick={() => onNavigate(action.path)}>
                     {action.label}

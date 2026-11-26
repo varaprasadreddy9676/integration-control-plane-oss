@@ -1,22 +1,39 @@
-import { useState, useMemo } from 'react';
-import { Card, Button, Form, Input, Select, Space, Typography, Tag, DatePicker, Row, Col, Statistic, Modal, Descriptions, Divider, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import {
-  AuditOutlined,
-  SearchOutlined,
-  DownloadOutlined,
-  EyeOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  FilterOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+  Card,
+  Form,
+  Input,
+  Select,
+  Space,
+  DatePicker,
+  Row,
+  Col,
+  Statistic,
+  Modal,
+  Descriptions,
+  Divider,
+  message,
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { FilterBar } from '../../components/common/FilterBar';
+import { MetaTag } from '../../components/common/MetaTag';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
-import { getAdminAuditLogs, getAdminAuditStats, exportAuditLogs } from '../../services/api';
+import {
+  getAdminAuditActionTypes,
+  getAdminAuditLogs,
+  getAdminAuditResourceTypes,
+  getAdminAuditStats,
+  exportAuditLogs,
+} from '../../services/api';
 import dayjs from 'dayjs';
 import { ModernTable } from '../../components/common/ModernTable';
 import { createExportProgress } from '../../utils/export-progress';
+import { Button } from '../../components/common/LegacyButton';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -59,6 +76,7 @@ interface AuditStats {
 export const AuditLogsRoute = () => {
   const { spacing, token } = useDesignTokens();
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState({
     startDate: undefined as string | undefined,
     endDate: undefined as string | undefined,
@@ -69,6 +87,14 @@ export const AuditLogsRoute = () => {
     page: 1,
     limit: 50,
   });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const search = searchInput.trim() || undefined;
+      setFilters((current) => (current.search === search ? current : { ...current, search, page: 1 }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   // Fetch audit logs
   const {
@@ -84,7 +110,7 @@ export const AuditLogsRoute = () => {
         action: filters.action,
         resourceType: filters.resourceType,
         success: filters.success,
-        search: filters.search,
+        search: searchInput.trim() || undefined,
         page: filters.page,
         limit: filters.limit,
       });
@@ -104,30 +130,46 @@ export const AuditLogsRoute = () => {
     staleTime: 30_000,
   });
 
+  const { data: actionTypes = [] } = useQuery({
+    queryKey: ['admin-audit-action-types'],
+    queryFn: getAdminAuditActionTypes,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: resourceTypes = [] } = useQuery({
+    queryKey: ['admin-audit-resource-types'],
+    queryFn: getAdminAuditResourceTypes,
+    staleTime: 5 * 60_000,
+  });
+
   const handleExport = async (format: 'json' | 'csv') => {
     const { onProgress, finish } = createExportProgress(message, `Export ${format.toUpperCase()}`);
     try {
-      await exportAuditLogs({
-        format,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        action: filters.action,
-        resourceType: filters.resourceType,
-        success: filters.success,
-      }, { onProgress });
+      await exportAuditLogs(
+        {
+          format,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          action: filters.action,
+          resourceType: filters.resourceType,
+          success: filters.success,
+          search: searchInput.trim() || undefined,
+        },
+        { onProgress }
+      );
       finish('Export complete');
     } catch (error) {
       finish('Export failed', true);
     }
   };
 
-  const getActionColor = (action: string) => {
-    if (action.includes('create')) return 'green';
-    if (action.includes('update')) return 'blue';
-    if (action.includes('delete')) return 'red';
-    if (action.includes('login')) return 'purple';
-    if (action.includes('failed')) return 'error';
-    return 'default';
+  const getActionVariant = (action: string) => {
+    const normalized = action.toLowerCase();
+    if (normalized.includes('create')) return 'success' as const;
+    if (normalized.includes('update')) return 'blue' as const;
+    if (normalized.includes('delete') || normalized.includes('failed')) return 'error' as const;
+    if (normalized.includes('login')) return 'info' as const;
+    return 'neutral' as const;
   };
 
   const columns = [
@@ -139,7 +181,7 @@ export const AuditLogsRoute = () => {
       render: (timestamp: string) => (
         <Space direction="vertical" size={0}>
           <Text>{dayjs(timestamp).format('MMM DD, YYYY')}</Text>
-          <Text type="secondary" style={{ fontSize: '11px' }}>
+          <Text type="secondary" className="console-type-caption">
             {dayjs(timestamp).format('HH:mm:ss')}
           </Text>
         </Space>
@@ -152,9 +194,12 @@ export const AuditLogsRoute = () => {
       key: 'action',
       width: 150,
       render: (action: string) => (
-        <Tag color={getActionColor(action)} style={{ textTransform: 'uppercase' }}>
-          {action.replace(/_/g, ' ')}
-        </Tag>
+        <StatusBadge
+          label={action.replace(/_/g, ' ').toUpperCase()}
+          variant={getActionVariant(action)}
+          showIcon={false}
+          size="small"
+        />
       ),
     },
     {
@@ -164,11 +209,11 @@ export const AuditLogsRoute = () => {
       width: 120,
       render: (type: unknown, record: AuditLog) => (
         <Space direction="vertical" size={0}>
-          <Text strong style={{ textTransform: 'capitalize' }}>
+          <Text strong className="ui-extracted-058475f4e6">
             {safeStr(type)}
           </Text>
           {record.resourceId && (
-            <Text type="secondary" style={{ fontSize: '11px' }}>
+            <Text type="secondary" className="console-type-caption">
               ID: {safeStr(record.resourceId)}
             </Text>
           )}
@@ -182,8 +227,8 @@ export const AuditLogsRoute = () => {
       width: 200,
       render: (email: unknown, record: AuditLog) => (
         <Space direction="vertical" size={0}>
-          <Text>{safeStr(email) || 'System'}</Text>
-          {record.userRole && <Tag style={{ fontSize: '10px' }}>{safeStr(record.userRole)}</Tag>}
+          <Text>{email == null ? 'System' : safeStr(email)}</Text>
+          {record.userRole && <MetaTag size="small">{safeStr(record.userRole)}</MetaTag>}
         </Space>
       ),
     },
@@ -193,16 +238,7 @@ export const AuditLogsRoute = () => {
       key: 'success',
       width: 100,
       align: 'center' as const,
-      render: (success: boolean) =>
-        success ? (
-          <Tag color="success" icon={<CheckCircleOutlined />}>
-            SUCCESS
-          </Tag>
-        ) : (
-          <Tag color="error" icon={<CloseCircleOutlined />}>
-            FAILED
-          </Tag>
-        ),
+      render: (success: boolean) => <StatusBadge status={success ? 'SUCCESS' : 'FAILED'} size="small" />,
     },
     {
       title: 'IP Address',
@@ -217,7 +253,7 @@ export const AuditLogsRoute = () => {
       width: 80,
       align: 'center' as const,
       render: (_: any, record: AuditLog) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedLog(record)}>
+        <Button size="small" icon={<GatewayIcon name="EyeOutlined" />} onClick={() => setSelectedLog(record)}>
           Details
         </Button>
       ),
@@ -225,130 +261,168 @@ export const AuditLogsRoute = () => {
   ];
 
   return (
-    <div>
-      <PageHeader
-        title="Audit Logs"
-        description="Track all system activities and user actions"
-        actions={
-          <>
-            <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
-              Refresh
-            </Button>
-            <Button icon={<DownloadOutlined />} onClick={() => handleExport('json')}>
-              Export JSON
-            </Button>
-            <Button icon={<DownloadOutlined />} onClick={() => handleExport('csv')}>
-              Export CSV
-            </Button>
-          </>
-        }
-      />
-
-      <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
+    <PageTemplate
+      header={
+        <PageHeader
+          title="Audit Logs"
+          description="Track all system activities and user actions"
+          actions={
+            <Space wrap>
+              <Button icon={<GatewayIcon name="ReloadOutlined" />} onClick={() => refetch()}>
+                Refresh
+              </Button>
+              <Button icon={<GatewayIcon name="DownloadOutlined" />} onClick={() => handleExport('json')}>
+                Export JSON
+              </Button>
+              <Button icon={<GatewayIcon name="DownloadOutlined" />} onClick={() => handleExport('csv')}>
+                Export CSV
+              </Button>
+            </Space>
+          }
+        />
+      }
+    >
+      <div className="audit-workspace">
         {/* Statistics */}
         {stats && (
-          <Card style={{ borderRadius: token.borderRadiusLG }}>
+          <div className="audit-stats-strip" aria-label="Audit summary">
             <Row gutter={16}>
-              <Col span={6}>
-                <Statistic title="Total Events" value={stats.totalLogs} prefix={<AuditOutlined />} />
+              <Col xs={12} md={6}>
+                <Statistic title="Total Events" value={stats.totalLogs} prefix={<GatewayIcon name="AuditOutlined" />} />
               </Col>
-              <Col span={6}>
+              <Col xs={12} md={6}>
                 <Statistic
                   title="Success Rate"
                   value={stats.successRate}
                   suffix="%"
                   valueStyle={{ color: token.colorSuccess }}
-                  prefix={<CheckCircleOutlined />}
+                  prefix={<GatewayIcon name="CheckCircleOutlined" />}
                 />
               </Col>
-              <Col span={6}>
+              <Col xs={12} md={6}>
                 <Statistic
                   title="Failed Actions"
                   value={stats.failedActions}
                   valueStyle={{ color: stats.failedActions > 0 ? token.colorError : token.colorTextSecondary }}
-                  prefix={<CloseCircleOutlined />}
+                  prefix={<GatewayIcon name="CloseCircleOutlined" />}
                 />
               </Col>
-              <Col span={6}>
-                <Statistic title="Active Users" value={stats.topUsers.length} prefix={<AuditOutlined />} />
+              <Col xs={12} md={6}>
+                <Statistic
+                  title="Action types"
+                  value={stats.actionsByType.length}
+                  prefix={<GatewayIcon name="AuditOutlined" />}
+                />
               </Col>
             </Row>
-          </Card>
+          </div>
         )}
 
         {/* Filters */}
-        <Card
-          title={
-            <Space>
-              <FilterOutlined /> Filters
-            </Space>
+        <FilterBar
+          rightSlot={
+            filters.startDate ||
+            filters.endDate ||
+            filters.action ||
+            filters.resourceType ||
+            filters.success !== undefined ||
+            searchInput ? (
+              <Button
+                size="small"
+                onClick={() => {
+                  setSearchInput('');
+                  setFilters({
+                    startDate: undefined,
+                    endDate: undefined,
+                    action: undefined,
+                    resourceType: undefined,
+                    success: undefined,
+                    search: undefined,
+                    page: 1,
+                    limit: filters.limit,
+                  });
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : null
           }
-          style={{ borderRadius: token.borderRadiusLG }}
         >
-          <Form layout="vertical">
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item label="Date Range">
-                  <RangePicker
-                    value={[
-                      filters.startDate ? dayjs(filters.startDate) : null,
-                      filters.endDate ? dayjs(filters.endDate) : null,
-                    ]}
-                    onChange={(dates) => {
-                      setFilters({
-                        ...filters,
-                        startDate: dates?.[0]?.format('YYYY-MM-DD'),
-                        endDate: dates?.[1]?.format('YYYY-MM-DD'),
-                        page: 1,
-                      });
-                    }}
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="Search">
-                  <Input
-                    placeholder="Search user, action, resource..."
-                    prefix={<SearchOutlined />}
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined, page: 1 })}
-                    allowClear
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="Status">
-                  <Select
-                    placeholder="All statuses"
-                    value={filters.success}
-                    onChange={(value) => setFilters({ ...filters, success: value, page: 1 })}
-                    allowClear
-                  >
-                    <Select.Option value={true}>Success Only</Select.Option>
-                    <Select.Option value={false}>Failed Only</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+          <Form className="audit-filter-grid" layout="vertical">
+            <Form.Item label="Date range">
+              <RangePicker
+                value={[
+                  filters.startDate ? dayjs(filters.startDate) : null,
+                  filters.endDate ? dayjs(filters.endDate) : null,
+                ]}
+                onChange={(dates) => {
+                  setFilters({
+                    ...filters,
+                    startDate: dates?.[0]?.format('YYYY-MM-DD'),
+                    endDate: dates?.[1]?.format('YYYY-MM-DD'),
+                    page: 1,
+                  });
+                }}
+                className="console-width-full"
+              />
+            </Form.Item>
+            <Form.Item label="Search">
+              <Input
+                placeholder="Search user, action, resource..."
+                prefix={<GatewayIcon name="SearchOutlined" />}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item label="Action">
+              <Select
+                aria-label="Action"
+                placeholder="All actions"
+                value={filters.action}
+                onChange={(value) => setFilters({ ...filters, action: value, page: 1 })}
+                allowClear
+                options={actionTypes.map((action) => ({ value: action, label: action.replace(/_/g, ' ') }))}
+              />
+            </Form.Item>
+            <Form.Item label="Resource">
+              <Select
+                aria-label="Resource"
+                placeholder="All resources"
+                value={filters.resourceType}
+                onChange={(value) => setFilters({ ...filters, resourceType: value, page: 1 })}
+                allowClear
+                options={resourceTypes.map((resource) => ({ value: resource, label: resource }))}
+              />
+            </Form.Item>
+            <Form.Item label="Status">
+              <Select
+                aria-label="Status"
+                placeholder="All statuses"
+                value={filters.success}
+                onChange={(value) => setFilters({ ...filters, success: value, page: 1 })}
+                allowClear
+              >
+                <Select.Option value={true}>Success Only</Select.Option>
+                <Select.Option value={false}>Failed Only</Select.Option>
+              </Select>
+            </Form.Item>
           </Form>
-        </Card>
+        </FilterBar>
 
         {/* Audit Logs Table */}
-        <Card
-          title={
-            <Space>
-              <span>Audit Events</span>
-              {logsData && (
-                <Text type="secondary">
-                  ({logsData.pagination.total} total, showing page {logsData.pagination.page} of{' '}
-                  {logsData.pagination.totalPages})
-                </Text>
-              )}
-            </Space>
-          }
-          style={{ borderRadius: token.borderRadiusLG }}
-        >
+        <section className="audit-table-section" aria-label="Audit events">
+          <div className="audit-table-heading">
+            <div>
+              <Text strong>Audit events</Text>
+              {logsData && <Text type="secondary">{logsData.pagination.total.toLocaleString()} total</Text>}
+            </div>
+            {logsData && (
+              <Text type="secondary">
+                Page {logsData.pagination.page} of {logsData.pagination.totalPages}
+              </Text>
+            )}
+          </div>
           <ModernTable
             columns={columns}
             dataSource={logsData?.logs || []}
@@ -366,9 +440,13 @@ export const AuditLogsRoute = () => {
             }}
             size="small"
             scroll={{ x: 1200 }}
+            emptyState={{
+              title: 'No audit events match these filters',
+              description: 'Change or clear a filter to see more activity.',
+            }}
           />
-        </Card>
-      </Space>
+        </section>
+      </div>
 
       {/* Detail Modal */}
       <Modal
@@ -383,26 +461,20 @@ export const AuditLogsRoute = () => {
         width={800}
       >
         {selectedLog && (
-          <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+          <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
             <Descriptions bordered column={2} size="small">
               <Descriptions.Item label="Timestamp" span={2}>
                 {dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
               <Descriptions.Item label="Action">
-                <Tag color={getActionColor(selectedLog.action)}>
-                  {selectedLog.action.replace(/_/g, ' ').toUpperCase()}
-                </Tag>
+                <StatusBadge
+                  label={selectedLog.action.replace(/_/g, ' ').toUpperCase()}
+                  variant={getActionVariant(selectedLog.action)}
+                  showIcon={false}
+                />
               </Descriptions.Item>
               <Descriptions.Item label="Status">
-                {selectedLog.success ? (
-                  <Tag color="success" icon={<CheckCircleOutlined />}>
-                    SUCCESS
-                  </Tag>
-                ) : (
-                  <Tag color="error" icon={<CloseCircleOutlined />}>
-                    FAILED
-                  </Tag>
-                )}
+                <StatusBadge status={selectedLog.success ? 'SUCCESS' : 'FAILED'} />
               </Descriptions.Item>
               <Descriptions.Item label="Resource Type">{safeStr(selectedLog.resourceType)}</Descriptions.Item>
               <Descriptions.Item label="Resource ID">{safeStr(selectedLog.resourceId)}</Descriptions.Item>
@@ -427,14 +499,14 @@ export const AuditLogsRoute = () => {
                 <Row gutter={16}>
                   <Col span={12}>
                     <Card title="Before" size="small">
-                      <pre style={{ maxHeight: 200, overflow: 'auto', fontSize: '11px' }}>
+                      <pre className="console-code-scroll-caption">
                         {JSON.stringify(selectedLog.changes.before ?? null, null, 2)}
                       </pre>
                     </Card>
                   </Col>
                   <Col span={12}>
                     <Card title="After" size="small">
-                      <pre style={{ maxHeight: 200, overflow: 'auto', fontSize: '11px' }}>
+                      <pre className="console-code-scroll-caption">
                         {JSON.stringify(selectedLog.changes.after ?? null, null, 2)}
                       </pre>
                     </Card>
@@ -446,14 +518,12 @@ export const AuditLogsRoute = () => {
             {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
               <>
                 <Divider>Metadata</Divider>
-                <pre style={{ maxHeight: 200, overflow: 'auto', fontSize: '11px' }}>
-                  {JSON.stringify(selectedLog.metadata, null, 2)}
-                </pre>
+                <pre className="console-code-scroll-caption">{JSON.stringify(selectedLog.metadata, null, 2)}</pre>
               </>
             )}
           </Space>
         )}
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

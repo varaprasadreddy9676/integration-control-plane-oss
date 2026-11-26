@@ -1,0 +1,16 @@
+.modern-table-container {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+}
+
+.modern-table-wrapper .react-resizable-handle {
+  position: absolute;
+  z-index: 1;
+  right: -5px;
+  bottom: 0;
+  width: 10px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+}

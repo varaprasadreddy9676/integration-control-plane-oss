@@ -1,201 +1,160 @@
 import { useEffect, useState } from 'react';
-import { Tabs, Space, Typography, Button, Popover, Divider, Grid, Tooltip } from 'antd';
-import {
-  ThunderboltOutlined,
-  ApiOutlined,
-  InfoCircleOutlined,
-  PlusOutlined,
-  QuestionCircleOutlined,
-  ClockCircleOutlined,
-} from '@ant-design/icons';
+import { Grid } from "@/components/common/LegacyAntdControls";
+import { Button } from '@astryxdesign/core/Button';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { useLocation } from 'react-router-dom';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { useDesignTokens } from '../../../design-system/utils';
+import { useNavigateWithParams } from '../../../utils/navigation';
 import { IntegrationsRoute } from './IntegrationsRoute';
 import { InboundIntegrationsRoute } from '../../inbound-integrations/routes/InboundIntegrationsRoute';
 import { ScheduledJobsRoute } from '../../scheduled-jobs/routes/ScheduledJobsRoute';
-import { PageHeader } from '../../../components/common/PageHeader';
-import { useDesignTokens } from '../../../design-system/utils';
-import { useNavigateWithParams } from '../../../utils/navigation';
-import { useLocation } from 'react-router-dom';
 
-const { Text, Paragraph } = Typography;
+type IntegrationTab = 'event-rules' | 'api-integrations' | 'scheduled-integrations';
 
-// Help content for Outbound Integrations
-const OutboundHelpContent = () => (
-  <div style={{ maxWidth: 380 }}>
-    <Paragraph style={{ marginBottom: 12 }}>
-      Outbound integrations automatically send data to external systems when events occur in your application (e.g.,
-      appointment created, patient registered, order placed).
-    </Paragraph>
-    <div style={{ marginBottom: 8 }}>
-      <Text strong>Flow:</Text> <Text type="secondary">Your App Event → Gateway → External System</Text>
-    </div>
-    <div>
-      <Text strong>Use cases:</Text> <Text type="secondary">CRM sync, notifications, data pipelines, analytics</Text>
-    </div>
-  </div>
-);
+const TAB_QUERY_VALUE: Record<IntegrationTab, string> = {
+  'event-rules': 'outbound',
+  'api-integrations': 'inbound',
+  'scheduled-integrations': 'scheduled',
+};
 
-// Help content for Inbound Integrations
-const InboundHelpContent = () => (
-  <div style={{ maxWidth: 380 }}>
-    <Paragraph style={{ marginBottom: 12 }}>
-      Inbound integrations act as a real-time proxy between your client app and external APIs. The gateway handles
-      authentication, transformation, and forwards requests.
-    </Paragraph>
-    <div style={{ marginBottom: 8 }}>
-      <Text strong>Flow:</Text> <Text type="secondary">Client App → Gateway → External API → Response</Text>
-    </div>
-    <div>
-      <Text strong>Use cases:</Text>{' '}
-      <Text type="secondary">Real-time eligibility checks, live data enrichment, synchronous operations</Text>
-    </div>
-  </div>
-);
+const TAB_SUMMARY: Record<IntegrationTab, string> = {
+  'event-rules': 'Send application events to external systems.',
+  'api-integrations': 'Proxy inbound requests with authentication and transformation.',
+  'scheduled-integrations': 'Run database queries and scripts on a schedule.',
+};
 
-// Help content for Scheduled Integrations
-const ScheduledHelpContent = () => (
-  <div style={{ maxWidth: 380 }}>
-    <Paragraph style={{ marginBottom: 12 }}>
-      Scheduled integrations run on time-based triggers (cron schedules or intervals), fetching data from databases and
-      sending batches to external systems.
-    </Paragraph>
-    <div style={{ marginBottom: 8 }}>
-      <Text strong>Flow:</Text> <Text type="secondary">Database Query → Gateway (on schedule) → External System</Text>
-    </div>
-    <div>
-      <Text strong>Use cases:</Text>{' '}
-      <Text type="secondary">Daily reports, batch syncs, periodic data exports, scheduled notifications</Text>
-    </div>
-  </div>
-);
+const normalizeTab = (value: string | null): IntegrationTab | undefined => {
+  if (value === 'inbound' || value === 'api') return 'api-integrations';
+  if (value === 'outbound' || value === 'event') return 'event-rules';
+  if (value === 'scheduled') return 'scheduled-integrations';
+  if (value === 'api-integrations' || value === 'event-rules' || value === 'scheduled-integrations') return value;
+  return undefined;
+};
 
 export const UnifiedIntegrationsRoute = () => {
-  const { spacing, token } = useDesignTokens();
   const navigate = useNavigateWithParams();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('event-rules');
+  const { spacing } = useDesignTokens();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
+  const [activeTab, setActiveTab] = useState<IntegrationTab>('event-rules');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tabParam = params.get('tab');
-    if (!tabParam) return;
-
-    const normalized =
-      tabParam === 'inbound' || tabParam === 'api'
-        ? 'api-integrations'
-        : tabParam === 'outbound' || tabParam === 'event'
-          ? 'event-rules'
-          : tabParam === 'scheduled'
-            ? 'scheduled-integrations'
-            : tabParam;
-
-    if (normalized === 'api-integrations' || normalized === 'event-rules' || normalized === 'scheduled-integrations') {
-      setActiveTab(normalized);
-    }
+    const nextTab = normalizeTab(params.get('tab'));
+    if (nextTab) setActiveTab(nextTab);
   }, [location.search]);
 
-  // AntD's Tabs "more" overflow dropdown doesn't reliably open once the nav list is
-  // squeezed tight — confirmed on a 375px viewport: the "..." trigger renders but
-  // never opens, making the Inbound and Scheduled tabs completely unreachable on
-  // mobile. Icon-only tabs (full name in a Tooltip) on mobile keep all three tabs
-  // comfortably under the overflow threshold instead of depending on that dropdown.
-  const tabLabel = (icon: React.ReactNode, fullLabel: string, help: React.ReactNode) =>
-    isNarrow ? (
-      <Tooltip title={fullLabel}>
-        <span aria-label={fullLabel} style={{ display: 'flex', alignItems: 'center' }}>
-          {icon}
-        </span>
-      </Tooltip>
-    ) : (
-      <Space size={6}>
-        {icon}
-        <span>{fullLabel}</span>
-        <Popover content={help} trigger="click" placement="bottom">
-          <QuestionCircleOutlined
-            style={{ color: token.colorTextSecondary, fontSize: 12 }}
-            aria-label={`Learn more about ${fullLabel.toLowerCase()}`}
-          />
-        </Popover>
-      </Space>
-    );
+  const selectTab = (nextTab: string) => {
+    if (nextTab !== 'event-rules' && nextTab !== 'api-integrations' && nextTab !== 'scheduled-integrations') return;
+    setActiveTab(nextTab);
+    navigate(`/integrations?tab=${TAB_QUERY_VALUE[nextTab]}`);
+  };
 
-  const tabItems = [
-    {
-      key: 'event-rules',
-      label: tabLabel(<ThunderboltOutlined aria-hidden="true" />, 'Outbound Integrations', <OutboundHelpContent />),
-      children: <IntegrationsRoute hideHeader isActive={activeTab === 'event-rules'} />,
-    },
-    {
-      key: 'api-integrations',
-      label: tabLabel(<ApiOutlined aria-hidden="true" />, 'Inbound Integrations', <InboundHelpContent />),
-      children: <InboundIntegrationsRoute hideHeader isActive={activeTab === 'api-integrations'} />,
-    },
-    {
-      key: 'scheduled-integrations',
-      label: tabLabel(<ClockCircleOutlined aria-hidden="true" />, 'Scheduled Integrations', <ScheduledHelpContent />),
-      children: <ScheduledJobsRoute hideHeader isActive={activeTab === 'scheduled-integrations'} />,
-    },
-  ];
-
-  const newIntegrationButton = (
-    <Button
-      type="primary"
-      size="middle"
-      icon={<PlusOutlined />}
-      aria-label="New Integration"
-      block={isNarrow}
-      onClick={() => {
-        if (activeTab === 'event-rules') {
-          navigate('/integrations/new');
-        } else if (activeTab === 'api-integrations') {
-          navigate('/inbound-integrations/new');
-        } else {
-          navigate('/scheduled-jobs/new');
-        }
-      }}
-    >
-      New Integration
-    </Button>
-  );
+  const startNewIntegration = () => {
+    if (activeTab === 'event-rules') navigate('/integrations/new');
+    else if (activeTab === 'api-integrations') navigate('/inbound-integrations/new');
+    else navigate('/scheduled-jobs/new');
+  };
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <PageHeader
-        title="Integrations"
-        description="Manage outbound, inbound, and scheduled integrations"
-        breadcrumb={[{ label: 'Configuration' }, { label: 'Integrations' }]}
-        // On mobile the button moves down here, off the tab bar row, so the three
-        // tabs (Outbound/Inbound/Scheduled) get the full row width instead of
-        // fighting a fixed-width button for space — see the tabItems comment above.
-        actions={isNarrow ? newIntegrationButton : undefined}
-        compact
-      />
-
-      <div style={{ padding: `0 ${spacing[4]} ${spacing[4]}` }}>
-        <Tabs
-          activeKey={activeTab}
-          onChange={(nextTab) => {
-            setActiveTab(nextTab);
-            const tabValue =
-              nextTab === 'api-integrations'
-                ? 'inbound'
-                : nextTab === 'scheduled-integrations'
-                  ? 'scheduled'
-                  : 'outbound';
-            navigate(`/integrations?tab=${tabValue}`);
-          }}
-          items={tabItems}
-          size="middle"
-          aria-label="Integration type tabs"
-          tabBarStyle={{
-            marginBottom: 0,
-            paddingBottom: spacing[2],
-            borderBottom: `1px solid ${token.colorBorder}`,
-          }}
-          tabBarExtraContent={isNarrow ? undefined : newIntegrationButton}
+    <PageTemplate
+      as="main"
+      className="unified-integrations-template"
+      contentClassName="unified-integrations-template__content"
+      header={
+        <PageHeader
+          title="Integrations"
+          description="Manage outbound, inbound, and scheduled integrations"
+          breadcrumb={[{ label: 'Configuration' }, { label: 'Integrations' }]}
+          actions={
+            <Button
+              label="New Integration"
+              variant="primary"
+              size="md"
+              icon={<GatewayIcon name="PlusOutlined" aria-hidden="true" />}
+              width={isNarrow ? '100%' : undefined}
+              onClick={startNewIntegration}
+            />
+          }
+          compact
         />
+      }
+    >
+      <div style={{ padding: `0 ${spacing[4]} ${spacing[4]}` }}>
+        <TabList
+          value={activeTab}
+          onChange={selectTab}
+          size="md"
+          layout={isNarrow ? 'hug' : 'fill'}
+          role="tablist"
+          aria-label="Integration types"
+          hasDivider
+          overflow="scroll"
+        >
+          <Tab
+            value="event-rules"
+            label="Outbound"
+            icon={<GatewayIcon name="ThunderboltOutlined" aria-hidden="true" />}
+            panelId="outbound-integrations-panel"
+            id="outbound-integrations-tab"
+          />
+          <Tab
+            value="api-integrations"
+            label="Inbound"
+            icon={<GatewayIcon name="ApiOutlined" aria-hidden="true" />}
+            panelId="inbound-integrations-panel"
+            id="inbound-integrations-tab"
+          />
+          <Tab
+            value="scheduled-integrations"
+            label="Scheduled"
+            icon={<GatewayIcon name="ClockCircleOutlined" aria-hidden="true" />}
+            panelId="scheduled-integrations-panel"
+            id="scheduled-integrations-tab"
+          />
+        </TabList>
+
+        <Text
+          type="supporting"
+          as="p"
+          style={{ display: 'block', margin: `${spacing[2]} 0 ${spacing[3]}`, fontSize: 'var(--console-type-caption)' }}
+        >
+          {TAB_SUMMARY[activeTab]}
+        </Text>
+
+        <section
+          id="outbound-integrations-panel"
+          role="tabpanel"
+          aria-labelledby="outbound-integrations-tab"
+          hidden={activeTab !== 'event-rules'}
+          tabIndex={0}
+        >
+          <IntegrationsRoute hideHeader isActive={activeTab === 'event-rules'} />
+        </section>
+        <section
+          id="inbound-integrations-panel"
+          role="tabpanel"
+          aria-labelledby="inbound-integrations-tab"
+          hidden={activeTab !== 'api-integrations'}
+          tabIndex={0}
+        >
+          <InboundIntegrationsRoute hideHeader isActive={activeTab === 'api-integrations'} />
+        </section>
+        <section
+          id="scheduled-integrations-panel"
+          role="tabpanel"
+          aria-labelledby="scheduled-integrations-tab"
+          hidden={activeTab !== 'scheduled-integrations'}
+          tabIndex={0}
+        >
+          <ScheduledJobsRoute hideHeader isActive={activeTab === 'scheduled-integrations'} />
+        </section>
       </div>
-    </div>
+    </PageTemplate>
   );
 };

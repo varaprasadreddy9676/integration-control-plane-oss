@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import { message } from 'antd';
+import { message } from "@/components/common/LegacyAntdControls";
 
 export type ExportFormat = 'png' | 'pdf';
 
@@ -162,6 +160,7 @@ export const useDashboardExport = () => {
       const loadingMessage = message.loading(`Generating ${format.toUpperCase()}...`, 0);
 
       // Capture the element as canvas
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(targetElement, {
         backgroundColor,
         scale: 2, // Higher resolution
@@ -207,6 +206,7 @@ export const useDashboardExport = () => {
           return blob;
         }
       } else if (format === 'pdf') {
+        const { default: jsPDF } = await import('jspdf');
         // Export as PDF
         const imgData = canvas.toDataURL('image/png', quality);
 

@@ -1,19 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Alert, Button, Checkbox, Input, Modal, Space, Typography, message } from 'antd';
-import type { MenuProps } from 'antd';
-import {
-  ThunderboltOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
-  FieldTimeOutlined,
-  MinusCircleOutlined,
-  FileImageOutlined,
-  FilePdfOutlined,
-  MailOutlined,
-} from '@ant-design/icons';
+import { Checkbox, Input, Modal, Space, message } from "@/components/common/LegacyAntdControls";
+import type { MenuProps } from "@/components/common/LegacyAntdControls";
+import { Banner } from '@astryxdesign/core/Banner';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from "../../components/common/Icon";
 import { useQuery } from '@tanstack/react-query';
 import {
-  getDashboardSummary,
   getAnalyticsOverview,
   getAnalyticsTimeseries,
   getAnalyticsErrors,
@@ -28,10 +20,13 @@ import {
   getScheduledJobLogs,
 } from '../../services/api';
 import { formatDateTimeWithSeconds, formatNumber } from '../../utils/format';
-import { useDesignTokens, cssVar } from '../../design-system/utils';
+import { useDesignTokens } from '../../design-system/utils';
 import { useNavigateWithParams } from '../../utils/navigation';
 import { useTenant } from '../../app/tenant-context';
 import { useDashboardExport } from './hooks/useDashboardExport';
+import { aggregateDailyDeliveryTrend } from './chart-data';
+import { StatePanel } from '../../components/common/StatePanel';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import {
   DashboardDetailsTabs,
   DashboardDeliveriesTab,
@@ -47,6 +42,7 @@ import {
   DashboardInboundTab,
   DashboardScheduledTab,
 } from './components';
+import { Button } from '../../components/common/LegacyButton';
 
 type DashboardScope = 'ALL' | 'OUTBOUND' | 'INBOUND' | 'SCHEDULED';
 type DashboardDetailsTab =
@@ -144,7 +140,12 @@ export const DashboardRoute = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: integrationOptions } = useQuery({
+  const {
+    data: integrationOptions,
+    isLoading: integrationOptionsLoading,
+    isError: integrationOptionsError,
+    refetch: refetchIntegrationOptions,
+  } = useQuery({
     queryKey: ['dashboard-integrations', orgId],
     queryFn: async () => {
       const [integrations, scheduledJobs] = await Promise.all([getAllIntegrations(), getAllScheduledJobs()]);
@@ -312,34 +313,23 @@ export const DashboardRoute = () => {
     {
       key: 'send-email',
       label: 'Send via Email',
-      icon: <MailOutlined />,
+      icon: <GatewayIcon name="MailOutlined" />,
       onClick: () => setEmailModalVisible(true),
     },
     { type: 'divider' },
     {
       key: 'export-png',
       label: 'Export as PNG',
-      icon: <FileImageOutlined />,
+      icon: <GatewayIcon name="FileImageOutlined" />,
       onClick: () => exportDashboard('png'),
     },
     {
       key: 'export-pdf',
       label: 'Export as PDF',
-      icon: <FilePdfOutlined />,
+      icon: <GatewayIcon name="FilePdfOutlined" />,
       onClick: () => exportDashboard('pdf'),
     },
   ];
-
-  // Fetch dashboard summary (24h stats)
-  const {
-    data: summary,
-    dataUpdatedAt: summaryUpdatedAt,
-    refetch: refetchSummary,
-  } = useQuery({
-    queryKey: ['dashboard-summary', orgId],
-    queryFn: getDashboardSummary,
-    refetchInterval: refreshInterval,
-  });
 
   const analyticsDirection = effectiveScope === 'ALL' || effectiveScope === 'SCHEDULED' ? undefined : effectiveScope;
   const analyticsTriggerType = effectiveScope === 'SCHEDULED' ? 'SCHEDULED' : undefined;
@@ -601,7 +591,6 @@ export const DashboardRoute = () => {
 
   const lastRefreshedAt = useMemo(() => {
     const timestamps = [
-      summaryUpdatedAt,
       analyticsUpdatedAt,
       timeseriesDailyUpdatedAt,
       timeseriesHourlyUpdatedAt,
@@ -614,7 +603,6 @@ export const DashboardRoute = () => {
     if (timestamps.length === 0) return null;
     return Math.max(...timestamps);
   }, [
-    summaryUpdatedAt,
     analyticsUpdatedAt,
     timeseriesDailyUpdatedAt,
     timeseriesHourlyUpdatedAt,
@@ -629,7 +617,7 @@ export const DashboardRoute = () => {
     setRefreshing(true);
     try {
       await Promise.all([
-        refetchSummary(),
+        refetchIntegrationOptions(),
         ...(hasConfiguredEntitiesInScope ? [refetchAnalytics(), refetchTimeseriesDaily()] : []),
         ...(needsHourlyTimeseries && hasConfiguredEntitiesInScope ? [refetchTimeseriesHourly()] : []),
         ...(needsErrorAnalytics && hasConfiguredEntitiesInScope ? [refetchErrors()] : []),
@@ -753,7 +741,7 @@ export const DashboardRoute = () => {
             ...(analyticsData?.summary?.retrying ? [`${analyticsData.summary.retrying} retrying`] : []),
           ].join(', ')
         : noDataHint,
-      icon: <ThunderboltOutlined />,
+      icon: <GatewayIcon name="ThunderboltOutlined" />,
       tone: themeColors.text.primary,
       trend: trends?.totalChange,
       trendLabel: trends
@@ -771,7 +759,7 @@ export const DashboardRoute = () => {
       delta: hasSummaryData
         ? `${analyticsData.summary.successful} / ${analyticsData.summary.total} deliveries`
         : noDataHint,
-      icon: <CheckCircleOutlined />,
+      icon: <GatewayIcon name="CheckCircleOutlined" />,
       tone: themeColors.text.primary,
       trend: trends?.successRateChange,
       trendLabel: trends
@@ -787,7 +775,7 @@ export const DashboardRoute = () => {
       label: 'Skipped',
       value: hasSummaryData ? formatNumber(analyticsData?.summary?.skipped || 0) : '—',
       delta: hasSummaryData ? 'Condition-based or policy-based skips' : noDataHint,
-      icon: <MinusCircleOutlined />,
+      icon: <GatewayIcon name="MinusCircleOutlined" />,
       tone: themeColors.text.primary,
       trend: trends?.skippedChange,
       trendLabel: trends
@@ -803,7 +791,7 @@ export const DashboardRoute = () => {
       label: 'Avg latency',
       value: hasSummaryData ? `${analyticsData?.performance?.avgResponseTime || 0} ms` : '—',
       delta: hasSummaryData ? `P95: ${analyticsData?.performance?.p95ResponseTime || 0} ms` : noDataHint,
-      icon: <FieldTimeOutlined />,
+      icon: <GatewayIcon name="FieldTimeOutlined" />,
       tone: themeColors.text.primary,
       trend: undefined, // We'll calculate this later if needed
       trendLabel: undefined,
@@ -817,7 +805,7 @@ export const DashboardRoute = () => {
           ? `${analyticsData.summary.retrying} retrying`
           : 'View error details below'
         : noDataHint,
-      icon: <WarningOutlined />,
+      icon: <GatewayIcon name="WarningOutlined" />,
       tone: hasSummaryData && analyticsData.summary.failed > 0 ? themeColors.error.text : themeColors.text.primary,
       // Drives the tile's red treatment. A Failed card with zero failures stays
       // neutral, so red keeps meaning something.
@@ -838,25 +826,7 @@ export const DashboardRoute = () => {
   const deliveryTrendData = useMemo(() => {
     const series = timeseriesDailyData?.data || [];
     if (!Array.isArray(series) || series.length === 0) return [];
-
-    const data = series.map((point: any) => {
-      const total = Number(point.total || 0);
-      const successful = Number(point.successful || 0);
-      const failed = Number(point.failed || 0);
-      const skipped = Number(point.skipped || 0);
-      const successRate = total > 0 ? (successful / total) * 100 : 0;
-
-      return {
-        date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        Successful: successful,
-        Failed: failed,
-        Skipped: skipped,
-        'Success Rate': Number(successRate.toFixed(1)),
-        Total: total,
-      };
-    });
-
-    return data;
+    return aggregateDailyDeliveryTrend(series);
   }, [timeseriesDailyData]);
 
   // Funnel chart data for event flow
@@ -1142,82 +1112,97 @@ export const DashboardRoute = () => {
     return undefined;
   };
 
+  const renderDashboardHeader = (onRefresh: () => void, isRefreshing: boolean) => (
+    <DashboardHeader
+      title="Dashboard"
+      subtitle="Real-time monitoring of event delivery performance and system health."
+      manageLabel={scopeMeta.manageLabel}
+      onManage={() => navigate(scopeMeta.managePath)}
+      onViewLogs={() => navigateWithFilters('/logs')}
+      onRefresh={onRefresh}
+      refreshing={isRefreshing}
+      refreshSeconds={refreshSeconds}
+      lastRefreshedAt={lastRefreshedAt}
+      exportMenuItems={exportMenuItems}
+      isExporting={isExporting}
+    />
+  );
+
   // A brand-new org has nothing to chart; show the setup steps instead.
+  if ((integrationOptionsLoading || integrationOptionsError) && !integrationOptions) {
+    return (
+      <div className="dashboard-shell" data-dashboard-container>
+        <PageTemplate
+          className="dashboard-template"
+          contentClassName="dashboard-template-content"
+          header={renderDashboardHeader(() => void refetchIntegrationOptions(), integrationOptionsLoading)}
+        >
+          <StatePanel
+            glyph={integrationOptionsError ? 'disrupted' : 'connecting'}
+            tone={integrationOptionsError ? 'critical' : 'busy'}
+            title={integrationOptionsError ? 'Could not load dashboard configuration' : 'Loading dashboard'}
+            description={integrationOptionsError ? 'The integration list is unavailable. Your dashboard data has not been changed.' : 'Loading integrations and scheduled jobs for this organization.'}
+            actions={integrationOptionsError ? <Button size="small" onClick={() => void refetchIntegrationOptions()}>Retry</Button> : undefined}
+            size="regular"
+          />
+        </PageTemplate>
+      </div>
+    );
+  }
+
   if (integrationOptions && integrationOptions.length === 0) {
     return (
       <div className="dashboard-shell" data-dashboard-container>
-        <DashboardHeader
-          title="Dashboard"
-          subtitle="Real-time monitoring of event delivery performance and system health."
-          manageLabel={scopeMeta.manageLabel}
-          onManage={() => navigate(scopeMeta.managePath)}
-          onViewLogs={() => navigateWithFilters('/logs')}
-          onRefresh={handleManualRefresh}
-          refreshing={refreshing}
-          refreshSeconds={refreshSeconds}
-          lastRefreshedAt={lastRefreshedAt}
-          exportMenuItems={exportMenuItems}
-          isExporting={isExporting}
-        />
-        <GettingStartedCard orgId={orgId} onNavigate={navigate} />
+        <PageTemplate
+          className="dashboard-template"
+          contentClassName="dashboard-template-content"
+          header={renderDashboardHeader(handleManualRefresh, refreshing)}
+        >
+          <GettingStartedCard orgId={orgId} onNavigate={navigate} />
+        </PageTemplate>
       </div>
     );
   }
 
   return (
     <div className="dashboard-shell" data-dashboard-container>
-      <DashboardHeader
-        title="Dashboard"
-        subtitle="Real-time monitoring of event delivery performance and system health."
-        manageLabel={scopeMeta.manageLabel}
-        onManage={() => navigate(scopeMeta.managePath)}
-        onViewLogs={() => navigateWithFilters('/logs')}
-        onRefresh={handleManualRefresh}
-        refreshing={refreshing}
-        refreshSeconds={refreshSeconds}
-        lastRefreshedAt={lastRefreshedAt}
-        exportMenuItems={exportMenuItems}
-        isExporting={isExporting}
-      />
-
-      <DashboardToolbar
-        days={days}
-        setDays={setDays}
-        direction={direction}
-        setDirection={setDirection}
-        provider={providerFilter}
-        setProvider={setProviderFilter}
-        providerOptions={providerOptions}
-        integrationId={integrationId}
-        setIntegrationId={setIntegrationId}
-        integrationOptions={filteredIntegrationOptions}
-        statusText={statusText}
-      />
+      <PageTemplate
+        className="dashboard-template"
+        contentClassName="dashboard-template-content"
+        header={renderDashboardHeader(handleManualRefresh, refreshing)}
+      >
+        <DashboardToolbar
+          days={days}
+          setDays={setDays}
+          direction={direction}
+          setDirection={setDirection}
+          provider={providerFilter}
+          setProvider={setProviderFilter}
+          providerOptions={providerOptions}
+          integrationId={integrationId}
+          setIntegrationId={setIntegrationId}
+          integrationOptions={filteredIntegrationOptions}
+          statusText={statusText}
+        />
 
       {showEmptyRangeNotice && (
-        <Alert
-          type="info"
-          showIcon
-          // Neutral surface with a small blue icon, rather than AntD's full blue
-          // info styling: this is a statement of fact, and it was carrying the
-          // same visual weight as the primary action beside it.
-          style={{
-            marginTop: 12,
-            background: cssVar.bg.surface,
-            border: `1px solid ${cssVar.border.default}`,
-          }}
-          message="No deliveries in this period"
-          action={
-            <Space>
+        <div className="dashboard-empty-range-notice">
+          <Banner
+            status="info"
+            title="No deliveries in this period"
+            description="Widen the date range to see recent delivery activity."
+            endContent={
+              <Space wrap>
               <Button size="small" onClick={() => setDays(7)}>
                 Last 7 days
               </Button>
               <Button size="small" onClick={() => setDays(30)}>
                 Last 30 days
               </Button>
-            </Space>
-          }
-        />
+              </Space>
+            }
+          />
+        </div>
       )}
 
       <DashboardKpiSection metrics={overviewMetrics} loading={analyticsLoadingState} rangePhrase={rangePhrase} />
@@ -1228,6 +1213,12 @@ export const DashboardRoute = () => {
         items={detailsTabs}
       />
 
+      <div
+        id={`dashboard-panel-${detailsTab}`}
+        role="tabpanel"
+        aria-labelledby={`dashboard-tab-${detailsTab}`}
+        tabIndex={0}
+      >
       {detailsTab === 'overview' && (
         <DashboardOverviewTab
           days={days}
@@ -1385,6 +1376,7 @@ export const DashboardRoute = () => {
           onLegendClick={handleLegendClick}
         />
       )}
+      </div>
 
       {/* Email Modal */}
       <Modal
@@ -1400,12 +1392,12 @@ export const DashboardRoute = () => {
         okText="Send Email"
         width={600}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Space direction="vertical" className="console-width-full" size="large">
           <div>
-            <Typography.Text strong>Recipient Email Addresses</Typography.Text>
-            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: spacing[2] }}>
+            <Text weight="semibold">Recipient Email Addresses</Text>
+            <Text type="supporting" color="secondary" display="block" className="console-margin-bottom-2">
               Enter one or more email addresses (comma or newline separated)
-            </Typography.Text>
+            </Text>
             <Input.TextArea
               placeholder="user1@example.com, user2@example.com"
               value={emailRecipients}
@@ -1420,13 +1412,14 @@ export const DashboardRoute = () => {
             </Checkbox>
           </div>
           <div>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="supporting" color="secondary">
               The email will include dashboard statistics for the current time range (
               {days === 1 ? 'Today' : `${days} days`}) and a link to view the full dashboard.
-            </Typography.Text>
+            </Text>
           </div>
         </Space>
       </Modal>
+      </PageTemplate>
     </div>
   );
 };

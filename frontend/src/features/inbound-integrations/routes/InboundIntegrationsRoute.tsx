@@ -1,34 +1,22 @@
 import { useState, useMemo } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
 import {
   Card,
   Space,
-  Button,
-  Tag,
   Tooltip,
   Modal,
   message,
   Input,
   Switch,
-  Typography,
   App,
   Divider,
   Select,
   Grid,
-} from 'antd';
-import {
-  ApiOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  ThunderboltOutlined,
-  CopyOutlined,
-  MailOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { ListActions, SearchInput } from '../../../components/common/ListControls';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -47,6 +35,7 @@ import { RequestPolicySummary } from '../../integrations/components/detail/share
 import { markMorphSource } from '../../../design-system/view-transition';
 import { celebrateActivation } from '../../../design-system/delight';
 import { prefetchDetailRoute } from '../../../app/route-prefetch';
+import { Button } from '../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -485,14 +474,14 @@ export const InboundIntegrationsRoute = ({
             }}
             onMouseEnter={() => prefetchDetailRoute('inbound')}
             onFocus={() => prefetchDetailRoute('inbound')}
-            style={{ fontWeight: 600, fontSize: 14 }}
+            className="ui-extracted-bc9c05987f"
           >
             {name}
           </Typography.Link>
           <Space size={6} wrap>
-            <Tag style={{ fontSize: 11 }}>
+            <Text type="supporting" color="secondary">
               {record.type}
-            </Tag>
+            </Text>
             <RequestPolicySummary policy={record.requestPolicy || null} compact />
           </Space>
         </Space>
@@ -512,10 +501,10 @@ export const InboundIntegrationsRoute = ({
           const provider = config?.provider || 'SMTP';
           return (
             <Space size={4}>
-              <Tag style={{ fontSize: 11 }}>
+              <Text type="supporting" color="secondary">
                 {channel}
-              </Tag>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              </Text>
+              <Text type="secondary" className="console-type-caption">
                 via {provider}
               </Text>
             </Space>
@@ -524,7 +513,7 @@ export const InboundIntegrationsRoute = ({
 
         return (
           <Tooltip title={url}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="console-type-caption">
               {url}
             </Text>
           </Tooltip>
@@ -536,16 +525,6 @@ export const InboundIntegrationsRoute = ({
       dataIndex: 'inboundAuthType',
       key: 'inboundAuthType',
       render: (authType: string) => {
-        const colors: Record<string, string> = {
-          NONE: 'orange',
-          API_KEY: 'blue',
-          BEARER: 'cyan',
-          BASIC: 'green',
-          OAUTH1: 'purple',
-          OAUTH2: 'purple',
-          CUSTOM: 'geekblue',
-          CUSTOM_HEADERS: 'magenta',
-        };
         const labels: Record<string, string> = {
           NONE: 'No Auth',
           API_KEY: 'API Key',
@@ -557,11 +536,17 @@ export const InboundIntegrationsRoute = ({
           CUSTOM_HEADERS: 'Custom Headers',
         };
         const label = labels[authType] || authType;
-        const tag = <Tag color={colors[authType] || 'default'}>{label}</Tag>;
+        const value = (
+          <Text type="supporting" color="secondary">
+            {label}
+          </Text>
+        );
         return authType === 'NONE' ? (
-          <Tooltip title="No authentication required — anyone with the URL can call this endpoint">{tag}</Tooltip>
+          <Tooltip title="No authentication required — anyone with the URL can call this endpoint" mouseEnterDelay={0}>
+            <span>{value}</span>
+          </Tooltip>
         ) : (
-          tag
+          value
         );
       },
     },
@@ -578,8 +563,8 @@ export const InboundIntegrationsRoute = ({
         <Switch
           checked={isActive}
           onChange={(checked) => handleToggle(record, checked)}
-          checkedChildren={<CheckCircleOutlined />}
-          unCheckedChildren={<CloseCircleOutlined />}
+          checkedChildren={<GatewayIcon name="CheckCircleOutlined" />}
+          unCheckedChildren={<GatewayIcon name="CloseCircleOutlined" />}
         />
       ),
     },
@@ -589,7 +574,7 @@ export const InboundIntegrationsRoute = ({
       key: 'updatedAt',
       sorter: (a: any, b: any) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
       render: (date: string) => (
-        <Text type="secondary" style={{ fontSize: 12 }}>
+        <Text type="secondary" className="console-type-caption">
           {formatDateTime(date)}
         </Text>
       ),
@@ -609,7 +594,7 @@ export const InboundIntegrationsRoute = ({
                 type="text"
                 size="small"
                 aria-label={`Copy curl for ${record.name}`}
-                icon={<CopyOutlined />}
+                icon={<GatewayIcon name="CopyOutlined" />}
                 onClick={() => handleCopyCurl(record)}
               />
             </Tooltip>
@@ -618,7 +603,7 @@ export const InboundIntegrationsRoute = ({
                 type="text"
                 size="small"
                 aria-label={`Edit ${record.name}`}
-                icon={<EditOutlined />}
+                icon={<GatewayIcon name="EditOutlined" />}
                 onClick={() => navigate(`/inbound-integrations/${record.id}`)}
               />
             </Tooltip>
@@ -629,7 +614,7 @@ export const InboundIntegrationsRoute = ({
                   type="text"
                   size="small"
                   aria-label={`Send test email for ${record.name}`}
-                  icon={<MailOutlined />}
+                  icon={<GatewayIcon name="MailOutlined" />}
                   onClick={() => handleOpenTestEmailModal(record)}
                   disabled={!record.isActive}
                 />
@@ -640,7 +625,7 @@ export const InboundIntegrationsRoute = ({
                   type="text"
                   size="small"
                   aria-label={`Test ${record.name}`}
-                  icon={<ThunderboltOutlined />}
+                  icon={<GatewayIcon name="ThunderboltOutlined" />}
                   onClick={() => handleTest(record)}
                   disabled={!record.isActive}
                 />
@@ -652,7 +637,7 @@ export const InboundIntegrationsRoute = ({
                 size="small"
                 danger
                 aria-label={`Delete ${record.name}`}
-                icon={<DeleteOutlined />}
+                icon={<GatewayIcon name="DeleteOutlined" />}
                 onClick={() => handleDelete(record)}
               />
             </Tooltip>
@@ -674,7 +659,7 @@ export const InboundIntegrationsRoute = ({
             <Button
               type="primary"
               size="middle"
-              icon={<PlusOutlined />}
+              icon={<GatewayIcon name="PlusOutlined" />}
               onClick={() => navigate('/inbound-integrations/new')}
             >
               Create API Integration
@@ -697,48 +682,31 @@ export const InboundIntegrationsRoute = ({
             alignItems: 'center',
           }}
         >
-          {/* Count Tags */}
+          {/* Summary counts */}
           <Space size="small">
-            <Tag
-              style={{
-                borderRadius: 4,
-                padding: `2px ${spacing[2]}`,
-                borderColor: withAlpha(colors.neutral[300], 0.8),
-                background: withAlpha(colors.neutral[100], 0.6),
-                color: cssVar.text.secondary,
-                fontWeight: 600,
-                fontSize: 12,
-                margin: 0,
-              }}
-            >
-              {`${integrations.filter((i: any) => i.direction === 'INBOUND').length} total`}
-            </Tag>
-            <Tag
-              style={{
-                borderRadius: 4,
-                padding: `2px ${spacing[2]}`,
-                borderColor: withAlpha(colors.success[200], 0.8),
-                background: withAlpha(colors.success[50], 1),
-                color: colors.success[700],
-                fontWeight: 600,
-                fontSize: 12,
-                margin: 0,
-              }}
-            >
+            <Text type="supporting" color="secondary">
+              {integrations.filter((i: any) => i.direction === 'INBOUND').length} total
+            </Text>
+            <Text type="supporting" color="secondary">
               {integrations.filter((i: any) => i.direction === 'INBOUND' && i.isActive).length} active
-            </Tag>
+            </Text>
           </Space>
 
-          <Divider type="vertical" style={{ height: 24, margin: 0 }} />
+          <Divider type="vertical" className="console-divider-6-reset" />
 
-          <SearchInput value={searchQuery} onChange={setSearchQuery} isNarrow={isNarrow} />
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            isNarrow={isNarrow}
+            label="Search inbound integrations"
+          />
 
           {/* Status Filter */}
           <Select
             placeholder="Status"
             value={statusFilter}
             onChange={setStatusFilter}
-            style={{ width: 110 }}
+            className="ui-extracted-77a50c14cf"
             size="small"
             allowClear
             options={[
@@ -767,11 +735,15 @@ export const InboundIntegrationsRoute = ({
             showTotal: (total) => `${total} inbound integrations`,
           }}
           emptyState={{
-            icon: <ApiOutlined style={{ fontSize: 64, color: cssVar.text.muted }} />,
+            icon: <GatewayIcon name="ApiOutlined" style={{ width: 64, height: 64, color: cssVar.text.muted }} />,
             title: 'No inbound integrations yet',
             description: 'Create your first inbound integration to enable real-time API proxy functionality',
             action: (
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/inbound-integrations/new')}>
+              <Button
+                type="primary"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => navigate('/inbound-integrations/new')}
+              >
                 Create Inbound Integration
               </Button>
             ),
@@ -786,7 +758,7 @@ export const InboundIntegrationsRoute = ({
         onCancel={() => setCurlModalOpen(false)}
         okText="Copy"
       >
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Space direction="vertical" size="small" className="console-width-full">
           <Text type="secondary">
             {!curlIntegration?.inboundAuthType ||
             curlIntegration?.inboundAuthType === 'NONE' ||
@@ -812,7 +784,7 @@ export const InboundIntegrationsRoute = ({
           )}
           {curlQueryParams.length > 0 && (
             <>
-              <Divider style={{ margin: '8px 0' }} />
+              <Divider className="console-margin-y-2" />
               <Text type="secondary">Sample query parameters (editable):</Text>
               {curlQueryParams.map((param) => (
                 <Input
@@ -842,10 +814,10 @@ export const InboundIntegrationsRoute = ({
         confirmLoading={isSendingTest}
         width={600}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" className="console-width-full">
           {isTestSenderRoutingEnabled && (
             <div>
-              <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              <Text strong className="console-block-margin-bottom-2">
                 From Email (Sender Profile)
               </Text>
               <Select
@@ -855,7 +827,7 @@ export const InboundIntegrationsRoute = ({
                 allowClear
                 size="large"
                 disabled={isSendingTest}
-                style={{ width: '100%' }}
+                className="console-width-full"
                 options={(senderProfiles as any[]).map((p) => ({
                   label: `${p.name} <${p.fromEmail}>`,
                   value: p.fromEmail,
@@ -864,7 +836,7 @@ export const InboundIntegrationsRoute = ({
             </div>
           )}
           <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <Text strong className="console-block-margin-bottom-2">
               Recipient Email *
             </Text>
             <Input
@@ -878,7 +850,7 @@ export const InboundIntegrationsRoute = ({
           </div>
 
           <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <Text strong className="console-block-margin-bottom-2">
               Subject *
             </Text>
             <Input
@@ -891,7 +863,7 @@ export const InboundIntegrationsRoute = ({
           </div>
 
           <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <Text strong className="console-block-margin-bottom-2">
               Email Body (HTML) *
             </Text>
             <Input.TextArea

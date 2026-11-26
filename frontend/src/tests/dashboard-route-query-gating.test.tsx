@@ -11,7 +11,6 @@ vi.mock('../app/tenant-context', () => ({
 }));
 
 const mockApi = {
-  getDashboardSummary: vi.fn(),
   getAnalyticsOverview: vi.fn(),
   getAnalyticsTimeseries: vi.fn(),
   getAnalyticsErrors: vi.fn(),
@@ -104,7 +103,6 @@ describe('DashboardRoute query gating', () => {
     // One outbound rule: an org with none at all gets the setup checklist instead of tabs.
     mockApi.getAllIntegrations.mockResolvedValue([{ id: 'out-1', name: 'Outbound Rule', direction: 'OUTBOUND' }]);
     mockApi.getAllScheduledJobs.mockResolvedValue([]);
-    mockApi.getDashboardSummary.mockResolvedValue({ integrationHealth: [] });
     mockApi.getAnalyticsOverview.mockResolvedValue({
       summary: { total: 0, successful: 0, failed: 0, skipped: 0, retrying: 0, successRate: 0 },
       performance: { avgResponseTime: 0, p95ResponseTime: 0, totalRequests: 0 },
@@ -157,7 +155,6 @@ describe('DashboardRoute query gating', () => {
     const { rerender, dashboard } = await renderRoute();
 
     await waitFor(() => {
-      expect(mockApi.getDashboardSummary).toHaveBeenCalledTimes(1);
       expect(mockApi.getAllIntegrations).toHaveBeenCalledTimes(1);
       expect(mockApi.getAnalyticsOverview).toHaveBeenCalledTimes(1);
     });
@@ -166,7 +163,6 @@ describe('DashboardRoute query gating', () => {
     rerender(dashboard());
 
     await waitFor(() => {
-      expect(mockApi.getDashboardSummary).toHaveBeenCalledTimes(2);
       expect(mockApi.getAllIntegrations).toHaveBeenCalledTimes(2);
       expect(mockApi.getAnalyticsOverview).toHaveBeenCalledTimes(2);
     });
@@ -179,7 +175,6 @@ describe('DashboardRoute query gating', () => {
       expect(mockApi.getAnalyticsOverview).toHaveBeenCalledTimes(1);
     });
 
-    expect(mockApi.getDashboardSummary).toHaveBeenCalledTimes(1);
     expect(mockApi.getAnalyticsTimeseries).toHaveBeenCalledTimes(2);
     expect(mockApi.getAnalyticsErrors).not.toHaveBeenCalled();
     expect(mockApi.getAnalyticsPerformance).not.toHaveBeenCalled();
@@ -225,6 +220,19 @@ describe('DashboardRoute query gating', () => {
     expect(screen.queryByRole('button', { name: 'Errors' })).not.toBeInTheDocument();
   });
 
+  it('shows a retry state when the integration inventory fails instead of implying the org is empty', async () => {
+    mockApi.getAllIntegrations.mockRejectedValueOnce(new Error('Network unavailable'));
+    await renderRoute();
+
+    expect(await screen.findByText('Could not load dashboard configuration')).toBeInTheDocument();
+    expect(screen.queryByText('Get started')).not.toBeInTheDocument();
+
+    mockApi.getAllIntegrations.mockResolvedValueOnce([{ id: 'out-1', name: 'Outbound Rule', direction: 'OUTBOUND' }]);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(mockApi.getAllIntegrations).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText('Active: overview')).toBeInTheDocument());
+  });
+
   it('does not fetch scoped analytics for empty inbound or scheduled tabs', async () => {
     await renderRoute();
 
@@ -244,6 +252,26 @@ describe('DashboardRoute query gating', () => {
     expect(mockApi.getAnalyticsErrors).not.toHaveBeenCalled();
     expect(mockApi.getAnalyticsTimeseries).toHaveBeenCalledTimes(2);
     expect(mockApi.getAllScheduledJobs).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an informational empty-range banner with working wider-range actions', async () => {
+    await renderRoute();
+
+    expect(await screen.findByText('No deliveries in this period')).toBeInTheDocument();
+    expect(screen.getByText('Widen the date range to see recent delivery activity.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Last 30 days' }));
+
+    await waitFor(() => {
+      expect(mockApi.getAnalyticsOverview).toHaveBeenCalledWith(
+        1,
+        undefined,
+        undefined,
+        undefined,
+        expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }),
+        undefined
+      );
+    });
+    expect(screen.queryByText('No deliveries in this period')).not.toBeInTheDocument();
   });
 
   it('scopes dashboard analytics to the active tab when integrations exist', async () => {

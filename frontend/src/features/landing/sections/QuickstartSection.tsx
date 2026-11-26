@@ -41,7 +41,7 @@ export default function QuickstartSection() {
   return (
     <section id="quickstart" className="pl-section">
       <div className="pl-wrap qs">
-        <div className="pl-head" style={{ marginBottom: 0 }}>
+        <div className="pl-head console-margin-bottom-none">
           <h2>Running on your machine in five minutes.</h2>
           <p className="pl-lead">
             Docker Compose brings up MongoDB, the backend and the console together. No account, no license key, no phone
@@ -55,7 +55,7 @@ export default function QuickstartSection() {
         <ol className="qs-steps">
           {STEPS.map((s) => (
             <li key={s.title} className="qs-step">
-              <div style={{ minWidth: 0 }}>
+              <div className="console-min-width-0">
                 <h3>{s.title}</h3>
                 <CodeBlock code={s.code} />
               </div>

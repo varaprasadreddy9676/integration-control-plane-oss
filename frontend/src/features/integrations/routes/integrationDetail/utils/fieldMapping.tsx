@@ -1,4 +1,5 @@
-import { Space, Typography } from 'antd';
+import { Space } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
 import { cssVar } from '../../../../../design-system/utils';
 
 export const flattenFields = (fields: any[], parentPath = '', depth = 0): any[] => {
@@ -21,14 +22,12 @@ export const flattenFields = (fields: any[], parentPath = '', depth = 0): any[] 
       children: field.children,
       depth,
       isComplex,
-      typeBadge
+      typeBadge,
     };
 
     const childProps = field.properties || field.children || field.fields || [];
-    const arrayChildProps = field.itemSchema?.properties
-      || field.itemSchema?.fields
-      || field.itemSchema?.children
-      || [];
+    const arrayChildProps =
+      field.itemSchema?.properties || field.itemSchema?.fields || field.itemSchema?.children || [];
     const children = [...childProps, ...arrayChildProps];
 
     if (children.length === 0) {
@@ -43,17 +42,18 @@ export const buildFieldTree = (fields: any[], parentPath = ''): any[] => {
   return fields.map((field) => {
     const path = field.path || [parentPath, field.name].filter(Boolean).join('.');
     const childProps = field.properties || field.children || field.fields || [];
-    const arrayChildProps = field.itemSchema?.properties
-      || field.itemSchema?.fields
-      || field.itemSchema?.children
-      || [];
+    const arrayChildProps =
+      field.itemSchema?.properties || field.itemSchema?.fields || field.itemSchema?.children || [];
     const children = [...childProps, ...arrayChildProps];
 
     return {
       title: (
         <Space size={6}>
           <span>{field.description || field.name}</span>
-          <Typography.Text type="secondary" style={{ fontSize: 11, color: cssVar.text.secondary }}>
+          <Typography.Text
+            type="secondary"
+            className="console-caption-secondary"
+          >
             {path}
           </Typography.Text>
         </Space>
@@ -61,7 +61,7 @@ export const buildFieldTree = (fields: any[], parentPath = ''): any[] => {
       value: path,
       key: path,
       selectable: true,
-      children: children.length ? buildFieldTree(children, path) : undefined
+      children: children.length ? buildFieldTree(children, path) : undefined,
     };
   });
 };

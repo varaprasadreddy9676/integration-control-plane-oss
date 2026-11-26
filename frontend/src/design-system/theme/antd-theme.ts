@@ -1,165 +1,79 @@
 import type { ThemeConfig } from 'antd';
-import { lightColors, darkColors } from '../tokens/colors';
-import { borderRadius, spacing } from '../tokens/spacing';
-import { fontStacks, typography } from '../tokens/typography';
-import { shadows } from '../tokens/shadows';
-import { motion } from '../tokens/animations';
+import { resolveThemeTokens } from '@astryxdesign/core/theme/tokens';
+import { medicsConsoleTheme } from './medics-console';
+import { resolveThemeToken } from './resolve-theme-token';
 
-const remToPx = (value: string) => {
-  if (value.endsWith('rem')) {
-    return parseFloat(value) * 16;
-  }
-  if (value.endsWith('px')) {
-    return parseFloat(value);
-  }
-  return parseFloat(value);
-};
+type ThemeMode = 'light' | 'dark';
+type ResolvedTokens = Record<string, string>;
 
-export const lightTheme: ThemeConfig = {
-  token: {
-    colorPrimary: lightColors.primary.default,
-    colorPrimaryHover: lightColors.primary.hover,
-    colorPrimaryActive: lightColors.primary.active,
-    colorSuccess: lightColors.success.text,
-    colorWarning: lightColors.warning.text,
-    colorError: lightColors.error.text,
-    colorInfo: lightColors.info.text,
-    colorBgBase: lightColors.bg.base,
-    colorBgContainer: lightColors.bg.surface,
-    colorBgElevated: lightColors.bg.elevated,
-    colorBorder: lightColors.border.default,
-    colorBorderSecondary: lightColors.border.subtle,
-    colorTextBase: lightColors.text.primary,
-    colorText: lightColors.text.primary,
-    colorTextSecondary: lightColors.text.secondary,
-    colorTextDisabled: lightColors.text.disabled,
-    colorTextPlaceholder: lightColors.text.secondary,
-    fontFamily: fontStacks.sans,
-    fontSize: 14,
-    lineHeight: typography.lineHeight.normal,
-    borderRadius: remToPx(borderRadius.lg),
-    borderRadiusLG: remToPx(borderRadius.xl),
-    borderRadiusSM: remToPx(borderRadius.md),
-    padding: remToPx(spacing[4]),
-    paddingLG: remToPx(spacing[6]),
-    paddingSM: remToPx(spacing[3]),
-    boxShadow: shadows.base,
-    motionDurationMid: motion.duration.base,
-    // Same curve as motion.css, so drawers, modals and menus move like the rest.
-    motionEaseOut: motion.easing.smoothOut,
-    motionEaseInOut: motion.easing.smoothInOut
-  },
-  components: {
-    Form: {
-      itemMarginBottom: 16,
-      verticalLabelPadding: '0 0 4px',
-    },
-    Button: {
-      controlHeight: 36,
-      primaryShadow: 'none',
-      borderRadius: remToPx(borderRadius.md)
-    },
-    Card: {
+const resolvedTokens = (mode: ThemeMode) =>
+  resolveThemeTokens(medicsConsoleTheme, { mode }) as ResolvedTokens;
+
+export const getAntdTheme = (mode: ThemeMode): ThemeConfig => {
+  const tokens = resolvedTokens(mode);
+  const localTokens = (medicsConsoleTheme as typeof medicsConsoleTheme & { localTokens: Record<string, string | [string, string]> }).localTokens;
+  const token = (name: string) => resolveThemeToken(tokens[name] || localTokens[name], mode) || '';
+  const surface = token('--color-background-surface');
+  const border = token('--color-border');
+  const text = token('--color-text-primary');
+  const secondaryText = token('--color-text-secondary');
+  const sidebar = token('--color-background-sidebar');
+  const pixels = (name: string) => Number.parseFloat(token(name));
+
+  return {
+    token: {
+      colorPrimary: token('--color-accent'),
+      colorPrimaryHover: token('--color-icon-accent'),
+      colorPrimaryActive: token('--color-text-accent'),
+      colorSuccess: token('--color-success'),
+      colorWarning: token('--color-warning'),
+      colorError: token('--color-error'),
+      colorInfo: token('--color-info'),
+      colorBgBase: token('--color-background-body'),
+      colorBgContainer: surface,
+      colorBgElevated: token('--color-background-popover'),
+      colorBorder: border,
+      colorBorderSecondary: border,
+      colorTextBase: text,
+      colorText: text,
+      colorTextSecondary: secondaryText,
+      colorTextDisabled: token('--color-text-disabled'),
+      colorTextPlaceholder: secondaryText,
+      fontFamily: token('--font-family-body'),
+      fontSize: pixels('--font-size-control'),
+      lineHeight: 1.5,
+      borderRadius: 4,
+      borderRadiusLG: 8,
+      borderRadiusSM: 4,
+      padding: pixels('--space-4'),
+      paddingLG: pixels('--space-6'),
+      paddingSM: pixels('--space-2'),
       boxShadow: 'none',
-      borderRadiusLG: remToPx(borderRadius.xl)
+      motionDurationMid: '0.2s',
     },
-    Table: {
-      headerBg: lightColors.bg.surface,
-      headerColor: lightColors.text.secondary,
-      rowHoverBg: lightColors.table.rowHover,
-      // A sorted column stays the same color as the rest of the row.
-      bodySortBg: 'transparent',
-      headerSortActiveBg: lightColors.bg.surface,
-      headerSortHoverBg: lightColors.bg.surface,
-      borderColor: lightColors.border.default
+    components: {
+      Form: { itemMarginBottom: 16, verticalLabelPadding: '0 0 4px' },
+      Button: { controlHeight: 36, primaryShadow: 'none', borderRadius: 4 },
+      Card: { boxShadow: 'none', borderRadiusLG: 8 },
+      Table: {
+        headerBg: surface,
+        headerColor: secondaryText,
+        rowHoverBg: token('--color-background-row-hover'),
+        bodySortBg: 'transparent',
+        headerSortActiveBg: surface,
+        headerSortHoverBg: surface,
+        borderColor: border,
+      },
+      Layout: { headerBg: surface, siderBg: sidebar },
+      Menu: {
+        darkItemBg: 'transparent',
+        darkItemSelectedBg: token('--color-background-sidebar-active'),
+        darkItemColor: token('--color-text-sidebar'),
+        darkItemHoverColor: token('--color-text-sidebar-active'),
+        darkItemHoverBg: token('--color-background-sidebar-hover'),
+      },
+      Modal: { contentBg: surface, headerBg: surface },
+      Drawer: { colorBgElevated: surface },
     },
-    Layout: {
-      siderBg: lightColors.sidebar.bg
-    },
-    Menu: {
-      darkItemBg: 'transparent',
-      darkItemSelectedBg: lightColors.sidebar.activeBg,
-      darkItemColor: lightColors.sidebar.item,
-      darkItemHoverColor: lightColors.sidebar.activeText
-    }
-  }
-};
-
-export const darkTheme: ThemeConfig = {
-  token: {
-    colorPrimary: darkColors.primary.default,
-    colorPrimaryHover: darkColors.primary.hover,
-    colorPrimaryActive: darkColors.primary.active,
-    colorSuccess: darkColors.success.text,
-    colorWarning: darkColors.warning.text,
-    colorError: darkColors.error.text,
-    colorInfo: darkColors.info.text,
-    colorBgBase: darkColors.bg.base,
-    colorBgContainer: darkColors.bg.surface,
-    colorBgElevated: darkColors.bg.elevated,
-    colorBorder: darkColors.border.default,
-    colorBorderSecondary: darkColors.border.subtle,
-    colorTextBase: darkColors.text.primary,
-    colorText: darkColors.text.primary,
-    colorTextSecondary: darkColors.text.secondary,
-    colorTextDisabled: darkColors.text.disabled,
-    colorTextPlaceholder: darkColors.text.muted,
-    fontFamily: fontStacks.sans,
-    fontSize: 14,
-    lineHeight: typography.lineHeight.normal,
-    borderRadius: remToPx(borderRadius.lg),
-    borderRadiusLG: remToPx(borderRadius.xl),
-    borderRadiusSM: remToPx(borderRadius.md),
-    padding: remToPx(spacing[4]),
-    paddingLG: remToPx(spacing[6]),
-    paddingSM: remToPx(spacing[3]),
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
-    motionDurationMid: motion.duration.base,
-    // Same curve as motion.css, so drawers, modals and menus move like the rest.
-    motionEaseOut: motion.easing.smoothOut,
-    motionEaseInOut: motion.easing.smoothInOut
-  },
-  components: {
-    Form: {
-      itemMarginBottom: 16,
-      verticalLabelPadding: '0 0 4px',
-    },
-    Button: {
-      controlHeight: 36,
-      primaryShadow: 'none',
-      borderRadius: remToPx(borderRadius.md)
-    },
-    Card: {
-      boxShadow: 'none',
-      borderRadiusLG: remToPx(borderRadius.xl)
-    },
-    Table: {
-      headerBg: darkColors.bg.base,
-      headerColor: darkColors.text.secondary,
-      rowHoverBg: darkColors.table.rowHover,
-      // A sorted column stays the same color as the rest of the row.
-      bodySortBg: 'transparent',
-      headerSortActiveBg: darkColors.bg.surface,
-      headerSortHoverBg: darkColors.bg.surface,
-      borderColor: darkColors.border.default
-    },
-    Layout: {
-      headerBg: darkColors.bg.surface,
-      siderBg: darkColors.sidebar.bg
-    },
-    Menu: {
-      darkItemBg: 'transparent',
-      darkItemSelectedBg: darkColors.sidebar.activeBg,
-      darkItemColor: darkColors.sidebar.item,
-      darkItemHoverColor: darkColors.sidebar.activeText,
-      darkItemHoverBg: darkColors.sidebar.hover
-    },
-    Modal: {
-      contentBg: darkColors.bg.surface,
-      headerBg: darkColors.bg.surface
-    },
-    Drawer: {
-      colorBgElevated: darkColors.bg.surface
-    }
-  }
+  };
 };

@@ -1,5 +1,6 @@
-import { Form, Input, Select, Row, Col, Space, Switch, Alert } from 'antd';
-import { LinkOutlined, SendOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Row, Col, Space, Switch } from "@/components/common/LegacyAntdControls";
+import { InlineNotice as Notice } from '../../../components/common';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import type { HttpConfigFieldsProps } from '../types';
 
 /**
@@ -41,8 +42,7 @@ export const HttpConfigFields = ({
   };
 
   return (
-    <Space direction="vertical" size="small" style={{ width: '100%' }}>
-
+    <Space direction="vertical" size="small" className="console-width-full">
       <Row gutter={[16, 0]}>
         {/* Target URL */}
         <Col xs={24}>
@@ -51,7 +51,7 @@ export const HttpConfigFields = ({
             validateTrigger="onBlur"
             label={
               <Space size={4}>
-                <LinkOutlined style={{ color: colors.primary[600] }} />
+                <GatewayIcon name="LinkOutlined" className="console-text-accent" />
                 <span>{getLabel('Target URL')}</span>
               </Space>
             }
@@ -71,7 +71,7 @@ export const HttpConfigFields = ({
           >
             <Input
               placeholder="https://api.example.com/integration"
-              prefix={<LinkOutlined style={{ color: 'var(--color-text-muted)' }} />}
+              prefix={<GatewayIcon name="LinkOutlined" className="ui-extracted-09e5f321a4" />}
             />
           </Form.Item>
         </Col>
@@ -82,7 +82,7 @@ export const HttpConfigFields = ({
             name="httpMethod"
             label={
               <Space size={4}>
-                <SendOutlined style={{ color: colors.primary[600] }} />
+                <GatewayIcon name="SendOutlined" className="console-text-accent" />
                 <span>HTTP Method</span>
               </Space>
             }
@@ -147,10 +147,7 @@ export const HttpConfigFields = ({
             <Input.TextArea
               placeholder={'{\n  "X-Custom-Header": "value",\n  "X-Request-ID": "{{uuid}}"\n}'}
               rows={4}
-              style={{
-                fontFamily: 'monospace',
-                fontSize: 13,
-              }}
+              className="ui-extracted-021192a8dd"
             />
           </Form.Item>
         </Col>
@@ -234,7 +231,7 @@ export const HttpConfigFields = ({
               name="streamResponse"
               label={
                 <Space size={4}>
-                  <ThunderboltOutlined style={{ color: colors.primary[600] }} />
+                  <GatewayIcon name="ThunderboltOutlined" className="console-text-accent" />
                   <span>Stream Response</span>
                 </Space>
               }
@@ -246,18 +243,15 @@ export const HttpConfigFields = ({
             </Form.Item>
 
             {streamResponse && (
-              <Alert
+              <Notice
                 type="warning"
-                showIcon
                 message="Response Transformation Disabled"
-                description="When streaming is enabled, response transformations cannot be applied. The response will be passed through directly to the client."
-                style={{ marginTop: spacing[2] }}
+                description="When streaming is enabled, response transformations cannot be applied. The response will be passed through directly to the client." className="console-margin-top-2"
               />
             )}
           </Col>
         )}
       </Row>
-
     </Space>
   );
 };

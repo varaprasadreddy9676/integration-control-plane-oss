@@ -24,15 +24,23 @@ const KNOWN_ICONS: IconName[] = ['script', 'http', 'transform', 'send'];
 
 /** A menu choice: its name, and under it why you would pick it. */
 const Choice = ({ title, hint, icon }: { title: string; hint?: string; icon?: string }) => (
-  <span style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '2px 0', maxWidth: 280 }}>
+  <span
+    className="ui-extracted-f79e18ea39"
+  >
     {icon && KNOWN_ICONS.includes(icon as IconName) && (
-      <span style={{ marginTop: 2, display: 'inline-flex', opacity: 0.75 }}>
+      <span className="ui-extracted-682d1d9116">
         <Icon name={icon as IconName} size={16} />
       </span>
     )}
-    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-      <span style={{ fontWeight: 500 }}>{title}</span>
-      {hint && <span style={{ fontSize: 12, lineHeight: '16px', whiteSpace: 'normal', opacity: 0.65 }}>{hint}</span>}
+    <span className="ui-extracted-ddf321b4ef">
+      <span className="console-font-weight-medium">{title}</span>
+      {hint && (
+        <span
+          className="ui-extracted-79eeb4a47d"
+        >
+          {hint}
+        </span>
+      )}
     </span>
   </span>
 );
@@ -53,7 +61,9 @@ export const stageMenu = (
     .filter((template) => template.hook === hook)
     .map((template) => ({
       key: `template:${template.id}`,
-      label: <Choice title={`${template.label}${template.recommended ? ' (suggested)' : ''}`} hint={template.description} />,
+      label: (
+        <Choice title={`${template.label}${template.recommended ? ' (suggested)' : ''}`} hint={template.description} />
+      ),
     }));
   return {
     items: [

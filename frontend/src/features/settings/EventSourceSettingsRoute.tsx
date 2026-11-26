@@ -17,22 +17,32 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Form, Select, Input, InputNumber, Switch, Button, Space, Typography, Divider, Alert, Tag, App, Spin, Tooltip, Row, Col, Collapse, Modal, Badge } from 'antd';
 import {
-  DatabaseOutlined,
-  SaveOutlined,
-  ReloadOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  InfoCircleOutlined,
-  DeleteOutlined,
-  SearchOutlined,
-  ApiOutlined,
-  WifiOutlined,
-} from '@ant-design/icons';
+  Card,
+  Form,
+  Select,
+  Input,
+  InputNumber,
+  Switch,
+  Space,
+  Divider,
+  App,
+  Spin,
+  Tooltip,
+  Row,
+  Col,
+  Collapse,
+  Modal,
+  Badge,
+} from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { PageHeader } from '../../components/common';
+import { PageTemplate } from '../../components/common/PageTemplate';
 import { PermissionGuard } from '../../components/common';
 import { InlineHint } from '../../components/common/InlineHint';
+import { StatePanel } from '../../components/common/StatePanel';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { Banner } from '@astryxdesign/core/Banner';
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 import {
   getEventSourceConfig,
@@ -47,6 +57,9 @@ import {
 import activityTracker, { ACTIVITY_EVENTS } from '../../services/activity-tracker';
 import { useTenant } from '../../app/tenant-context';
 import { ModernTable } from '../../components/common/ModernTable';
+import { usePermissions } from '../../hooks/usePermissions';
+import { Button } from '../../components/common/LegacyButton';
+import { Typography } from '../../components/common/LegacyTypography';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -224,7 +237,7 @@ function MysqlFields({
             </Col>
             <Col span={8}>
               <Form.Item name="port" label="Port" preserve={false}>
-                <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="3306" />
+                <InputNumber min={1} max={65535} className="console-width-full" placeholder="3306" />
               </Form.Item>
             </Col>
           </Row>
@@ -267,27 +280,26 @@ function MysqlFields({
             <Input placeholder="notification_queue" />
           </Form.Item>
         </Col>
-        <Col span={8} style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 24 }}>
-          <Button icon={<SearchOutlined />} onClick={onDiscover} loading={discovering} block>
+        <Col span={8} className="ui-extracted-fd8218bf00">
+          <Button icon={<GatewayIcon name="SearchOutlined" />} onClick={onDiscover} loading={discovering} block>
             Discover Columns
           </Button>
         </Col>
       </Row>
 
       {discoveredColumns.length > 0 && (
-        <Alert
-          type="success"
-          showIcon
-          message={`${discoveredColumns.length} columns discovered from table`}
+        <Banner
+          status="success"
+          title={`${discoveredColumns.length} columns discovered from table`}
           description="Select columns below using the dropdown, or type a name manually."
-          style={{ marginBottom: 16 }}
+          className="console-margin-bottom-4"
         />
       )}
 
-      <Divider orientation="left" style={{ fontSize: 13 }}>
+      <Divider orientation="left" className="console-type-body">
         Column Mapping
         <Tooltip title="Map each standard event field to the actual column name in your table. Run Discover Columns to pick from a dropdown.">
-          <InfoCircleOutlined style={{ marginLeft: 6, color: cssVar.text.muted }} />
+          <GatewayIcon name="InfoCircleOutlined" style={{ marginLeft: 'var(--spacing-2)', color: cssVar.text.muted }} />
         </Tooltip>
       </Divider>
 
@@ -299,13 +311,7 @@ function MysqlFields({
               label={
                 <Space size={4}>
                   {field.label}
-                  {field.required ? (
-                    <Tag color="red" style={{ fontSize: 10, padding: '0 4px' }}>
-                      required
-                    </Tag>
-                  ) : (
-                    <Tag style={{ fontSize: 10, padding: '0 4px' }}>optional</Tag>
-                  )}
+                  {!field.required && <Text type="secondary">Optional</Text>}
                 </Space>
               }
               tooltip={
@@ -323,10 +329,10 @@ function MysqlFields({
         ))}
       </Row>
 
-      <Divider orientation="left" style={{ fontSize: 13 }}>
+      <Divider orientation="left" className="console-type-body">
         Row Filters
         <Tooltip title="Optionally restrict which rows are processed. Leave blank to process all rows for your org.">
-          <InfoCircleOutlined style={{ marginLeft: 6, color: cssVar.text.muted }} />
+          <GatewayIcon name="InfoCircleOutlined" style={{ marginLeft: 'var(--spacing-2)', color: cssVar.text.muted }} />
         </Tooltip>
       </Divider>
 
@@ -378,12 +384,12 @@ function MysqlFields({
             label="Poll Interval (ms)"
             tooltip="How often to check for new rows. Default: 5000"
           >
-            <InputNumber min={500} max={300000} style={{ width: '100%' }} placeholder="5000" />
+            <InputNumber min={500} max={300000} className="console-width-full" placeholder="5000" />
           </Form.Item>
         </Col>
         <Col span={12}>
           <Form.Item name="batchSize" label="Batch Size" tooltip="Rows fetched per poll cycle. Default: 10">
-            <InputNumber min={1} max={500} style={{ width: '100%' }} placeholder="10" />
+            <InputNumber min={1} max={500} className="console-width-full" placeholder="10" />
           </Form.Item>
         </Col>
       </Row>
@@ -444,12 +450,12 @@ function KafkaFields() {
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item name="sessionTimeout" label="Session Timeout (ms)">
-            <InputNumber min={1000} style={{ width: '100%' }} placeholder="30000" />
+            <InputNumber min={1000} className="console-width-full" placeholder="30000" />
           </Form.Item>
         </Col>
         <Col span={12}>
           <Form.Item name="heartbeatInterval" label="Heartbeat Interval (ms)">
-            <InputNumber min={100} style={{ width: '100%' }} placeholder="3000" />
+            <InputNumber min={100} className="console-width-full" placeholder="3000" />
           </Form.Item>
         </Col>
       </Row>
@@ -460,26 +466,34 @@ function KafkaFields() {
 function HttpPushFields() {
   return (
     <>
-      <InlineHint icon={<ApiOutlined />}>
+      <InlineHint icon={<GatewayIcon name="ApiOutlined" />}>
         HTTP Push — external systems send events via <Text code>POST /api/v1/events/push</Text> with your org's API key.
         Accepted events are queued durably and retried automatically when processing fails.
       </InlineHint>
       <Row gutter={16}>
         <Col span={12}>
-          <Form.Item name="pollIntervalMs" label="Poll Interval (ms)" tooltip="How often the gateway checks for queued events">
-            <InputNumber min={100} step={100} style={{ width: '100%' }} placeholder="1000" />
+          <Form.Item
+            name="pollIntervalMs"
+            label="Poll Interval (ms)"
+            tooltip="How often the gateway checks for queued events"
+          >
+            <InputNumber min={100} step={100} className="console-width-full" placeholder="1000" />
           </Form.Item>
         </Col>
         <Col span={12}>
           <Form.Item name="batchSize" label="Batch Size" tooltip="Maximum events claimed in one poll">
-            <InputNumber min={1} max={100} style={{ width: '100%' }} placeholder="10" />
+            <InputNumber min={1} max={100} className="console-width-full" placeholder="10" />
           </Form.Item>
         </Col>
       </Row>
       <Row gutter={16}>
         <Col span={12}>
-          <Form.Item name="maxAttempts" label="Maximum Attempts" tooltip="Event is marked failed after this many attempts">
-            <InputNumber min={1} max={100} style={{ width: '100%' }} placeholder="5" />
+          <Form.Item
+            name="maxAttempts"
+            label="Maximum Attempts"
+            tooltip="Event is marked failed after this many attempts"
+          >
+            <InputNumber min={1} max={100} className="console-width-full" placeholder="5" />
           </Form.Item>
         </Col>
         <Col span={12}>
@@ -488,7 +502,7 @@ function HttpPushFields() {
             label="Stale Claim Timeout (ms)"
             tooltip="Processing claims older than this are recovered after a restart"
           >
-            <InputNumber min={1000} step={1000} style={{ width: '100%' }} placeholder="300000" />
+            <InputNumber min={1000} step={1000} className="console-width-full" placeholder="300000" />
           </Form.Item>
         </Col>
       </Row>
@@ -499,7 +513,7 @@ function HttpPushFields() {
 function Hl7MllpFields() {
   return (
     <>
-      <InlineHint icon={<WifiOutlined />}>
+      <InlineHint icon={<GatewayIcon name="WifiOutlined" />}>
         HL7 MLLP listener — external systems send HL7 v2 messages over MLLP/TCP. The gateway parses the message, sends
         an HL7 ACK/NACK, and routes the parsed payload through normal event processing.
       </InlineHint>
@@ -517,7 +531,7 @@ function Hl7MllpFields() {
         </Col>
         <Col span={12}>
           <Form.Item name="port" label="Listen Port" rules={[{ required: true, message: 'Listen port is required' }]}>
-            <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="2575" />
+            <InputNumber min={1} max={65535} className="console-width-full" placeholder="2575" />
           </Form.Item>
         </Col>
       </Row>
@@ -538,12 +552,12 @@ function Hl7MllpFields() {
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item name="idleTimeoutMs" label="Socket Idle Timeout (ms)" initialValue={30000}>
-            <InputNumber min={1000} max={300000} style={{ width: '100%' }} placeholder="30000" />
+            <InputNumber min={1000} max={300000} className="console-width-full" placeholder="30000" />
           </Form.Item>
         </Col>
         <Col span={12}>
           <Form.Item name="maxMessageBytes" label="Max Message Size (bytes)" initialValue={5242880}>
-            <InputNumber min={1024} max={10485760} style={{ width: '100%' }} placeholder="5242880" />
+            <InputNumber min={1024} max={10485760} className="console-width-full" placeholder="5242880" />
           </Form.Item>
         </Col>
       </Row>
@@ -556,7 +570,7 @@ function Hl7MllpFields() {
             initialValue={21600000}
             tooltip="Recently accepted MSH-10 message control IDs are ACKed without reprocessing during this window."
           >
-            <InputNumber min={1000} max={86400000} style={{ width: '100%' }} placeholder="21600000" />
+            <InputNumber min={1000} max={86400000} className="console-width-full" placeholder="21600000" />
           </Form.Item>
         </Col>
         <Col span={12}>
@@ -574,7 +588,7 @@ function Hl7MllpFields() {
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item name="listenerLockTtlMs" label="Listener Lock TTL (ms)" initialValue={30000}>
-            <InputNumber min={5000} max={300000} style={{ width: '100%' }} placeholder="30000" />
+            <InputNumber min={5000} max={300000} className="console-width-full" placeholder="30000" />
           </Form.Item>
         </Col>
         <Col span={12}>
@@ -692,26 +706,22 @@ function Hl7MllpFields() {
 }
 
 function TestResultPanel({ result }: { result: EventSourceTestResult }) {
-  const { spacing } = useDesignTokens();
-
   if (!result.success) {
     return (
-      <Alert
-        type="error"
-        showIcon
-        icon={<CloseCircleOutlined />}
-        message={
+      <Banner
+        status="error"
+        title={
           <Space>
             <Text strong>Connection failed</Text>
-            {result.code && <Tag color="red">{result.code}</Tag>}
+            {result.code && <Text code>{result.code}</Text>}
           </Space>
         }
         description={
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Space direction="vertical" size={4} className="console-width-full">
             <Text>{result.error}</Text>
             {result.hint && (
               <Text type="secondary">
-                <InfoCircleOutlined style={{ marginRight: 4 }} />
+                <GatewayIcon name="InfoCircleOutlined" className="console-margin-right-1" />
                 {result.hint}
               </Text>
             )}
@@ -749,16 +759,14 @@ function TestResultPanel({ result }: { result: EventSourceTestResult }) {
                     title: 'Status',
                     dataIndex: 'found',
                     width: 80,
-                    render: (found: boolean) =>
-                      found ? (
-                        <Tag color="success" icon={<CheckCircleOutlined />}>
-                          Found
-                        </Tag>
-                      ) : (
-                        <Tag color="error" icon={<CloseCircleOutlined />}>
-                          Missing
-                        </Tag>
-                      ),
+                    render: (found: boolean) => (
+                      <StatusBadge
+                        status={found ? 'SUCCESS' : 'FAILED'}
+                        label={found ? 'Found' : 'Missing'}
+                        variant={found ? 'success' : 'error'}
+                        size="small"
+                      />
+                    ),
                   },
                   {
                     title: 'DB Type',
@@ -777,11 +785,13 @@ function TestResultPanel({ result }: { result: EventSourceTestResult }) {
             key: 'columns',
             label: `All Table Columns (${result.tableColumns.length})`,
             children: (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <Space wrap size={4}>
                 {result.tableColumns.map((col) => (
-                  <Tag key={col}>{col}</Tag>
+                  <Text key={col} code>
+                    {col}
+                  </Text>
                 ))}
-              </div>
+              </Space>
             ),
           },
         ]
@@ -795,11 +805,11 @@ function TestResultPanel({ result }: { result: EventSourceTestResult }) {
               <pre
                 style={{
                   background: cssVar.bg.subtle,
-                  padding: 12,
-                  borderRadius: 6,
-                  fontSize: 12,
+                  padding: 'var(--spacing-3)',
+                  borderRadius: 4,
+                  fontSize: 'var(--console-type-caption)',
                   overflowX: 'auto',
-                  margin: 0,
+                  margin: 'var(--spacing-0)',
                 }}
               >
                 {JSON.stringify(result.sampleEvent, null, 2)}
@@ -811,14 +821,8 @@ function TestResultPanel({ result }: { result: EventSourceTestResult }) {
   ];
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={12}>
-      <Alert
-        type="success"
-        showIcon
-        icon={<CheckCircleOutlined />}
-        message={<Text strong>Connection successful</Text>}
-        description={result.message}
-      />
+    <Space direction="vertical" className="console-width-full" size={12}>
+      <Banner status="success" title={<Text strong>Connection successful</Text>} description={result.message} />
       {collapseItems.length > 0 && <Collapse size="small" items={collapseItems} />}
     </Space>
   );
@@ -830,10 +834,12 @@ function TestResultPanel({ result }: { result: EventSourceTestResult }) {
 
 export const EventSourceSettingsRoute = () => {
   const { orgId } = useTenant();
+  const canReadEventSource = usePermissions().can('event_source', 'read');
 
   const { data: eventTypeOptions = [] } = useQuery({
     queryKey: ['outboundEventTypes', orgId],
     queryFn: getEventTypes,
+    enabled: canReadEventSource,
     staleTime: 300_000,
   });
   const { message: messageApi, modal } = App.useApp();
@@ -877,7 +883,7 @@ export const EventSourceSettingsRoute = () => {
         throw e;
       }
     },
-    enabled: !!orgId,
+    enabled: !!orgId && canReadEventSource,
     retry: false,
     staleTime: 30_000,
   });
@@ -1028,20 +1034,21 @@ export const EventSourceSettingsRoute = () => {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-        <Spin size="large" />
-      </div>
+      <PageTemplate
+        as="main"
+        title="Event Source"
+        breadcrumb={[{ label: 'Settings', path: '/settings' }, { label: 'Event Source' }]}
+        compact
+      >
+        <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading event source settings" />
+      </PageTemplate>
     );
   }
 
-  const statusTag = currentConfig?.isActive ? (
-    <Tag icon={<CheckCircleOutlined />} color="success">
-      Active
-    </Tag>
+  const statusBadge = currentConfig?.isActive ? (
+    <StatusBadge status="SUCCESS" label="Active" variant="success" size="small" />
   ) : (
-    <Tag icon={<CloseCircleOutlined />} color="default">
-      Not configured
-    </Tag>
+    <StatusBadge label="Not configured" variant="neutral" size="small" />
   );
 
   const sourceTypeLabel: Record<string, string> = {
@@ -1052,150 +1059,182 @@ export const EventSourceSettingsRoute = () => {
   };
 
   return (
-    <PermissionGuard feature="event_source" operation="read">
-      <PageHeader
-        title="Event Source"
-        description="Configure how this organisation's events are ingested — MySQL polling, Kafka consumer, HTTP Push, or HL7 MLLP."
-        breadcrumb={[{ label: 'Settings', path: '/settings' }, { label: 'Event Source' }]}
-        compact
-        actions={statusTag}
-      />
-
-      {/* Current status card */}
-      {currentConfig && (
-        <Card size="small" style={{ marginBottom: spacing[3] }}>
-          <Space split={<Divider type="vertical" />} wrap>
-            <Space size={4}>
-              <Text type="secondary">Type:</Text>
-              <Text strong>{sourceTypeLabel[currentConfig.type] ?? currentConfig.type}</Text>
-            </Space>
-            {currentConfig.config?.table && (
-              <Space size={4}>
-                <Text type="secondary">Table:</Text>
-                <Text code>{currentConfig.config.table}</Text>
-              </Space>
-            )}
-            {currentConfig.updatedAt && (
-              <Space size={4}>
-                <Text type="secondary">Last updated:</Text>
-                <Text>{new Date(currentConfig.updatedAt).toLocaleString()}</Text>
-              </Space>
-            )}
-          </Space>
-        </Card>
-      )}
-
-      {loadError && (
-        <Alert
-          type="warning"
-          showIcon
-          message="Could not load existing configuration"
-          description={(loadError as any)?.message}
-          style={{ marginBottom: spacing[3] }}
-        />
-      )}
-
-      {/* Configuration form */}
-      <Card
-        title={
-          <Space>
-            <DatabaseOutlined />
-            Configure Event Source
-          </Space>
+    <PermissionGuard
+      feature="event_source"
+      operation="read"
+      fallback={
+        <PageTemplate
+          as="main"
+          title="Event Source"
+          description="Configure how this organisation's events are ingested."
+          breadcrumb={[{ label: 'Settings', path: '/settings' }, { label: 'Event Source' }]}
+          compact
+        >
+          <StatePanel
+            glyph="searching"
+            tone="neutral"
+            title="Event source settings are restricted"
+            description="Your role does not have permission to view event source settings. Ask an organization administrator to update your role."
+          />
+        </PageTemplate>
+      }
+    >
+      <PageTemplate
+        as="main"
+        className="event-source-settings-template"
+        contentClassName="event-source-settings-template__content"
+        header={
+          <PageHeader
+            title="Event Source"
+            description="Configure how this organisation's events are ingested — MySQL polling, Kafka consumer, HTTP Push, or HL7 MLLP."
+            breadcrumb={[{ label: 'Settings', path: '/settings' }, { label: 'Event Source' }]}
+            compact
+            actions={statusBadge}
+          />
         }
       >
-        <Form form={form} layout="vertical" size="middle">
-          {/* Source type selector */}
-          <Form.Item name="type" label="Source Type" rules={[{ required: true }]} style={{ maxWidth: 320 }}>
-            <Select
-              options={[
-                { value: 'none', label: 'None (no event source)' },
-                { value: 'mysql', label: 'MySQL Polling' },
-                { value: 'kafka', label: 'Kafka Consumer' },
-                { value: 'http_push', label: 'HTTP Push (inbound webhook)' },
-                { value: 'hl7_mllp', label: 'HL7 MLLP Listener' },
-              ]}
-              onChange={() => {
-                setTestResult(null);
-                setDiscoveredColumns([]);
-              }}
-            />
-          </Form.Item>
-
-          {sourceType !== 'none' && (
-            <>
-              <Divider style={{ margin: `${spacing[2]} 0 ${spacing[3]}` }} />
-
-              {/* Source-specific fields */}
-              {sourceType === 'mysql' && (
-                <MysqlFields
-                  useSharedPool={useSharedPool}
-                  discoveredColumns={discoveredColumns}
-                  discovering={discovering}
-                  onDiscover={handleDiscoverColumns}
-                  orgId={orgId}
-                  eventTypeOptions={eventTypeOptions}
-                />
+        {/* Current status card */}
+        {currentConfig && (
+          <Card size="small" className="console-margin-bottom-3">
+            <Space split={<Divider type="vertical" />} wrap>
+              <Space size={4}>
+                <Text type="secondary">Type:</Text>
+                <Text strong>{sourceTypeLabel[currentConfig.type] ?? currentConfig.type}</Text>
+              </Space>
+              {currentConfig.config?.table && (
+                <Space size={4}>
+                  <Text type="secondary">Table:</Text>
+                  <Text code>{currentConfig.config.table}</Text>
+                </Space>
               )}
-              {sourceType === 'kafka' && <KafkaFields />}
-              {sourceType === 'http_push' && <HttpPushFields />}
-              {sourceType === 'hl7_mllp' && <Hl7MllpFields />}
-            </>
-          )}
+              {currentConfig.updatedAt && (
+                <Space size={4}>
+                  <Text type="secondary">Last updated:</Text>
+                  <Text>{new Date(currentConfig.updatedAt).toLocaleString()}</Text>
+                </Space>
+              )}
+            </Space>
+          </Card>
+        )}
 
-          {sourceType === 'none' && (
-            <InlineHint>
-              No event source configured. Events will not be ingested automatically — select a source type above to
-              configure one.
-            </InlineHint>
-          )}
+        {loadError && (
+          <Banner
+            status="warning"
+            title="Could not load existing configuration"
+            description={(loadError as any)?.message}
+            className="console-margin-bottom-3"
+          />
+        )}
 
-          <Divider />
+        {/* Configuration form */}
+        <Card
+          title={
+            <Space>
+              <GatewayIcon name="DatabaseOutlined" />
+              Configure Event Source
+            </Space>
+          }
+        >
+          <Form form={form} layout="vertical" size="middle">
+            {/* Source type selector */}
+            <Form.Item name="type" label="Source Type" rules={[{ required: true }]} className="ui-extracted-140b17fdb3">
+              <Select
+                options={[
+                  { value: 'none', label: 'None (no event source)' },
+                  { value: 'mysql', label: 'MySQL Polling' },
+                  { value: 'kafka', label: 'Kafka Consumer' },
+                  { value: 'http_push', label: 'HTTP Push (inbound webhook)' },
+                  { value: 'hl7_mllp', label: 'HL7 MLLP Listener' },
+                ]}
+                onChange={() => {
+                  setTestResult(null);
+                  setDiscoveredColumns([]);
+                }}
+              />
+            </Form.Item>
 
-          {/* Action buttons */}
-          <Space wrap>
             {sourceType !== 'none' && (
-              <Tooltip
-                title={TEST_CONNECTION_TOOLTIPS[sourceType] ?? 'Validates this source configuration. Nothing is saved.'}
+              <>
+                <Divider style={{ margin: `${spacing[2]} 0 ${spacing[3]}` }} />
+
+                {/* Source-specific fields */}
+                {sourceType === 'mysql' && (
+                  <MysqlFields
+                    useSharedPool={useSharedPool}
+                    discoveredColumns={discoveredColumns}
+                    discovering={discovering}
+                    onDiscover={handleDiscoverColumns}
+                    orgId={orgId}
+                    eventTypeOptions={eventTypeOptions}
+                  />
+                )}
+                {sourceType === 'kafka' && <KafkaFields />}
+                {sourceType === 'http_push' && <HttpPushFields />}
+                {sourceType === 'hl7_mllp' && <Hl7MllpFields />}
+              </>
+            )}
+
+            {sourceType === 'none' && (
+              <InlineHint>
+                No event source configured. Events will not be ingested automatically — select a source type above to
+                configure one.
+              </InlineHint>
+            )}
+
+            <Divider />
+
+            {/* Action buttons */}
+            <Space wrap>
+              {sourceType !== 'none' && (
+                <Tooltip
+                  title={
+                    TEST_CONNECTION_TOOLTIPS[sourceType] ?? 'Validates this source configuration. Nothing is saved.'
+                  }
+                >
+                  <Button icon={<GatewayIcon name="WifiOutlined" />} onClick={handleTest} loading={testing}>
+                    Test Connection
+                  </Button>
+                </Tooltip>
+              )}
+
+              {sourceType !== 'none' && (
+                <PermissionGuard feature="event_source" operation="write">
+                  <Button
+                    type="primary"
+                    icon={<GatewayIcon name="SaveOutlined" />}
+                    onClick={handleSave}
+                    loading={saveMutation.isPending}
+                  >
+                    Save Configuration
+                  </Button>
+                </PermissionGuard>
+              )}
+
+              {currentConfig && (
+                <PermissionGuard feature="event_source" operation="delete">
+                  <Button danger icon={<GatewayIcon name="DeleteOutlined" />} onClick={handleDelete}>
+                    Remove Configuration
+                  </Button>
+                </PermissionGuard>
+              )}
+
+              <Button
+                icon={<GatewayIcon name="ReloadOutlined" />}
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['eventSourceConfig', orgId] })}
+                type="text"
               >
-                <Button icon={<WifiOutlined />} onClick={handleTest} loading={testing}>
-                  Test Connection
-                </Button>
-              </Tooltip>
+                Reload
+              </Button>
+            </Space>
+
+            {testResult && (
+              <div className="console-margin-top-4">
+                <TestResultPanel result={testResult} />
+              </div>
             )}
-
-            {sourceType !== 'none' && (
-              <PermissionGuard feature="event_source" operation="write">
-                <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saveMutation.isPending}>
-                  Save Configuration
-                </Button>
-              </PermissionGuard>
-            )}
-
-            {currentConfig && (
-              <PermissionGuard feature="event_source" operation="delete">
-                <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
-                  Remove Configuration
-                </Button>
-              </PermissionGuard>
-            )}
-
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['eventSourceConfig', orgId] })}
-              type="text"
-            >
-              Reload
-            </Button>
-          </Space>
-
-          {testResult && (
-            <div style={{ marginTop: spacing[4] }}>
-              <TestResultPanel result={testResult} />
-            </div>
-          )}
-        </Form>
-      </Card>
+          </Form>
+        </Card>
+      </PageTemplate>
     </PermissionGuard>
   );
 };

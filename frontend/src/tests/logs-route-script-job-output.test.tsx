@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
 import { ThemeProvider } from '../app/theme-provider';
 
-// Regression test: expanding a SCRIPT_JOB execution log (e.g. the "Tailspin Daily Sync
+// Regression test: expanding a SCRIPT_JOB execution log (e.g. the "Nova Daily Sync
 // Report" Node.js Process job) showed a "cURL" tab rendering the meaningless
 // `curl -X POST "" -d '{}'` — script jobs have no real HTTP request to reconstruct
 // (generateCurlCommand falls back to empty targetUrl/payload). The actual useful
@@ -40,11 +40,11 @@ vi.mock('../components/common/ModernTable', async () => {
 });
 
 const scriptJobLog = {
-  id: 'log-tailspin-1',
+  id: 'log-nova-1',
   direction: 'SCRIPT_JOB',
   httpMethod: 'SCRIPT_JOB',
   status: 'FAILED',
-  integrationName: 'Tailspin Daily Sync Report',
+  integrationName: 'Nova Daily Sync Report',
   createdAt: new Date().toISOString(),
   requestPayload: {},
   errorMessage: 'Script exited with code 1',
@@ -71,6 +71,7 @@ const mockApi = {
   getIntegrations: vi.fn(),
   getEventTypes: vi.fn(),
   getLogById: vi.fn(),
+  getExecutionLogTimeline: vi.fn(),
   retryLog: vi.fn(),
   forceRetryLog: vi.fn(),
 };
@@ -112,7 +113,7 @@ describe('Delivery Logs list — SCRIPT_JOB detail shows script output, not a br
   it('shows the Script Output tab with real console output and no broken cURL tab', async () => {
     await renderRoute();
 
-    await screen.findByText('Tailspin Daily Sync Report');
+    await screen.findByText('Nova Daily Sync Report');
 
     // Detail moved from an inline expanded row into the delivery drawer, which
     // opens on row click. Same renderer, so what this test asserts is unchanged.
@@ -120,9 +121,9 @@ describe('Delivery Logs list — SCRIPT_JOB detail shows script output, not a br
     expect(row).toBeTruthy();
     fireEvent.click(row);
 
-    await waitFor(() => expect(mockApi.getLogById).toHaveBeenCalledWith('log-tailspin-1'));
+    await waitFor(() => expect(mockApi.getLogById).toHaveBeenCalledWith('log-nova-1'));
 
-    expect(await screen.findByText('Script Output')).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Script Output' })).toBeInTheDocument();
     expect(await screen.findByText(/Error: connect ETIMEDOUT/)).toBeInTheDocument();
     expect(screen.getByText(/script.js:28:34/)).toBeInTheDocument();
 
@@ -131,5 +132,38 @@ describe('Delivery Logs list — SCRIPT_JOB detail shows script output, not a br
     expect(screen.getByText('Script job')).toBeInTheDocument();
     expect(screen.queryByText(/^Retry$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Force$/)).not.toBeInTheDocument();
+  });
+
+  it('shows the Timeline tab for a trace-only skipped delivery', async () => {
+    const traceOnlyLog = {
+      id: 'log-trace-only',
+      direction: 'OUTBOUND',
+      httpMethod: 'POST',
+      status: 'SKIPPED',
+      integrationName: 'Trace-only delivery',
+      createdAt: new Date().toISOString(),
+      traceId: 'trace-only-123',
+      requestPayload: null,
+      metadata: {},
+    };
+    mockApi.getLogs.mockResolvedValue({
+      data: [traceOnlyLog],
+      pagination: { total: 1, page: 1, limit: 15, totalPages: 1 },
+    });
+    mockApi.getLogById.mockResolvedValue(traceOnlyLog);
+    mockApi.getExecutionLogTimeline.mockResolvedValue({
+      summary: { traceId: 'trace-only-123', stepCount: 1, totalDuration: 10 },
+      timeline: [{ name: 'receive', status: 'SUCCESS', durationMs: 10 }],
+    });
+
+    await renderRoute();
+    await screen.findByText('Trace-only delivery');
+    fireEvent.click(document.querySelector('.ant-table-row') as HTMLElement);
+
+    const timelineTab = await screen.findByRole('tab', { name: 'Timeline' });
+    expect(timelineTab).toBeInTheDocument();
+    fireEvent.click(timelineTab);
+    expect(await screen.findByText('trace-only-123')).toBeInTheDocument();
+    expect(mockApi.getExecutionLogTimeline).toHaveBeenCalledWith('trace-only-123');
   });
 });

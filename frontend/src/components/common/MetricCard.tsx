@@ -1,5 +1,7 @@
-import { Card, Typography } from 'antd';
 import type { ReactNode } from 'react';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Section } from '@astryxdesign/core/Section';
+import { Text } from '@astryxdesign/core/Text';
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 
 interface Props {
@@ -12,52 +14,67 @@ interface Props {
 }
 
 export const MetricCard = ({ label, value, delta, icon, color, sparkline }: Props) => {
-  const { token, spacing, shadows } = useDesignTokens();
+  const { spacing } = useDesignTokens();
 
   return (
-    <Card
-      hoverable
-      className="panel"
+    <Section
+      variant="section"
+      padding={3}
       style={{
         minWidth: 220,
         flex: 1,
-        borderRadius: token.borderRadiusLG,
-        border: `1px solid ${cssVar.border.default}`,
-        background: `linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0.1) 60%, ${cssVar.bg.surface})`
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: spacing[3],
       }}
-      styles={{ body: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3] } }}
     >
-      <div>
-        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM, letterSpacing: 0.5 }}>
+      <div className="console-min-width-0">
+        <Text as="div" type="supporting" className="console-type-caption">
           {label}
-        </Typography.Text>
-        <Typography.Title level={3} style={{ margin: `${spacing['1.5']} 0 0`, letterSpacing: -0.5 }}>
+        </Text>
+        <Heading
+          level={3}
+          style={{
+            margin: `${spacing[1]} 0 0`,
+            fontSize: 'var(--console-type-numeral)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           {value}
-        </Typography.Title>
+        </Heading>
         {delta && (
-          <Typography.Text type={delta.startsWith('-') ? 'danger' : 'success'} style={{ fontSize: token.fontSizeSM }}>
+          <Text
+            as="div"
+            style={{
+              marginTop: spacing[1],
+              fontSize: 'var(--console-type-caption)',
+              color: delta.startsWith('-') ? cssVar.error.text : cssVar.success.text,
+            }}
+          >
             {delta}
-          </Typography.Text>
+          </Text>
         )}
       </div>
       {icon && (
-        <div
+        <span
+          aria-hidden="true"
           style={{
-            width: 52,
-            height: 52,
-            borderRadius: token.borderRadiusLG,
-            background: color ?? cssVar.primary[500],
+            width: 36,
+            height: 36,
+            flex: '0 0 36px',
+            borderRadius: 'var(--radius-base)',
+            background: cssVar.bg.subtle,
             display: 'grid',
             placeItems: 'center',
-            color: cssVar.text.inverse,
-            fontSize: spacing[5],
-            boxShadow: shadows.md
+            color: color ?? cssVar.text.secondary,
+            fontSize: 'var(--console-type-section)',
           }}
         >
           {icon}
-        </div>
+        </span>
       )}
       {sparkline}
-    </Card>
+    </Section>
   );
 };

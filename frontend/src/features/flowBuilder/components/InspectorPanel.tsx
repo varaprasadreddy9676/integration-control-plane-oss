@@ -5,21 +5,13 @@
  */
 
 import React from 'react';
-import {
-  Form,
-  Input,
-  Select,
-  InputNumber,
-  Switch,
-  Button,
-  Typography,
-  Space,
-  Divider,
-  Alert,
-  Empty,
-} from 'antd';
-import { CopyOutlined, DeleteOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Form, Input, Select, InputNumber, Switch, Space, Divider } from '@/components/common/LegacyAntdControls';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Text } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { cssVar } from '../../../design-system/utils';
+import { StatePanel } from '../../../components/common/StatePanel';
 import type {
   FlowNode,
   FlowNodeData,
@@ -38,8 +30,8 @@ import type {
   HttpMethod,
   TransformMode,
 } from '../state/flowTypes';
+import { Button } from '../../../components/common/LegacyButton';
 
-const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
@@ -95,17 +87,13 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
           height: '100%',
           background: cssVar.bg.base,
           borderLeft: `1px solid ${cssVar.border.default}`,
-          padding: '24px',
+          padding: 'var(--spacing-6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Empty
-          description={
-            <Text type="secondary">Select a node to edit its properties</Text>
-          }
-        />
+        <StatePanel size="compact" glyph="searching" title="No step selected" description="Select a step to edit it." />
       </div>
     );
   }
@@ -118,40 +106,33 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         background: cssVar.bg.base,
         borderLeft: `1px solid ${cssVar.border.default}`,
         overflowY: 'auto',
-        padding: '16px',
+        padding: 'var(--spacing-4)',
       }}
     >
-      <div style={{ marginBottom: '16px' }}>
-        <Title level={5} style={{ marginBottom: '8px' }}>
+      <div className="console-margin-bottom-4">
+        <Heading level={5} className="console-margin-bottom-2">
           {selectedNode.data.label || 'Node Properties'}
-        </Title>
-        <Text type="secondary" style={{ fontSize: '12px' }}>
+        </Heading>
+        <Text type="supporting" size="sm" color="secondary" display="block">
           {selectedNode.type}
         </Text>
       </div>
 
       {selectedNode.data.errors && selectedNode.data.errors.length > 0 && (
-        <Alert
-          message="Validation Errors"
+        <Banner
+          title="Validation Errors"
           description={
-            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+            <ul className="console-list-reset-indent">
               {selectedNode.data.errors.map((error, idx) => (
                 <li key={idx}>{error}</li>
               ))}
             </ul>
           }
-          type="error"
-          showIcon
-          style={{ marginBottom: '16px' }}
+          status="error"
         />
       )}
 
-      <Form
-        form={form}
-        layout="vertical"
-        onValuesChange={handleFormChange}
-        size="small"
-      >
+      <Form form={form} layout="vertical" onValuesChange={handleFormChange} size="small">
         {/* Common fields */}
         <Form.Item label="Label" name="label">
           <Input placeholder="Node label" />
@@ -170,20 +151,16 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
       <Divider />
 
       {/* Actions */}
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space direction="vertical" className="console-width-full">
         {onDuplicateNode && (
-          <Button
-            icon={<CopyOutlined />}
-            onClick={handleDuplicate}
-            block
-          >
+          <Button icon={<GatewayIcon name="CopyOutlined" />} onClick={handleDuplicate} block>
             Duplicate Node
           </Button>
         )}
 
         <Button
           danger
-          icon={<DeleteOutlined />}
+          icon={<GatewayIcon name="DeleteOutlined" />}
           onClick={handleDelete}
           block
           disabled={selectedNode.type === 'trigger'}
@@ -192,7 +169,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         </Button>
 
         {selectedNode.type === 'trigger' && (
-          <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'center' }}>
+          <Text type="supporting" size="sm" color="secondary" display="block" className="ui-extracted-9034f05ba4">
             Trigger node cannot be deleted
           </Text>
         )}
@@ -227,7 +204,11 @@ function renderNodeSpecificFields(node: FlowNode, form: any): React.ReactNode {
     case 'integration':
       return renderIntegrationFields(node.data as IntegrationNodeData, form);
     default:
-      return <Text type="secondary">No configuration available</Text>;
+      return (
+        <Text type="supporting" color="secondary">
+          No configuration available
+        </Text>
+      );
   }
 }
 
@@ -240,84 +221,82 @@ function renderTriggerFields(data: TriggerNodeData, form: any): React.ReactNode 
 
         return (
           <>
-              {triggerType === 'INBOUND' && (
-                <>
-                  <Alert
-                    type="info"
-                    showIcon
-                    message="Inbound Integration"
-                    description="This integration acts as an HTTP proxy, forwarding incoming requests to a target URL."
-                    style={{ marginBottom: '16px' }}
-                  />
-                  <Form.Item
-                    label="Integration Identifier"
-                    name="inboundType"
-                    rules={[
-                      { required: true, message: 'Integration identifier is required' },
-                      {
-                        pattern: /^[a-z0-9-]+$/,
-                        message: 'Must be lowercase alphanumeric with hyphens only'
-                      }
-                    ]}
-                    extra="Unique identifier used in the API path (e.g., 'clevertap', 'salesforce', 'zoho-crm')"
-                  >
-                    <Input placeholder="e.g., clevertap" />
-                  </Form.Item>
-                </>
-              )}
+            {triggerType === 'INBOUND' && (
+              <>
+                <Banner
+                  status="info"
+                  title="Inbound Integration"
+                  description="This integration acts as an HTTP proxy, forwarding incoming requests to a target URL."
+                />
+                <Form.Item
+                  label="Integration Identifier"
+                  name="inboundType"
+                  rules={[
+                    { required: true, message: 'Integration identifier is required' },
+                    {
+                      pattern: /^[a-z0-9-]+$/,
+                      message: 'Must be lowercase alphanumeric with hyphens only',
+                    },
+                  ]}
+                  extra="Unique identifier used in the API path (e.g., 'clevertap', 'salesforce', 'zoho-crm')"
+                >
+                  <Input placeholder="e.g., clevertap" />
+                </Form.Item>
+              </>
+            )}
 
-              {triggerType === 'OUTBOUND_EVENT' && (
-                <Form.Item label="Event Name" name="eventName" rules={[{ required: true }]}>
-                  <Select placeholder="Select event">
-                    <Option value="OP_VISIT_CREATED">OP Visit Created</Option>
-                    <Option value="LAB_RESULT_READY">Lab Result Ready</Option>
-                    <Option value="APPOINTMENT_CONFIRMED">Appointment Confirmed</Option>
+            {triggerType === 'OUTBOUND_EVENT' && (
+              <Form.Item label="Event Name" name="eventName" rules={[{ required: true }]}>
+                <Select placeholder="Select event">
+                  <Option value="OP_VISIT_CREATED">OP Visit Created</Option>
+                  <Option value="LAB_RESULT_READY">Lab Result Ready</Option>
+                  <Option value="APPOINTMENT_CONFIRMED">Appointment Confirmed</Option>
+                </Select>
+              </Form.Item>
+            )}
+
+            {triggerType === 'OUTBOUND_SCHEDULED' && (
+              <>
+                <Form.Item label="Event Type" name="eventName" rules={[{ required: true }]}>
+                  <Input placeholder="SCHEDULED_EVENT" />
+                </Form.Item>
+                <Form.Item label="Schedule Type" name="scheduleType" rules={[{ required: true }]}>
+                  <Select placeholder="Select type">
+                    <Option value="CRON">Cron Expression</Option>
+                    <Option value="DELAYED">Delayed (One-time)</Option>
+                    <Option value="RECURRING">Recurring Interval</Option>
                   </Select>
                 </Form.Item>
-              )}
 
-              {triggerType === 'OUTBOUND_SCHEDULED' && (
-                <>
-                  <Form.Item label="Event Type" name="eventName" rules={[{ required: true }]}>
-                    <Input placeholder="SCHEDULED_EVENT" />
+                {scheduleType === 'CRON' && (
+                  <Form.Item label="Cron Expression" name="cronExpression" rules={[{ required: true }]}>
+                    <Input placeholder="0 0 * * *" />
                   </Form.Item>
-                  <Form.Item label="Schedule Type" name="scheduleType" rules={[{ required: true }]}>
-                    <Select placeholder="Select type">
-                      <Option value="CRON">Cron Expression</Option>
-                      <Option value="DELAYED">Delayed (One-time)</Option>
-                      <Option value="RECURRING">Recurring Interval</Option>
-                    </Select>
+                )}
+
+                {scheduleType === 'DELAYED' && (
+                  <Form.Item label="Delay (seconds)" name="delaySeconds" rules={[{ required: true }]}>
+                    <InputNumber min={1} className="console-width-full" />
                   </Form.Item>
+                )}
 
-                  {scheduleType === 'CRON' && (
-                    <Form.Item label="Cron Expression" name="cronExpression" rules={[{ required: true }]}>
-                      <Input placeholder="0 0 * * *" />
+                {scheduleType === 'RECURRING' && (
+                  <>
+                    <Form.Item label="Interval" name="recurringInterval" rules={[{ required: true }]}>
+                      <InputNumber min={1} className="console-width-full" />
                     </Form.Item>
-                  )}
-
-                  {scheduleType === 'DELAYED' && (
-                    <Form.Item label="Delay (seconds)" name="delaySeconds" rules={[{ required: true }]}>
-                      <InputNumber min={1} style={{ width: '100%' }} />
+                    <Form.Item label="Unit" name="recurringUnit" rules={[{ required: true }]}>
+                      <Select>
+                        <Option value="SECONDS">Seconds</Option>
+                        <Option value="MINUTES">Minutes</Option>
+                        <Option value="HOURS">Hours</Option>
+                        <Option value="DAYS">Days</Option>
+                      </Select>
                     </Form.Item>
-                  )}
-
-                  {scheduleType === 'RECURRING' && (
-                    <>
-                      <Form.Item label="Interval" name="recurringInterval" rules={[{ required: true }]}>
-                        <InputNumber min={1} style={{ width: '100%' }} />
-                      </Form.Item>
-                      <Form.Item label="Unit" name="recurringUnit" rules={[{ required: true }]}>
-                        <Select>
-                          <Option value="SECONDS">Seconds</Option>
-                          <Option value="MINUTES">Minutes</Option>
-                          <Option value="HOURS">Hours</Option>
-                          <Option value="DAYS">Days</Option>
-                        </Select>
-                      </Form.Item>
-                    </>
-                  )}
-                </>
-              )}
+                  </>
+                )}
+              </>
+            )}
           </>
         );
       }}
@@ -448,15 +427,15 @@ function renderHttpFields(data: HttpNodeData, form: any): React.ReactNode {
       </Form.Item>
 
       <Form.Item label="Timeout (ms)" name="timeout">
-        <InputNumber min={1000} max={60000} step={1000} style={{ width: '100%' }} />
+        <InputNumber min={1000} max={60000} step={1000} className="console-width-full" />
       </Form.Item>
 
       <Form.Item label="Retry Count" name="retryCount">
-        <InputNumber min={0} max={10} style={{ width: '100%' }} />
+        <InputNumber min={0} max={10} className="console-width-full" />
       </Form.Item>
 
       <Form.Item label="Retry Delay (ms)" name="retryDelay">
-        <InputNumber min={100} max={10000} step={100} style={{ width: '100%' }} />
+        <InputNumber min={100} max={10000} step={100} className="console-width-full" />
       </Form.Item>
     </>
   );
@@ -490,15 +469,10 @@ function renderTransformFields(data: TransformNodeData, form: any): React.ReactN
                 <TextArea
                   rows={10}
                   placeholder="function transform(input) {\n  // Transform logic here\n  return output;\n}"
-                  style={{ fontFamily: 'monospace' }}
+                  className="console-font-mono"
                 />
               </Form.Item>
-              <Alert
-                message="JavaScript function that receives input and returns transformed output"
-                type="info"
-                showIcon
-                style={{ marginBottom: '16px' }}
-              />
+              <Banner title="JavaScript function that receives input and returns transformed output" status="info" />
             </>
           );
         }}
@@ -509,10 +483,9 @@ function renderTransformFields(data: TransformNodeData, form: any): React.ReactN
 
 function renderFilterFields(_data: FilterNodeData, _form: any): React.ReactNode {
   return (
-    <Alert
-      type="warning"
-      showIcon
-      message="This legacy node is not executed by the delivery runtime"
+    <Banner
+      status="warning"
+      title="This legacy node is not executed by the delivery runtime"
       description="Remove it before saving. To skip selected events today, use a transformation that returns null."
     />
   );
@@ -525,15 +498,13 @@ function renderScheduleScriptFields(data: ScheduleScriptNodeData, form: any): Re
         <TextArea
           rows={10}
           placeholder={`// Return a timestamp (ms) or recurring config object\n// Example (delay 1 hour):\nreturn Date.now() + 60 * 60 * 1000;`}
-          style={{ fontFamily: 'monospace' }}
+          className="console-font-mono"
         />
       </Form.Item>
-      <Alert
-        message="Script must return a timestamp (ms) or a recurring config object"
+      <Banner
+        title="Script must return a timestamp (ms) or a recurring config object"
         description="This is executed by the scheduler to determine when to run the integration."
-        type="info"
-        showIcon
-        style={{ marginBottom: '16px' }}
+        status="info"
       />
     </>
   );
@@ -556,7 +527,7 @@ function renderDelayFields(data: DelayNodeData, form: any): React.ReactNode {
             <>
               {delayType === 'FIXED' && (
                 <Form.Item label="Delay (ms)" name="delayMs" rules={[{ required: true }]}>
-                  <InputNumber min={0} max={300000} step={1000} style={{ width: '100%' }} />
+                  <InputNumber min={0} max={300000} step={1000} className="console-width-full" />
                 </Form.Item>
               )}
 
@@ -576,28 +547,26 @@ function renderDelayFields(data: DelayNodeData, form: any): React.ReactNode {
 function renderMultiActionFields(data: MultiActionNodeData, form: any): React.ReactNode {
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        message="Actions run in order"
+      <Banner
+        status="info"
+        title="Actions run in order"
         description="Each endpoint is attempted and recorded independently, even when an earlier action fails."
-        style={{ marginBottom: 16 }}
       />
 
       <Form.List name="actions">
         {(fields, { add, remove }) => (
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space direction="vertical" size="small" className="console-width-full">
             {fields.map((field, index) => (
               <div
                 key={field.key}
-                style={{ border: `1px solid ${cssVar.border.default}`, padding: 12, borderRadius: 6 }}
+                style={{ border: `1px solid ${cssVar.border.default}`, padding: 'var(--spacing-3)', borderRadius: 4 }}
               >
-                <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
-                  <Text strong>Action {index + 1}</Text>
+                <Space align="start" className="console-width-full-between">
+                  <Text weight="semibold">Action {index + 1}</Text>
                   <Button
                     type="text"
                     danger
-                    icon={<MinusCircleOutlined />}
+                    icon={<GatewayIcon name="MinusCircleOutlined" />}
                     aria-label={`Remove action ${index + 1}`}
                     onClick={() => remove(field.name)}
                   />
@@ -640,7 +609,7 @@ function renderMultiActionFields(data: MultiActionNodeData, form: any): React.Re
             <Button
               block
               type="dashed"
-              icon={<PlusOutlined />}
+              icon={<GatewayIcon name="PlusOutlined" />}
               onClick={() =>
                 add({
                   id: `action-${Date.now()}`,
@@ -664,7 +633,7 @@ function renderResponseFields(data: ResponseNodeData, form: any): React.ReactNod
   return (
     <>
       <Form.Item label="Status Code" name="statusCode" rules={[{ required: true }]}>
-        <InputNumber min={100} max={599} style={{ width: '100%' }} />
+        <InputNumber min={100} max={599} className="console-width-full" />
       </Form.Item>
 
       <Form.Item label="Body Type" name="bodyType" rules={[{ required: true }]}>
@@ -685,7 +654,7 @@ function renderResponseFields(data: ResponseNodeData, form: any): React.ReactNod
               <TextArea
                 rows={6}
                 placeholder='{"status": "success", "data": "{{data}}"}'
-                style={{ fontFamily: 'monospace' }}
+                className="console-font-mono"
               />
             </Form.Item>
           );
@@ -715,11 +684,11 @@ function renderIntegrationFields(data: IntegrationNodeData, form: any): React.Re
       </Form.Item>
 
       <Form.Item label="Timeout (ms)" name="timeout">
-        <InputNumber min={1000} max={60000} step={1000} style={{ width: '100%' }} />
+        <InputNumber min={1000} max={60000} step={1000} className="console-width-full" />
       </Form.Item>
 
       <Form.Item label="Retry Count" name="retryCount">
-        <InputNumber min={0} max={10} style={{ width: '100%' }} />
+        <InputNumber min={0} max={10} className="console-width-full" />
       </Form.Item>
 
       <Form.Item label="Enable DLQ" name="enableDLQ" valuePropName="checked">

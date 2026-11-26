@@ -6,7 +6,7 @@ import { shortTenantName } from '../utils/tenant-display';
  * a selector showing the same name ellipsised at a different point — two
  * truncations of one string, e.g.
  *
- *   "Acme Health (Harmony Institut…"   and   "Acme Health (Harmony Institute o…"
+ *   "HER Health (Harmony Institut…"   and   "HER Health (Harmony Institute o…"
  *
  * The identity line keeps the short form; the full name stays on hover and in
  * the selector.
@@ -14,7 +14,7 @@ import { shortTenantName } from '../utils/tenant-display';
 
 describe('tenant name shortening', () => {
   it('drops a trailing parenthetical legal name', () => {
-    expect(shortTenantName('Acme Health (Harmony Institute of Excellence in Reproductive Health)')).toBe('Acme Health');
+    expect(shortTenantName('HER Health (Harmony Institute of Excellence in Reproductive Health)')).toBe('HER Health');
   });
 
   it('leaves an already-short name alone', () => {

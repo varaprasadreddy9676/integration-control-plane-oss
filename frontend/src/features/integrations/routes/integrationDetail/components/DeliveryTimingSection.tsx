@@ -1,7 +1,6 @@
-import { Alert, Col, Row, Skeleton } from 'antd';
 import { SchedulingSection } from '../../../components/detail/SchedulingSection';
-import { spacingToNumber } from '../../../../../design-system/utils';
 import type { DeliveryPanelProps } from './DeliveryPanel.types';
+import { StatePanel } from '../../../../../components/common/StatePanel';
 
 export const DeliveryTimingSection = ({
   deliveryModeValue,
@@ -19,27 +18,11 @@ export const DeliveryTimingSection = ({
   integrationId,
 }: DeliveryPanelProps) => {
   if (isLoading) {
-    return (
-      <div style={{ padding: spacing[3] }}>
-        <Skeleton active paragraph={{ rows: 6 }} />
-      </div>
-    );
+    return <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading timing settings" />;
   }
 
   if (!currentEventType) {
-    return (
-      <Row gutter={[spacingToNumber(spacing[4]), 0]}>
-        <Col xs={24}>
-          <Alert
-            type="info"
-            showIcon
-            message="Select an event type first"
-            description="Timing and follow-up options will appear after you select an event type in Basic Info."
-            style={{ marginBottom: 0 }}
-          />
-        </Col>
-      </Row>
-    );
+    return <StatePanel title="Choose an event type first" description="Timing settings unlock after selection." size="compact" />;
   }
 
   return (

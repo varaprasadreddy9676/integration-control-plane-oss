@@ -68,7 +68,7 @@ export const darkColors = {
 
 export const lightColors = {
   bg: {
-    base: '#FAFBFC',
+    base: '#F5F7FA',
     subtle: '#F4F6F8',
     surface: '#FFFFFF',
     elevated: '#FFFFFF',
@@ -125,10 +125,10 @@ export const lightColors = {
     codeBorder: '#D5DAE0',
   },
   sidebar: {
-    bg: '#0B1120',
-    item: '#94A3B8',
-    hover: '#161F30',
-    activeBg: 'rgba(37, 99, 235, 0.16)',
+    bg: '#171B22',
+    item: '#AEB7C2',
+    hover: '#252B34',
+    activeBg: '#252B34',
     activeText: '#FFFFFF',
     accent: '#3B82F6',
   },
@@ -224,18 +224,6 @@ export const colors = {
     800: '#2D333B',
     900: '#1C2128',
     950: '#0D1117',
-  },
-  gradients: {
-    primary: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-    success: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
-    warning: 'linear-gradient(135deg, #EAB308 0%, #CA8A04 100%)',
-    error: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-    subtlePrimary: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
-    subtleSuccess: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
-    glass: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)',
-    surface: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 251, 252, 0.96) 100%)',
-    shimmer:
-      'linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%)',
   },
 } as const;
 

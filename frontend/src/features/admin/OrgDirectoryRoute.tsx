@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
-  Alert,
-  Button,
   Card,
   Checkbox,
   Col,
@@ -14,23 +12,17 @@ import {
   Select,
   Space,
   Switch,
-  Tag,
   Tooltip,
-  Typography,
   message,
-} from 'antd';
-import {
-  CopyOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  ClusterOutlined,
-  IdcardOutlined,
-  KeyOutlined,
-  ReloadOutlined,
-  StopOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { FilterBar } from '../../components/common/FilterBar';
+import { MetaTag } from '../../components/common/MetaTag';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { useAuth } from '../../app/auth-context';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
 import { copyTextToClipboard } from '../../utils/clipboard';
@@ -57,7 +49,10 @@ import {
   getInboundIntegrations,
 } from '../../services/api';
 import { ModernTable } from '../../components/common/ModernTable';
+import { StatePanel } from '../../components/common/StatePanel';
 import { celebrateActivation } from '../../design-system/delight';
+import { Button } from '../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../components/common';
 
 const OrgUnitsInline = ({
   orgId,
@@ -88,9 +83,7 @@ const OrgUnitsInline = ({
       dataIndex: 'rid',
       key: 'rid',
       width: 90,
-      render: (value: number) => (
-        <Typography.Text style={{ fontFamily: token.fontFamilyCode }}>{value}</Typography.Text>
-      ),
+      render: (value: number) => <Text className="console-font-mono">{value}</Text>,
     },
     { title: 'Name', dataIndex: 'name', key: 'name', render: (value: string) => value || '—' },
     { title: 'Code', dataIndex: 'code', key: 'code', render: (value: string) => value || '—' },
@@ -101,7 +94,7 @@ const OrgUnitsInline = ({
       key: 'tags',
       render: (value: string[] | null | undefined) => (
         <Space size={4} wrap>
-          {(value || []).length === 0 ? '—' : (value || []).map((tag) => <Tag key={tag}>{tag}</Tag>)}
+          {(value || []).length === 0 ? '—' : (value || []).map((tag) => <MetaTag key={tag}>{tag}</MetaTag>)}
         </Space>
       ),
     },
@@ -140,9 +133,11 @@ const OrgUnitsInline = ({
   ];
 
   return (
-    <Card size="small" style={{ margin: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <Typography.Text type="secondary">Units ({units.length})</Typography.Text>
+    <Card size="small" className="console-margin-none">
+      <div className="console-row-between-center-spaced">
+        <Text type="supporting" color="secondary">
+          Units ({units.length})
+        </Text>
         <Button size="small" type="primary" onClick={() => onCreateUnit(orgId)}>
           Create Unit
         </Button>
@@ -217,6 +212,7 @@ export const OrgDirectoryRoute = () => {
   });
   const [unitEditSaving, setUnitEditSaving] = useState(false);
   const [orgTagFilter, setOrgTagFilter] = useState('');
+  const [orgSearch, setOrgSearch] = useState('');
   const [unitTagFilter, setUnitTagFilter] = useState('');
   const [orgPhoneError, setOrgPhoneError] = useState('');
   const [orgEditPhoneError, setOrgEditPhoneError] = useState('');
@@ -358,6 +354,7 @@ export const OrgDirectoryRoute = () => {
     data: adminOrgs = [],
     refetch: refetchAdminOrgs,
     isLoading: adminOrgsLoading,
+    error: adminOrgsError,
   } = useQuery({
     queryKey: ['adminOrgsSummary'],
     queryFn: listAdminOrgSummaries,
@@ -418,22 +415,26 @@ export const OrgDirectoryRoute = () => {
       title: 'Org ID',
       dataIndex: 'orgId',
       key: 'orgId',
-      render: (value: number) => (
-        <Typography.Text style={{ fontFamily: token.fontFamilyCode }}>{value}</Typography.Text>
-      ),
+      render: (value: number) => <Text className="console-font-mono">{value}</Text>,
     },
     { title: 'Name', dataIndex: 'name', key: 'name', render: (value: string) => value || '—' },
     { title: 'Code', dataIndex: 'code', key: 'code', render: (value: string) => value || '—' },
-    { title: 'Email', dataIndex: 'email', key: 'email', render: (value: string) => value || '—' },
-    { title: 'Phone', dataIndex: 'phone', key: 'phone', render: (value: string) => value || '—' },
     {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
-      render: (value: string) => (
-        <Typography.Paragraph style={{ margin: 0, maxWidth: 280 }} ellipsis={{ rows: 2, tooltip: value || undefined }}>
-          {value || '—'}
-        </Typography.Paragraph>
+      title: 'Contact / address',
+      key: 'contact',
+      width: 240,
+      render: (_: unknown, record: AdminOrgSummary) => (
+        <Space direction="vertical" size={0} className="org-directory-contact">
+          <Text>{record.email || 'No email'}</Text>
+          <Text type="supporting" color="secondary">
+            {record.phone || 'No phone'}
+          </Text>
+          {record.address && (
+            <Text type="supporting" color="secondary" maxLines={1}>
+              {record.address}
+            </Text>
+          )}
+        </Space>
       ),
     },
     {
@@ -442,7 +443,7 @@ export const OrgDirectoryRoute = () => {
       key: 'tags',
       render: (value: string[] | null | undefined) => (
         <Space size={4} wrap>
-          {(value || []).length === 0 ? '—' : (value || []).map((tag) => <Tag key={tag}>{tag}</Tag>)}
+          {(value || []).length === 0 ? '—' : (value || []).map((tag) => <MetaTag key={tag}>{tag}</MetaTag>)}
         </Space>
       ),
     },
@@ -456,9 +457,9 @@ export const OrgDirectoryRoute = () => {
         return (
           <div>
             <div>{region || '—'}</div>
-            <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+            <Text type="supporting" color="secondary" className="console-type-caption">
               {timezone || '—'}
-            </Typography.Text>
+            </Text>
           </div>
         );
       },
@@ -469,12 +470,12 @@ export const OrgDirectoryRoute = () => {
       render: (_: any, record: AdminOrgSummary) => (
         <Space size="small">
           <Tooltip title="Edit">
-            <Button size="small" icon={<EditOutlined />} onClick={() => setEditingOrg(record)} />
+            <Button size="small" icon={<GatewayIcon name="EditOutlined" />} onClick={() => setEditingOrg(record)} />
           </Tooltip>
           <Tooltip title="Units">
             <Button
               size="small"
-              icon={<ClusterOutlined />}
+              icon={<GatewayIcon name="ClusterOutlined" />}
               onClick={() => {
                 setOrgUnitsOrg(record);
                 setOrgUnitsVisible(true);
@@ -482,13 +483,17 @@ export const OrgDirectoryRoute = () => {
             />
           </Tooltip>
           <Tooltip title="Portal Profiles">
-            <Button size="small" icon={<IdcardOutlined />} onClick={() => openProfilesDrawer(record)} />
+            <Button
+              size="small"
+              icon={<GatewayIcon name="IdcardOutlined" />}
+              onClick={() => openProfilesDrawer(record)}
+            />
           </Tooltip>
           <Tooltip title="Delete">
             <Button
               size="small"
               danger
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               onClick={() => {
                 Modal.confirm({
                   title: 'Delete organization?',
@@ -544,9 +549,7 @@ export const OrgDirectoryRoute = () => {
       title: 'RID',
       dataIndex: 'rid',
       key: 'rid',
-      render: (value: number) => (
-        <Typography.Text style={{ fontFamily: token.fontFamilyCode }}>{value}</Typography.Text>
-      ),
+      render: (value: number) => <Text className="console-font-mono">{value}</Text>,
     },
     { title: 'Name', dataIndex: 'name', key: 'name', render: (value: string) => value || '—' },
     { title: 'Code', dataIndex: 'code', key: 'code', render: (value: string) => value || '—' },
@@ -557,9 +560,9 @@ export const OrgDirectoryRoute = () => {
       dataIndex: 'address',
       key: 'address',
       render: (value: string) => (
-        <Typography.Paragraph style={{ margin: 0, maxWidth: 280 }} ellipsis={{ rows: 2, tooltip: value || undefined }}>
+        <Text as="p" display="block" className="ui-extracted-6affed5f0d" maxLines={2}>
           {value || '—'}
-        </Typography.Paragraph>
+        </Text>
       ),
     },
     {
@@ -568,7 +571,7 @@ export const OrgDirectoryRoute = () => {
       key: 'tags',
       render: (value: string[] | null | undefined) => (
         <Space size={4} wrap>
-          {(value || []).length === 0 ? '—' : (value || []).map((tag) => <Tag key={tag}>{tag}</Tag>)}
+          {(value || []).length === 0 ? '—' : (value || []).map((tag) => <MetaTag key={tag}>{tag}</MetaTag>)}
         </Space>
       ),
     },
@@ -582,9 +585,9 @@ export const OrgDirectoryRoute = () => {
         return (
           <div>
             <div>{region || '—'}</div>
-            <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+            <Text type="supporting" color="secondary" className="console-type-caption">
               {timezone || '—'}
-            </Typography.Text>
+            </Text>
           </div>
         );
       },
@@ -623,13 +626,26 @@ export const OrgDirectoryRoute = () => {
   ];
 
   const orgTagTokens = useMemo(() => parseTags(orgTagFilter), [orgTagFilter]);
-  const filteredOrgs =
-    orgTagTokens.length === 0
-      ? adminOrgs
-      : adminOrgs.filter((org) => {
-          const orgTags = (org.tags || []).map((tag) => String(tag).toLowerCase());
-          return orgTagTokens.every((tag) => orgTags.includes(tag.toLowerCase()));
-        });
+  const filteredOrgs = adminOrgs.filter((org) => {
+    const query = orgSearch.trim().toLowerCase();
+    const searchable = [
+      org.orgId,
+      org.name,
+      org.code,
+      org.email,
+      org.phone,
+      org.address,
+      org.region,
+      org.timezone,
+      ...(org.tags || []),
+    ]
+      .filter((value) => value !== null && value !== undefined)
+      .join(' ')
+      .toLowerCase();
+    const matchesSearch = !query || searchable.includes(query);
+    const orgTags = (org.tags || []).map((tag) => String(tag).toLowerCase());
+    return matchesSearch && orgTagTokens.every((tag) => orgTags.includes(tag.toLowerCase()));
+  });
 
   const unitTagTokens = useMemo(() => parseTags(unitTagFilter), [unitTagFilter]);
   const filteredUnits =
@@ -641,7 +657,34 @@ export const OrgDirectoryRoute = () => {
         });
 
   return (
-    <div>
+    <PageTemplate
+      header={
+        <PageHeader
+          title="Organization directory"
+          description="Manage organizations, units, and portal access."
+          actions={
+            isAdmin ? (
+              <Space wrap>
+                <Button
+                  icon={<GatewayIcon name="ReloadOutlined" />}
+                  onClick={() => refetchAdminOrgs()}
+                  loading={adminOrgsLoading}
+                >
+                  Refresh
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<GatewayIcon name="PlusOutlined" />}
+                  onClick={() => setCreateOrgVisible(true)}
+                >
+                  Create organization
+                </Button>
+              </Space>
+            ) : null
+          }
+        />
+      }
+    >
       {contextHolder}
       <Modal
         title="Portal Magic Link"
@@ -669,78 +712,101 @@ export const OrgDirectoryRoute = () => {
           </Button>,
         ]}
       >
-        <Typography.Paragraph>
+        <Text as="p" display="block">
           Use this link to access the integration portal for <strong>Org {portalLink?.orgId}</strong> without logging
           in.
-        </Typography.Paragraph>
+        </Text>
         <Input.TextArea
           rows={4}
           readOnly
           value={portalLink?.url}
-          style={{ fontFamily: token.fontFamilyCode, fontSize: token.fontSizeSM }}
+          style={{ fontFamily: token.fontFamilyCode, fontSize: 'var(--console-type-caption)' }}
         />
-        <Typography.Text type="secondary" style={{ display: 'block', marginTop: 12 }}>
+        <Text type="supporting" color="secondary" className="ui-extracted-7a94f340b4">
           Note: This link is short-lived (2 hours) and gives <strong>Integration Editor</strong> permissions.
-        </Typography.Text>
+        </Text>
       </Modal>
-      <PageHeader title="Org Directory" description="Create organizations and manage their units." />
-
-      <Row gutter={spacingToNumber(spacing[6])}>
-        <Col xs={24}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: spacingToNumber(spacing[3]),
-            }}
-          >
-            <Typography.Title level={4} style={{ margin: 0 }}>
-              Organizations
-            </Typography.Title>
-            <Button type="primary" onClick={() => setCreateOrgVisible(true)}>
-              Create Org
-            </Button>
-          </div>
-          <Card style={{ borderRadius: token.borderRadiusLG }}>
-            <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
-              <Row gutter={spacingToNumber(spacing[3])}>
-                <Col xs={24} md={12}>
+      <div className="org-directory-workspace">
+        {!isAdmin ? (
+          <StatePanel
+            title="Admin access required"
+            description="You need an admin account to manage organizations."
+            size="compact"
+          />
+        ) : (
+          <>
+            <FilterBar
+              rightSlot={
+                orgSearch || orgTagFilter ? (
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setOrgSearch('');
+                      setOrgTagFilter('');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : null
+              }
+            >
+              <div className="org-directory-filter-grid">
+                <label className="org-directory-filter-field">
+                  <span>Search organizations</span>
                   <Input
-                    placeholder="Filter by tags (comma separated)"
+                    aria-label="Search organizations"
+                    placeholder="Name, ID, code, contact, region"
+                    value={orgSearch}
+                    onChange={(event) => setOrgSearch(event.target.value)}
+                    allowClear
+                  />
+                </label>
+                <label className="org-directory-filter-field">
+                  <span>Tags</span>
+                  <Input
+                    aria-label="Filter organizations by tags"
+                    placeholder="Comma-separated tags"
                     value={orgTagFilter}
                     onChange={(event) => setOrgTagFilter(event.target.value)}
+                    allowClear
                   />
-                </Col>
-                <Col xs={24} md={12} style={{ textAlign: 'right' }}>
-                  <Button onClick={() => setOrgTagFilter('')}>Clear Filters</Button>
-                </Col>
-              </Row>
-              {orgTagTokens.length > 0 && (
-                <Space size={6} wrap>
-                  {orgTagTokens.map((tag) => (
-                    <Tag
-                      key={tag}
-                      closable
-                      onClose={(event) => {
-                        event.preventDefault();
-                        const next = orgTagTokens.filter((t) => t.toLowerCase() !== tag.toLowerCase());
-                        setOrgTagFilter(next.join(', '));
-                      }}
-                    >
-                      {tag}
-                    </Tag>
-                  ))}
-                </Space>
-              )}
+                </label>
+              </div>
+            </FilterBar>
 
+            {adminOrgsError && (
+              <Notice
+                type="error"
+                message="Could not load organizations"
+                description={adminOrgsError instanceof Error ? adminOrgsError.message : 'An unexpected error occurred.'}
+                action={
+                  <Button size="small" onClick={() => refetchAdminOrgs()}>
+                    Retry
+                  </Button>
+                }
+              />
+            )}
+
+            <section className="org-directory-table-section" aria-label="Organizations">
+              <div className="org-directory-table-heading">
+                <Text weight="semibold">Organizations</Text>
+                <Text type="supporting" color="secondary">
+                  Showing {filteredOrgs.length} of {adminOrgs.length}
+                </Text>
+              </div>
               <ModernTable
                 dataSource={filteredOrgs}
                 columns={adminOrgColumns}
                 rowKey={(row) => row.orgId}
-                pagination={{ pageSize: 8 }}
+                pagination={{ pageSize: 12, hideOnSinglePage: true }}
                 loading={adminOrgsLoading}
                 size="small"
+                emptyState={{
+                  title: adminOrgs.length ? 'No organizations match these filters' : 'No organizations yet',
+                  description: adminOrgs.length
+                    ? 'Change or clear a filter to see the full directory.'
+                    : 'Create an organization to begin managing its units and portal access.',
+                }}
                 expandable={{
                   expandedRowRender: (record) => (
                     <OrgUnitsInline
@@ -754,10 +820,10 @@ export const OrgDirectoryRoute = () => {
                   rowExpandable: () => true,
                 }}
               />
-            </Space>
-          </Card>
-        </Col>
-      </Row>
+            </section>
+          </>
+        )}
+      </div>
 
       <Modal
         title={editingOrg ? `Edit Org ${editingOrg.orgId}` : 'Edit Org'}
@@ -803,7 +869,7 @@ export const OrgDirectoryRoute = () => {
         }}
         width={620}
       >
-        <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+        <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
           <Input
             placeholder="Name (required)"
             value={orgEditDraft.name}
@@ -830,9 +896,9 @@ export const OrgDirectoryRoute = () => {
             status={orgEditPhoneError ? 'error' : undefined}
           />
           {orgEditPhoneError && (
-            <Typography.Text type="danger" style={{ fontSize: token.fontSizeSM }}>
+            <Text type="supporting" style={{ fontSize: 'var(--console-type-caption)', color: token.colorError }}>
               {orgEditPhoneError}
-            </Typography.Text>
+            </Text>
           )}
           <Input
             placeholder="Address"
@@ -917,21 +983,25 @@ export const OrgDirectoryRoute = () => {
         width={700}
       >
         {/* overflowX: the grid gutter overhangs the dialog body by a few pixels and showed a scrollbar. */}
-        <Form layout="vertical" component="div" style={{ overflowX: 'hidden' }}>
+        <Form layout="vertical" component="div" className="ui-extracted-69bd25f670">
           <Row gutter={spacingToNumber(spacing[3])}>
             <Col xs={24} md={8}>
-              <Form.Item label="Org ID" extra="Leave blank to assign the next free ID." style={{ marginBottom: 12 }}>
+              <Form.Item
+                label="Org ID"
+                extra="Leave blank to assign the next free ID."
+                className="console-margin-bottom-3"
+              >
                 <InputNumber
                   placeholder="Auto"
                   min={1}
                   value={orgForm.orgId}
                   onChange={(value) => setOrgForm((prev) => ({ ...prev, orgId: value ?? undefined }))}
-                  style={{ width: '100%' }}
+                  className="console-width-full"
                 />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Name" required style={{ marginBottom: 12 }}>
+              <Form.Item label="Name" required className="console-margin-bottom-3">
                 <Input
                   placeholder="e.g. Acme Corp"
                   value={orgForm.name}
@@ -940,7 +1010,12 @@ export const OrgDirectoryRoute = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Code" required extra="A short unique identifier for this organization, shown in reports. e.g. ACME" style={{ marginBottom: 12 }}>
+              <Form.Item
+                label="Code"
+                required
+                extra="A short unique identifier for this organization, shown in reports. e.g. ACME"
+                className="console-margin-bottom-3"
+              >
                 <Input
                   placeholder="ACME"
                   value={orgForm.code}
@@ -951,7 +1026,11 @@ export const OrgDirectoryRoute = () => {
           </Row>
           <Row gutter={spacingToNumber(spacing[3])}>
             <Col xs={24} md={8}>
-              <Form.Item label="Contact email" extra="Receives failure alert emails unless an override is set." style={{ marginBottom: 12 }}>
+              <Form.Item
+                label="Contact email"
+                extra="Receives failure alert emails unless an override is set."
+                className="console-margin-bottom-3"
+              >
                 <Input
                   placeholder="ops@example.com"
                   value={orgForm.email}
@@ -960,7 +1039,12 @@ export const OrgDirectoryRoute = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Phone" validateStatus={orgPhoneError ? 'error' : undefined} help={orgPhoneError || undefined} style={{ marginBottom: 12 }}>
+              <Form.Item
+                label="Phone"
+                validateStatus={orgPhoneError ? 'error' : undefined}
+                help={orgPhoneError || undefined}
+                className="console-margin-bottom-3"
+              >
                 <Input
                   placeholder="+1 555 0100"
                   value={orgForm.phone}
@@ -974,7 +1058,7 @@ export const OrgDirectoryRoute = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Address" style={{ marginBottom: 12 }}>
+              <Form.Item label="Address" className="console-margin-bottom-3">
                 <Input
                   value={orgForm.address}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, address: event.target.value }))}
@@ -984,7 +1068,11 @@ export const OrgDirectoryRoute = () => {
           </Row>
           <Row gutter={spacingToNumber(spacing[3])}>
             <Col xs={24} md={8}>
-              <Form.Item label="Tags" extra="Comma separated, used to filter the directory." style={{ marginBottom: 12 }}>
+              <Form.Item
+                label="Tags"
+                extra="Comma separated, used to filter the directory."
+                className="console-margin-bottom-3"
+              >
                 <Input
                   placeholder="e.g. pilot, eu"
                   value={orgForm.tags}
@@ -993,7 +1081,7 @@ export const OrgDirectoryRoute = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Region" style={{ marginBottom: 12 }}>
+              <Form.Item label="Region" className="console-margin-bottom-3">
                 <Input
                   placeholder="e.g. ap-south"
                   value={orgForm.region}
@@ -1002,7 +1090,7 @@ export const OrgDirectoryRoute = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Timezone" style={{ marginBottom: 12 }}>
+              <Form.Item label="Timezone" className="console-margin-bottom-3">
                 <Input
                   placeholder="e.g. Asia/Kolkata"
                   value={orgForm.timezone}
@@ -1026,9 +1114,11 @@ export const OrgDirectoryRoute = () => {
         footer={null}
         width={920}
       >
-        <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography.Text type="secondary">Units for org {orgUnitsOrg?.orgId ?? '—'}</Typography.Text>
+        <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
+          <div className="console-flex-between-center">
+            <Text type="supporting" color="secondary">
+              Units for org {orgUnitsOrg?.orgId ?? '—'}
+            </Text>
             <Button type="primary" onClick={() => setCreateUnitVisible(true)}>
               Create Unit
             </Button>
@@ -1041,7 +1131,7 @@ export const OrgDirectoryRoute = () => {
                 onChange={(event) => setUnitTagFilter(event.target.value)}
               />
             </Col>
-            <Col xs={24} md={12} style={{ textAlign: 'right' }}>
+            <Col xs={24} md={12} className="ui-extracted-91d5a44878">
               <Button
                 onClick={() => {
                   setUnitTagFilter('');
@@ -1054,17 +1144,19 @@ export const OrgDirectoryRoute = () => {
           {unitTagTokens.length > 0 && (
             <Space size={6} wrap>
               {unitTagTokens.map((tag) => (
-                <Tag
+                <Button
                   key={tag}
-                  closable
-                  onClose={(event) => {
-                    event.preventDefault();
+                  type="text"
+                  size="small"
+                  icon={<GatewayIcon name="CloseOutlined" />}
+                  aria-label={`Remove ${tag} filter`}
+                  onClick={() => {
                     const next = unitTagTokens.filter((t) => t.toLowerCase() !== tag.toLowerCase());
                     setUnitTagFilter(next.join(', '));
                   }}
                 >
                   {tag}
-                </Tag>
+                </Button>
               ))}
             </Space>
           )}
@@ -1148,14 +1240,14 @@ export const OrgDirectoryRoute = () => {
         }}
         width={720}
       >
-        <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+        <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
           <Row gutter={spacingToNumber(spacing[3])}>
             <Col xs={24} md={6}>
               <InputNumber
                 placeholder="RID"
                 value={unitForm.rid}
                 onChange={(value) => setUnitForm((prev) => ({ ...prev, rid: value ?? undefined }))}
-                style={{ width: '100%' }}
+                className="console-width-full"
               />
             </Col>
             <Col xs={24} md={6}>
@@ -1193,9 +1285,9 @@ export const OrgDirectoryRoute = () => {
                 status={unitPhoneError ? 'error' : undefined}
               />
               {unitPhoneError && (
-                <Typography.Text type="danger" style={{ fontSize: token.fontSizeSM }}>
+                <Text type="supporting" style={{ fontSize: 'var(--console-type-caption)', color: token.colorError }}>
                   {unitPhoneError}
-                </Typography.Text>
+                </Text>
               )}
             </Col>
             <Col xs={24} md={6}>
@@ -1263,21 +1355,21 @@ export const OrgDirectoryRoute = () => {
           <Card
             size="small"
             title="New Portal Profile"
-            style={{ marginBottom: 16 }}
+            className="console-margin-bottom-4"
             extra={
               <Button size="small" onClick={() => setCreateProfileVisible(false)}>
                 Cancel
               </Button>
             }
           >
-            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            <Space direction="vertical" className="console-width-full" size={8}>
               <Input
                 placeholder="Profile name (required)"
                 value={profileForm.name}
                 onChange={(e) => setProfileForm((prev) => ({ ...prev, name: e.target.value }))}
               />
               <Select
-                style={{ width: '100%' }}
+                className="console-width-full"
                 value={profileForm.role}
                 onChange={(v) => setProfileForm((prev) => ({ ...prev, role: v }))}
                 options={[
@@ -1287,7 +1379,7 @@ export const OrgDirectoryRoute = () => {
               />
               <Select
                 mode="multiple"
-                style={{ width: '100%' }}
+                className="console-width-full"
                 placeholder={orgIntegrationsLoading ? 'Loading integrations…' : 'Allowed integrations (empty = all)'}
                 loading={orgIntegrationsLoading}
                 value={profileForm.allowedIntegrationIds}
@@ -1304,7 +1396,7 @@ export const OrgDirectoryRoute = () => {
               />
               <Select
                 mode="multiple"
-                style={{ width: '100%' }}
+                className="console-width-full"
                 placeholder="Allowed tags (empty = all)"
                 value={profileForm.allowedTags}
                 onChange={(vals: string[]) => setProfileForm((prev) => ({ ...prev, allowedTags: vals }))}
@@ -1314,10 +1406,10 @@ export const OrgDirectoryRoute = () => {
                 maxTagCount="responsive"
               />
               <div>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="supporting" color="secondary" className="console-type-caption">
                   Allowed Views
-                </Typography.Text>
-                <div style={{ marginTop: 4 }}>
+                </Text>
+                <div className="console-margin-top-1">
                   <Checkbox.Group
                     value={profileForm.allowedViews}
                     onChange={(vals) => setProfileForm((prev) => ({ ...prev, allowedViews: vals as string[] }))}
@@ -1334,13 +1426,13 @@ export const OrgDirectoryRoute = () => {
                 value={profileForm.allowedOrigins}
                 onChange={(e) => setProfileForm((prev) => ({ ...prev, allowedOrigins: e.target.value }))}
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="console-flex-center-gap-2">
                 <Switch
                   checked={profileForm.isActive}
                   onChange={(v) => setProfileForm((prev) => ({ ...prev, isActive: v }))}
                   size="small"
                 />
-                <Typography.Text>Active</Typography.Text>
+                <Text>Active</Text>
               </div>
               <Button
                 type="primary"
@@ -1394,23 +1486,23 @@ export const OrgDirectoryRoute = () => {
         )}
 
         {createProfileResult && (
-          <Alert
+          <Notice
             type="success"
             message="Profile created — copy the launch URL now"
             description={
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              <Space direction="vertical" className="console-width-full">
+                <Text type="supporting" color="secondary" className="console-type-caption">
                   This launch URL will not be shown again. Rotate the link to generate a new one.
-                </Typography.Text>
+                </Text>
                 <Input.TextArea
                   rows={3}
                   readOnly
                   value={createProfileResult.launchUrl}
-                  style={{ fontFamily: 'monospace', fontSize: 12 }}
+                  className="console-mono-caption"
                 />
                 <Button
                   size="small"
-                  icon={<CopyOutlined />}
+                  icon={<GatewayIcon name="CopyOutlined" />}
                   onClick={async () => {
                     const copied = await copyTextToClipboard(createProfileResult.launchUrl);
                     if (copied) {
@@ -1424,7 +1516,7 @@ export const OrgDirectoryRoute = () => {
                 </Button>
               </Space>
             }
-            style={{ marginBottom: 16 }}
+            className="console-margin-bottom-4"
             closable
             onClose={() => {
               setCreateProfileResult(null);
@@ -1447,7 +1539,7 @@ export const OrgDirectoryRoute = () => {
               render: (v: string, record: PortalAccessProfile) => (
                 <Space size={4}>
                   {v}
-                  {!record.isActive && <Tag color="red">Inactive</Tag>}
+                  {!record.isActive && <StatusBadge label="Inactive" variant="neutral" showIcon={false} size="small" />}
                 </Space>
               ),
             },
@@ -1456,9 +1548,7 @@ export const OrgDirectoryRoute = () => {
               dataIndex: 'role',
               key: 'role',
               render: (v: string) => (
-                <Tag color={v === 'INTEGRATION_EDITOR' ? 'blue' : 'default'}>
-                  {v === 'INTEGRATION_EDITOR' ? 'Editor' : 'Viewer'}
-                </Tag>
+                <MetaTag variant="neutral">{v === 'INTEGRATION_EDITOR' ? 'Editor' : 'Viewer'}</MetaTag>
               ),
             },
             {
@@ -1467,11 +1557,11 @@ export const OrgDirectoryRoute = () => {
               render: (_: any, record: PortalAccessProfile) => {
                 const ids = record.allowedIntegrationIds ?? [];
                 const tags = record.allowedTags ?? [];
-                if (!ids.length && !tags.length) return <Tag>All</Tag>;
+                if (!ids.length && !tags.length) return <MetaTag>All resources</MetaTag>;
                 return (
                   <Space size={2} wrap>
-                    {ids.length > 0 && <Tag color="purple">{ids.length} integration(s)</Tag>}
-                    {tags.length > 0 && <Tag color="cyan">{tags.length} tag(s)</Tag>}
+                    {ids.length > 0 && <MetaTag>{ids.length} integrations</MetaTag>}
+                    {tags.length > 0 && <MetaTag>{tags.length} tags</MetaTag>}
                   </Space>
                 );
               },
@@ -1481,7 +1571,7 @@ export const OrgDirectoryRoute = () => {
               dataIndex: 'allowedViews',
               key: 'allowedViews',
               render: (v: string[]) =>
-                (v ?? []).map((view) => <Tag key={view}>{portalViewLabelMap[view] || view}</Tag>),
+                (v ?? []).map((view) => <MetaTag key={view}>{portalViewLabelMap[view] || view}</MetaTag>),
             },
             {
               title: 'Active',
@@ -1517,7 +1607,7 @@ export const OrgDirectoryRoute = () => {
                   <Tooltip title="Rotate launch link (invalidates all existing sessions)">
                     <Button
                       size="small"
-                      icon={<ReloadOutlined />}
+                      icon={<GatewayIcon name="ReloadOutlined" />}
                       loading={rotatingId === record.id}
                       onClick={() => {
                         Modal.confirm({
@@ -1534,16 +1624,16 @@ export const OrgDirectoryRoute = () => {
                               Modal.success({
                                 title: 'New launch URL',
                                 content: (
-                                  <Space direction="vertical" style={{ width: '100%' }}>
+                                  <Space direction="vertical" className="console-width-full">
                                     <Input.TextArea
                                       rows={3}
                                       readOnly
                                       value={res.launchUrl}
-                                      style={{ fontFamily: 'monospace', fontSize: 12 }}
+                                      className="console-mono-caption"
                                     />
                                     <Button
                                       size="small"
-                                      icon={<CopyOutlined />}
+                                      icon={<GatewayIcon name="CopyOutlined" />}
                                       onClick={async () => {
                                         const copied = await copyTextToClipboard(res.launchUrl);
                                         if (copied) {
@@ -1574,7 +1664,7 @@ export const OrgDirectoryRoute = () => {
                   <Tooltip title="Revoke all active sessions (link stays valid for new sessions)">
                     <Button
                       size="small"
-                      icon={<StopOutlined />}
+                      icon={<GatewayIcon name="StopOutlined" />}
                       loading={revokingId === record.id}
                       onClick={() => {
                         Modal.confirm({
@@ -1604,18 +1694,18 @@ export const OrgDirectoryRoute = () => {
                   <Tooltip title="Get launch URL">
                     <Button
                       size="small"
-                      icon={<KeyOutlined />}
+                      icon={<GatewayIcon name="KeyOutlined" />}
                       onClick={() => {
                         Modal.info({
                           title: `Launch URL for "${record.name}"`,
                           content: (
-                            <Space direction="vertical" style={{ width: '100%' }}>
-                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            <Space direction="vertical" className="console-width-full">
+                              <Text type="supporting" color="secondary" className="console-type-caption">
                                 Rotate the link to generate a fresh URL with a new secret.
-                              </Typography.Text>
-                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                              </Text>
+                              <Text type="supporting" color="secondary" className="console-type-caption">
                                 Profile ID: <code>{record.id}</code>
-                              </Typography.Text>
+                              </Text>
                             </Space>
                           ),
                           width: 480,
@@ -1629,7 +1719,7 @@ export const OrgDirectoryRoute = () => {
                     <Button
                       size="small"
                       danger
-                      icon={<DeleteOutlined />}
+                      icon={<GatewayIcon name="DeleteOutlined" />}
                       loading={deletingId === record.id}
                       onClick={() => {
                         Modal.confirm({
@@ -1707,7 +1797,7 @@ export const OrgDirectoryRoute = () => {
         }}
         width={620}
       >
-        <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+        <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
           <Input
             placeholder="Name (required)"
             value={unitEditDraft.name}
@@ -1734,9 +1824,9 @@ export const OrgDirectoryRoute = () => {
             status={unitEditPhoneError ? 'error' : undefined}
           />
           {unitEditPhoneError && (
-            <Typography.Text type="danger" style={{ fontSize: token.fontSizeSM }}>
+            <Text type="supporting" style={{ fontSize: 'var(--console-type-caption)', color: token.colorError }}>
               {unitEditPhoneError}
-            </Typography.Text>
+            </Text>
           )}
           <Input
             placeholder="Address"
@@ -1760,6 +1850,6 @@ export const OrgDirectoryRoute = () => {
           />
         </Space>
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

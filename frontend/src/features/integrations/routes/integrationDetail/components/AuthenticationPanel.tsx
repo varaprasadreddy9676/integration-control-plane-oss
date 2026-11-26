@@ -1,9 +1,8 @@
-import { Skeleton, Row, Col, Alert } from 'antd';
-import type { FormInstance } from 'antd';
-import { LockOutlined } from '@ant-design/icons';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { AuthenticationSection } from '../../../components/detail/AuthenticationSection';
 import { SectionHeader } from './SectionHeader';
-import { spacingToNumber } from '../../../../../design-system/utils';
+import { StatePanel } from '../../../../../components/common/StatePanel';
 
 interface AuthenticationPanelProps {
   form: FormInstance;
@@ -18,10 +17,12 @@ interface AuthenticationPanelProps {
 
 export const AuthenticationPanelHeader = ({
   spacing,
-  colors
+  colors,
 }: Pick<AuthenticationPanelProps, 'spacing' | 'colors'>) => (
   <SectionHeader
-    icon={<LockOutlined style={{ fontSize: 18, color: colors.primary[600] }} />}
+    icon={
+      <GatewayIcon name="LockOutlined" className="console-title-accent" />
+    }
     title="Security"
     spacing={spacing}
   />
@@ -34,30 +35,20 @@ export const AuthenticationPanelContent = ({
   isMultiAction,
   spacing,
   isLoading = false,
-  currentEventType
+  currentEventType,
 }: AuthenticationPanelProps) => {
   if (isLoading) {
-    return (
-      <div style={{ padding: spacing[3] }}>
-        <Skeleton active paragraph={{ rows: 5 }} />
-      </div>
-    );
+    return <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading security settings" />;
   }
 
   // Disable authentication section until event type is selected
   if (!currentEventType) {
     return (
-      <Row gutter={[spacingToNumber(spacing[4]), 0]}>
-        <Col xs={24}>
-          <Alert
-            type="info"
-            showIcon
-            message="Select an event type first"
-            description="Authentication configuration will be available after you select an event type in the Configuration section above."
-            style={{ marginBottom: 0 }}
-          />
-        </Col>
-      </Row>
+      <StatePanel
+        title="Choose an event type first"
+        description="Security settings unlock after selection."
+        size="compact"
+      />
     );
   }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormInstance } from 'antd';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 
 interface IntegrationDraftOptions {
   isCreate: boolean;

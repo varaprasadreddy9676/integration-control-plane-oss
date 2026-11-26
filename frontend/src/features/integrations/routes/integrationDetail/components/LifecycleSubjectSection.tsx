@@ -1,7 +1,8 @@
-import { Form, Input } from 'antd';
-import { Button, Card } from 'antd';
+import { Form, Input } from "@/components/common/LegacyAntdControls";
+import { Card } from "@/components/common/LegacyAntdControls";
 import { MonacoEditorInput } from '../../../components/MonacoEditorInput';
 import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 const JS_TEMPLATE = `// Return an object that identifies the record this event belongs to.
 // Keys are labels you choose; values are extracted from the event payload.
@@ -61,7 +62,7 @@ export const LifecycleSubjectSection = ({
             </Button>
           }
         >
-          <Form.Item name="subjectExtractionScript" style={{ marginBottom: 0 }}>
+          <Form.Item name="subjectExtractionScript" className="console-margin-bottom-none">
             <MonacoEditorInput height="200px" placeholder={JS_TEMPLATE} />
           </Form.Item>
         </Card>
@@ -76,7 +77,11 @@ export const LifecycleSubjectSection = ({
   return (
     <>
       <HiddenModeField />
-      <Button type="link" style={{ padding: 0 }} onClick={() => form.setFieldValue('subjectExtractionMode', 'SCRIPT')}>
+      <Button
+        type="link"
+        className="ui-extracted-9b9f8c6e49"
+        onClick={() => form.setFieldValue('subjectExtractionMode', 'SCRIPT')}
+      >
         Customize matching with JavaScript
       </Button>
     </>

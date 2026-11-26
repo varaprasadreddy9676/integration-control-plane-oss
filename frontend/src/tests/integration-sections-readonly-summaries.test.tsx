@@ -1,10 +1,16 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Form } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '../app/theme-provider';
 import { buildIntegrationSectionItems } from '../features/integrations/routes/integrationDetail/components/IntegrationSectionsContent';
+
+vi.mock('../services/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/api')>()),
+  listProviders: vi.fn().mockResolvedValue([]),
+}));
 
 // Regression test: viewing (not editing) an outbound integration wrapped every
 // tab's content in <fieldset disabled>, so Basic Info, Multi-Action,
@@ -73,7 +79,9 @@ const renderTab = (tabKey: string, isReadOnly: boolean, formValues: Record<strin
     return (
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ThemeProvider>
-          <Form form={form}>{tab?.children}</Form>
+          <MemoryRouter>
+            <Form form={form}>{tab?.children}</Form>
+          </MemoryRouter>
         </ThemeProvider>
       </QueryClientProvider>
     );
@@ -82,8 +90,20 @@ const renderTab = (tabKey: string, isReadOnly: boolean, formValues: Record<strin
 };
 
 describe('Outbound Integration tabs — read-only summaries instead of disabled forms', () => {
+  it('keeps a plain tab-content wrapper instead of adding a borderless card shell', () => {
+    const { container } = renderTab('configuration', false, {
+      name: 'My Rule',
+      eventType: 'order.created',
+      targetUrl: 'https://x.com',
+    });
+
+    const panel = container.querySelector('.integration-tab-content');
+    expect(panel?.tagName).toBe('FIELDSET');
+    expect(panel?.parentElement).not.toHaveClass('ant-card');
+  });
+
   it('shows Basic Info as read-only text, not editable inputs, when viewing (not editing)', () => {
-    renderTab('configuration', true, {
+    const { container } = renderTab('configuration', true, {
       name: 'My Rule',
       eventType: 'order.created',
       targetUrl: 'https://x.com',
@@ -91,13 +111,16 @@ describe('Outbound Integration tabs — read-only summaries instead of disabled 
     });
 
     expect(screen.getByText('My Rule')).toBeInTheDocument();
+    expect(screen.getByText('POST')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /event rule name/i })).not.toBeInTheDocument();
+    expect(container.querySelector('.ant-tag, .ant-alert')).not.toBeInTheDocument();
   });
 
   it('shows the Authentication tab reading outgoingAuthType (not the stale authType field)', () => {
-    renderTab('authentication', true, { outgoingAuthType: 'OAUTH2' });
+    const { container } = renderTab('authentication', true, { outgoingAuthType: 'OAUTH2' });
 
     expect(screen.getByText('OAUTH2')).toBeInTheDocument();
+    expect(container.querySelector('.ant-tag, .ant-alert')).not.toBeInTheDocument();
   });
 
   it('shows Reliability as a read-only summary with no switch or radio controls', () => {

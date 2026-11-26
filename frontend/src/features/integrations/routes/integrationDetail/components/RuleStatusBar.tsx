@@ -1,13 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Space, Tag, Tooltip, Progress, Typography, Button } from 'antd';
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  ExclamationCircleOutlined,
-  DownOutlined,
-  UpOutlined
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Space, Tooltip, Progress } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { cssVar, useDesignTokens, withAlpha } from '../../../../../design-system/utils';
+import { Button } from '../../../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../../../components/common/StatusBadge';
 
 const { Text } = Typography;
 
@@ -34,7 +31,7 @@ export const RuleStatusBar = ({
   validationErrors,
   isValid,
   className,
-  style
+  style,
 }: RuleStatusBarProps) => {
   const [showAllErrors, setShowAllErrors] = useState(false);
   const { spacing, token } = useDesignTokens();
@@ -50,46 +47,46 @@ export const RuleStatusBar = ({
     // If already active and valid, show active status
     if (isActive && isValid && missingRequiredCount === 0 && validationErrors.length === 0) {
       return {
-        icon: <CheckCircleOutlined />,
+        icon: <GatewayIcon name="CheckCircleOutlined" />,
         text: isCreate ? 'Ready to activate' : 'All changes saved',
         color: colors.success[600],
-        bgColor: withAlpha(colors.success[100], 0.5)
+        bgColor: withAlpha(colors.success[100], 0.5),
       };
     }
 
     // If valid but not active, ready to activate
     if (isValid && missingRequiredCount === 0 && validationErrors.length === 0) {
       return {
-        icon: <CheckCircleOutlined />,
+        icon: <GatewayIcon name="CheckCircleOutlined" />,
         text: 'Ready to activate',
         color: colors.success[600],
-        bgColor: withAlpha(colors.success[100], 0.5)
+        bgColor: withAlpha(colors.success[100], 0.5),
       };
     }
 
     if (validationErrors.length > 0) {
       return {
-        icon: <CloseCircleOutlined />,
+        icon: <GatewayIcon name="CloseCircleOutlined" />,
         text: `${validationErrors.length} error${validationErrors.length > 1 ? 's' : ''} to fix`,
         color: colors.error[600],
-        bgColor: withAlpha(colors.error[100], 0.5)
+        bgColor: withAlpha(colors.error[100], 0.5),
       };
     }
 
     if (missingRequiredCount > 0) {
       return {
-        icon: <ExclamationCircleOutlined />,
+        icon: <GatewayIcon name="ExclamationCircleOutlined" />,
         text: `${missingRequiredCount} required field${missingRequiredCount > 1 ? 's' : ''} missing`,
         color: colors.warning[600],
-        bgColor: withAlpha(colors.warning[100], 0.5)
+        bgColor: withAlpha(colors.warning[100], 0.5),
       };
     }
 
     return {
-      icon: <ExclamationCircleOutlined />,
+      icon: <GatewayIcon name="ExclamationCircleOutlined" />,
       text: 'In progress',
       color: cssVar.text.secondary,
-      bgColor: withAlpha(cssVar.bg.subtle, 0.8)
+      bgColor: withAlpha(cssVar.bg.subtle, 0.8),
     };
   };
 
@@ -107,28 +104,20 @@ export const RuleStatusBar = ({
         padding: `${spacing[3]} ${spacing[4]}`,
         marginBottom: spacing[4],
         boxShadow: token.boxShadow,
-        ...style
+        ...style,
       }}
     >
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          maxWidth: 1400,
-          margin: '0 auto'
-        }}
+        className="ui-extracted-ec156c7494"
       >
         {/* Left: Status and validation indicators */}
         <Space size="large">
           {/* Status Tag */}
           <Space size="small">
-            <Tag
-              color={isCreate ? 'default' : isActive ? 'success' : 'warning'}
-              style={{ margin: 0, fontSize: 13, fontWeight: 500 }}
-            >
-              {isCreate ? 'Draft' : isActive ? 'Active' : 'Paused'}
-            </Tag>
+            <StatusBadge
+              label={isCreate ? 'Draft' : isActive ? 'Active' : 'Paused'}
+              variant={isCreate ? 'neutral' : isActive ? 'success' : 'warning'}
+            />
           </Space>
 
           {/* Validation Status */}
@@ -139,15 +128,15 @@ export const RuleStatusBar = ({
                 alignItems: 'center',
                 gap: spacing[2],
                 padding: `${spacing[1]} ${spacing[3]}`,
-                borderRadius: 6,
+                borderRadius: 4,
                 background: statusDisplay.bgColor,
-                border: `1px solid ${withAlpha(statusDisplay.color, 0.2)}`
+                border: `1px solid ${withAlpha(statusDisplay.color, 0.2)}`,
               }}
             >
-              <span style={{ color: statusDisplay.color, fontSize: 14 }}>
+              <span style={{ color: statusDisplay.color, fontSize: 'var(--console-type-control)' }}>
                 {statusDisplay.icon}
               </span>
-              <Text style={{ fontSize: 13, fontWeight: 500, color: statusDisplay.color }}>
+              <Text style={{ fontSize: 'var(--console-type-body)', fontWeight: 500, color: statusDisplay.color }}>
                 {statusDisplay.text}
               </Text>
             </div>
@@ -156,7 +145,7 @@ export const RuleStatusBar = ({
           {/* Progress Bar (only show when in progress) */}
           {!isValid && missingRequiredCount > 0 && (
             <Tooltip title={`${completionPercentage}% complete`}>
-              <div style={{ width: 120 }}>
+              <div className="console-width-compact-control">
                 <Progress
                   percent={completionPercentage}
                   size="small"
@@ -180,29 +169,34 @@ export const RuleStatusBar = ({
             margin: `${spacing[2]} auto 0`,
             padding: spacing[2],
             background: withAlpha(colors.error[50], 0.5),
-            borderRadius: 6,
-            border: `1px solid ${withAlpha(colors.error[200], 0.5)}`
+            borderRadius: 4,
+            border: `1px solid ${withAlpha(colors.error[200], 0.5)}`,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 12, color: colors.error[700] }}>
+          <div className="console-flex-between-center">
+            <Text style={{ fontSize: 'var(--console-type-caption)', color: colors.error[700] }}>
               <strong>Validation errors:</strong>
             </Text>
             {validationErrors.length > 3 && (
               <Button
                 type="text"
                 size="small"
-                icon={showAllErrors ? <UpOutlined /> : <DownOutlined />}
+                icon={showAllErrors ? <GatewayIcon name="UpOutlined" /> : <GatewayIcon name="DownOutlined" />}
                 onClick={() => setShowAllErrors(!showAllErrors)}
-                style={{ fontSize: 12, color: colors.error[500], height: 'auto', padding: '0 4px' }}
+                style={{
+                  fontSize: 'var(--console-type-caption)',
+                  color: colors.error[500],
+                  height: 'auto',
+                  padding: '0 var(--spacing-1)',
+                }}
               >
                 {showAllErrors ? 'Show less' : `+${validationErrors.length - 3} more`}
               </Button>
             )}
           </div>
-          <ul style={{ margin: `${spacing[1]} 0 0`, paddingLeft: spacing[4], fontSize: 12 }}>
+          <ul style={{ margin: `${spacing[1]} 0 0`, paddingLeft: spacing[4], fontSize: 'var(--console-type-caption)' }}>
             {(showAllErrors ? validationErrors : validationErrors.slice(0, 3)).map((error, idx) => (
-              <li key={idx} style={{ color: colors.error[600] }}>
+              <li key={idx} className="console-text-error">
                 {error}
               </li>
             ))}

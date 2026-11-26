@@ -1,7 +1,6 @@
 import { useState } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
 import {
-  Alert,
-  Button,
   Card,
   Col,
   Collapse,
@@ -13,32 +12,18 @@ import {
   Space,
   Steps,
   Switch,
-  Tabs,
-  Tag,
-  Typography,
   message,
   Tooltip,
-} from 'antd';
-import {
-  CopyOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
-  KeyOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-  InfoCircleOutlined,
-  CodeOutlined,
-  SafetyOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
-  BookOutlined,
-  QuestionCircleOutlined,
-  BugOutlined,
-  ClockCircleOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import type { IntegrationConfig } from '../../../mocks/types';
 import { cssVar } from '../../../design-system/utils';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { Button } from '../../../components/common/LegacyButton';
+import { InlineHint } from '../../../components/common/InlineHint';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -70,6 +55,7 @@ export const IntegrationSigningSection = ({
   const [messageApi, contextHolder] = message.useMessage();
   const [showSecrets, setShowSecrets] = useState<{ [key: string]: boolean }>({});
   const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [activeCodeLanguage, setActiveCodeLanguage] = useState<'javascript' | 'python' | 'php' | 'go'>('javascript');
   const [learnMoreOpen, setLearnMoreOpen] = useState(false);
 
   const enableSigning = Form.useWatch('enableSigning', form);
@@ -304,23 +290,17 @@ err := VerifyIntegration(secret, headers, requestBody)`;
       <Row gutter={[16, 16]}>
         {/* Educational Header - What is Integration Signing? */}
         <Col xs={24}>
-          <Card
-            style={{
-              background: cssVar.bg.surface,
-              border: `1px solid ${token.colorBorder}`,
-              borderRadius: token.borderRadius,
-            }}
-          >
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Card className="signing-info-card">
+            <Space direction="vertical" size="middle" className="console-width-full">
               {/* Main Explanation */}
               <div>
                 <Space align="start">
-                  <SafetyOutlined style={{ fontSize: 24, color: colors.primary[600] }} />
+                  <GatewayIcon size="lg" name="SafetyOutlined" className="console-text-accent" />
                   <div>
-                    <Title level={5} style={{ margin: 0, marginBottom: 8 }}>
+                    <Title level={5} className="console-margin-none console-margin-bottom-2">
                       What is Integration Signing?
                     </Title>
-                    <Paragraph style={{ marginBottom: 0, color: token.colorTextSecondary }}>
+                    <Paragraph className="console-margin-bottom-0 console-text-secondary">
                       Integration signing adds a cryptographic signature to each integration delivery, allowing your
                       receiving system to verify that the integration <strong>actually came from this system</strong>{' '}
                       and <strong>hasn't been tampered with</strong>. It's like a digital seal that proves authenticity.
@@ -333,11 +313,11 @@ err := VerifyIntegration(secret, headers, requestBody)`;
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12}>
                   <Space>
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 18 }} />
+                    <GatewayIcon size="md" name="CheckCircleOutlined" className="console-text-success" />
                     <div>
                       <Text strong>Verify Authenticity</Text>
                       <br />
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="secondary" className="console-type-caption">
                         Confirm integrations really came from your source system, not an attacker
                       </Text>
                     </div>
@@ -345,11 +325,11 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                 </Col>
                 <Col xs={24} md={12}>
                   <Space>
-                    <SafetyOutlined style={{ color: colors.primary[600], fontSize: 18 }} />
+                    <GatewayIcon size="md" name="SafetyOutlined" className="console-text-accent" />
                     <div>
                       <Text strong>Prevent Tampering</Text>
                       <br />
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="secondary" className="console-type-caption">
                         Detect if payload was modified in transit
                       </Text>
                     </div>
@@ -357,11 +337,11 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                 </Col>
                 <Col xs={24} md={12}>
                   <Space>
-                    <ClockCircleOutlined style={{ color: colors.warning[600], fontSize: 18 }} />
+                    <GatewayIcon size="md" name="ClockCircleOutlined" className="console-text-warning" />
                     <div>
                       <Text strong>Replay Protection</Text>
                       <br />
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="secondary" className="console-type-caption">
                         Stop attackers from resending old integrations
                       </Text>
                     </div>
@@ -369,12 +349,12 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                 </Col>
                 <Col xs={24} md={12}>
                   <Space>
-                    <BugOutlined style={{ color: colors.error[600], fontSize: 18 }} />
+                    <GatewayIcon size="md" name="BugOutlined" className="console-text-error" />
                     <div>
                       <Text strong>Secure Compliance</Text>
                       <br />
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        Meet healthcare security standards (HIPAA, SOC 2)
+                      <Text type="secondary" className="console-type-caption">
+                        Support applicable security and audit requirements
                       </Text>
                     </div>
                   </Space>
@@ -382,20 +362,18 @@ err := VerifyIntegration(secret, headers, requestBody)`;
               </Row>
 
               {/* When to Use */}
-              <Alert
-                type="info"
-                showIcon
-                icon={<QuestionCircleOutlined />}
-                message="When to enable?"
-                description="Required for production, PHI/financial data, compliance (HIPAA, SOC 2), and public endpoints. Optional for local dev/testing."
+              <Banner
+                status="info"
+                title="When to enable signing"
+                description="Recommended for production, sensitive or regulated data, and public endpoints. Optional for local development and testing."
               />
 
               {/* Action Buttons */}
               <Space>
-                <Button icon={<BookOutlined />} onClick={() => setLearnMoreOpen(true)}>
+                <Button icon={<GatewayIcon name="BookOutlined" />} onClick={() => setLearnMoreOpen(true)}>
                   Learn More & Setup Guide
                 </Button>
-                <Button type="link" icon={<CodeOutlined />} onClick={() => setCodeModalOpen(true)}>
+                <Button type="link" icon={<GatewayIcon name="CodeOutlined" />} onClick={() => setCodeModalOpen(true)}>
                   View Code Examples
                 </Button>
               </Space>
@@ -412,7 +390,7 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                 <Space>
                   <Text strong>Enable Integration Signing</Text>
                   <Tooltip title="Recommended for production systems with sensitive data">
-                    <InfoCircleOutlined style={{ color: token.colorTextSecondary }} />
+                    <GatewayIcon name="InfoCircleOutlined" className="console-text-secondary" />
                   </Tooltip>
                 </Space>
               }
@@ -425,8 +403,8 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                       : 'Integrations will be sent without signatures (less secure)'}
                   </Text>
                   {!enableSigning && (
-                    <Text type="warning" style={{ fontSize: 12 }}>
-                      ⚠️ Not recommended for production systems handling patient data
+                    <Text type="warning" className="console-type-caption">
+                      Not recommended for production systems handling sensitive or regulated data
                     </Text>
                   )}
                 </Space>
@@ -442,36 +420,23 @@ err := VerifyIntegration(secret, headers, requestBody)`;
             {/* No Secrets Yet - Show Info Message */}
             {!signingSecret && (
               <Col xs={24}>
-                <Alert
-                  type="info"
-                  showIcon
-                  message={isCreate ? 'Secret generated on save' : 'No secret yet'}
-                  description={
-                    isCreate
-                      ? 'A signing secret will be auto-generated when you save.'
-                      : 'Save to generate a signing secret for verification.'
-                  }
-                  style={{ marginBottom: 16 }}
-                />
+                <InlineHint>
+                  {isCreate
+                    ? 'A signing secret will be generated when you save.'
+                    : 'Save to generate a signing secret for verification.'}
+                </InlineHint>
               </Col>
             )}
 
             {/* Current Signing Secret */}
             {signingSecret && (
               <Col xs={24}>
-                <div
-                  style={{
-                    padding: 16,
-                    background: cssVar.bg.surface,
-                    border: `1px solid ${token.colorBorder}`,
-                    borderRadius: token.borderRadius,
-                  }}
-                >
-                  <Space direction="vertical" style={{ width: '100%' }} size="small">
+                <div className="signing-secret-panel">
+                  <Space direction="vertical" className="console-width-full" size="small">
                     <Space>
-                      <KeyOutlined style={{ color: colors.primary[600] }} />
+                      <GatewayIcon name="KeyOutlined" className="console-text-accent" />
                       <Text strong>Current Signing Secret</Text>
-                      <Tag color="success">Active</Tag>
+                      <StatusBadge status="ACTIVE" label="Active" variant="success" />
                     </Space>
 
                     <Input
@@ -482,19 +447,25 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                           <Button
                             type="text"
                             size="small"
-                            icon={showSecrets[signingSecret] ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            icon={
+                              showSecrets[signingSecret] ? (
+                                <GatewayIcon name="EyeInvisibleOutlined" />
+                              ) : (
+                                <GatewayIcon name="EyeOutlined" />
+                              )
+                            }
                             onClick={() => toggleSecretVisibility(signingSecret)}
                           />
                           <Button
                             type="text"
                             size="small"
-                            icon={<CopyOutlined />}
+                            icon={<GatewayIcon name="CopyOutlined" />}
                             onClick={() => copyToClipboard(signingSecret, 'Signing secret')}
                           />
                         </Space>
                       }
                     />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" className="console-type-caption">
                       Keep this secret secure. You'll need it to verify integration signatures.
                     </Text>
                   </Space>
@@ -505,68 +476,58 @@ err := VerifyIntegration(secret, headers, requestBody)`;
             {/* Secret Rotation Section */}
             {!isCreate && signingSecrets.length > 0 && (
               <Col xs={24}>
-                <div
-                  style={{
-                    padding: 16,
-                    background: cssVar.bg.surface,
-                    border: `1px solid ${token.colorBorder}`,
-                    borderRadius: token.borderRadius,
-                  }}
-                >
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="signing-secret-panel">
+                  <Space direction="vertical" className="console-width-full" size="middle">
+                    <div className="console-flex-between-center">
                       <Space>
                         <Text strong>Secret Rotation</Text>
-                        <Tag>
+                        <Text type="secondary">
                           {signingSecrets.length} active secret{signingSecrets.length > 1 ? 's' : ''}
-                        </Tag>
+                        </Text>
                       </Space>
                       {onRotateSecret && (
-                        <Button icon={<PlusOutlined />} onClick={onRotateSecret} disabled={signingSecrets.length >= 3}>
+                        <Button
+                          icon={<GatewayIcon name="PlusOutlined" />}
+                          onClick={onRotateSecret}
+                          disabled={signingSecrets.length >= 3}
+                        >
                           Add New Secret
                         </Button>
                       )}
                     </div>
 
                     {signingSecrets.length > 1 && (
-                      <Alert
-                        type="warning"
-                        message="Multiple Active Secrets"
-                        description={`${signingSecrets.length} secrets active. All used for signing. Remove old ones after receivers update.`}
-                        showIcon
+                      <Banner
+                        status="warning"
+                        title="Multiple signing secrets are active"
+                        description={`${signingSecrets.length} secrets are currently used for signing. Remove old ones after receivers have been updated.`}
                       />
                     )}
 
-                    <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space direction="vertical" className="console-width-full">
                       {signingSecrets.map((secret: string, index: number) => (
-                        <div
-                          key={secret}
-                          style={{
-                            display: 'flex',
-                            gap: 8,
-                            alignItems: 'center',
-                            padding: 12,
-                            background:
-                              secret === signingSecret ? withAlpha(colors.success[100], 0.3) : cssVar.bg.subtle,
-                            borderRadius: token.borderRadius,
-                            border: `1px solid ${secret === signingSecret ? colors.success[300] : token.colorBorder}`,
-                          }}
-                        >
+                        <div key={secret} className="signing-secret-row" data-current={secret === signingSecret}>
                           <Input
                             value={showSecrets[secret] ? secret : maskSecret(secret)}
                             readOnly
-                            style={{ flex: 1 }}
+                            className="console-flex-fill"
                           />
                           <Button
                             type="text"
                             size="small"
-                            icon={showSecrets[secret] ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            icon={
+                              showSecrets[secret] ? (
+                                <GatewayIcon name="EyeInvisibleOutlined" />
+                              ) : (
+                                <GatewayIcon name="EyeOutlined" />
+                              )
+                            }
                             onClick={() => toggleSecretVisibility(secret)}
                           />
                           <Button
                             type="text"
                             size="small"
-                            icon={<CopyOutlined />}
+                            icon={<GatewayIcon name="CopyOutlined" />}
                             onClick={() => copyToClipboard(secret, 'Secret')}
                           />
                           {signingSecrets.length > 1 && secret !== signingSecret && onRemoveSecret && (
@@ -574,21 +535,19 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                               type="text"
                               size="small"
                               danger
-                              icon={<DeleteOutlined />}
+                              icon={<GatewayIcon name="DeleteOutlined" />}
                               onClick={() => onRemoveSecret(secret)}
                             />
                           )}
                           {secret === signingSecret && (
-                            <Tag color="success" style={{ marginLeft: 8 }}>
-                              Primary
-                            </Tag>
+                            <StatusBadge status="ACTIVE" label="Primary" variant="success" />
                           )}
                         </div>
                       ))}
                     </Space>
 
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      <InfoCircleOutlined style={{ marginRight: 4 }} />
+                    <Text type="secondary" className="console-type-caption">
+                      <GatewayIcon name="InfoCircleOutlined" className="console-margin-right-1" />
                       Zero-downtime rotation: Add a new secret, update your receivers, then remove the old secret.
                     </Text>
                   </Space>
@@ -598,7 +557,12 @@ err := VerifyIntegration(secret, headers, requestBody)`;
 
             {/* Verification Code Button */}
             <Col xs={24}>
-              <Button icon={<CodeOutlined />} onClick={() => setCodeModalOpen(true)} block size="middle">
+              <Button
+                icon={<GatewayIcon name="CodeOutlined" />}
+                onClick={() => setCodeModalOpen(true)}
+                block
+                size="middle"
+              >
                 View Verification Code Examples
               </Button>
             </Col>
@@ -611,25 +575,23 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                     key: 'critical-warning',
                     label: <Text strong>⚠️ CRITICAL: Remote System Must Implement Verification</Text>,
                     children: (
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <Paragraph style={{ marginBottom: 8 }}>
+                      <Space direction="vertical" size="small" className="console-width-full">
+                        <Paragraph className="console-margin-bottom-2">
                           <strong>Enabling signing alone does NOT secure your integrations!</strong> Your receiving
                           system MUST implement signature verification, or this provides zero security benefit.
                         </Paragraph>
                         <div>
                           <Text strong>Before enabling, ensure your remote team has:</Text>
-                          <ul style={{ marginBottom: 8, paddingLeft: 20, marginTop: 4 }}>
+                          <ul className="signing-instructions-list">
                             <li>Implemented verification code (see "Code Examples" above)</li>
                             <li>Received and stored the signing secret securely</li>
                             <li>Tested signature verification in their staging environment</li>
                             <li>Deployed verification to production</li>
                           </ul>
                         </div>
-                        <Alert
-                          type="warning"
-                          message="Remote system must verify signatures - otherwise attackers can send fake integrations."
-                          showIcon
-                          banner
+                        <Banner
+                          status="warning"
+                          title="The receiving system must verify signatures to reject forged requests."
                         />
                       </Space>
                     ),
@@ -639,10 +601,10 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                     label: <Text strong>Signature Headers Information</Text>,
                     children: (
                       <>
-                        <Paragraph style={{ marginBottom: 8 }}>
+                        <Paragraph className="console-margin-bottom-2">
                           Your integrations will include three signature headers:
                         </Paragraph>
-                        <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                        <ul className="signing-instructions-list signing-instructions-list--compact">
                           <li>
                             <code>X-Integration-Signature</code>: HMAC-SHA256 signature
                           </li>
@@ -657,7 +619,7 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                     ),
                   },
                 ]}
-                style={{ marginTop: 16 }}
+                className="console-margin-top-4"
               />
             </Col>
           </>
@@ -668,7 +630,7 @@ err := VerifyIntegration(secret, headers, requestBody)`;
       <Drawer
         title={
           <Space>
-            <BookOutlined />
+            <GatewayIcon name="BookOutlined" />
             <span>Integration Signing - Complete Guide</span>
           </Space>
         }
@@ -676,32 +638,32 @@ err := VerifyIntegration(secret, headers, requestBody)`;
         onClose={() => setLearnMoreOpen(false)}
         width={720}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" className="console-width-full">
           {/* How It Works */}
           <div>
             <Title level={4}>
-              <SafetyOutlined /> How It Works
+              <GatewayIcon name="SafetyOutlined" /> How It Works
             </Title>
             <Paragraph>
               When you enable integration signing, every integration delivery includes three special headers:
             </Paragraph>
-            <Card size="small" style={{ background: cssVar.bg.subtle }}>
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card size="small" className="console-bg-subtle">
+              <Space direction="vertical" className="console-width-full">
                 <div>
-                  <code style={{ color: colors.primary[600] }}>X-Integration-Signature</code>
-                  <Text type="secondary" style={{ marginLeft: 8 }}>
+                  <code className="console-text-accent">X-Integration-Signature</code>
+                  <Text type="secondary" className="console-margin-left-2">
                     HMAC-SHA256 cryptographic signature
                   </Text>
                 </div>
                 <div>
-                  <code style={{ color: colors.primary[600] }}>X-Integration-Timestamp</code>
-                  <Text type="secondary" style={{ marginLeft: 8 }}>
+                  <code className="console-text-accent">X-Integration-Timestamp</code>
+                  <Text type="secondary" className="console-margin-left-2">
                     Unix timestamp (prevents replay attacks)
                   </Text>
                 </div>
                 <div>
-                  <code style={{ color: colors.primary[600] }}>X-Integration-ID</code>
-                  <Text type="secondary" style={{ marginLeft: 8 }}>
+                  <code className="console-text-accent">X-Integration-ID</code>
+                  <Text type="secondary" className="console-margin-left-2">
                     Unique message identifier (UUID)
                   </Text>
                 </div>
@@ -712,7 +674,7 @@ err := VerifyIntegration(secret, headers, requestBody)`;
           {/* Setup Steps */}
           <div>
             <Title level={4}>
-              <CheckCircleOutlined /> Setup Steps
+              <GatewayIcon name="CheckCircleOutlined" /> Setup Steps
             </Title>
             <Steps
               direction="vertical"
@@ -721,27 +683,27 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                 {
                   title: 'Enable Signing',
                   description: 'Toggle "Enable Integration Signing" on this page',
-                  icon: <SafetyOutlined />,
+                  icon: <GatewayIcon name="SafetyOutlined" />,
                 },
                 {
                   title: 'Copy Signing Secret',
                   description: 'Copy the generated signing secret (starts with whsec_)',
-                  icon: <KeyOutlined />,
+                  icon: <GatewayIcon name="KeyOutlined" />,
                 },
                 {
                   title: 'Add Verification Code',
                   description: 'Add verification code to your integration receiver (see Code Examples)',
-                  icon: <CodeOutlined />,
+                  icon: <GatewayIcon name="CodeOutlined" />,
                 },
                 {
                   title: 'Test Integration',
                   description: 'Use the "Test Integration" button to verify signatures are working',
-                  icon: <BugOutlined />,
+                  icon: <GatewayIcon name="BugOutlined" />,
                 },
                 {
                   title: 'Deploy to Production',
                   description: 'Once tested, your integrations are now securely signed!',
-                  icon: <CheckCircleOutlined />,
+                  icon: <GatewayIcon name="CheckCircleOutlined" />,
                 },
               ]}
             />
@@ -750,7 +712,7 @@ err := VerifyIntegration(secret, headers, requestBody)`;
           {/* Real-World Scenarios */}
           <div>
             <Title level={4}>
-              <WarningOutlined /> Real-World Attack Scenarios (Why You Need This)
+              <GatewayIcon name="WarningOutlined" /> Real-World Attack Scenarios (Why You Need This)
             </Title>
             <Collapse
               items={[
@@ -825,7 +787,7 @@ err := VerifyIntegration(secret, headers, requestBody)`;
           {/* Secret Rotation Guide */}
           <div>
             <Title level={4}>
-              <ClockCircleOutlined /> Zero-Downtime Secret Rotation
+              <GatewayIcon name="ClockCircleOutlined" /> Zero-Downtime Secret Rotation
             </Title>
             <Paragraph>When you need to rotate your signing secret (security best practice every 90 days):</Paragraph>
             <ol>
@@ -835,18 +797,13 @@ err := VerifyIntegration(secret, headers, requestBody)`;
               <li>Test that verification works with the new secret</li>
               <li>Remove the old secret once you've confirmed the new one works</li>
             </ol>
-            <Alert
-              type="success"
-              showIcon
-              message="No Downtime!"
-              description="Integrations work throughout rotation - both secrets temporarily active."
-            />
+            <InlineHint tone="success">No downtime: both secrets remain active while receivers are updated.</InlineHint>
           </div>
 
           {/* Technical Details */}
           <div>
             <Title level={4}>
-              <CodeOutlined /> Technical Details
+              <GatewayIcon name="CodeOutlined" /> Technical Details
             </Title>
             <Collapse
               items={[
@@ -901,8 +858,8 @@ err := VerifyIntegration(secret, headers, requestBody)`;
           {/* Quick Reference */}
           <div>
             <Title level={4}>Quick Reference</Title>
-            <Card size="small" style={{ background: cssVar.bg.subtle }}>
-              <Space direction="vertical" style={{ width: '100%' }} size="small">
+            <Card size="small" className="console-bg-subtle">
+              <Space direction="vertical" className="console-width-full" size="small">
                 <div>
                   <Text strong>Secret Format:</Text> <code>whsec_&lt;32_bytes_base64&gt;</code>
                 </div>
@@ -929,114 +886,46 @@ err := VerifyIntegration(secret, headers, requestBody)`;
         footer={null}
         width={800}
       >
-        <Tabs
-          items={[
-            {
-              key: 'javascript',
-              label: 'Node.js',
-              children: (
-                <div style={{ position: 'relative' }}>
-                  <Button
-                    icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(generateVerificationCode('javascript'), 'Code')}
-                    style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
-                  >
-                    Copy
-                  </Button>
-                  <pre
-                    style={{
-                      background: cssVar.bg.subtle,
-                      padding: 16,
-                      borderRadius: token.borderRadius,
-                      overflow: 'auto',
-                      maxHeight: 500,
-                    }}
-                  >
-                    <code>{generateVerificationCode('javascript')}</code>
-                  </pre>
-                </div>
-              ),
-            },
-            {
-              key: 'python',
-              label: 'Python',
-              children: (
-                <div style={{ position: 'relative' }}>
-                  <Button
-                    icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(generateVerificationCode('python'), 'Code')}
-                    style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
-                  >
-                    Copy
-                  </Button>
-                  <pre
-                    style={{
-                      background: cssVar.bg.subtle,
-                      padding: 16,
-                      borderRadius: token.borderRadius,
-                      overflow: 'auto',
-                      maxHeight: 500,
-                    }}
-                  >
-                    <code>{generateVerificationCode('python')}</code>
-                  </pre>
-                </div>
-              ),
-            },
-            {
-              key: 'php',
-              label: 'PHP',
-              children: (
-                <div style={{ position: 'relative' }}>
-                  <Button
-                    icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(generateVerificationCode('php'), 'Code')}
-                    style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
-                  >
-                    Copy
-                  </Button>
-                  <pre
-                    style={{
-                      background: cssVar.bg.subtle,
-                      padding: 16,
-                      borderRadius: token.borderRadius,
-                      overflow: 'auto',
-                      maxHeight: 500,
-                    }}
-                  >
-                    <code>{generateVerificationCode('php')}</code>
-                  </pre>
-                </div>
-              ),
-            },
-            {
-              key: 'go',
-              label: 'Go',
-              children: (
-                <div style={{ position: 'relative' }}>
-                  <Button
-                    icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(generateVerificationCode('go'), 'Code')}
-                    style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
-                  >
-                    Copy
-                  </Button>
-                  <pre
-                    style={{
-                      background: cssVar.bg.subtle,
-                      padding: 16,
-                      borderRadius: token.borderRadius,
-                      overflow: 'auto',
-                      maxHeight: 500,
-                    }}
-                  >
-                    <code>{generateVerificationCode('go')}</code>
-                  </pre>
-                </div>
-              ),
-            },
-          ]}
-        />
+        <TabList
+          role="tablist"
+          aria-label="Verification code language"
+          value={activeCodeLanguage}
+          onChange={(language) => setActiveCodeLanguage(language as typeof activeCodeLanguage)}
+          hasDivider
+        >
+          <Tab
+            id="verification-code-javascript-tab"
+            value="javascript"
+            label="Node.js"
+            panelId="verification-code-javascript"
+          />
+          <Tab id="verification-code-python-tab" value="python" label="Python" panelId="verification-code-python" />
+          <Tab id="verification-code-php-tab" value="php" label="PHP" panelId="verification-code-php" />
+          <Tab id="verification-code-go-tab" value="go" label="Go" panelId="verification-code-go" />
+        </TabList>
+        {(['javascript', 'python', 'php', 'go'] as const).map((language) => (
+          <div
+            key={language}
+            id={`verification-code-${language}`}
+            role="tabpanel"
+            aria-labelledby={`verification-code-${language}-tab`}
+            hidden={activeCodeLanguage !== language}
+            tabIndex={0}
+          >
+            <div className="console-position-relative">
+              <Button
+                icon={<GatewayIcon name="CopyOutlined" />}
+                onClick={() => copyToClipboard(generateVerificationCode(language), 'Code')}
+                className="console-overlay-copy-action"
+              >
+                Copy
+              </Button>
+              <pre className="signing-verification-code">
+                <code>{generateVerificationCode(language)}</code>
+              </pre>
+            </div>
+          </div>
+        ))}
       </Modal>
     </>
   );

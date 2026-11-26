@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { Form, Switch, Typography } from 'antd';
-import type { NamePath } from 'antd/es/form/interface';
+import { Form, Switch } from "@/components/common/LegacyAntdControls";
+import type { NamePath } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
 import { cssVar, useDesignTokens } from '../../design-system/utils';
 
 interface ToggleSettingRowProps {
@@ -18,8 +19,6 @@ interface ToggleSettingRowProps {
  */
 export const ToggleSettingRow = ({ name, title, description, icon }: ToggleSettingRowProps) => {
   const { spacing } = useDesignTokens();
-  const colors = cssVar.legacy;
-
   return (
     <div
       style={{
@@ -28,19 +27,31 @@ export const ToggleSettingRow = ({ name, title, description, icon }: ToggleSetti
         justifyContent: 'space-between',
         gap: spacing[3],
         padding: spacing[3],
-        background: colors.neutral[50],
-        border: `1px solid ${colors.neutral[200]}`,
-        borderRadius: 8,
+        background: cssVar.bg.subtle,
+        border: `1px solid ${cssVar.border.subtle}`,
+        borderRadius: 'var(--radius-base)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
-        {icon && <span style={{ fontSize: 16, color: colors.primary[600], marginTop: 2 }}>{icon}</span>}
+        {icon && (
+          <span
+            style={{
+              fontSize: 'var(--console-type-section)',
+              color: cssVar.primary[600],
+              marginTop: 'var(--spacing-1)',
+            }}
+          >
+            {icon}
+          </span>
+        )}
         <div>
-          <Typography.Text strong>{title}</Typography.Text>
+          <Text as="div" className="console-font-weight-semibold">
+            {title}
+          </Text>
           <div>
-            <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+            <Text as="span" type="supporting" className="console-type-caption">
               {description}
-            </Typography.Text>
+            </Text>
           </div>
         </div>
       </div>

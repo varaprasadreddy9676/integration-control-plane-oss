@@ -1,23 +1,19 @@
 import { useMemo, useState } from 'react';
-import { App, Button, Card, Tag, Typography, Space, Select, Input, Modal, Progress, Alert, Timeline, Badge, Tabs } from 'antd';
-import {
-  HistoryOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  RollbackOutlined,
-  RocketOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  WarningOutlined,
-  ClockCircleOutlined,
-} from '@ant-design/icons';
+import { App, Card, Space, Select, Input, Modal, Progress, Timeline, Badge } from "@/components/common/LegacyAntdControls";
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button as AstryxButton } from '@astryxdesign/core/Button';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
+import './versions-route.css';
 import {
   getIntegrationVersions,
   createIntegrationVersion,
@@ -32,8 +28,9 @@ import {
 import type { IntegrationConfig } from '../../../mocks/types';
 import { formatDateTime } from '../../../utils/format';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { Button } from '../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../components/common';
 
-const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 interface IntegrationVersion {
@@ -95,17 +92,8 @@ export const VersionsRoute = () => {
   const { __KEEP_integrationName__ } = useParams<{ __KEEP_integrationName__: string }>();
   const queryClient = useQueryClient();
   const { message: msgApi } = App.useApp();
-  const { spacing, token, borderRadius } = useDesignTokens();
+  const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
-  const tagTone = (base: string) => ({
-    borderRadius: borderRadius.full,
-    borderColor: withAlpha(base, 0.4),
-    background: withAlpha(base, 0.14),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing['2.5'],
-    paddingBlock: spacing['0.5'],
-  });
 
   // State for version management
   const [selectedVersion, setSelectedVersion] = useState<IntegrationVersion | null>(null);
@@ -119,14 +107,24 @@ export const VersionsRoute = () => {
   const [loading, setLoading] = useState(false);
 
   // Queries
-  const { data: versions = [], isLoading: versionsLoading } = useQuery({
+  const {
+    data: versions = [],
+    isLoading: versionsLoading,
+    isError: versionsError,
+    refetch: refetchVersions,
+  } = useQuery({
     queryKey: ['integration-versions', __KEEP_integrationName__],
     queryFn: () => getIntegrationVersions(__KEEP_integrationName__!),
     enabled: !!__KEEP_integrationName__,
     staleTime: 60_000,
   });
 
-  const { data: compatibility, isLoading: compatibilityLoading } = useQuery({
+  const {
+    data: compatibility,
+    isLoading: compatibilityLoading,
+    isError: compatibilityError,
+    refetch: refetchCompatibility,
+  } = useQuery({
     queryKey: ['integration-compatibility', __KEEP_integrationName__],
     queryFn: () => getIntegrationCompatibilityMatrix(__KEEP_integrationName__!),
     enabled: !!__KEEP_integrationName__,
@@ -232,17 +230,23 @@ export const VersionsRoute = () => {
   };
 
   const getVersionIcon = (version: IntegrationVersion) => {
-    if (version.isDefault) return <CheckCircleOutlined style={{ color: colors.success[600] }} />;
-    if (version.isActive) return <RocketOutlined style={{ color: colors.primary[600] }} />;
-    if (version.isPrerelease) return <WarningOutlined style={{ color: colors.warning[600] }} />;
-    return <ClockCircleOutlined style={{ color: cssVar.text.muted }} />;
+    if (version.isDefault) return <GatewayIcon name="CheckCircleOutlined" className="console-text-success" />;
+    if (version.isActive) return <GatewayIcon name="RocketOutlined" className="console-text-accent" />;
+    if (version.isPrerelease) return <GatewayIcon name="WarningOutlined" className="console-text-warning" />;
+    return <GatewayIcon name="ClockCircleOutlined" className="console-text-muted" />;
   };
 
   const getStatusBadge = (version: IntegrationVersion) => {
-    if (version.isDefault) return <Tag style={tagTone(colors.primary[600])}>DEFAULT</Tag>;
-    if (version.isActive) return <Tag style={tagTone(colors.success[600])}>ACTIVE</Tag>;
-    return <Tag style={tagTone(colors.neutral[600])}>INACTIVE</Tag>;
+    if (version.isDefault) return <StatusBadge label="Default" variant="info" size="small" />;
+    if (version.isActive) return <StatusBadge label="Active" variant="success" size="small" />;
+    return <StatusBadge label="Inactive" variant="neutral" size="small" />;
   };
+
+  const formatCompatibilityMode = (mode: string) =>
+    mode
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/^\w/, (letter) => letter.toUpperCase());
 
   const getCompatibilityColor = (isCompatible: boolean) => {
     return isCompatible ? colors.success[600] : colors.error[600];
@@ -309,12 +313,18 @@ export const VersionsRoute = () => {
           {getVersionIcon(record)}
           <Space direction="vertical" size={2}>
             <Space>
-              <Text strong>{record.version}</Text>
+              <AstryxText weight="semibold">{record.version}</AstryxText>
               {getStatusBadge(record)}
             </Space>
             <Space size={4}>
-              {record.isPrerelease && <Tag style={tagTone(colors.warning[600])}>Pre-release</Tag>}
-              <Tag style={tagTone(colors.info[600])}>{record.compatibilityMode}</Tag>
+              {record.isPrerelease && (
+                <AstryxText type="supporting" color="secondary">
+                  Pre-release
+                </AstryxText>
+              )}
+              <AstryxText type="supporting" color="secondary">
+                {formatCompatibilityMode(record.compatibilityMode)}
+              </AstryxText>
             </Space>
           </Space>
         </Space>
@@ -332,9 +342,15 @@ export const VersionsRoute = () => {
       key: 'versionNotes',
       ellipsis: true,
       render: (notes: string) => (
-        <Text type="secondary" style={{ maxWidth: 200 }} ellipsis>
+        <AstryxText
+          type="supporting"
+          color="secondary"
+          className="ui-extracted-888b85c032"
+          maxLines={1}
+          hasTruncateTooltip="above"
+        >
           {notes || 'No notes provided'}
-        </Text>
+        </AstryxText>
       ),
     },
     {
@@ -366,111 +382,159 @@ export const VersionsRoute = () => {
     },
   ];
 
-  return (
-    <div>
-      <PageHeader
-        title={`Version Management: ${__KEEP_integrationName__}`}
-        description="Manage event rule versions, compatibility, and rollbacks. Track changes and ensure backward compatibility."
-        statusChips={[
-          { label: `${versions.length} versions` },
-          { label: `${versions.filter((v) => v.isActive).length} active`, color: colors.primary[600] },
-          { label: `${versions.filter((v) => v.isPrerelease).length} pre-release`, color: colors.warning[600] },
-        ]}
-        compact
-        actions={
-          <Space>
-            <Button size="middle" icon={<HistoryOutlined />} onClick={() => setCompatibilityModalVisible(true)}>
-              Compatibility Matrix
-            </Button>
-            <Button type="primary" size="middle" icon={<PlusOutlined />} onClick={handleCreateVersion}>
-              Create Version
-            </Button>
-          </Space>
+  if (versionsError && versions.length === 0) {
+    return (
+      <PageTemplate
+        as="main"
+        className="version-management-workspace"
+        contentClassName="version-management-workspace__content"
+        header={
+          <PageHeader
+            title={`Versions: ${__KEEP_integrationName__}`}
+            breadcrumb={[{ label: 'Integrations', path: '/integrations' }, { label: 'Versions' }]}
+            compact
+          />
         }
-      />
+      >
+        <StatePanel
+          glyph="disrupted"
+          tone="critical"
+          title="Could not load versions"
+          description="Version data is unavailable. No changes were made."
+          actions={<AstryxButton label="Retry" variant="secondary" onClick={() => void refetchVersions()} />}
+        />
+      </PageTemplate>
+    );
+  }
 
-      <Tabs
-        activeKey={activeTab}
+  return (
+    <PageTemplate
+      as="main"
+      className="version-management-workspace"
+      contentClassName="version-management-workspace__content"
+      header={
+        <PageHeader
+          title={`Version Management: ${__KEEP_integrationName__}`}
+          description={`Manage event rule versions and compatibility. ${versions.length.toLocaleString()} ${versions.length === 1 ? 'version' : 'versions'}, ${versions.filter((v) => v.isActive).length} active, ${versions.filter((v) => v.isPrerelease).length} pre-release.`}
+          compact
+          actions={
+            <Space>
+              <Button
+                size="middle"
+                icon={<GatewayIcon name="HistoryOutlined" />}
+                onClick={() => setCompatibilityModalVisible(true)}
+              >
+                Compatibility Matrix
+              </Button>
+              <Button
+                type="primary"
+                size="middle"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={handleCreateVersion}
+              >
+                Create Version
+              </Button>
+            </Space>
+          }
+        />
+      }
+    >
+      <TabList
+        role="tablist"
+        aria-label="Version views"
+        value={activeTab}
         onChange={setActiveTab}
-        size="middle"
-        tabBarStyle={{ marginBottom: spacing[2] }}
-        items={[
-          {
-            key: 'versions',
-            label: 'Versions',
-            children: (
-              <div style={{ padding: `${spacing[3]} 0` }}>
-                <Card
-                  title="Version History"
-                  size="small"
-                  extra={
-                    <Space>
-                      <Select
-                        placeholder="Select versions to compare"
-                        mode="multiple"
-                        maxCount={2}
-                        style={{ width: 250 }}
-                        value={compareVersions}
-                        onChange={setCompareVersions}
-                        options={versions.map((v) => ({
-                          value: v.id,
-                          label: v.version,
-                          disabled: v.id === compareVersions[0] || v.id === compareVersions[1],
-                        }))}
-                      />
-                      <Button
-                        type="primary"
-                        size="middle"
-                        disabled={compareVersions.length !== 2}
-                        onClick={handleCompareVersions}
-                      >
-                        Compare
-                      </Button>
-                    </Space>
-                  }
-                >
-                  <ModernTable
-                    columns={versionColumns}
-                    dataSource={versions}
-                    rowKey="id"
-                    loading={versionsLoading}
-                    pagination={{ pageSize: 10 }}
-                    rowClassName={(record: IntegrationVersion) => (record.isDefault ? 'default-version-row' : '')}
-                  />
-                </Card>
-              </div>
-            ),
-          },
-          {
-            key: 'timeline',
-            label: 'Timeline',
-            children: (
-              <Card title="Version Timeline" size="small">
-                <Timeline
-                  mode="left"
-                  items={versions.map((version) => ({
-                    dot: getVersionIcon(version),
-                    children: (
-                      <Space direction="vertical" size={4}>
-                        <Space>
-                          <Text strong>{version.version}</Text>
-                          {getStatusBadge(version)}
-                        </Space>
-                        <Text type="secondary">{formatDateTime(version.createdAt)}</Text>
-                        {version.versionNotes && (
-                          <Paragraph type="secondary" style={{ margin: 0 }}>
-                            {version.versionNotes}
-                          </Paragraph>
-                        )}
-                      </Space>
-                    ),
+        hasDivider
+        className="versions-tabs"
+      >
+        <Tab id="versions-panel-tab" value="versions" label="Versions" panelId="versions-panel" />
+        <Tab id="timeline-panel-tab" value="timeline" label="Timeline" panelId="timeline-panel" />
+      </TabList>
+      <div
+        id="versions-panel"
+        role="tabpanel"
+        aria-labelledby="versions-panel-tab"
+        hidden={activeTab !== 'versions'}
+        tabIndex={0}
+      >
+        <div className="versions-panel-content">
+          <Card
+            title="Version History"
+            size="small"
+            extra={
+              <Space>
+                <Select
+                  placeholder="Select versions to compare"
+                  mode="multiple"
+                  maxCount={2}
+                  className="ui-extracted-477d222495"
+                  value={compareVersions}
+                  onChange={setCompareVersions}
+                  options={versions.map((v) => ({
+                    value: v.id,
+                    label: v.version,
+                    disabled: v.id === compareVersions[0] || v.id === compareVersions[1],
                   }))}
                 />
-              </Card>
-            ),
-          },
-        ]}
-      />
+                <Button
+                  type="primary"
+                  size="middle"
+                  disabled={compareVersions.length !== 2}
+                  onClick={handleCompareVersions}
+                >
+                  Compare
+                </Button>
+              </Space>
+            }
+          >
+            <ModernTable
+              columns={versionColumns}
+              dataSource={versions}
+              rowKey="id"
+              loading={versionsLoading}
+              pagination={{ pageSize: 10 }}
+              rowClassName={(record: IntegrationVersion) => (record.isDefault ? 'default-version-row' : '')}
+            />
+          </Card>
+        </div>
+      </div>
+      <div
+        id="timeline-panel"
+        role="tabpanel"
+        aria-labelledby="timeline-panel-tab"
+        hidden={activeTab !== 'timeline'}
+        tabIndex={0}
+      >
+        <Card title="Version Timeline" size="small">
+          <Timeline
+            mode="left"
+            items={versions.map((version) => ({
+              dot: getVersionIcon(version),
+              children: (
+                <Space direction="vertical" size={4}>
+                  <Space>
+                    <AstryxText weight="semibold">{version.version}</AstryxText>
+                    {getStatusBadge(version)}
+                  </Space>
+                  <AstryxText type="supporting" color="secondary">
+                    {formatDateTime(version.createdAt)}
+                  </AstryxText>
+                  {version.versionNotes && (
+                    <AstryxText
+                      as="p"
+                      display="block"
+                      type="supporting"
+                      color="secondary" className="console-margin-none"
+                    >
+                      {version.versionNotes}
+                    </AstryxText>
+                  )}
+                </Space>
+              ),
+            }))}
+          />
+        </Card>
+      </div>
 
       {/* Create Version Modal */}
       <Modal
@@ -484,12 +548,12 @@ export const VersionsRoute = () => {
         confirmLoading={createVersionMutation.isPending}
         width={600}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" className="console-width-full">
           <div>
-            <Text strong>Version Information</Text>
-            <Space direction="vertical" size="small" style={{ width: '100%', marginTop: spacing[2] }}>
+            <AstryxText weight="semibold">Version Information</AstryxText>
+            <Space direction="vertical" size="small" className="console-width-full-margin-top-2">
               <div>
-                <Text>Version Notes *</Text>
+                <AstryxText>Version Notes *</AstryxText>
                 <TextArea
                   rows={3}
                   placeholder="Describe what's new in this version..."
@@ -498,9 +562,9 @@ export const VersionsRoute = () => {
                 />
               </div>
               <div>
-                <Space style={{ width: '100%' }}>
-                  <div style={{ flex: 1 }}>
-                    <Text>Compatibility Mode</Text>
+                <Space className="console-width-full">
+                  <div className="console-flex-fill">
+                    <AstryxText>Compatibility Mode</AstryxText>
                     <Select
                       value={formData.compatibilityMode}
                       onChange={(value) => setFormData((prev) => ({ ...prev, compatibilityMode: value }))}
@@ -512,8 +576,8 @@ export const VersionsRoute = () => {
                       ]}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <Text>Type</Text>
+                  <div className="console-flex-fill">
+                    <AstryxText>Type</AstryxText>
                     <Select
                       value={formData.isPrerelease}
                       onChange={(value) => setFormData((prev) => ({ ...prev, isPrerelease: value }))}
@@ -549,12 +613,12 @@ export const VersionsRoute = () => {
         confirmLoading={updateVersionMutation.isPending}
         width={600}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" className="console-width-full">
           <div>
-            <Text>Current Version: {selectedVersion?.version}</Text>
-            <Space direction="vertical" size="small" style={{ width: '100%', marginTop: spacing[2] }}>
+            <AstryxText>Current Version: {selectedVersion?.version}</AstryxText>
+            <Space direction="vertical" size="small" className="console-width-full-margin-top-2">
               <div>
-                <Text>Version Notes</Text>
+                <AstryxText>Version Notes</AstryxText>
                 <TextArea
                   rows={3}
                   placeholder="Update version notes..."
@@ -563,7 +627,7 @@ export const VersionsRoute = () => {
                 />
               </div>
               <div>
-                <Text>Compatibility Mode</Text>
+                <AstryxText>Compatibility Mode</AstryxText>
                 <Select
                   value={formData.compatibilityMode}
                   onChange={(value) => setFormData((prev) => ({ ...prev, compatibilityMode: value }))}
@@ -593,31 +657,31 @@ export const VersionsRoute = () => {
         ]}
       >
         {compatibility ? (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space direction="vertical" size="large" className="console-width-full">
             <div>
-              <Title level={4}>Compatibility Summary</Title>
+              <Heading level={4}>Compatibility Summary</Heading>
               <Space size="large">
                 <Space direction="vertical">
                   <Badge color={getCompatibilityColor(true)} text="Compatible" />
-                  <Text>{compatibility.compatibleVersions.length} versions</Text>
+                  <AstryxText>{compatibility.compatibleVersions.length} versions</AstryxText>
                 </Space>
                 <Space direction="vertical">
                   <Badge color={getCompatibilityColor(false)} text="Incompatible" />
-                  <Text>{compatibility.incompatibleVersions.length} versions</Text>
+                  <AstryxText>{compatibility.incompatibleVersions.length} versions</AstryxText>
                 </Space>
                 <Space direction="vertical">
-                  <Text strong>Total Versions</Text>
-                  <Text>{compatibility.summary.totalVersions}</Text>
+                  <AstryxText weight="semibold">Total Versions</AstryxText>
+                  <AstryxText>{compatibility.summary.totalVersions}</AstryxText>
                 </Space>
                 <Space direction="vertical">
-                  <Text strong>Default Version</Text>
-                  <Text>{compatibility.summary.defaultVersion?.version || 'None'}</Text>
+                  <AstryxText weight="semibold">Default Version</AstryxText>
+                  <AstryxText>{compatibility.summary.defaultVersion?.version || 'None'}</AstryxText>
                 </Space>
               </Space>
             </div>
 
             <div>
-              <Title level={4}>Version Compatibility Details</Title>
+              <Heading level={4}>Version Compatibility Details</Heading>
               <ModernTable
                 columns={[
                   { title: 'Version', dataIndex: 'version', key: 'version' },
@@ -637,9 +701,9 @@ export const VersionsRoute = () => {
                     dataIndex: 'isPrerelease',
                     key: 'isPrerelease',
                     render: (prerelease: boolean) => (
-                      <Tag style={tagTone(prerelease ? colors.warning[600] : colors.success[600])}>
+                      <AstryxText type="supporting" color="secondary">
                         {prerelease ? 'Pre-release' : 'Stable'}
-                      </Tag>
+                      </AstryxText>
                     ),
                   },
                   {
@@ -647,7 +711,15 @@ export const VersionsRoute = () => {
                     dataIndex: 'isDefault',
                     key: 'isDefault',
                     render: (isDefault: boolean) =>
-                      isDefault ? <CheckCircleOutlined style={{ color: colors.success[600] }} /> : '-',
+                      isDefault ? (
+                        <GatewayIcon
+                          name="CheckCircleOutlined"
+                          className="console-text-success"
+                          aria-label="Default version"
+                        />
+                      ) : (
+                        '-'
+                      ),
                   },
                   { title: 'Created', dataIndex: 'createdAt', key: 'createdAt', render: formatDateTime },
                 ]}
@@ -658,8 +730,15 @@ export const VersionsRoute = () => {
               />
             </div>
           </Space>
+        ) : compatibilityLoading ? (
+          <StatePanel glyph="connecting" tone="busy" title="Loading compatibility matrix" size="compact" />
         ) : (
-          <div style={{ textAlign: 'center', padding: `${spacing[10]} 0` }}>Loading compatibility matrix...</div>
+          <StatePanel
+            glyph="disrupted"
+            tone="critical"
+            title="Could not load compatibility data"
+            actions={<AstryxButton label="Retry" variant="secondary" onClick={() => void refetchCompatibility()} />}
+          />
         )}
       </Modal>
 
@@ -682,48 +761,51 @@ export const VersionsRoute = () => {
         okText="Rollback"
         okButtonProps={{ danger: true }}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Alert
+        <Space direction="vertical" size="middle" className="console-width-full">
+          <Notice
             message="Warning: This will rollback the event rule configuration"
             description="Rolling back will change the active event rule version. This may affect downstream systems if they are not compatible with the selected version."
             type="warning"
-            showIcon
-            style={{ marginBottom: spacing[4] }}
+            className="console-margin-bottom-4"
           />
 
           <div>
             <Space direction="vertical" size={4}>
               {currentActiveVersion && currentActiveVersion.id !== selectedVersion?.id && (
-                <Text>
-                  <Text type="secondary">Currently active: </Text>
-                  <Text strong>{currentActiveVersion.version}</Text>
+                <AstryxText>
+                  <AstryxText type="supporting" color="secondary">
+                    Currently active:{' '}
+                  </AstryxText>
+                  <AstryxText weight="semibold">{currentActiveVersion.version}</AstryxText>
                   {currentActiveVersion.isDefault && (
-                    <Tag style={{ marginLeft: 8, borderRadius: borderRadius.full }} color="blue">
-                      Default
-                    </Tag>
+                    <AstryxText type="supporting" color="secondary">
+                      (default)
+                    </AstryxText>
                   )}
-                </Text>
+                </AstryxText>
               )}
-              <Text>
-                <Text type="secondary">Rolling back to: </Text>
-                <Text strong>{selectedVersion?.version}</Text>
-              </Text>
+              <AstryxText>
+                <AstryxText type="supporting" color="secondary">
+                  Rolling back to:{' '}
+                </AstryxText>
+                <AstryxText weight="semibold">{selectedVersion?.version}</AstryxText>
+              </AstryxText>
               {currentActiveVersion && currentActiveVersion.id !== selectedVersion?.id && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  This will make version <Text strong>{selectedVersion?.version}</Text> the active version, replacing{' '}
-                  <Text strong>{currentActiveVersion.version}</Text>.
-                </Text>
+                <AstryxText type="supporting" color="secondary" className="console-type-caption">
+                  This will make version <AstryxText weight="semibold">{selectedVersion?.version}</AstryxText> the
+                  active version, replacing <AstryxText weight="semibold">{currentActiveVersion.version}</AstryxText>.
+                </AstryxText>
               )}
             </Space>
             {selectedVersion?.versionNotes && (
-              <Paragraph type="secondary" style={{ marginTop: spacing[2] }}>
+              <AstryxText as="p" display="block" type="supporting" color="secondary" className="console-margin-top-2">
                 Notes: {selectedVersion.versionNotes}
-              </Paragraph>
+              </AstryxText>
             )}
           </div>
 
           <div>
-            <Text strong>Rollback Reason *</Text>
+            <AstryxText weight="semibold">Rollback Reason *</AstryxText>
             <TextArea
               rows={3}
               placeholder="Explain why this rollback is necessary..."
@@ -736,10 +818,10 @@ export const VersionsRoute = () => {
 
       <style>{`
         .default-version-row {
-          background-color: ${withAlpha(colors.success[100], 1)};
-          border-left: 3px solid ${colors.success[600]};
+          background-color: ${cssVar.bg.subtle};
+          border-left: 3px solid ${cssVar.success.border};
         }
       `}</style>
-    </div>
+    </PageTemplate>
   );
 };

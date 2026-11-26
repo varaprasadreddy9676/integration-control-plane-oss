@@ -1,11 +1,17 @@
-import { useMemo, useState } from 'react';
-import { Alert, Button, Descriptions, Empty, Input, Space, Tabs, Tag, Typography, message } from 'antd';
-import { CopyOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Descriptions, Input, Space, message } from "@/components/common/LegacyAntdControls";
+import { Tab, TabList } from '@astryxdesign/core';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useDesignTokens, withAlpha } from '../../../design-system/utils';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { DeliveryDebugTimeline } from './DeliveryDebugTimeline';
 import { ReplayPayloadModal } from './ReplayPayloadModal';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { Button } from '../../../components/common/LegacyButton';
 
 const { Text } = Typography;
 
@@ -25,6 +31,8 @@ type ParsedHl7 = {
   ackMessageControlId?: string | null;
   ackReason?: string | null;
 };
+
+type Hl7TabKey = 'request' | 'ack' | 'request-fields' | 'ack-fields';
 
 type Hl7LogPanelProps = {
   requestPayload?: unknown;
@@ -188,19 +196,20 @@ export function Hl7LogPanel({
   const [search, setSearch] = useState('');
   const [replayOpen, setReplayOpen] = useState(false);
   const [replaySubmitting, setReplaySubmitting] = useState(false);
+  const [activeTabKey, setActiveTabKey] = useState<Hl7TabKey>('request');
   const request = parseHl7(requestPayload);
   const response = parseHl7(responseBody);
   const hl7Meta = metadata?.hl7 || {};
   const isHl7 = isHl7LogLike({ requestPayload, responseBody, metadata, httpMethod });
+  const requestRows = segmentRows(request);
+  const responseRows = segmentRows(response);
+  const filteredRequestRows = useMemo(() => filterRows(requestRows, search), [requestRows, search]);
+  const filteredResponseRows = useMemo(() => filterRows(responseRows, search), [responseRows, search]);
 
   if (!isHl7) return null;
 
   const ackCode = hl7Meta.ackCode || response?.ackCode || null;
   const accepted = hl7Meta.accepted ?? (ackCode ? ['AA', 'CA'].includes(String(ackCode)) : undefined);
-  const requestRows = segmentRows(request);
-  const responseRows = segmentRows(response);
-  const filteredRequestRows = useMemo(() => filterRows(requestRows, search), [requestRows, search]);
-  const filteredResponseRows = useMemo(() => filterRows(responseRows, search), [responseRows, search]);
   const rawRequest = request?.raw || toRawHl7(requestPayload) || '';
   const rawResponse = response?.raw || toRawHl7(responseBody) || '';
   const classification = classifyHl7Issue({ ackCode, accepted, errorMessage, responseBody });
@@ -227,16 +236,91 @@ export function Hl7LogPanel({
     overflow: 'auto',
     whiteSpace: 'pre-wrap' as const,
     overflowWrap: 'anywhere' as const,
-    fontSize: 12,
+    fontSize: 'var(--console-type-caption)',
     lineHeight: 1.45,
   };
 
+  const renderRawMessage = (raw: string, emptyText: string) =>
+    raw ? (
+      <div className="console-position-relative">
+        <Button
+          size="small"
+          icon={<GatewayIcon name="CopyOutlined" />}
+          onClick={() => copyText(raw)}
+          className="console-position-absolute-inset-1"
+        />
+        <pre style={{ ...codeStyle, paddingRight: spacing[5] }}>{raw}</pre>
+      </div>
+    ) : (
+      <Text type="secondary">{emptyText}</Text>
+    );
+
+  const tabItems: Array<{ key: Hl7TabKey; label: string; content: ReactNode }> = [
+    { key: 'request', label: 'Request HL7', content: renderRawMessage(rawRequest, 'No HL7 request captured') },
+    { key: 'ack', label: 'ACK', content: renderRawMessage(rawResponse, 'No ACK captured') },
+    {
+      key: 'request-fields',
+      label: `Request Fields (${filteredRequestRows.length})`,
+      content: filteredRequestRows.length ? (
+        <ModernTable
+          size="small"
+          rowKey="key"
+          pagination={{ pageSize: compact ? 8 : 12, size: 'small' }}
+          dataSource={filteredRequestRows}
+          columns={[
+            { title: 'Segment', dataIndex: 'segment', width: 90, render: (value) => <Text code>{value}</Text> },
+            { title: 'Field', dataIndex: 'field', width: 110, render: (value) => <Text code>{value}</Text> },
+            {
+              title: 'Value',
+              dataIndex: 'value',
+              render: (value) => <Text className="ui-extracted-2b1990e241">{value || '-'}</Text>,
+            },
+            { title: 'Components', dataIndex: 'components', responsive: ['lg'], render: (value) => value || '-' },
+          ]}
+        />
+      ) : (
+        <StatePanel size="compact" glyph="searching" title="No matching fields" />
+      ),
+    },
+    ...(filteredResponseRows.length
+      ? [
+          {
+            key: 'ack-fields' as const,
+            label: `ACK Fields (${filteredResponseRows.length})`,
+            content: (
+              <ModernTable
+                size="small"
+                rowKey="key"
+                pagination={false}
+                dataSource={filteredResponseRows}
+                columns={[
+                  {
+                    title: 'Segment',
+                    dataIndex: 'segment',
+                    width: 90,
+                    render: (value: string) => <Text code>{value}</Text>,
+                  },
+                  {
+                    title: 'Field',
+                    dataIndex: 'field',
+                    width: 110,
+                    render: (value: string) => <Text code>{value}</Text>,
+                  },
+                  { title: 'Value', dataIndex: 'value', render: (value: string) => <Text>{value || '-'}</Text> },
+                ]}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
+  const selectedTab = tabItems.some((item) => item.key === activeTabKey) ? activeTabKey : 'request';
+
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={compact ? 'small' : 'middle'}>
-      <Alert
-        type={accepted === false ? 'warning' : 'info'}
-        showIcon
-        message={classification}
+    <Space direction="vertical" className="console-width-full" size={compact ? 'small' : 'middle'}>
+      <Banner
+        status={accepted === false ? 'warning' : 'info'}
+        title={classification}
         description="Debug timeline, parsed message fields, raw HL7 request, and ACK details from this delivery log."
       />
 
@@ -255,7 +339,9 @@ export function Hl7LogPanel({
 
       <Descriptions bordered size="small" column={compact ? 1 : 2}>
         <Descriptions.Item label="Protocol">
-          <Tag color="purple">HL7 MLLP</Tag>
+          <Text type="supporting" color="secondary">
+            HL7 MLLP
+          </Text>
         </Descriptions.Item>
         <Descriptions.Item label="Message Type">
           <Text code>
@@ -269,7 +355,14 @@ export function Hl7LogPanel({
         </Descriptions.Item>
         <Descriptions.Item label="ACK">
           {ackCode ? (
-            <Tag color={accepted ? 'success' : 'error'}>{ackCode}</Tag>
+            <Space size={8}>
+              <Text code>{ackCode}</Text>
+              <StatusBadge
+                label={accepted ? 'Delivered' : 'Failed'}
+                variant={accepted ? 'success' : 'error'}
+                showIcon={false}
+              />
+            </Space>
           ) : (
             <Text type="secondary">No ACK captured</Text>
           )}
@@ -293,10 +386,10 @@ export function Hl7LogPanel({
         )}
       </Descriptions>
 
-      <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+      <Space className="console-width-full-between" wrap>
         <Input
           allowClear
-          prefix={<SearchOutlined />}
+          prefix={<GatewayIcon name="SearchOutlined" />}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search MSH-10, PID-3, OBR-4, accession, ACK reason..."
@@ -304,7 +397,7 @@ export function Hl7LogPanel({
         />
         {onReplayPayload && (
           <Button
-            icon={<PlayCircleOutlined />}
+            icon={<GatewayIcon name="PlayCircleOutlined" />}
             disabled={!canReplay}
             onClick={() => setReplayOpen(true)}
             title={
@@ -318,100 +411,35 @@ export function Hl7LogPanel({
         )}
       </Space>
 
-      <Tabs
-        size="small"
-        items={[
-          {
-            key: 'request',
-            label: 'Request HL7',
-            children: rawRequest ? (
-              <div style={{ position: 'relative' }}>
-                <Button
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() => copyText(rawRequest)}
-                  style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
-                />
-                <pre style={{ ...codeStyle, paddingRight: spacing[5] }}>{rawRequest}</pre>
-              </div>
-            ) : (
-              <Text type="secondary">No HL7 request captured</Text>
-            ),
-          },
-          {
-            key: 'ack',
-            label: 'ACK',
-            children: rawResponse ? (
-              <div style={{ position: 'relative' }}>
-                <Button
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() => copyText(rawResponse)}
-                  style={{ position: 'absolute', top: spacing[1], right: spacing[1], zIndex: 1 }}
-                />
-                <pre style={{ ...codeStyle, paddingRight: spacing[5] }}>{rawResponse}</pre>
-              </div>
-            ) : (
-              <Text type="secondary">No ACK captured</Text>
-            ),
-          },
-          {
-            key: 'request-fields',
-            label: `Request Fields (${filteredRequestRows.length})`,
-            children: filteredRequestRows.length ? (
-              <ModernTable
-                size="small"
-                rowKey="key"
-                pagination={{ pageSize: compact ? 8 : 12, size: 'small' }}
-                dataSource={filteredRequestRows}
-                columns={[
-                  { title: 'Segment', dataIndex: 'segment', width: 90, render: (value) => <Tag>{value}</Tag> },
-                  { title: 'Field', dataIndex: 'field', width: 110, render: (value) => <Text code>{value}</Text> },
-                  {
-                    title: 'Value',
-                    dataIndex: 'value',
-                    render: (value) => <Text style={{ wordBreak: 'break-word' }}>{value || '-'}</Text>,
-                  },
-                  { title: 'Components', dataIndex: 'components', responsive: ['lg'], render: (value) => value || '-' },
-                ]}
-              />
-            ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No fields match the current search" />
-            ),
-          },
-          ...(filteredResponseRows.length
-            ? [
-                {
-                  key: 'ack-fields',
-                  label: `ACK Fields (${filteredResponseRows.length})`,
-                  children: (
-                    <ModernTable
-                      size="small"
-                      rowKey="key"
-                      pagination={false}
-                      dataSource={filteredResponseRows}
-                      columns={[
-                        {
-                          title: 'Segment',
-                          dataIndex: 'segment',
-                          width: 90,
-                          render: (value: string) => <Tag>{value}</Tag>,
-                        },
-                        {
-                          title: 'Field',
-                          dataIndex: 'field',
-                          width: 110,
-                          render: (value: string) => <Text code>{value}</Text>,
-                        },
-                        { title: 'Value', dataIndex: 'value', render: (value: string) => <Text>{value || '-'}</Text> },
-                      ]}
-                    />
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
+      <TabList
+        role="tablist"
+        aria-label="HL7 delivery details"
+        value={selectedTab}
+        onChange={(value) => setActiveTabKey(value as Hl7TabKey)}
+        hasDivider
+      >
+        {tabItems.map((item) => (
+          <Tab
+            key={item.key}
+            id={`hl7-${item.key}-tab`}
+            value={item.key}
+            label={item.label}
+            panelId={`hl7-${item.key}-panel`}
+          />
+        ))}
+      </TabList>
+      {tabItems.map((item) => (
+        <div
+          key={item.key}
+          id={`hl7-${item.key}-panel`}
+          role="tabpanel"
+          aria-labelledby={`hl7-${item.key}-tab`}
+          hidden={selectedTab !== item.key}
+          tabIndex={0}
+        >
+          {item.content}
+        </div>
+      ))}
 
       <ReplayPayloadModal
         open={replayOpen}

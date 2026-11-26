@@ -1,5 +1,5 @@
-import { Form } from 'antd';
-import type { FormInstance } from 'antd';
+import { Form } from "@/components/common/LegacyAntdControls";
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 import type { ReactNode } from 'react';
 
 interface IntegrationFormContainerProps {

@@ -3,7 +3,7 @@
 React + TypeScript console for managing bi-directional integrations, scheduled batch jobs, delivery logs, and system monitoring.
 
 ## Prerequisites
-- Node 26 (24 LTS also works)
+- Node 20+
 - Running backend API (`/api/v1`) with a configured API key
 
 ## Quick Start

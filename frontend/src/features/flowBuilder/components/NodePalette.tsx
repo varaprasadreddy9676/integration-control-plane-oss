@@ -5,24 +5,13 @@
  */
 
 import React from 'react';
-import { Card, Typography, Space, Tooltip, Badge } from 'antd';
-import {
-  ThunderboltOutlined,
-  LockOutlined,
-  UnlockOutlined,
-  ApiOutlined,
-  SwapOutlined,
-  ClockCircleOutlined,
-  FileTextOutlined,
-  BranchesOutlined,
-  SendOutlined,
-  CheckCircleOutlined,
-} from '@ant-design/icons';
-import { cssVar, useDesignTokens } from '../../../design-system/utils';
+import { Card, Space, Tooltip, Badge } from '@/components/common/LegacyAntdControls';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { cssVar } from '../../../design-system/utils';
 import type { IntegrationMode, FlowNodeType } from '../state/flowTypes';
 import { ALLOWED_NODE_TYPES } from '../state/flowSchema';
-
-const { Title, Text } = Typography;
 
 interface NodePaletteItem {
   type: FlowNodeType;
@@ -39,91 +28,91 @@ const NODE_PALETTE_ITEMS: NodePaletteItem[] = [
     type: 'trigger',
     label: 'Trigger',
     description: 'Start point for the integration',
-    icon: <ThunderboltOutlined />,
+    icon: <GatewayIcon name="ThunderboltOutlined" />,
     category: 'trigger',
     allowedModes: ['INBOUND', 'OUTBOUND_EVENT', 'OUTBOUND_SCHEDULED'],
-    color: '#1890ff',
+    color: cssVar.text.secondary,
   },
   {
     type: 'inboundAuth',
     label: 'Inbound Auth',
     description: 'Validate incoming API requests',
-    icon: <LockOutlined />,
+    icon: <GatewayIcon name="LockOutlined" />,
     category: 'logic',
     allowedModes: ['INBOUND'],
-    color: '#fa8c16',
+    color: cssVar.text.secondary,
   },
   {
     type: 'outboundAuth',
     label: 'Outbound Auth',
     description: 'Add authentication to outgoing requests',
-    icon: <UnlockOutlined />,
+    icon: <GatewayIcon name="UnlockOutlined" />,
     category: 'logic',
     allowedModes: ['OUTBOUND_EVENT', 'OUTBOUND_SCHEDULED'],
-    color: '#fa8c16',
+    color: cssVar.text.secondary,
   },
   {
     type: 'http',
     label: 'HTTP Call',
     description: 'Call an external API',
-    icon: <ApiOutlined />,
+    icon: <GatewayIcon name="ApiOutlined" />,
     category: 'action',
     allowedModes: ['INBOUND', 'OUTBOUND_SCHEDULED'],
-    color: '#722ed1',
+    color: cssVar.text.secondary,
   },
   {
     type: 'transform',
     label: 'Transform',
     description: 'Transform request/response data',
-    icon: <SwapOutlined />,
+    icon: <GatewayIcon name="SwapOutlined" />,
     category: 'logic',
     allowedModes: ['INBOUND', 'OUTBOUND_EVENT', 'OUTBOUND_SCHEDULED'],
-    color: '#52c41a',
+    color: cssVar.text.secondary,
   },
   {
     type: 'scheduleScript',
     label: 'Schedule Script',
     description: 'Script that computes scheduled execution time',
-    icon: <FileTextOutlined />,
+    icon: <GatewayIcon name="FileTextOutlined" />,
     category: 'logic',
     allowedModes: ['OUTBOUND_SCHEDULED'],
-    color: '#2f54eb',
+    color: cssVar.text.secondary,
   },
   {
     type: 'delay',
     label: 'Delay',
     description: 'Wait before continuing',
-    icon: <ClockCircleOutlined />,
+    icon: <GatewayIcon name="ClockCircleOutlined" />,
     category: 'logic',
     allowedModes: ['OUTBOUND_EVENT', 'OUTBOUND_SCHEDULED'],
-    color: '#faad14',
+    color: cssVar.text.secondary,
   },
   {
     type: 'multiAction',
     label: 'Multi-Action',
     description: 'Deliver to multiple endpoints in order',
-    icon: <BranchesOutlined />,
+    icon: <GatewayIcon name="BranchesOutlined" />,
     category: 'action',
     allowedModes: ['OUTBOUND_EVENT', 'OUTBOUND_SCHEDULED'],
-    color: '#13c2c2',
+    color: cssVar.text.secondary,
   },
   {
     type: 'response',
     label: 'Response',
     description: 'Return response to client',
-    icon: <CheckCircleOutlined />,
+    icon: <GatewayIcon name="CheckCircleOutlined" />,
     category: 'output',
     allowedModes: ['INBOUND'],
-    color: '#2f54eb',
+    color: cssVar.text.secondary,
   },
   {
     type: 'integration',
     label: 'Integration',
     description: 'Deliver integration to external system',
-    icon: <SendOutlined />,
+    icon: <GatewayIcon name="SendOutlined" />,
     category: 'output',
     allowedModes: ['OUTBOUND_EVENT', 'OUTBOUND_SCHEDULED'],
-    color: '#722ed1',
+    color: cssVar.text.secondary,
   },
 ];
 
@@ -133,17 +122,9 @@ export interface NodePaletteProps {
   existingNodeTypes?: FlowNodeType[];
 }
 
-export const NodePalette: React.FC<NodePaletteProps> = ({
-  mode,
-  onAddNode,
-  existingNodeTypes = [],
-}) => {
-  const { token, transitions } = useDesignTokens();
-
+export const NodePalette: React.FC<NodePaletteProps> = ({ mode, onAddNode, existingNodeTypes = [] }) => {
   // Filter nodes based on current mode
-  const availableNodes = NODE_PALETTE_ITEMS.filter((item) =>
-    item.allowedModes.includes(mode)
-  );
+  const availableNodes = NODE_PALETTE_ITEMS.filter((item) => item.allowedModes.includes(mode));
 
   // Group nodes by category
   const nodesByCategory = availableNodes.reduce(
@@ -194,41 +175,27 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
   };
 
   return (
-    <div
-      style={{
-        width: '280px',
-        height: '100%',
-        overflowY: 'auto',
-        background: cssVar.bg.base,
-        borderRight: `1px solid ${cssVar.border.default}`,
-        padding: '16px',
-      }}
-    >
-      <Title level={5} style={{ marginBottom: '16px' }}>
+    <div className="flow-builder-node-palette">
+      <Heading level={5} className="console-margin-bottom-4">
         Node Palette
-      </Title>
+      </Heading>
 
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space direction="vertical" size="middle" className="console-width-full">
         {categoryOrder.map((category) => {
           const nodes = nodesByCategory[category];
           if (!nodes || nodes.length === 0) return null;
 
           return (
             <div key={category}>
-              <Text
-                type="secondary"
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  display: 'block',
-                  marginBottom: '8px',
-                }}
+              <AstryxText
+                type="supporting"
+                color="secondary"
+                className="flow-builder-palette-category console-type-caption"
               >
                 {categoryLabels[category]}
-              </Text>
+              </AstryxText>
 
-              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <Space direction="vertical" size="small" className="console-width-full">
                 {nodes.map((node) => {
                   const disabled = !canAddNode(node.type);
                   const alreadyExists = existingNodeTypes.includes(node.type);
@@ -236,73 +203,34 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
                   return (
                     <Tooltip
                       key={node.type}
-                      title={
-                        disabled
-                          ? `${node.label} already exists (only one allowed)`
-                          : node.description
-                      }
+                      title={disabled ? `${node.label} already exists (only one allowed)` : node.description}
                       placement="right"
                     >
                       <Card
+                        className="flow-builder-palette-item"
+                        data-disabled={disabled}
                         size="small"
                         draggable={!disabled}
                         onDragStart={(e) => onDragStart(e, node.type)}
                         onClick={() => handleNodeClick(node.type)}
-                        style={{
-                          cursor: disabled ? 'not-allowed' : 'grab',
-                          opacity: disabled ? 0.5 : 1,
-                          borderLeft: `3px solid ${node.color}`,
-                          transition: transitions.all,
-                        }}
                         hoverable={!disabled}
                         styles={{
                           body: {
-                            padding: '10px 12px',
+                            padding: 'var(--spacing-2-5) var(--spacing-3)',
                           },
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div
-                            style={{
-                              fontSize: '18px',
-                              color: node.color,
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                          >
-                            {node.icon}
-                          </div>
+                        <div className="flow-builder-palette-item-content">
+                          <div className="flow-builder-palette-item-icon">{node.icon}</div>
 
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                color: disabled ? '#8c8c8c' : '#262626',
-                                marginBottom: '2px',
-                              }}
-                            >
+                          <div className="console-flex-min-width-0">
+                            <div className="flow-builder-palette-item-label" data-disabled={disabled}>
                               {node.label}
                               {alreadyExists && node.type === 'trigger' && (
-                                <Badge
-                                  count={1}
-                                  style={{
-                                    marginLeft: '6px',
-                                    backgroundColor: '#52c41a',
-                                    fontSize: '10px',
-                                  }}
-                                />
+                                <Badge count={1} className="flow-builder-palette-existing-badge" />
                               )}
                             </div>
-                            <div
-                              style={{
-                                fontSize: '11px',
-                                color: '#8c8c8c',
-                                lineHeight: '1.4',
-                              }}
-                            >
-                              {node.description}
-                            </div>
+                            <div className="flow-builder-palette-item-description">{node.description}</div>
                           </div>
                         </div>
                       </Card>
@@ -316,18 +244,10 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
       </Space>
 
       {/* Help text */}
-      <div
-        style={{
-          marginTop: '24px',
-          padding: '12px',
-          background: cssVar.primary['50'],
-          borderRadius: token.borderRadius,
-          border: `1px solid ${cssVar.primary['300']}`,
-        }}
-      >
-        <Text style={{ fontSize: '12px', color: cssVar.primary['700'] }}>
+      <div className="flow-builder-palette-help">
+        <AstryxText className="console-type-caption console-text-info">
           <strong>Tip:</strong> Drag nodes onto the canvas or click to add them
-        </Text>
+        </AstryxText>
       </div>
     </div>
   );

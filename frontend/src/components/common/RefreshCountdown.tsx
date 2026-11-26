@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Typography } from 'antd';
+
 import { cssVar } from '../../design-system/utils';
+import { Typography } from './LegacyTypography';
 
 interface RefreshCountdownProps {
   /** Milliseconds between auto-refreshes. Pass false/0 to disable the countdown. */
@@ -99,7 +100,7 @@ export const CountdownTo = ({ target, fallback = '—' }: CountdownToProps) => {
   }, [targetMs, isNear]);
 
   if (targetMs === null || Number.isNaN(targetMs)) return <>{fallback}</>;
-  return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatRemaining(targetMs - now)}</span>;
+  return <span className="countdown-tabular">{formatRemaining(targetMs - now)}</span>;
 };
 
 interface SecondsAgoProps {
@@ -122,7 +123,7 @@ export const SecondsAgo = ({ since, prefix = 'Last updated:' }: SecondsAgoProps)
 
   if (!since) return null;
   return (
-    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+    <span className="countdown-tabular">
       {prefix} {secondsAgo}s ago
     </span>
   );

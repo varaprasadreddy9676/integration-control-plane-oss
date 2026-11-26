@@ -1,17 +1,20 @@
-import { Alert, Button, Space, Tag, Typography } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
+import { Space } from '@/components/common/LegacyAntdControls';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import type { StageCall, StageRun } from '../../../services/stages-api';
 import { formatDateTimeWithSeconds } from '../../../utils/format';
 import { OUTCOME_TAG, runTitle, stageStatusColor, stageStatusLabel } from '../stageLabels';
-
-const { Text } = Typography;
+import { cssVar } from '../../../design-system/utils';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge, type StatusBadgeVariant } from '../../../components/common/StatusBadge';
 
 const blockStyle = {
-  margin: 0,
-  padding: 12,
-  borderRadius: 8,
-  background: 'var(--bg-subtle, #f5f5f5)',
-  fontSize: 12,
+  margin: 'var(--spacing-0)',
+  padding: 'var(--spacing-3)',
+  borderRadius: 4,
+  background: cssVar.bg.subtle,
+  fontSize: 'var(--console-type-caption)',
   whiteSpace: 'pre-wrap' as const,
   wordBreak: 'break-all' as const,
   fontFamily: 'var(--font-mono, ui-monospace, monospace)',
@@ -27,7 +30,8 @@ const quote = (text: string) => `'${text.replace(/'/g, "'\\''")}'`;
 export const buildStageCurl = (call: StageCall): string => {
   const lines = [`curl -X ${call.method} "${call.url}"`];
   for (const [name, value] of Object.entries(call.requestHeaders || {})) lines.push(`  -H "${name}: ${value}"`);
-  if (call.requestBody !== undefined && call.requestBody !== null && call.requestBody !== '') lines.push(`  -d ${quote(asText(call.requestBody))}`);
+  if (call.requestBody !== undefined && call.requestBody !== null && call.requestBody !== '')
+    lines.push(`  -d ${quote(asText(call.requestBody))}`);
   return lines.join(' \\\n');
 };
 
@@ -38,6 +42,14 @@ const CUT_NOTE: Record<string, string> = {
 const OMITTED_NOTE: Record<string, string> = {
   'errors-only': 'Headers and bodies are recorded for failed calls only.',
   summary: 'Headers and bodies are not recorded for this step.',
+};
+
+const statusVariantByColor: Record<string, StatusBadgeVariant> = {
+  default: 'neutral',
+  red: 'error',
+  green: 'success',
+  orange: 'warning',
+  blue: 'info',
 };
 
 // The runtime's reasons, in words; the code stays visible for searching.
@@ -51,50 +63,86 @@ const ERROR_TEXT: Record<string, string> = {
   UNSUPPORTED_CREDENTIAL_USE: 'It used the credentials in a way that is not supported',
   OUT_OF_MEMORY: 'It ran out of memory',
 };
-export const describeErrorCode = (code?: string | null) => (code ? `${ERROR_TEXT[code] ? `${ERROR_TEXT[code]} ` : ''}(${code})` : undefined);
+export const describeErrorCode = (code?: string | null) =>
+  code ? `${ERROR_TEXT[code] ? `${ERROR_TEXT[code]} ` : ''}(${code})` : undefined;
 
 const copy = (text: string) => navigator.clipboard?.writeText(text);
 
 const Call = ({ call }: { call: StageCall }) => {
   const curl = buildStageCurl(call);
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+    <Space direction="vertical" size={8} className="console-width-full">
       <div>
         <Space size={4}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <AstryxText type="supporting" color="secondary" className="console-type-caption">
             Request
-          </Text>
-          <Button size="small" type="text" icon={<CopyOutlined />} aria-label={`Copy request ${call.id} as cURL`} onClick={() => copy(curl)} />
+          </AstryxText>
+          <Button
+            size="small"
+            type="text"
+            icon={<GatewayIcon name="CopyOutlined" />}
+            aria-label={`Copy request ${call.id} as cURL`}
+            onClick={() => copy(curl)}
+          />
         </Space>
         <pre style={blockStyle} tabIndex={0}>
           {curl}
         </pre>
-        {call.requestBodyCut && <Text type="secondary" style={{ fontSize: 12 }}>{CUT_NOTE[call.requestBodyCut]}</Text>}
+        {call.requestBodyCut && (
+          <AstryxText type="supporting" color="secondary" className="console-type-caption">
+            {CUT_NOTE[call.requestBodyCut]}
+          </AstryxText>
+        )}
         {call.redirects && call.redirects.length > 0 && (
-          <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-            Redirected {call.redirects.length} time{call.redirects.length === 1 ? '' : 's'}, ending at {call.finalUrl || call.redirects[call.redirects.length - 1].url}
-          </Text>
+          <AstryxText type="supporting" color="secondary" className="console-caption-block">
+            Redirected {call.redirects.length} time{call.redirects.length === 1 ? '' : 's'}, ending at{' '}
+            {call.finalUrl || call.redirects[call.redirects.length - 1].url}
+          </AstryxText>
         )}
       </div>
       <div>
-        <Text type="secondary" style={{ fontSize: 12 }}>
+        <AstryxText type="supporting" color="secondary" className="console-type-caption">
           Response
-          {call.statusCode !== null && call.statusCode !== undefined ? ` · ${call.statusCode}` : ''}
+          {call.statusCode !== null && call.statusCode !== undefined ? (
+            <>
+              {' '}
+              ·{' '}
+              <AstryxText type="code" style={{ color: call.statusCode >= 400 ? cssVar.error.text : undefined }}>
+                {call.statusCode}
+              </AstryxText>
+            </>
+          ) : null}
           {call.durationMs !== null && call.durationMs !== undefined ? ` · ${call.durationMs} ms` : ''}
-        </Text>
-        {call.error && <Alert type="error" showIcon message={`${call.error.message}`} description={call.error.code} style={{ marginBottom: 8 }} />}
+        </AstryxText>
+        {call.error && (
+          <Banner
+            status="error"
+            title={call.error.message}
+            description={call.error.code}
+            className="console-margin-bottom-2"
+          />
+        )}
         {call.bodiesOmitted ? (
-          <Text type="secondary" style={{ display: 'block' }}>
+          <AstryxText type="supporting" color="secondary" className="console-display-block">
             {OMITTED_NOTE[call.bodiesOmitted]}
-          </Text>
+          </AstryxText>
         ) : call.responseBody !== undefined && call.responseBody !== null && call.responseBody !== '' ? (
           <pre style={blockStyle} tabIndex={0}>
             {asText(call.responseBody)}
           </pre>
         ) : (
-          !call.error && <Text type="secondary"> (empty)</Text>
+          !call.error && (
+            <AstryxText type="supporting" color="secondary">
+              {' '}
+              (empty)
+            </AstryxText>
+          )
         )}
-        {call.responseBodyCut && <Text type="secondary" style={{ fontSize: 12 }}>{CUT_NOTE[call.responseBodyCut]}</Text>}
+        {call.responseBodyCut && (
+          <AstryxText type="supporting" color="secondary" className="console-type-caption">
+            {CUT_NOTE[call.responseBodyCut]}
+          </AstryxText>
+        )}
       </div>
     </Space>
   );
@@ -103,59 +151,107 @@ const Call = ({ call }: { call: StageCall }) => {
 /** One run of a stage, exactly as it was recorded: what it asked, what came back, what it decided. */
 export const StageRunView = ({ run }: { run: StageRun }) => {
   const outcome = OUTCOME_TAG[run.outcome] ?? OUTCOME_TAG.error;
+  const outcomeLabel = outcome.label === 'Error' ? 'Failed' : outcome.label;
+  const hasCustomStatus = Boolean(run.status);
+  const statusVariant = run.status
+    ? statusVariantByColor[stageStatusColor(run.status, run.done)] || 'neutral'
+    : statusVariantByColor[outcome.color] || 'neutral';
   return (
-    <div style={{ border: '1px solid var(--border-subtle, #e5e7eb)', borderRadius: 8, padding: 12 }}>
-      <Space direction="vertical" size={10} style={{ width: '100%' }}>
+    <div style={{ border: `1px solid ${cssVar.border.subtle}`, borderRadius: 4, padding: 'var(--spacing-3)' }}>
+      <Space direction="vertical" size={10} className="console-width-full">
         <Space wrap size={[8, 4]}>
-          <Text strong>{runTitle(run)}</Text>
-          <Text type="secondary">{formatDateTimeWithSeconds(run.at)}</Text>
-          <Text type="secondary">{run.durationMs} ms</Text>
-          {run.status ? (
-            <Tag color={stageStatusColor(run.status, run.done)} style={{ margin: 0 }}>
-              {stageStatusLabel(run.status)}
-            </Tag>
-          ) : (
-            <Tag color={outcome.color} style={{ margin: 0 }}>
-              {outcome.label}
-            </Tag>
+          <AstryxText weight="semibold">{runTitle(run)}</AstryxText>
+          <AstryxText type="supporting" color="secondary">
+            {formatDateTimeWithSeconds(run.at)}
+          </AstryxText>
+          <AstryxText type="supporting" color="secondary" className="tabular-nums">
+            {run.durationMs} ms
+          </AstryxText>
+          <StatusBadge
+            status={hasCustomStatus ? (run.status ?? undefined) : outcomeLabel}
+            label={
+              hasCustomStatus && run.outcome !== 'ok'
+                ? outcomeLabel
+                : hasCustomStatus
+                  ? stageStatusLabel(run.status)
+                  : outcomeLabel
+            }
+            variant={statusVariant}
+            size="small"
+          />
+          {hasCustomStatus && run.outcome !== 'ok' && (
+            <AstryxText type="supporting" color="secondary">
+              Provider status: {stageStatusLabel(run.status)}
+            </AstryxText>
           )}
-          {run.status && run.outcome !== 'ok' && <Tag color={outcome.color} style={{ margin: 0 }}>{outcome.label}</Tag>}
-          {run.done && run.stage.hook === 'after_delivery' && <Tag style={{ margin: 0 }}>Finished</Tag>}
+          {run.done && run.stage.hook === 'after_delivery' && (
+            <AstryxText type="supporting" color="secondary">
+              Finished
+            </AstryxText>
+          )}
           {run.shadow && (
-            <Tag color="purple" style={{ margin: 0 }} title="A migration is comparing this step with the old configuration. It had no effect.">
-              Shadow
-            </Tag>
+            <span title="A migration is comparing this step with the old configuration. It had no effect.">
+              <AstryxText type="supporting" color="secondary">
+                Shadow
+              </AstryxText>
+            </span>
           )}
-          {run.replayOfRunId && <Tag style={{ margin: 0 }}>Replay</Tag>}
-          {run.fromFollowUp && <Tag style={{ margin: 0 }}>Recorded by the old follow-up</Tag>}
+          {run.replayOfRunId && (
+            <AstryxText type="supporting" color="secondary">
+              Replay
+            </AstryxText>
+          )}
+          {run.fromFollowUp && (
+            <AstryxText type="supporting" color="secondary">
+              Recorded by the old follow-up
+            </AstryxText>
+          )}
         </Space>
 
-        {run.calls.length === 0 && <Text type="secondary">No request was made.</Text>}
+        {run.calls.length === 0 && (
+          <AstryxText type="supporting" color="secondary">
+            No request was made.
+          </AstryxText>
+        )}
         {run.calls.map((call) => (
           <Call key={call.id} call={call} />
         ))}
-        {run.callsOmitted ? <Text type="secondary">{run.callsOmitted} more requests were made but not recorded.</Text> : null}
+        {run.callsOmitted ? (
+          <AstryxText type="supporting" color="secondary">
+            {run.callsOmitted} more requests were made but not recorded.
+          </AstryxText>
+        ) : null}
 
-        {run.error && <Alert type={run.outcome === 'ok' ? 'warning' : 'error'} showIcon message={run.error} description={describeErrorCode(run.errorCode)} />}
-        {run.reason && <Text>Skipped: {run.reason}</Text>}
+        {run.error && (
+          <Banner
+            status={run.outcome === 'ok' ? 'warning' : 'error'}
+            title={run.error}
+            description={describeErrorCode(run.errorCode)}
+          />
+        )}
+        {run.reason && <AstryxText>Skipped: {run.reason}</AstryxText>}
 
         {run.result !== undefined && run.result !== null && (
           <div>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <AstryxText type="supporting" color="secondary" className="console-type-caption">
               Result
-            </Text>
+            </AstryxText>
             <pre style={blockStyle}>{asText(run.result)}</pre>
           </div>
         )}
         {run.logs.length > 0 && (
           <div>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <AstryxText type="supporting" color="secondary" className="console-type-caption">
               Logs
-            </Text>
+            </AstryxText>
             <pre style={blockStyle}>
               {run.logs.map((entry) => `${entry.level.toUpperCase()} ${entry.message}`).join('\n')}
             </pre>
-            {run.logsOmitted ? <Text type="secondary" style={{ fontSize: 12 }}>{run.logsOmitted} more lines not kept.</Text> : null}
+            {run.logsOmitted ? (
+              <AstryxText type="supporting" color="secondary" className="console-type-caption">
+                {run.logsOmitted} more lines not kept.
+              </AstryxText>
+            ) : null}
           </div>
         )}
       </Space>
@@ -165,7 +261,7 @@ export const StageRunView = ({ run }: { run: StageRun }) => {
 
 /** Every run of one stage for a delivery, newest first. */
 export const StageRunsList = ({ runs }: { runs: StageRun[] }) => (
-  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+  <Space direction="vertical" size={12} className="console-width-full">
     {[...runs].reverse().map((run) => (
       <StageRunView key={run.runId} run={run} />
     ))}

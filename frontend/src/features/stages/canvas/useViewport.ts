@@ -49,7 +49,7 @@ const nextStep = (z: number, direction: 1 | -1) => {
  * Moves the user makes with a button, Fit, the minimap or a selection are animated
  * (`smooth`); dragging, the wheel and a pinch follow the hand with no delay.
  */
-export function useViewport(stageRef: RefObject<HTMLDivElement>, content: Size) {
+export function useViewport(stageRef: RefObject<HTMLDivElement | null>, content: Size) {
   const [view, setViewState] = useState<View>({ x: 40, y: 56, z: 0.82 });
   const [smooth, setSmooth] = useState(false);
   const [size, setSize] = useState<Size>({ width: 800, height: 600 });

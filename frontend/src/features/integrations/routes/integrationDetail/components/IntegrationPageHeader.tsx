@@ -1,4 +1,5 @@
-import { Form, Space, Switch, Typography } from 'antd';
+import { Form, Switch } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { IntegrationConfig } from '../../../../../mocks/types';
@@ -51,23 +52,16 @@ export const IntegrationPageHeader = ({
   extraActions,
 }: IntegrationPageHeaderProps) => {
   const passedTitle = (useLocation().state as { title?: string } | null)?.title;
-  const statusChips = isCreate
-    ? [
-        { label: 'Draft', color: cssVar.text.secondary },
-        { label: isMultiAction ? 'Multi-action' : 'Single' },
-        deliveryModeValue && {
-          label: getDeliveryModeChipLabel(deliveryModeValue),
-        },
-      ].filter(Boolean)
-    : [
-        {
-          label: existingIntegration?.isActive ? 'Active' : 'Paused',
-          color: existingIntegration?.isActive ? colors.success[600] : colors.warning[600],
-        },
-        { label: isMultiAction ? 'Multi-action' : 'Single' },
-        deliveryModeValue && { label: getDeliveryModeChipLabel(deliveryModeValue) },
-        existingIntegration?.updatedAt && { label: `Last updated ${formatDateTime(existingIntegration.updatedAt)}` },
-      ].filter(Boolean);
+  const summary = [
+    isCreate ? 'Draft' : null,
+    isMultiAction ? 'Multi-action' : 'Single action',
+    deliveryModeValue ? getDeliveryModeChipLabel(deliveryModeValue) : null,
+    !isCreate && existingIntegration?.updatedAt
+      ? `Last updated ${formatDateTime(existingIntegration.updatedAt)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <PageHeader
@@ -83,49 +77,63 @@ export const IntegrationPageHeader = ({
       dense
       titleSuffix={
         !isCreate ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-            <Typography.Text type="secondary" style={{ fontSize: 12, color: cssVar.text.secondary }}>
+          <div className="console-flex-center-gap-2">
+            <Text color="secondary" className="console-caption-secondary">
               {isActiveValue === false ? 'Paused' : 'Active'}
-            </Typography.Text>
+            </Text>
             <Form.Item name="isActive" valuePropName="checked" noStyle>
               <Switch size="small" disabled={isPortalSession} />
             </Form.Item>
           </div>
         ) : undefined
       }
-      statusChips={statusChips as any}
+      summary={summary}
       actions={
         !isCreate && !isEditMode ? (
-          <Space>
-          {extraActions}
-          <FormActions
-            mode="view"
-            isEditMode={isEditMode}
-            isSaving={isSaving}
-            isActive={isActiveValue}
-            canTest={!isCreate}
-            canSave={false}
-            canDuplicate={!isCreate && !isEditMode}
-            canExport={!isCreate && !isEditMode}
-            canImport={false}
-            onSave={onSave}
-            onTest={onTest}
-            onCancel={onCancelEdit}
-            onToggleEdit={onEnterEditMode}
-            onDuplicate={onDuplicate}
-            onExport={onExport}
-            onImport={onImport}
-            saveText={isCreate ? 'Create Event Rule' : 'Save Changes'}
-            editText="Edit Integration"
-            testText="Test Event Rule"
-            testDisabledTooltip="Enable the event rule to test it"
-            testEnabledTooltip="Send a test event to this event rule"
-            spacing={spacing}
-            colors={colors}
-            size="middle"
-            isPortalSession={isPortalSession}
-          />
-          </Space>
+          <div
+            className="integration-page-header-actions"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap',
+              gap: spacing[2],
+              width: '100%',
+              maxWidth: '100%',
+              minWidth: 0,
+            }}
+          >
+            {extraActions && <div className="integration-page-header-secondary-actions">{extraActions}</div>}
+            <div className="integration-page-header-primary-actions ui-extracted-55a6f49ed2" >
+              <FormActions
+                mode="view"
+                isEditMode={isEditMode}
+                isSaving={isSaving}
+                isActive={isActiveValue}
+                canTest={!isCreate}
+                canSave={false}
+                canDuplicate={!isCreate && !isEditMode}
+                canExport={!isCreate && !isEditMode}
+                canImport={false}
+                onSave={onSave}
+                onTest={onTest}
+                onCancel={onCancelEdit}
+                onToggleEdit={onEnterEditMode}
+                onDuplicate={onDuplicate}
+                onExport={onExport}
+                onImport={onImport}
+                saveText={isCreate ? 'Create Event Rule' : 'Save Changes'}
+                editText="Edit Integration"
+                testText="Test Event Rule"
+                testDisabledTooltip="Enable the event rule to test it"
+                testEnabledTooltip="Send a test event to this event rule"
+                spacing={spacing}
+                colors={colors}
+                size="middle"
+                isPortalSession={isPortalSession}
+              />
+            </div>
+          </div>
         ) : (
           extraActions
         )

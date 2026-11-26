@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { X, Mail, Lock, Zap } from 'lucide-react';
+import { Icon } from '../../components/common/Icon';
 import { useAuth } from '../../app/auth-context';
 
 interface LoginModalProps {
@@ -42,48 +42,35 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   return createPortal(
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-        style={{ zIndex: 10000 }}
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm ui-extracted-c2ff41a34c"  onClick={onClose} />
 
       {/* Modal */}
-      <div
-        className="fixed inset-0 flex items-center justify-center p-4"
-        style={{ zIndex: 10001 }}
-      >
-        <div className="relative w-full max-w-sm rounded-2xl border border-[var(--card-border)] p-8 shadow-2xl"
-          style={{ background: 'var(--bg-primary)' }}
+      <div className="fixed inset-0 flex items-center justify-center p-4 ui-extracted-523f072073" >
+        <div
+          className="relative w-full max-w-sm rounded-2xl border border-[var(--card-border)] p-8 shadow-2xl ui-extracted-4ff7419d93"
+
         >
           {/* Close */}
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg transition-colors landing-text-secondary"
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
             aria-label="Close"
           >
-            <X className="h-4 w-4" />
+            <Icon name="CloseOutlined" size="sm" />
           </button>
 
           {/* Brand */}
           <div className="mb-6">
             <div className="mb-4 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
-                <Zap className="h-4 w-4 text-white" />
+                <Icon name="ThunderboltOutlined" size="sm" className="text-white" />
               </div>
-              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Integration Gateway
-              </span>
+              <span className="text-sm font-semibold landing-text-primary">Integration Gateway</span>
             </div>
-            <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              Sign in
-            </h2>
-            <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Sign in to your organization's workspace
-            </p>
+            <h2 className="text-xl font-bold landing-text-primary">Sign in</h2>
+            <p className="mt-1 text-sm landing-text-secondary">Sign in to your organization's workspace</p>
           </div>
 
           {/* Error */}
@@ -97,66 +84,49 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label
-                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Email
-              </label>
+              <label className="mb-1.5 block text-xs font-semibold landing-text-secondary">Email</label>
               <div className="relative">
-                <Mail
-                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                  style={{ color: 'var(--text-secondary)' }}
+                <Icon
+                  name="MailOutlined"
+                  size="sm"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 landing-text-secondary"
                 />
                 <input
                   type="email"
                   required
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   autoComplete="email"
-                  className="h-10 w-full rounded-lg border pl-9 pr-3 text-sm transition-all focus:outline-none focus:ring-2"
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-primary)',
-                  }}
+                  className="h-10 w-full rounded-lg border pl-9 pr-3 text-sm transition-all focus:outline-none focus:ring-2 ui-extracted-4bfc181720"
+
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label
-                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Password
-              </label>
+              <label className="mb-1.5 block text-xs font-semibold landing-text-secondary">Password</label>
               <div className="relative">
-                <Lock
-                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                  style={{ color: 'var(--text-secondary)' }}
+                <Icon
+                  name="LockOutlined"
+                  size="sm"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 landing-text-secondary"
                 />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  className="h-10 w-full rounded-lg border pl-9 pr-10 text-sm transition-all focus:outline-none focus:ring-2"
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-primary)',
-                  }}
+                  className="h-10 w-full rounded-lg border pl-9 pr-10 text-sm transition-all focus:outline-none focus:ring-2 ui-extracted-4bfc181720"
+
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
-                  style={{ color: 'var(--text-secondary)' }}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs landing-text-secondary"
                   tabIndex={-1}
                 >
                   {showPassword ? 'Hide' : 'Show'}
@@ -174,7 +144,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             </button>
           </form>
 
-          <p className="mt-5 text-center text-xs" style={{ color: 'var(--text-secondary)' }}>
+          <p className="mt-5 text-center text-xs landing-text-secondary">
             Need access? Contact your system administrator.
           </p>
         </div>

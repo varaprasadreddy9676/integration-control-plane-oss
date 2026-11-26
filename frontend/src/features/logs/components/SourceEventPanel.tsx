@@ -1,22 +1,16 @@
-import { Alert, Button, Skeleton, Tag, Typography } from 'antd';
-import { LinkOutlined } from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { APIError, getEventAuditById } from '../../../services/api';
 import { buildUrlWithOrgId } from '../../../utils/navigation';
 import { formatDateTimeWithSeconds } from '../../../utils/format';
 import { cssVar, useDesignTokens } from '../../../design-system/utils';
+import { StatePanel } from '../../../components/common/StatePanel';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Text } = Typography;
-
-const STATUS_COLOR: Record<string, string> = {
-  RECEIVED: 'processing',
-  PROCESSING: 'processing',
-  DELIVERED: 'success',
-  SKIPPED: 'warning',
-  FAILED: 'error',
-  STUCK: 'error',
-};
 
 /**
  * A delivery log's `messageId` is the id of the event that triggered it
@@ -61,25 +55,25 @@ export const SourceEventPanel = ({ messageId, fallbackPayload }: SourceEventPane
     retry: false,
   });
 
-  if (isLoading) return <Skeleton active paragraph={{ rows: 4 }} />;
+  if (isLoading) return <StatePanel glyph="connecting" tone="busy" size="compact" title="Loading source event" />;
 
   if (error) {
     if (error instanceof APIError && error.statusCode === 404) {
       return (
-        <Alert
-          type="info"
-          showIcon
-          message="Source event is no longer available"
-          description="The event audit record for this delivery has aged out of retention."
+        <StatePanel
+          glyph="searching"
+          title="Source event unavailable"
+          description="Event audit retention may have expired."
+          size="compact"
         />
       );
     }
     return (
-      <Alert
-        type="error"
-        showIcon
-        message="Couldn't load the source event"
-        action={
+      <StatePanel
+        glyph="disrupted"
+        tone="critical"
+        title="Could not load source event"
+        actions={
           <Button size="small" onClick={() => refetch()}>
             Retry
           </Button>
@@ -101,33 +95,37 @@ export const SourceEventPanel = ({ messageId, fallbackPayload }: SourceEventPane
     ['Event type', <Text strong>{event.eventType}</Text>],
     ['Source', event.source],
     ['Received', event.receivedAt ? formatDateTimeWithSeconds(event.receivedAt) : '—'],
-    ['Status', <Tag color={STATUS_COLOR[event.status ?? ''] || 'default'}>{event.status}</Tag>],
+    ['Status', <StatusBadge status={event.status} />],
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[3] }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: `${spacing[1]} ${spacing[3]}` }}>
         {rows.map(([label, value]) => (
-          <div key={label} style={{ display: 'contents' }}>
+          <div key={label} className="ui-extracted-e8a3d96862">
             <Text type="secondary">{label}</Text>
             <span>{value}</span>
           </div>
         ))}
       </div>
-      {event.skipReason && <Alert type="warning" showIcon message={event.skipReason} />}
+      {event.skipReason && (
+        <div role="status" style={{ color: cssVar.warning?.text || 'var(--color-warning-text)' }}>
+          {event.skipReason}
+        </div>
+      )}
       {usingFallback && <Text type="secondary">Payload shown from this delivery's record.</Text>}
       {payloadText ? (
         <pre
           tabIndex={0}
           style={{
-            margin: 0,
+            margin: 'var(--spacing-0)',
             maxHeight: 320,
             overflow: 'auto',
             padding: spacing[3],
-            fontSize: 12,
+            fontSize: 'var(--console-type-caption)',
             borderRadius: token.borderRadius,
-            border: `1px solid ${cssVar.border.default}`,
-            background: cssVar.bg.surface,
+            border: `1px solid ${cssVar.border?.default || 'var(--color-border-default)'}`,
+            background: cssVar.bg?.surface || 'var(--color-bg-surface)',
           }}
         >
           {payloadText}
@@ -136,7 +134,7 @@ export const SourceEventPanel = ({ messageId, fallbackPayload }: SourceEventPane
         <Text type="secondary">No payload captured for this event.</Text>
       )}
       <Link to={auditUrl}>
-        <LinkOutlined /> Open in Event Audit
+        <GatewayIcon name="LinkOutlined" /> Open in Event Audit
       </Link>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Collapse, Dropdown } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
+import { Collapse, Dropdown } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import type { DeliveryLog } from '../../../mocks/types';
 import type {
   SaveImpact,
@@ -71,7 +71,7 @@ const ReadOnlyStage = ({ stage, runner }: { stage: StageConfig; runner?: StageRu
   const code = (stage.runner.config as { code?: unknown } | undefined)?.code;
   const schedule = scheduleSummary(stage);
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
+    <div className="ui-extracted-b692615048">
       <div className="wf-help">
         {runner?.label || stage.runner.type} · {stage.enabled === false ? 'Off' : 'On'}
         {schedule ? ` · ${schedule}` : ''}
@@ -148,14 +148,9 @@ export const Inspector = (props: InspectorProps) => {
         >
           <Icon name={node.kind} size={20} />
         </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="console-flex-min-width-0">
           <div
-            style={{
-              font: '500 11px/14px var(--wf-font)',
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-              color: 'var(--wf-ink-3)',
-            }}
+            className="ui-extracted-79d37861c1"
           >
             {node.eyebrow}
           </div>
@@ -164,7 +159,7 @@ export const Inspector = (props: InspectorProps) => {
         {menu && (
           <Dropdown menu={menu} trigger={['click']}>
             <button type="button" className="wf-btn" aria-label="More actions for this step">
-              <MoreOutlined />
+              <GatewayIcon name="MoreOutlined" />
             </button>
           </Dropdown>
         )}
@@ -183,13 +178,13 @@ export const Inspector = (props: InspectorProps) => {
       <aside className={`wf-inspector${editors ? ' wf-inspector--wide' : ''}`} tabIndex={-1} aria-label="Step details">
         <div className="wf-inspector__head">
           {head}
-          <div style={{ height: 12 }} />
+          <div className="ui-extracted-c58cd33637" />
         </div>
         <div className="wf-inspector__body">
           {mode === 'executions' && failedLog && (
             <FailurePanel log={log} integrationId={integrationId} onChanged={props.onChanged} />
           )}
-          <p className="wf-help" style={{ margin: 0 }}>
+          <p className="wf-help console-margin-none">
             {ABOUT[node.kind]}
           </p>
           <div className="wf-help wf-mono">{node.summary}</div>
@@ -227,16 +222,18 @@ export const Inspector = (props: InspectorProps) => {
             <div className="wf-inspector__head">
               {head}
               <div className="wf-tabs" role="tablist">
-                {(mode === 'executions' ? (['configure', 'runs'] as const) : (['configure', 'test'] as const)).map((key) => (
-                  <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
-                    {key === 'configure' ? 'Configure' : key === 'test' ? 'Test' : 'Runs'}
-                    {key === 'runs' && runs.length > 0 && (
-                      <span className="wf-chip" style={{ marginLeft: 6, height: 18 }}>
-                        {runs.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {(mode === 'executions' ? (['configure', 'runs'] as const) : (['configure', 'test'] as const)).map(
+                  (key) => (
+                    <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
+                      {key === 'configure' ? 'Configure' : key === 'test' ? 'Test' : 'Runs'}
+                      {key === 'runs' && runs.length > 0 && (
+                        <span className="wf-chip ui-extracted-536498b1a6" >
+                          {runs.length}
+                        </span>
+                      )}
+                    </button>
+                  )
+                )}
               </div>
             </div>
             <div className="wf-inspector__body">
@@ -248,8 +245,7 @@ export const Inspector = (props: InspectorProps) => {
                   ))}
                 </div>
               )}
-              {tab === 'configure' &&
-                (readOnly ? <ReadOnlyStage stage={stage} runner={runner} /> : editor.settings)}
+              {tab === 'configure' && (readOnly ? <ReadOnlyStage stage={stage} runner={runner} /> : editor.settings)}
               {tab === 'test' && editor.test}
               {tab === 'runs' &&
                 (runs.length > 0 ? (
@@ -267,7 +263,7 @@ export const Inspector = (props: InspectorProps) => {
                     waiting > 0 &&
                     ` ${waiting.toLocaleString('en-US')} scheduled check${waiting === 1 ? '' : 's'} already waiting keep the version they started with.`}
                 </span>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <div className="ui-extracted-732c51f585">
                   <button
                     type="button"
                     className="wf-btn"

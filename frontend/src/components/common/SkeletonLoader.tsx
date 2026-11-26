@@ -1,5 +1,4 @@
-import { Skeleton, Card, Space } from 'antd';
-import { useDesignTokens } from '../../design-system/utils';
+import { Skeleton, Card, Space } from '@/components/common/LegacyAntdControls';
 
 interface SkeletonLoaderProps {
   variant?: 'card' | 'table' | 'metric' | 'list' | 'chart' | 'form';
@@ -7,110 +6,58 @@ interface SkeletonLoaderProps {
   animated?: boolean;
 }
 
-export const SkeletonLoader = ({
-  variant = 'card',
-  count = 1,
-  animated = true
-}: SkeletonLoaderProps) => {
-  const { spacing } = useDesignTokens();
-
+export const SkeletonLoader = ({ variant = 'card', count = 1, animated = true }: SkeletonLoaderProps) => {
   const renderMetricSkeleton = () => (
-    <Card
-      style={{
-        height: 140,
-        animation: 'fadeInScale 300ms cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
-    >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Skeleton.Input active={animated} size="small" style={{ width: 120 }} />
-        <Skeleton.Input active={animated} size="large" style={{ width: 180, height: 48 }} />
-        <Skeleton.Input active={animated} size="small" style={{ width: 100 }} />
+    <Card className="console-fade-in skeleton-metric-card">
+      <Space direction="vertical" size="large" className="console-width-full">
+        <Skeleton.Input active={animated} size="small" className="skeleton-width-120" />
+        <Skeleton.Input active={animated} size="large" className="skeleton-metric-value" />
+        <Skeleton.Input active={animated} size="small" className="skeleton-width-100" />
       </Space>
     </Card>
   );
 
   const renderCardSkeleton = () => (
-    <Card
-      style={{
-        animation: 'fadeInScale 300ms cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
-    >
-      <Skeleton
-        active={animated}
-        paragraph={{ rows: 4 }}
-        title={{ width: '60%' }}
-      />
+    <Card className="console-fade-in">
+      <Skeleton active={animated} paragraph={{ rows: 4 }} title={{ width: '60%' }} />
     </Card>
   );
 
   const renderTableSkeleton = () => (
-    <Card
-      style={{
-        animation: 'fadeInScale 300ms cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
-    >
-      <Skeleton
-        active={animated}
-        paragraph={{ rows: 8 }}
-        title={{ width: '40%' }}
-      />
+    <Card className="console-fade-in">
+      <Skeleton active={animated} paragraph={{ rows: 8 }} title={{ width: '40%' }} />
     </Card>
   );
 
   const renderListSkeleton = () => (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: spacing[3],
-      animation: 'fadeInScale 300ms cubic-bezier(0.16, 1, 0.3, 1)'
-    }}>
-      <Skeleton
-        active={animated}
-        avatar
-        paragraph={{ rows: 2 }}
-      />
+    <div className="console-fade-in skeleton-list">
+      <Skeleton active={animated} avatar paragraph={{ rows: 2 }} />
     </div>
   );
 
   const renderChartSkeleton = () => (
-    <Card
-      style={{
-        height: 400,
-        animation: 'fadeInScale 300ms cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
-    >
-      <Skeleton.Input
-        active={animated}
-        size="small"
-        style={{ width: 150, marginBottom: spacing[4] }}
-      />
-      <Skeleton.Image
-        active={animated}
-        style={{ width: '100%', height: 300 }}
-      />
+    <Card className="console-fade-in skeleton-chart-card">
+      <Skeleton.Input active={animated} size="small" className="skeleton-chart-title" />
+      <Skeleton.Image active={animated} className="skeleton-chart-image" />
     </Card>
   );
 
   const renderFormSkeleton = () => (
-    <Card
-      style={{
-        animation: 'fadeInScale 300ms cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
-    >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Card className="console-fade-in">
+      <Space direction="vertical" size="large" className="console-width-full">
         <div>
-          <Skeleton.Input active={animated} size="small" style={{ width: 100, marginBottom: spacing[2] }} />
+          <Skeleton.Input active={animated} size="small" className="skeleton-field-label skeleton-width-100" />
           <Skeleton.Input active={animated} size="large" block />
         </div>
         <div>
-          <Skeleton.Input active={animated} size="small" style={{ width: 120, marginBottom: spacing[2] }} />
+          <Skeleton.Input active={animated} size="small" className="skeleton-field-label skeleton-width-120" />
           <Skeleton.Input active={animated} size="large" block />
         </div>
         <div>
-          <Skeleton.Input active={animated} size="small" style={{ width: 80, marginBottom: spacing[2] }} />
-          <Skeleton.Input active={animated} size="large" block style={{ height: 120 }} />
+          <Skeleton.Input active={animated} size="small" className="skeleton-field-label skeleton-width-80" />
+          <Skeleton.Input active={animated} size="large" block className="skeleton-textarea" />
         </div>
-        <Skeleton.Button active={animated} size="large" style={{ width: 150 }} />
+        <Skeleton.Button active={animated} size="large" className="skeleton-width-150" />
       </Space>
     </Card>
   );
@@ -138,7 +85,7 @@ export const SkeletonLoader = ({
         <div
           key={index}
           style={{
-            animationDelay: `${index * 50}ms`
+            animationDelay: `${index * 50}ms`,
           }}
         >
           {renderVariant()}

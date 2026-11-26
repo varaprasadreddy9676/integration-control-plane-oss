@@ -1,13 +1,15 @@
-import { Card, Tag, Space, Typography, Alert, Descriptions } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, SafetyOutlined } from '@ant-design/icons';
-import { PageHeader } from '../../components/common/PageHeader';
-import { useDesignTokens } from '../../design-system/utils';
+import { Space, Descriptions } from '@/components/common/LegacyAntdControls';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Heading } from '@astryxdesign/core';
+import { Text } from '../../components/common/LegacyTypography';
+import { Icon as GatewayIcon } from '../../components/common/Icon';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { ConfigSection } from '../../components/common/ConfigSection';
+import { cssVar, useDesignTokens } from '../../design-system/utils';
 import { useAuth } from '../../app/auth-context';
 import { usePermissions } from '../../hooks/usePermissions';
 import { FEATURES, OPERATIONS, getRoleFeatures } from '../../utils/permissions';
 import { ModernTable } from '../../components/common/ModernTable';
-
-const { Text, Title } = Typography;
 
 interface PermissionRow {
   feature: string;
@@ -20,7 +22,7 @@ interface PermissionRow {
 }
 
 export const PermissionsDemoRoute = () => {
-  const { spacing, token } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const { user } = useAuth();
   const { can, role } = usePermissions();
 
@@ -36,7 +38,7 @@ export const PermissionsDemoRoute = () => {
       delete: can(feature, OPERATIONS.DELETE),
       execute: can(feature, OPERATIONS.EXECUTE),
       configure: can(feature, OPERATIONS.CONFIGURE),
-      export: can(feature, OPERATIONS.EXPORT)
+      export: can(feature, OPERATIONS.EXPORT),
     };
   });
 
@@ -46,11 +48,7 @@ export const PermissionsDemoRoute = () => {
       dataIndex: 'feature',
       key: 'feature',
       width: 200,
-      render: (text: string) => (
-        <Text strong style={{ textTransform: 'uppercase' }}>
-          {text.replace(/_/g, ' ')}
-        </Text>
-      )
+      render: (text: string) => <Text strong>{text.replace(/_/g, ' ')}</Text>,
     },
     {
       title: 'Read',
@@ -60,10 +58,10 @@ export const PermissionsDemoRoute = () => {
       align: 'center' as const,
       render: (hasAccess: boolean) =>
         hasAccess ? (
-          <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 16 }} />
+          <GatewayIcon name="CheckCircleOutlined" className="console-text-success-control" />
         ) : (
-          <CloseCircleOutlined style={{ color: token.colorTextDisabled, fontSize: 16 }} />
-        )
+          <GatewayIcon name="CloseCircleOutlined" className="console-text-disabled-control" />
+        ),
     },
     {
       title: 'Write',
@@ -73,10 +71,10 @@ export const PermissionsDemoRoute = () => {
       align: 'center' as const,
       render: (hasAccess: boolean) =>
         hasAccess ? (
-          <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 16 }} />
+          <GatewayIcon name="CheckCircleOutlined" className="console-text-success-control" />
         ) : (
-          <CloseCircleOutlined style={{ color: token.colorTextDisabled, fontSize: 16 }} />
-        )
+          <GatewayIcon name="CloseCircleOutlined" className="console-text-disabled-control" />
+        ),
     },
     {
       title: 'Delete',
@@ -86,10 +84,10 @@ export const PermissionsDemoRoute = () => {
       align: 'center' as const,
       render: (hasAccess: boolean) =>
         hasAccess ? (
-          <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 16 }} />
+          <GatewayIcon name="CheckCircleOutlined" className="console-text-success-control" />
         ) : (
-          <CloseCircleOutlined style={{ color: token.colorTextDisabled, fontSize: 16 }} />
-        )
+          <GatewayIcon name="CloseCircleOutlined" className="console-text-disabled-control" />
+        ),
     },
     {
       title: 'Execute',
@@ -99,10 +97,10 @@ export const PermissionsDemoRoute = () => {
       align: 'center' as const,
       render: (hasAccess: boolean) =>
         hasAccess ? (
-          <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 16 }} />
+          <GatewayIcon name="CheckCircleOutlined" className="console-text-success-control" />
         ) : (
-          <CloseCircleOutlined style={{ color: token.colorTextDisabled, fontSize: 16 }} />
-        )
+          <GatewayIcon name="CloseCircleOutlined" className="console-text-disabled-control" />
+        ),
     },
     {
       title: 'Configure',
@@ -112,10 +110,10 @@ export const PermissionsDemoRoute = () => {
       align: 'center' as const,
       render: (hasAccess: boolean) =>
         hasAccess ? (
-          <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 16 }} />
+          <GatewayIcon name="CheckCircleOutlined" className="console-text-success-control" />
         ) : (
-          <CloseCircleOutlined style={{ color: token.colorTextDisabled, fontSize: 16 }} />
-        )
+          <GatewayIcon name="CloseCircleOutlined" className="console-text-disabled-control" />
+        ),
     },
     {
       title: 'Export',
@@ -125,74 +123,51 @@ export const PermissionsDemoRoute = () => {
       align: 'center' as const,
       render: (hasAccess: boolean) =>
         hasAccess ? (
-          <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 16 }} />
+          <GatewayIcon name="CheckCircleOutlined" className="console-text-success-control" />
         ) : (
-          <CloseCircleOutlined style={{ color: token.colorTextDisabled, fontSize: 16 }} />
-        )
-    }
+          <GatewayIcon name="CloseCircleOutlined" className="console-text-disabled-control" />
+        ),
+    },
   ];
 
-  const getRoleColor = (role?: string) => {
-    switch (role) {
-      case 'SUPER_ADMIN':
-        return 'red';
-      case 'ADMIN':
-        return 'purple';
-      case 'ORG_ADMIN':
-        return 'blue';
-      case 'INTEGRATION_EDITOR':
-        return 'cyan';
-      case 'VIEWER':
-        return 'green';
-      default:
-        return 'default';
-    }
-  };
-
   return (
-    <div>
-      <PageHeader
-        title="Permissions & RBAC"
-        description="View your role-based access control permissions"
-      />
-
-      <Space direction="vertical" size={spacingToNumber(spacing[4])} style={{ width: '100%' }}>
+    <PageTemplate title="Permissions & RBAC" description="View your role-based access control permissions">
+      <Space direction="vertical" size={spacingToNumber(spacing[4])} className="console-width-full">
         {/* Current User Info */}
-        <Card title="Your Account" style={{ borderRadius: token.borderRadiusLG }}>
+        <ConfigSection title="Your account" icon={<GatewayIcon name="SafetyOutlined" />}>
           <Descriptions column={2}>
             <Descriptions.Item label="Email">{user?.email}</Descriptions.Item>
             <Descriptions.Item label="User ID">{user?.id}</Descriptions.Item>
             <Descriptions.Item label="Role">
-              <Tag color={getRoleColor(user?.role)}>{user?.role}</Tag>
+              <Text weight="semibold">{user?.role}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="Organization ID">
               {user?.orgId || <Text type="secondary">Global Access</Text>}
             </Descriptions.Item>
             {user?.impersonated && (
               <Descriptions.Item label="Impersonation Status" span={2}>
-                <Alert
-                  type="warning"
-                  message={`You are being impersonated by: ${user.impersonatedBy}`}
-                  showIcon
+                <Banner
+                  status="warning"
+                  title={`You are being impersonated by: ${user.impersonatedBy}`}
+                  collapsible={false}
                 />
               </Descriptions.Item>
             )}
           </Descriptions>
-        </Card>
+        </ConfigSection>
 
         {/* Permission Matrix */}
-        <Card
-          title="Permission Matrix"
-          extra={
-            <Text type="secondary">
+        <ConfigSection
+          title="Permission matrix"
+          actions={
+            <Text type="supporting" color="secondary">
               {user?.role === 'SUPER_ADMIN' ? (
-                <Text type="success">Full Access to All Features</Text>
+                <Text color="success">Full Access to All Features</Text>
               ) : (
                 `${permissionMatrix.filter((p) => p.read || p.write || p.delete || p.execute || p.configure || p.export).length} / ${permissionMatrix.length} features accessible`
               )}
             </Text>
           }
-          style={{ borderRadius: token.borderRadiusLG }}
         >
           <ModernTable
             columns={columns}
@@ -203,68 +178,73 @@ export const PermissionsDemoRoute = () => {
             scroll={{ x: 800 }}
             rowClassName={(record) => {
               const hasAnyAccess =
-                record.read ||
-                record.write ||
-                record.delete ||
-                record.execute ||
-                record.configure ||
-                record.export;
+                record.read || record.write || record.delete || record.execute || record.configure || record.export;
               return hasAnyAccess ? '' : 'disabled-row';
             }}
           />
-        </Card>
+        </ConfigSection>
 
         {/* RBAC System Info */}
-        <Card title="About RBAC System" style={{ borderRadius: token.borderRadiusLG }}>
+        <ConfigSection title="About role-based access">
           <Space direction="vertical" size={spacingToNumber(spacing[3])}>
             <div>
-              <Title level={5}>Feature-Based Permissions</Title>
-              <Text>
-                This application uses a simple, feature-based RBAC (Role-Based Access Control)
-                system. Each feature has standard operations (read, write, delete, execute,
-                configure, export), and roles are mapped to these features.
+              <Heading level={5}>Feature-Based Permissions</Heading>
+              <Text as="p" display="block">
+                This application uses a simple, feature-based RBAC (Role-Based Access Control) system. Each feature has
+                standard operations (read, write, delete, execute, configure, export), and roles are mapped to these
+                features.
               </Text>
             </div>
 
             <div>
-              <Title level={5}>Available Roles</Title>
-              <Space wrap>
-                <Tag color="red">SUPER_ADMIN - Global Access</Tag>
-                <Tag color="purple">ADMIN - Organization Admin</Tag>
-                <Tag color="blue">ORG_ADMIN - Organization Admin</Tag>
-                <Tag color="cyan">INTEGRATION_EDITOR - Can Edit Integrations</Tag>
-                <Tag color="green">VIEWER - Read-Only Access</Tag>
-                <Tag color="default">ORG_USER - Basic User</Tag>
-              </Space>
+              <Heading level={5}>Available Roles</Heading>
+              <Text as="p" display="block">
+                SUPER_ADMIN - Global Access
+              </Text>
+              <Text as="p" display="block">
+                ADMIN - Organization Admin
+              </Text>
+              <Text as="p" display="block">
+                ORG_ADMIN - Organization Admin
+              </Text>
+              <Text as="p" display="block">
+                INTEGRATION_EDITOR - Can Edit Integrations
+              </Text>
+              <Text as="p" display="block">
+                VIEWER - Read-Only Access
+              </Text>
+              <Text as="p" display="block">
+                ORG_USER - Basic User
+              </Text>
             </div>
 
             <div>
-              <Title level={5}>Standard Operations</Title>
+              <Heading level={5}>Standard Operations</Heading>
               <ul>
                 <li>
-                  <Text strong>READ:</Text> View and list items
+                  <Text weight="semibold">READ:</Text> View and list items
                 </li>
                 <li>
-                  <Text strong>WRITE:</Text> Create and edit items
+                  <Text weight="semibold">WRITE:</Text> Create and edit items
                 </li>
                 <li>
-                  <Text strong>DELETE:</Text> Remove items
+                  <Text weight="semibold">DELETE:</Text> Remove items
                 </li>
                 <li>
-                  <Text strong>EXECUTE:</Text> Run operations (test, retry, etc.)
+                  <Text weight="semibold">EXECUTE:</Text> Run operations (test, retry, etc.)
                 </li>
                 <li>
-                  <Text strong>CONFIGURE:</Text> Modify settings and configurations
+                  <Text weight="semibold">CONFIGURE:</Text> Modify settings and configurations
                 </li>
                 <li>
-                  <Text strong>EXPORT:</Text> Export data to files
+                  <Text weight="semibold">EXPORT:</Text> Export data to files
                 </li>
               </ul>
             </div>
           </Space>
-        </Card>
+        </ConfigSection>
       </Space>
-    </div>
+    </PageTemplate>
   );
 };
 

@@ -1,42 +1,28 @@
 import { useMemo, useState } from 'react';
 import {
   App,
-  Button,
   Dropdown,
   Modal,
   Select,
   Space,
-  Tag,
-  Typography,
   Card,
   Grid,
   Switch,
   Divider,
-  Empty,
-  Alert,
   Tooltip,
-} from 'antd';
-import {
-  FilterOutlined,
-  MoreOutlined,
-  ReloadOutlined,
-  DownloadOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  CheckOutlined,
-  StopOutlined,
-  EditOutlined,
-  AppstoreOutlined,
-  ThunderboltOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
+} from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
+import { buildUrlWithOrgId } from '../../../utils/navigation';
 import { useAuth } from '../../../app/auth-context';
 import { ListActions, SearchInput } from '../../../components/common/ListControls';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { StatePanel } from '../../../components/common/StatePanel';
 import {
   getIntegrations,
   deleteIntegration,
@@ -56,6 +42,7 @@ import { formatDateTime } from '../../../utils/format';
 import { useDesignTokens, withAlpha, cssVar } from '../../../design-system/utils';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
 import { prefetchDetailRoute } from '../../../app/route-prefetch';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface IntegrationsRouteProps {
   hideHeader?: boolean;
@@ -345,10 +332,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
 
       setExportLoading(true);
       const { onProgress, finish } = createExportProgress(msgApi, 'Export JSON');
-      await downloadIntegrationExport(
-        { format: 'json', includeInactive: true, integrationIds },
-        { onProgress }
-      );
+      await downloadIntegrationExport({ format: 'json', includeInactive: true, integrationIds }, { onProgress });
       finish(`Exported ${exportCount} event rule(s)`);
     } catch (error) {
       msgApi.error(error instanceof Error ? error.message : 'Failed to export event rules');
@@ -380,20 +364,20 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
             marginBottom: spacing[2],
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="console-flex-between-center">
             <Space size="small">
-              <Typography.Text strong style={{ color: colors.primary[700] }}>
+              <Text color="accent" weight="semibold">
                 {selectedRowKeys.length} selected
-              </Typography.Text>
+              </Text>
             </Space>
             <Space size="small">
               {!isPortalSession && (
-                <Button size="small" icon={<CheckOutlined />} onClick={handleBulkEnable}>
+                <Button size="small" icon={<GatewayIcon name="CheckOutlined" />} onClick={handleBulkEnable}>
                   Enable
                 </Button>
               )}
               {!isPortalSession && (
-                <Button size="small" icon={<StopOutlined />} onClick={handleBulkDisable}>
+                <Button size="small" icon={<GatewayIcon name="StopOutlined" />} onClick={handleBulkDisable}>
                   Disable
                 </Button>
               )}
@@ -404,30 +388,30 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                     {
                       key: 'selected',
                       label: 'Export selected',
-                      icon: <DownloadOutlined />,
+                      icon: <GatewayIcon name="DownloadOutlined" />,
                       onClick: () => handleExport('selected'),
                     },
                     {
                       key: 'filtered',
                       label: 'Export filtered results',
-                      icon: <DownloadOutlined />,
+                      icon: <GatewayIcon name="DownloadOutlined" />,
                       onClick: () => handleExport('filtered'),
                     },
                     {
                       key: 'all',
                       label: 'Export all',
-                      icon: <DownloadOutlined />,
+                      icon: <GatewayIcon name="DownloadOutlined" />,
                       onClick: () => handleExport('all'),
                     },
                   ],
                 }}
               >
-                <Button size="small" icon={<DownloadOutlined />} loading={exportLoading}>
+                <Button size="small" icon={<GatewayIcon name="DownloadOutlined" />} loading={exportLoading}>
                   Export
                 </Button>
               </Dropdown>
               {!isPortalSession && (
-                <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
+                <Button size="small" danger icon={<GatewayIcon name="DeleteOutlined" />} onClick={handleBulkDelete}>
                   Delete
                 </Button>
               )}
@@ -461,9 +445,14 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
           </Tooltip>
         </Space>
 
-        <Divider type="vertical" style={{ height: 24, margin: 0 }} />
+        <Divider type="vertical" className="console-divider-6-reset" />
 
-        <SearchInput value={searchQuery} onChange={setSearchQuery} isNarrow={isNarrow} />
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          isNarrow={isNarrow}
+          label="Search outbound integrations"
+        />
 
         {/* Filters */}
         <Select
@@ -520,7 +509,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
           onRefresh={() => refetch()}
           refreshLabel="Refresh outbound integrations"
         >
-          <Button icon={<AppstoreOutlined />} size="small" onClick={() => navigate('/templates')}>
+          <Button icon={<GatewayIcon name="AppstoreOutlined" />} size="small" onClick={() => navigate('/templates')}>
             Templates
           </Button>
         </ListActions>
@@ -529,13 +518,15 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
       {/* Error state */}
       {error && !isLoading && (
         <div style={{ padding: `${spacing[8]} ${spacing[4]}` }}>
-          <Alert
-            type="error"
-            message="Failed to load event rules"
-            description={error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'}
-            showIcon
-            action={
-              <Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()}>
+          <StatePanel
+            glyph="disrupted"
+            tone="critical"
+            size="compact"
+            title="Failed to load event rules"
+            description="Check your connection and try again."
+            footnote={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+            actions={
+              <Button size="small" icon={<GatewayIcon name="ReloadOutlined" />} onClick={() => refetch()}>
                 Retry
               </Button>
             }
@@ -545,48 +536,39 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
 
       {/* Empty states */}
       {!isLoading && !error && outboundData.length === 0 && (
-        <div style={{ padding: `${spacing[12]} ${spacing[4]}`, textAlign: 'center' }}>
-          <Empty
-            description={
-              <Space direction="vertical" size="small">
-                <Typography.Text strong style={{ fontSize: 16 }}>
-                  No event rules yet
-                </Typography.Text>
-                <Typography.Text type="secondary">
-                  Event rules define where to deliver events when they occur. Create your first rule to start routing
-                  events.
-                </Typography.Text>
-              </Space>
-            }
-          >
-            {!isPortalSession && (
+        <StatePanel
+          size="regular"
+          glyph="searching"
+          title="No event rules yet"
+          description="Create a rule or start from a template."
+          actions={
+            !isPortalSession ? (
               <Space>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/integrations/new')}>
+                <Button
+                  type="primary"
+                  icon={<GatewayIcon name="PlusOutlined" />}
+                  onClick={() => navigate('/integrations/new')}
+                >
                   Create Event Rule
                 </Button>
-                <Button icon={<AppstoreOutlined />} onClick={() => navigate('/templates')}>
+                <Button icon={<GatewayIcon name="AppstoreOutlined" />} onClick={() => navigate('/templates')}>
                   Browse Templates
                 </Button>
               </Space>
-            )}
-          </Empty>
-        </div>
+            ) : undefined
+          }
+        />
       )}
 
       {!isLoading && outboundData.length > 0 && filtered.length === 0 && hasActiveFilters && (
-        <div style={{ padding: `${spacing[10]} ${spacing[4]}`, textAlign: 'center' }}>
-          <Empty
-            description={
-              <Space direction="vertical" size="small">
-                <Typography.Text strong>No event rules match your filters</Typography.Text>
-                <Typography.Text type="secondary">
-                  Try adjusting your search or filters to find what you're looking for.
-                </Typography.Text>
-              </Space>
-            }
-          >
+        <StatePanel
+          size="compact"
+          glyph="searching"
+          title="No matching event rules"
+          description="Clear filters to see all rules."
+          actions={
             <Button
-              icon={<FilterOutlined />}
+              icon={<GatewayIcon name="FilterOutlined" />}
               onClick={() => {
                 setEventFilter(undefined);
                 setStatusFilter(undefined);
@@ -597,8 +579,8 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
             >
               Clear all filters
             </Button>
-          </Empty>
-        </div>
+          }
+        />
       )}
 
       {/* Table */}
@@ -627,24 +609,26 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                 title: 'Event Rule',
                 dataIndex: 'name',
                 key: 'name',
-                width: 300,
+                width: 260,
                 ellipsis: true,
                 sorter: (a, b) => a.name.localeCompare(b.name),
                 render: (_: unknown, record) => (
                   <Space direction="vertical" size={2}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-                      <Typography.Link
+                    <div className="console-flex-center-gap-2">
+                      <Link
+                        to={buildUrlWithOrgId(`/integrations/${record.id}`)}
+                        state={{ title: record.name }}
+                        style={{ color: token.colorLink, textDecoration: 'none' }}
                         onClick={(event) => {
                           markMorphSource(event.currentTarget);
-                          navigate(`/integrations/${record.id}`, { state: { title: record.name } });
                         }}
                         onMouseEnter={() => prefetchDetailRoute('integration')}
                         onFocus={() => prefetchDetailRoute('integration')}
-                        style={{ fontWeight: 600, fontSize: 14 }}
-                        ellipsis
                       >
-                        {record.name}
-                      </Typography.Link>
+                        <Text as="span" color="accent" weight="semibold" maxLines={1}>
+                          {record.name}
+                        </Text>
+                      </Link>
                       {record.isInherited && <StatusBadge status="INHERITED" size="small" />}
                     </div>
                     <Space size={6}>
@@ -662,7 +646,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                 title: 'Scope',
                 dataIndex: 'scope',
                 key: 'scope',
-                width: 180,
+                width: 145,
                 sorter: (a, b) => a.scope.localeCompare(b.scope),
                 filters: [
                   { text: 'Include children', value: 'INCLUDE_CHILDREN' },
@@ -675,9 +659,9 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                       {scope === 'INCLUDE_CHILDREN' ? 'Include children' : 'Entity only'}
                     </MetaTag>
                     {record.excludedOrgUnits && record.excludedOrgUnits.length > 0 && (
-                      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                      <Text type="supporting" color="secondary">
                         {record.excludedOrgUnits.length} excluded
-                      </Typography.Text>
+                      </Text>
                     )}
                   </Space>
                 ),
@@ -686,19 +670,19 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                 title: 'Endpoint',
                 dataIndex: 'targetUrl',
                 key: 'targetUrl',
-                width: 300,
+                width: 245,
                 ellipsis: true,
                 render: (url: string) => (
-                  <Typography.Text type="secondary" style={{ fontSize: 13 }} ellipsis={{ tooltip: url }}>
+                  <Text type="supporting" color="secondary" maxLines={1}>
                     {url}
-                  </Typography.Text>
+                  </Text>
                 ),
               },
               {
                 title: 'Status',
                 dataIndex: 'isActive',
                 key: 'isActive',
-                width: 120,
+                width: 90,
                 align: 'center',
                 filters: [
                   { text: 'Active', value: true },
@@ -719,19 +703,19 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                 title: 'Last Updated',
                 dataIndex: 'updatedAt',
                 key: 'updatedAt',
-                width: 180,
+                width: 145,
                 sorter: (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
                 defaultSortOrder: 'descend',
                 render: (date: string) => (
-                  <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                  <Text type="supporting" color="secondary">
                     {formatDateTime(date)}
-                  </Typography.Text>
+                  </Text>
                 ),
               },
               {
                 title: '',
                 key: 'actions',
-                width: 50,
+                width: 48,
                 align: 'center',
                 render: (_: unknown, record) => (
                   <Dropdown
@@ -743,13 +727,13 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                               {
                                 key: 'edit',
                                 label: 'Edit',
-                                icon: <EditOutlined />,
+                                icon: <GatewayIcon name="EditOutlined" />,
                                 onClick: () => navigate(`/integrations/${record.id}`),
                               },
                               {
                                 key: 'duplicate',
                                 label: 'Duplicate',
-                                icon: <CopyOutlined />,
+                                icon: <GatewayIcon name="CopyOutlined" />,
                                 onClick: () => onDuplicate(record),
                                 disabled: record.isInherited,
                               },
@@ -758,7 +742,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                         {
                           key: 'test',
                           label: 'Send test event',
-                          icon: <ThunderboltOutlined />,
+                          icon: <GatewayIcon name="ThunderboltOutlined" />,
                           onClick: () => onTest(record.id),
                           disabled: !record.isActive,
                         },
@@ -771,7 +755,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                                 key: 'delete',
                                 label: 'Delete',
                                 danger: true,
-                                icon: <DeleteOutlined />,
+                                icon: <GatewayIcon name="DeleteOutlined" />,
                                 onClick: () => onDelete(record),
                                 disabled: record.isInherited,
                               },
@@ -784,7 +768,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                       type="text"
                       size="small"
                       aria-label={`Open actions for ${record.name}`}
-                      icon={<MoreOutlined />}
+                      icon={<GatewayIcon name="MoreOutlined" />}
                     />
                   </Dropdown>
                 ),

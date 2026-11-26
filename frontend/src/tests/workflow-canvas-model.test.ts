@@ -140,6 +140,15 @@ describe('insertion points', () => {
     expect(bare.insertions.filter((point) => point.hook === 'on_failure').map((point) => point.position)).toEqual([0]);
   });
 
+  it('keeps later-check insertion slots complete and uniquely keyed', () => {
+    const one = flowOf([script('first', 'after_delivery')]);
+    const two = flowOf([script('first', 'after_delivery'), script('second', 'after_delivery')]);
+
+    expect(one.insertions.filter((point) => point.hook === 'after_delivery').map((point) => point.position)).toEqual([0, 1]);
+    expect(two.insertions.filter((point) => point.hook === 'after_delivery').map((point) => point.position)).toEqual([0, 1, 2]);
+    expect(new Set(two.insertions.map((point) => point.id)).size).toBe(two.insertions.length);
+  });
+
   it('inserts a stage among the stages of its hook without moving the others', () => {
     const list = [script('a', 'before_send'), script('x', 'after_response'), script('b', 'before_send')];
     const added = script('new', 'before_send');

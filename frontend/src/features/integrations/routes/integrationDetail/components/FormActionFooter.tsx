@@ -1,7 +1,8 @@
-import { Button, Space, Tooltip } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
+import { Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from "../../../../../components/common/Icon";
 import { FormActions } from '../../../components/common';
-import { spacingToNumber, withAlpha, cssVar } from '../../../../../design-system/utils';
+import { spacingToNumber, cssVar } from '../../../../../design-system/utils';
+import { Button } from '../../../../../components/common/LegacyButton';
 
 interface FormActionFooterProps {
   visible: boolean;
@@ -18,8 +19,6 @@ interface FormActionFooterProps {
   testDisabledTooltip: string;
   testEnabledTooltip: string;
   spacing: Record<string, string>;
-  token: { colorBorderSecondary: string; colorBgBase: string };
-  colors: { neutral: Record<number, string> };
   // Activate action
   onActivate?: () => void;
   showActivate?: boolean;
@@ -40,11 +39,11 @@ export const FormActionFooter = ({
   testDisabledTooltip,
   testEnabledTooltip,
   spacing,
-  colors,
   onActivate,
   showActivate = false,
 }: FormActionFooterProps) => {
   if (!visible) return null;
+  const colors = cssVar.legacy;
 
   return (
     <div
@@ -60,7 +59,7 @@ export const FormActionFooter = ({
         padding: `${spacing[3]} 0`,
         borderTop: `1px solid ${cssVar.border.default}`,
         background: cssVar.bg.base,
-        boxShadow: `0 -8px 18px ${withAlpha(colors.neutral[900], 0.08)}`,
+        boxShadow: 'none',
       }}
     >
       <Space size={spacingToNumber(spacing[2])} wrap>
@@ -89,7 +88,7 @@ export const FormActionFooter = ({
           >
             <Button
               type="primary"
-              icon={<ThunderboltOutlined />}
+              icon={<GatewayIcon name="ThunderboltOutlined" />}
               onClick={onActivate}
               loading={isSaving}
               disabled={isSaving || !canSave}

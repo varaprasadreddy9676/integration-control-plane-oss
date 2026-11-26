@@ -1,41 +1,21 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
-import { useNavigateWithParams } from '../../../utils/navigation';
-import {
-  Card,
-  Space,
-  Button,
-  Tag,
-  Tooltip,
-  Badge,
-  message,
-  Modal,
-  Typography,
-  Select,
-  Divider,
-  Grid,
-} from 'antd';
-import {
-  ClockCircleOutlined,
-  PlayCircleOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  SyncOutlined,
-  } from '@ant-design/icons';
+import { Link, useSearchParams } from 'react-router-dom';
+import { buildUrlWithOrgId, useNavigateWithParams } from '../../../utils/navigation';
+import { Card, Space, Tooltip, message, Modal, Select, Divider, Grid } from '@/components/common/LegacyAntdControls';
+import { Text } from '../../../components/common/LegacyTypography';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { ListActions, SearchInput } from '../../../components/common/ListControls';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 import { cssVar, useDesignTokens, withAlpha } from '../../../design-system/utils';
 import { getAllScheduledJobs, deleteScheduledJob, executeScheduledJob } from '../../../services/api';
 import { formatDateTime, formatDuration } from '../../../utils/format';
 import { markMorphSource } from '../../../design-system/view-transition';
 import { prefetchDetailRoute } from '../../../app/route-prefetch';
-
-const { Text } = Typography;
+import { Button } from '../../../components/common/LegacyButton';
 
 interface ScheduledJobsRouteProps {
   hideHeader?: boolean;
@@ -142,18 +122,17 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       sorter: (a: any, b: any) => a.name.localeCompare(b.name),
       render: (name: string, record: any) => (
         <Space direction="vertical" size="small">
-          <Typography.Link
-            onClick={(event) => {
-              markMorphSource(event.currentTarget);
-              navigate(`/scheduled-jobs/${record._id}`, { state: { title: name } });
-            }}
+          <Link
+            to={buildUrlWithOrgId(`/scheduled-jobs/${record._id}`)}
+            state={{ title: name }}
+            onClick={(event) => markMorphSource(event.currentTarget)}
             onMouseEnter={() => prefetchDetailRoute('scheduledJob')}
             onFocus={() => prefetchDetailRoute('scheduledJob')}
-            style={{ fontWeight: 600, fontSize: 14 }}
+            className="console-text-accent console-type-control console-font-weight-semibold"
           >
             {name}
-          </Typography.Link>
-          {record.type && <Tag style={{ fontSize: 11 }}>{record.type}</Tag>}
+          </Link>
+          {record.type && <Text type="secondary">{record.type === 'SCRIPT_JOB' ? 'Script job' : record.type}</Text>}
         </Space>
       ),
     },
@@ -164,13 +143,13 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       render: (schedule: any) => (
         <Space direction="vertical" size="small">
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing[1] }}>
-            <ClockCircleOutlined style={{ color: colors.primary[500] }} />
-            <Text style={{ fontSize: 13, fontFamily: 'monospace' }}>
+            <GatewayIcon name="ClockCircleOutlined" className="console-text-accent" />
+            <Text className="ui-extracted-021192a8dd">
               {schedule.type === 'CRON' ? schedule.expression : `Every ${schedule.intervalMs / 1000}s`}
             </Text>
           </div>
           {schedule.timezone && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
+            <Text type="secondary" className="console-type-caption">
               {schedule.timezone}
             </Text>
           )}
@@ -183,13 +162,9 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       key: 'dataSource',
       render: (dataSource: any, record: any) => {
         if (record.direction === 'SCRIPT_JOB' || !dataSource) {
-          return <Tag color="orange">SCRIPT</Tag>;
+          return <Text type="secondary">User script</Text>;
         }
-        return (
-          <Tag color={dataSource.type === 'SQL' ? 'blue' : dataSource.type === 'MONGODB' ? 'green' : 'purple'}>
-            {dataSource.type}
-          </Tag>
-        );
+        return <Text type="secondary">{dataSource.type === 'MONGODB' ? 'MongoDB' : dataSource.type}</Text>;
       },
     },
     {
@@ -200,14 +175,14 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       render: (url: string, record: any) => {
         if (record.direction === 'SCRIPT_JOB' || !url) {
           return (
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="console-type-caption">
               —
             </Text>
           );
         }
         return (
           <Tooltip title={url}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="console-type-caption">
               {url}
             </Text>
           </Tooltip>
@@ -226,7 +201,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       render: (lastExecution: any) => {
         if (!lastExecution) {
           return (
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="console-type-caption">
               Never executed
             </Text>
           );
@@ -234,24 +209,36 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
 
         const statusIcon =
           lastExecution.status === 'SUCCESS' ? (
-            <CheckCircleOutlined style={{ color: colors.success[500] }} />
+            <GatewayIcon name="CheckCircleOutlined" className="console-text-success" />
           ) : lastExecution.status === 'FAILED' ? (
-            <CloseCircleOutlined style={{ color: colors.error[500] }} />
+            <GatewayIcon name="CloseCircleOutlined" className="console-text-error" />
           ) : (
-            <SyncOutlined spin style={{ color: colors.primary[500] }} />
+            <GatewayIcon name="SyncOutlined" spin className="console-text-accent" />
           );
 
         return (
           <Space direction="vertical" size="small">
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing[1] }}>
               {statusIcon}
-              <Badge
-                status={lastExecution.status === 'SUCCESS' ? 'success' : 'error'}
-                text={<Text style={{ fontSize: 12 }}>{formatDateTime(lastExecution.startedAt)}</Text>}
+              <StatusBadge
+                label={
+                  lastExecution.status === 'SUCCESS'
+                    ? 'Succeeded'
+                    : lastExecution.status === 'FAILED'
+                      ? 'Failed'
+                      : 'Running'
+                }
+                variant={
+                  lastExecution.status === 'SUCCESS' ? 'success' : lastExecution.status === 'FAILED' ? 'error' : 'info'
+                }
+                size="small"
               />
+              <Text type="secondary" className="console-type-caption">
+                {formatDateTime(lastExecution.startedAt)}
+              </Text>
             </div>
             {lastExecution.recordsFetched !== undefined && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
+              <Text type="secondary" className="console-type-caption">
                 {lastExecution.recordsFetched} records • {formatDuration(lastExecution.durationMs)}
               </Text>
             )}
@@ -269,7 +256,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       ],
       onFilter: (value: any, record: any) => record.isActive === value,
       render: (isActive: boolean) => (
-        <Tag color={isActive ? 'success' : 'default'}>{isActive ? 'Active' : 'Paused'}</Tag>
+        <StatusBadge label={isActive ? 'Active' : 'Paused'} variant={isActive ? 'success' : 'neutral'} size="small" />
       ),
     },
     {
@@ -283,7 +270,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
               type="text"
               size="small"
               aria-label={`Edit ${record.name}`}
-              icon={<EditOutlined />}
+              icon={<GatewayIcon name="EditOutlined" />}
               onClick={() => navigate(`/scheduled-jobs/${record._id}`)}
             />
           </Tooltip>
@@ -292,7 +279,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
               type="text"
               size="small"
               aria-label={`Execute ${record.name} now`}
-              icon={<PlayCircleOutlined />}
+              icon={<GatewayIcon name="PlayCircleOutlined" />}
               onClick={() => handleExecute(record._id)}
               loading={executeMutation.isPending && selectedJobId === record._id}
               disabled={!record.isActive}
@@ -304,7 +291,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
               size="small"
               danger
               aria-label={`Delete ${record.name}`}
-              icon={<DeleteOutlined />}
+              icon={<GatewayIcon name="DeleteOutlined" />}
               onClick={() => {
                 setSelectedJobId(record._id);
                 handleDelete(record._id);
@@ -318,27 +305,31 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
   ];
 
   return (
-    <div>
-      {!hideHeader && (
-        <PageHeader
-          title="Scheduled Jobs"
-          description="Time-driven batch integrations that run on cron schedules or intervals"
-          breadcrumb={[{ label: 'Configuration', path: '/integrations' }, { label: 'Scheduled Jobs' }]}
-          compact
-          actions={
-            <Button
-              type="primary"
-              size="middle"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/scheduled-jobs/new')}
-            >
-              Create Scheduled Job
-            </Button>
-          }
-        />
-      )}
-
-      <Card style={{ marginTop: hideHeader ? 0 : spacing[2] }} size="small">
+    <PageTemplate
+      as={hideHeader ? 'div' : 'main'}
+      className="scheduled-jobs-template"
+      header={
+        !hideHeader ? (
+          <PageHeader
+            title="Scheduled Jobs"
+            description="Time-driven batch integrations that run on cron schedules or intervals"
+            breadcrumb={[{ label: 'Configuration', path: '/integrations' }, { label: 'Scheduled Jobs' }]}
+            compact
+            actions={
+              <Button
+                type="primary"
+                size="middle"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => navigate('/scheduled-jobs/new')}
+              >
+                Create Scheduled Job
+              </Button>
+            }
+          />
+        ) : undefined
+      }
+    >
+      <Card size="small">
         {/* Compact Toolbar */}
         <div
           style={{
@@ -351,48 +342,27 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
             alignItems: 'center',
           }}
         >
-          {/* Count Tags */}
+          {/* Scope counts are metadata, not status indicators. */}
           <Space size="small">
-            <Tag
-              style={{
-                borderRadius: 4,
-                padding: `2px ${spacing[2]}`,
-                borderColor: cssVar.border.default,
-                background: cssVar.bg.elevated,
-                color: cssVar.text.secondary,
-                fontWeight: 600,
-                fontSize: 12,
-                margin: 0,
-              }}
-            >
-              {`${jobs.length} total`}
-            </Tag>
-            <Tag
-              style={{
-                borderRadius: 4,
-                padding: `2px ${spacing[2]}`,
-                borderColor: cssVar.success.border,
-                background: cssVar.success.bg,
-                color: cssVar.success.text,
-                fontWeight: 600,
-                fontSize: 12,
-                margin: 0,
-              }}
-            >
-              {jobs.filter((j: any) => j.isActive).length} active
-            </Tag>
+            <Text type="secondary">{jobs.length} total</Text>
+            <Text type="secondary">{jobs.filter((j: any) => j.isActive).length} active</Text>
           </Space>
 
-          <Divider type="vertical" style={{ height: 24, margin: 0 }} />
+          <Divider type="vertical" className="console-divider-6-reset" />
 
-          <SearchInput value={searchQuery} onChange={setSearchQuery} isNarrow={isNarrow} />
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            isNarrow={isNarrow}
+            label="Search scheduled jobs"
+          />
 
           {/* Status Filter */}
           <Select
             placeholder="Status"
             value={statusFilter}
             onChange={setStatusFilter}
-            style={{ width: 110 }}
+            className="ui-extracted-77a50c14cf"
             size="small"
             allowClear
             options={[
@@ -423,17 +393,23 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
             pageSizeOptions: ['10', '20', '50', '100'],
           }}
           emptyState={{
-            icon: <ClockCircleOutlined style={{ fontSize: 64, color: cssVar.text.muted }} />,
+            icon: (
+              <GatewayIcon name="ClockCircleOutlined" style={{ width: 64, height: 64, color: cssVar.text.muted }} />
+            ),
             title: 'No scheduled jobs yet',
             description: 'Create your first scheduled job to start running batch integrations on a schedule',
             action: (
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/scheduled-jobs/new')}>
+              <Button
+                type="primary"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => navigate('/scheduled-jobs/new')}
+              >
                 Create Scheduled Job
               </Button>
             ),
           }}
         />
       </Card>
-    </div>
+    </PageTemplate>
   );
 };

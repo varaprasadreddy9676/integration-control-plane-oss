@@ -1,8 +1,6 @@
-import { Typography } from 'antd';
+import { Text } from '@astryxdesign/core/Text';
 import type { DeliveryFollowUpStats } from '../../../services/api';
 import { followUpStatusLabel } from './followUpStatus';
-
-const { Text } = Typography;
 
 /**
  * One line of results for the integration being looked at: how many messages
@@ -18,8 +16,8 @@ export const DeliveryFollowUpSummary = ({ stats }: { stats?: DeliveryFollowUpSta
   const topError = stats.topErrors[0];
 
   return (
-    <div style={{ marginTop: 8 }} aria-label="Follow-up results">
-      <Text type="secondary" style={{ fontSize: 12 }}>
+    <div className="console-margin-top-2" aria-label="Follow-up results">
+      <Text color="secondary" className="console-type-caption">
         Follow-up results for {stats.tracked.toLocaleString()} {stats.tracked === 1 ? 'message' : 'messages'}:{' '}
         <strong>{parts.join(' · ')}</strong>
         {topError && (

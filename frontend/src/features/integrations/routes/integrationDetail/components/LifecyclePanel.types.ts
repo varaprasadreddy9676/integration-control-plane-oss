@@ -1,4 +1,4 @@
-import type { FormInstance } from 'antd';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 
 export interface LifecyclePanelSurfaceProps {
   token: any;

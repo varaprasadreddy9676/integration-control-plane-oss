@@ -1,4 +1,5 @@
-import { Col, Form, InputNumber, Radio, Row, Select, Space, Typography } from 'antd';
+import { Col, Form, InputNumber, Radio, Row, Select, Space } from "@/components/common/LegacyAntdControls";
+import { Typography } from '@/components/common/LegacyTypography';
 
 const { Text } = Typography;
 
@@ -18,12 +19,11 @@ export const ConditionReleaseTimingFields = ({ ruleName, dateFieldOptions }: Con
   const mode = Form.useWatch(modePath, form) || 'IMMEDIATE';
 
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-      <Form.Item label="When should it release?" style={{ marginBottom: 0 }}>
+    <Space direction="vertical" size={8} className="console-width-full">
+      <Form.Item label="When should it release?" className="console-margin-bottom-none">
         <Radio.Group
           buttonStyle="solid"
-          optionType="button"
-          style={{ width: '100%' }}
+          optionType="button" className="console-width-full"
           value={mode}
           onChange={(event) => {
             const nextMode = event?.target?.value || 'IMMEDIATE';
@@ -34,10 +34,10 @@ export const ConditionReleaseTimingFields = ({ ruleName, dateFieldOptions }: Con
             }
           }}
         >
-          <Radio.Button value="IMMEDIATE" style={{ width: '50%', textAlign: 'center' }}>
+          <Radio.Button value="IMMEDIATE" className="ui-extracted-855d6e94b1">
             Immediately
           </Radio.Button>
-          <Radio.Button value="OFFSET_FROM_EVENT_FIELD" style={{ width: '50%', textAlign: 'center' }}>
+          <Radio.Button value="OFFSET_FROM_EVENT_FIELD" className="ui-extracted-855d6e94b1">
             Later from follow-up date
           </Radio.Button>
         </Radio.Group>
@@ -50,8 +50,7 @@ export const ConditionReleaseTimingFields = ({ ruleName, dateFieldOptions }: Con
               <Form.Item
                 name={[ruleName, 'releaseTiming', 'eventFieldPath']}
                 label="Use date from follow-up event"
-                rules={[{ required: true, message: 'Select a date or datetime field' }]}
-                style={{ marginBottom: 0 }}
+                rules={[{ required: true, message: 'Select a date or datetime field' }]} className="console-margin-bottom-none"
               >
                 <Select
                   showSearch
@@ -65,14 +64,16 @@ export const ConditionReleaseTimingFields = ({ ruleName, dateFieldOptions }: Con
               <Form.Item
                 name={[ruleName, 'releaseTiming', 'offsetValue']}
                 label="Wait"
-                rules={[{ required: true, message: 'Enter offset' }]}
-                style={{ marginBottom: 0 }}
+                rules={[{ required: true, message: 'Enter offset' }]} className="console-margin-bottom-none"
               >
-                <InputNumber min={0} step={1} style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="console-width-full" />
               </Form.Item>
             </Col>
             <Col xs={24} lg={6}>
-              <Form.Item name={[ruleName, 'releaseTiming', 'offsetUnit']} label="Unit" style={{ marginBottom: 0 }}>
+              <Form.Item
+                name={[ruleName, 'releaseTiming', 'offsetUnit']}
+                label="Unit" className="console-margin-bottom-none"
+              >
                 <Select
                   options={[
                     { label: 'Minutes', value: 'MINUTES' },

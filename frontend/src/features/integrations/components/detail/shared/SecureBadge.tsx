@@ -1,6 +1,5 @@
-import { Tag, Tooltip } from 'antd';
-import { LockOutlined, EyeInvisibleOutlined, SafetyOutlined } from '@ant-design/icons';
-import { cssVar } from '../../../../../design-system/utils';
+import { Tooltip } from "@/components/common/LegacyAntdControls";
+import { StatusBadge } from '../../../../../components/common/StatusBadge';
 
 interface SecureBadgeProps {
   type?: 'encrypted' | 'masked' | 'secure';
@@ -8,57 +7,19 @@ interface SecureBadgeProps {
   size?: 'small' | 'default';
 }
 
-export const SecureBadge = ({
-  type = 'secure',
-  tooltip,
-  size = 'small'
-}: SecureBadgeProps) => {
-  const colors = cssVar.legacy;
-
-  const getBadgeConfig = () => {
-    switch (type) {
-      case 'encrypted':
-        return {
-          icon: <LockOutlined />,
-          text: 'Encrypted',
-          tooltip: tooltip || 'This value is encrypted before storage',
-          color: colors.success[500]
-        };
-      case 'masked':
-        return {
-          icon: <EyeInvisibleOutlined />,
-          text: 'Last 4 shown',
-          tooltip: tooltip || 'Only the last 4 characters are shown for security',
-          color: cssVar.text.secondary
-        };
-      default:
-        return {
-          icon: <SafetyOutlined />,
-          text: 'Stored securely',
-          tooltip: tooltip || 'This sensitive value is encrypted and stored securely',
-          color: colors.success[500]
-        };
-    }
-  };
-
-  const config = getBadgeConfig();
+export const SecureBadge = ({ type = 'secure', tooltip }: SecureBadgeProps) => {
+  const text = type === 'encrypted' ? 'Encrypted' : type === 'masked' ? 'Last 4 shown' : 'Stored securely';
+  const description = tooltip || (type === 'masked'
+    ? 'Only the last 4 characters are shown for security'
+    : type === 'encrypted'
+      ? 'This value is encrypted before storage'
+      : 'This sensitive value is encrypted and stored securely');
 
   return (
-    <Tooltip title={config.tooltip} placement="right">
-      <Tag
-        icon={config.icon}
-        color="default"
-        style={{
-          fontSize: size === 'small' ? 11 : 12,
-          border: `1px solid ${colors.success[200]}`,
-          background: colors.success[50],
-          color: config.color,
-          cursor: 'help',
-          marginLeft: 8
-        }}
-      >
-        {config.text}
-      </Tag>
+    <Tooltip title={description} placement="right">
+      <span className="console-margin-left-2">
+        <StatusBadge label={text} variant={type === 'masked' ? 'neutral' : 'success'} showIcon={false} />
+      </span>
     </Tooltip>
   );
 };

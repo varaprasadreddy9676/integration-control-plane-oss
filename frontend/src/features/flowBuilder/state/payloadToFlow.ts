@@ -20,6 +20,7 @@ import {
   MultiActionNodeData,
   ResponseNodeData,
 } from './flowTypes';
+import { layoutFlowGraph } from './flowLayout';
 
 // ============================================================================
 // Main Conversion Function
@@ -57,6 +58,8 @@ export function payloadToFlow(payload: BackendIntegrationPayload, integrationId?
   } else if (mode === 'OUTBOUND_SCHEDULED') {
     convertOutboundScheduledPayload(payload, flowState);
   }
+
+  flowState.nodes = layoutFlowGraph(flowState.nodes, flowState.edges);
 
   return flowState;
 }

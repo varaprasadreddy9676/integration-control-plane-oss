@@ -1,16 +1,20 @@
 import { useMemo } from 'react';
-import { Card, Typography, Skeleton, Tag } from 'antd';
-import { ApiOutlined, CheckCircleOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { Card } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { LineChart, BarChart, ComposedChart, HeatmapChart, HeatmapData } from '../../../components/charts';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { Button } from '../../../components/common/LegacyButton';
 import { formatNumber } from '../../../utils/format';
-import { useDesignTokens } from '../../../design-system/utils';
+import { cssVar, useDesignTokens } from '../../../design-system/utils';
 import {
   DashboardEmptyState,
+  DashboardLoadingState,
   DashboardSectionTitle,
   DashboardMetricTile,
-  useDashboardPanelStyle,
-  useDashboardTagTone,
+  getDashboardIntegrationRowKey,
+  getDashboardRateTone,
+  DASHBOARD_PANEL_CLASS,
 } from './DashboardPrimitives';
 
 interface DashboardInboundTabProps {
@@ -43,8 +47,6 @@ export const DashboardInboundTab = ({
   onLegendClick,
 }: DashboardInboundTabProps) => {
   const { themeColors, spacing, token } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-  const tagTone = useDashboardTagTone();
 
   // KPI Metrics
   const kpiMetrics = useMemo(() => {
@@ -62,7 +64,7 @@ export const DashboardInboundTab = ({
         label: 'Total Requests',
         value: formatNumber(total),
         delta: timeLabel,
-        icon: <ApiOutlined />,
+        icon: <GatewayIcon name="ApiOutlined" />,
         tone: themeColors.primary.default,
         onClick: () => onNavigate('/logs?direction=INBOUND'),
       },
@@ -70,7 +72,7 @@ export const DashboardInboundTab = ({
         label: 'Success Rate',
         value: `${successRate}%`,
         delta: `${formatNumber(successful)} successful`,
-        icon: <CheckCircleOutlined />,
+        icon: <GatewayIcon name="CheckCircleOutlined" />,
         // total === 0 means no inbound integrations have run yet — a genuinely
         // neutral "no data" state, not a failure, and must not read as red the
         // same way a real 0% success rate out of real traffic would.
@@ -88,14 +90,14 @@ export const DashboardInboundTab = ({
         label: 'Avg Response Time',
         value: `${Math.round(avgResponseTime)} ms`,
         delta: `P95: ${Math.round(p95)} ms`,
-        icon: <ClockCircleOutlined />,
+        icon: <GatewayIcon name="ClockCircleOutlined" />,
         tone: themeColors.info.text,
       },
       {
         label: 'Rate Limit Status',
         value: '—',
         delta: 'Telemetry unavailable',
-        icon: <WarningOutlined />,
+        icon: <GatewayIcon name="WarningOutlined" />,
         tone: token.colorTextSecondary,
       },
     ];
@@ -187,16 +189,20 @@ export const DashboardInboundTab = ({
   return (
     <>
       {/* Real-Time Health Status KPI Cards */}
-      <section className="dashboard-overview" style={{ marginTop: spacing[4] }}>
-        <div className="dashboard-kpis">
-          {kpiMetrics.map((metric) => (
-            <DashboardMetricTile key={metric.label} {...metric} loading={analyticsLoading} />
-          ))}
-        </div>
+      <section className="dashboard-overview console-margin-top-4">
+        {analyticsLoading ? (
+          <DashboardLoadingState title="Loading inbound health" />
+        ) : (
+          <div className="dashboard-kpis">
+            {kpiMetrics.map((metric) => (
+              <DashboardMetricTile key={metric.label} {...metric} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* API Performance Metrics */}
-      <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+      <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
         <Card
           variant="borderless"
           title={
@@ -208,7 +214,7 @@ export const DashboardInboundTab = ({
           styles={{ body: { padding: spacing[5] } }}
         >
           {analyticsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading inbound response times" />
           ) : responseTimeTrend.length > 0 ? (
             <ComposedChart
               data={responseTimeTrend}
@@ -233,7 +239,7 @@ export const DashboardInboundTab = ({
         </Card>
 
         <Card
-          style={{ marginTop: spacing[4] }}
+          className="console-margin-top-4"
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -241,11 +247,11 @@ export const DashboardInboundTab = ({
               subtitle="Latency and success metrics per inbound integration"
             />
           }
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 'var(--spacing-0)' } }}
         >
           {analyticsLoading ? (
             <div style={{ padding: spacing[4] }}>
-              <Skeleton active paragraph={{ rows: 6 }} />
+              <DashboardLoadingState title="Loading inbound performance" />
             </div>
           ) : endpointPerformance.length > 0 ? (
             <ModernTable<any>
@@ -260,7 +266,7 @@ export const DashboardInboundTab = ({
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} endpoints`,
                 position: ['bottomCenter'],
               }}
-              rowKey="__KEEP___KEEP_integrationConfig__Id__"
+              rowKey={getDashboardIntegrationRowKey}
               columns={[
                 {
                   title: 'Endpoint',
@@ -270,13 +276,21 @@ export const DashboardInboundTab = ({
                   ellipsis: true,
                   sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
                   render: (name: string, record: any) => (
-                    <Typography.Link
+                    <Button
+                      type="link"
+                      size="small"
                       onClick={() => onNavigate(getIntegrationPath(record))}
-                      style={{ fontWeight: 600, fontSize: 14 }}
-                      ellipsis
+                      style={{
+                        color: cssVar.accent.text,
+                        fontWeight: 600,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
                       {name || 'Unknown'}
-                    </Typography.Link>
+                    </Button>
                   ),
                 },
                 {
@@ -287,9 +301,9 @@ export const DashboardInboundTab = ({
                   width: 150,
                   sorter: (a: any, b: any) => a.total - b.total,
                   render: (value: number) => (
-                    <Typography.Text strong style={{ fontSize: 13 }}>
+                    <Text weight="semibold" hasTabularNumbers>
                       {formatNumber(value)}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -301,13 +315,14 @@ export const DashboardInboundTab = ({
                   sorter: (a: any, b: any) => parseFloat(a.successRate) - parseFloat(b.successRate),
                   render: (rate: string) => {
                     const numRate = parseFloat(rate);
-                    const color =
-                      numRate >= 95
-                        ? themeColors.success.text
-                        : numRate >= 85
-                          ? themeColors.warning.text
-                          : themeColors.error.text;
-                    return <Tag style={tagTone(color)}>{rate}%</Tag>;
+                    return (
+                      <Text
+                        className={`dashboard-metric-tone dashboard-metric-tone--${getDashboardRateTone(numRate)}`}
+                        hasTabularNumbers
+                      >
+                        {rate}%
+                      </Text>
+                    );
                   },
                 },
                 {
@@ -318,9 +333,9 @@ export const DashboardInboundTab = ({
                   width: 140,
                   sorter: (a: any, b: any) => a.avgResponseTime - b.avgResponseTime,
                   render: (latency: number) => (
-                    <Typography.Text style={{ fontSize: 13, fontFamily: 'ui-monospace, monospace' }}>
+                    <Text type="code" hasTabularNumbers>
                       {Math.round(latency)} ms
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -332,13 +347,13 @@ export const DashboardInboundTab = ({
                   sorter: (a: any, b: any) => a.p95 - b.p95,
                   render: (latency: number) =>
                     latency != null ? (
-                      <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                      <Text type="code" color="secondary" hasTabularNumbers>
                         {latency} ms
-                      </Typography.Text>
+                      </Text>
                     ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="supporting" color="secondary">
                         —
-                      </Typography.Text>
+                      </Text>
                     ),
                 },
                 {
@@ -350,13 +365,13 @@ export const DashboardInboundTab = ({
                   sorter: (a: any, b: any) => a.p99 - b.p99,
                   render: (latency: number) =>
                     latency != null ? (
-                      <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                      <Text type="code" color="secondary" hasTabularNumbers>
                         {latency} ms
-                      </Typography.Text>
+                      </Text>
                     ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="supporting" color="secondary">
                         —
-                      </Typography.Text>
+                      </Text>
                     ),
                 },
               ]}
@@ -370,7 +385,7 @@ export const DashboardInboundTab = ({
       {/* Reliability Tracking */}
       <section className="dashboard-tab-grid">
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -381,7 +396,7 @@ export const DashboardInboundTab = ({
           styles={{ body: { padding: spacing[4] } }}
         >
           {analyticsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading inbound reliability" />
           ) : reliabilityChartData.length > 0 ? (
             <BarChart
               data={reliabilityChartData}
@@ -410,7 +425,7 @@ export const DashboardInboundTab = ({
       <section className="dashboard-tab-grid">
         {days >= 7 && heatmapData.length > 0 && (
           <Card
-            style={panelStyle}
+            className={DASHBOARD_PANEL_CLASS}
             variant="borderless"
             title={
               <DashboardSectionTitle title="Peak Hours Heatmap" subtitle="Request patterns by day of week and hour" />
@@ -418,7 +433,7 @@ export const DashboardInboundTab = ({
             styles={{ body: { padding: spacing[5] } }}
           >
             {analyticsLoading ? (
-              <Skeleton active paragraph={{ rows: 8 }} />
+              <DashboardLoadingState title="Loading request patterns" />
             ) : (
               <HeatmapChart
                 data={heatmapData}

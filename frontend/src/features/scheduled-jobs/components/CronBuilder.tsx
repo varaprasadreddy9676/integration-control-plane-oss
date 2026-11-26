@@ -1,19 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Card, Radio, TimePicker, Space, Tag, Button, Input, Typography, Select, Divider } from 'antd';
-import {
-  ClockCircleOutlined,
-  ThunderboltOutlined,
-  CopyOutlined,
-  CheckOutlined,
-  CodeOutlined,
-  GlobalOutlined,
-  CalendarOutlined,
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Card, Radio, TimePicker, Space, Input, Select, Divider } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { useDesignTokens, cssVar } from '../../../design-system/utils';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { Button } from '../../../components/common/LegacyButton';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -156,7 +150,6 @@ interface CronBuilderProps {
 
 export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChange }: CronBuilderProps) => {
   const { spacing, token } = useDesignTokens();
-  const colors = cssVar.legacy;
   const [frequency, setFrequency] = useState<'hourly' | 'daily' | 'weekly' | 'monthly'>('daily');
   const [time, setTime] = useState(dayjs().hour(9).minute(0));
   const [selectedDays, setSelectedDays] = useState<string[]>(['1', '2', '3', '4', '5']); // Mon-Fri
@@ -230,87 +223,89 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
   return (
     <Card style={panelStyle} bodyStyle={{ padding: spacing[4] }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[4] }}>
+      <div className="console-flex-between-center-margin-bottom-4">
         <Space>
-          <ThunderboltOutlined style={{ fontSize: 20, color: colors.primary[600] }} />
+          <GatewayIcon
+            name="ThunderboltOutlined"
+            className="console-title-accent"
+          />
           <div>
-            <Text strong style={{ display: 'block', fontSize: 16 }}>
+            <Text strong className="console-display-block console-type-section">
               Schedule Configuration
             </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="console-type-caption">
               Configure when this job should run
             </Text>
           </div>
         </Space>
-        <Button size="small" onClick={() => setIsAdvanced(!isAdvanced)} icon={<CodeOutlined />}>
+        <Button size="small" onClick={() => setIsAdvanced(!isAdvanced)} icon={<GatewayIcon name="CodeOutlined" />}>
           {isAdvanced ? 'Use Builder' : 'Advanced'}
         </Button>
       </div>
 
-      <Divider style={{ margin: `${spacing[3]} 0` }} />
+      <Divider className="console-margin-y-3" />
 
       {/* Quick Presets */}
       {!isAdvanced && (
-        <div style={{ marginBottom: spacing[4] }}>
-          <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}>
+        <div className="console-margin-bottom-4">
+          <Text
+            type="secondary"
+            className="cron-field-label"
+          >
             Quick Presets
           </Text>
           <Space size="small" wrap>
             {QUICK_PRESETS.map((preset) => (
-              <Tag
+              <Button
                 key={preset.value}
-                style={{
-                  cursor: 'pointer',
-                  borderColor: cssVar.border.default,
-                  background: cssVar.bg.elevated,
-                  padding: `${spacing[1]} ${spacing[2]}`,
-                }}
+                size="small"
+                type={value === preset.value ? 'primary' : 'default'}
+                aria-pressed={value === preset.value}
                 onClick={() => handlePresetSelect(preset.value)}
               >
                 {preset.label}
-              </Tag>
+              </Button>
             ))}
           </Space>
         </div>
       )}
 
       {!isAdvanced ? (
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space direction="vertical" size="large" className="console-width-full">
           {/* Frequency Selector */}
           <div>
             <Text
               type="secondary"
-              style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}
+              className="cron-field-label"
             >
               Frequency
             </Text>
             <Radio.Group
               value={frequency}
               onChange={(e) => setFrequency(e.target.value)}
-              buttonStyle="solid"
-              style={{ width: '100%' }}
+              buttonStyle="solid" className="console-width-full"
             >
-              <Radio.Button value="hourly" style={{ width: '25%', textAlign: 'center' }}>
-                <ClockCircleOutlined /> Hourly
+              <Radio.Button value="hourly" className="console-width-quarter-center">
+                <GatewayIcon name="ClockCircleOutlined" /> Hourly
               </Radio.Button>
-              <Radio.Button value="daily" style={{ width: '25%', textAlign: 'center' }}>
-                <CalendarOutlined /> Daily
+              <Radio.Button value="daily" className="console-width-quarter-center">
+                <GatewayIcon name="CalendarOutlined" /> Daily
               </Radio.Button>
-              <Radio.Button value="weekly" style={{ width: '25%', textAlign: 'center' }}>
-                <CalendarOutlined /> Weekly
+              <Radio.Button value="weekly" className="console-width-quarter-center">
+                <GatewayIcon name="CalendarOutlined" /> Weekly
               </Radio.Button>
-              <Radio.Button value="monthly" style={{ width: '25%', textAlign: 'center' }}>
-                <CalendarOutlined /> Monthly
+              <Radio.Button value="monthly" className="console-width-quarter-center">
+                <GatewayIcon name="CalendarOutlined" /> Monthly
               </Radio.Button>
             </Radio.Group>
           </div>
 
           {/* Time & Timezone Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing[3] }}>
+          <div className="console-grid-two-gap-3">
             <div>
               <Text
                 type="secondary"
-                style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}
+                className="cron-field-label"
               >
                 {frequency === 'hourly' ? 'Minute Past Hour' : 'Execution Time'}
               </Text>
@@ -319,25 +314,23 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
                 onChange={(t) => t && setTime(t)}
                 format={frequency === 'hourly' ? 'mm' : 'HH:mm'}
                 size="large"
-                showNow={false}
-                style={{ width: '100%' }}
-                suffixIcon={<ClockCircleOutlined />}
+                showNow={false} className="console-width-full"
+                suffixIcon={<GatewayIcon name="ClockCircleOutlined" />}
                 placeholder={frequency === 'hourly' ? 'Select minute (0-59)' : 'Select time'}
               />
             </div>
             <div>
               <Text
                 type="secondary"
-                style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}
+                className="cron-field-label"
               >
                 Timezone
               </Text>
               <Select
                 value={timezone}
                 onChange={onTimezoneChange}
-                size="large"
-                style={{ width: '100%' }}
-                suffixIcon={<GlobalOutlined />}
+                size="large" className="console-width-full"
+                suffixIcon={<GatewayIcon name="GlobalOutlined" />}
                 showSearch
                 filterOption={(input, option) =>
                   (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
@@ -356,17 +349,16 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
             <div>
               <Text
                 type="secondary"
-                style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}
+                style={{
+                  fontSize: 'var(--console-type-caption)',
+                  fontWeight: 600,
+                  marginBottom: spacing[2],
+                  display: 'block',
+                }}
               >
                 Days of Week
               </Text>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: spacing[2],
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className="console-flex-wrap-gap-2">
                 {DAYS.map((day) => {
                   const isSelected = selectedDays.includes(day.id);
                   return (
@@ -378,7 +370,7 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
                           prev.includes(day.id) ? prev.filter((d) => d !== day.id) : [...prev, day.id]
                         );
                       }}
-                      style={{ flex: 1, minWidth: 80 }}
+                      className="cron-day-option"
                     >
                       {day.short}
                     </Button>
@@ -390,7 +382,10 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
         </Space>
       ) : (
         <div>
-          <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}>
+          <Text
+            type="secondary"
+            className="cron-field-label"
+          >
             Cron Expression
           </Text>
           <Input
@@ -399,42 +394,42 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
               setAdvancedCron(e.target.value);
               onChange?.(e.target.value);
             }}
-            prefix={<CodeOutlined style={{ color: colors.primary[500] }} />}
+            prefix={<GatewayIcon name="CodeOutlined" className="console-text-accent" />}
             size="large"
-            style={{ fontFamily: 'monospace', fontSize: 14 }}
+            className="console-font-mono console-type-control"
             placeholder="0 9 * * *"
           />
-          <Text type="secondary" style={{ fontSize: 11, marginTop: spacing[1], display: 'block' }}>
+          <Text
+            type="secondary"
+            className="console-type-caption console-margin-top-1 console-display-block"
+          >
             Format: minute hour day-of-month month day-of-week
           </Text>
         </div>
       )}
 
-      <Divider style={{ margin: `${spacing[4]} 0` }} />
+      <Divider className="console-margin-y-4" />
 
       {/* Interpretation */}
       <div
-        style={{
-          padding: spacing[3],
-          borderRadius: token.borderRadius,
-          background: cssVar.info.bg,
-          border: `1px solid ${cssVar.info.border}`,
-          marginBottom: spacing[4],
-        }}
+        className="cron-interpretation-panel"
       >
         <Space align="start">
-          <ClockCircleOutlined style={{ color: colors.info[600], marginTop: 2 }} />
+          <GatewayIcon name="ClockCircleOutlined" className="console-text-info console-margin-top-1" />
           <div>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+            <Text type="secondary" className="console-caption-block">
               This job will run:
             </Text>
-            <Text strong style={{ fontSize: 14, color: cssVar.text.primary }}>
+            <Text strong className="console-type-control console-text-primary">
               {interpretation}{' '}
-              <Tag color="blue" style={{ marginLeft: 4 }}>
+              <Text type="supporting" color="secondary">
                 {timezone}
-              </Tag>
+              </Text>
             </Text>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+            <Text
+              type="secondary"
+              className="console-type-caption console-display-block console-margin-top-1"
+            >
               Right now it's {dayjs().tz(timezone).format('HH:mm')} in {timezone}
               {timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone &&
                 ` (your local time is ${dayjs().format('HH:mm')})`}
@@ -445,28 +440,22 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
 
       {/* Cron Expression Output */}
       <div
-        style={{
-          padding: spacing[3],
-          background: cssVar.bg.overlay,
-          border: `1px solid ${cssVar.border.default}`,
-          borderRadius: token.borderRadius,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: spacing[4],
-        }}
+        className="cron-expression-output"
       >
-        <div style={{ flex: 1 }}>
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: spacing[1] }}>
+        <div className="console-flex-fill">
+          <Text
+            type="secondary"
+            className="console-caption-block-margin-bottom-1"
+          >
             Cron Expression
           </Text>
-          <Text strong style={{ fontSize: 16, fontFamily: 'monospace', letterSpacing: '1px' }}>
+          <Text strong className="console-type-section console-font-mono">
             {cronExpression}
           </Text>
         </div>
         <Button
           type={copied ? 'primary' : 'default'}
-          icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+          icon={copied ? <GatewayIcon name="CheckOutlined" /> : <GatewayIcon name="CopyOutlined" />}
           onClick={handleCopy}
         >
           {copied ? 'Copied' : 'Copy'}
@@ -475,46 +464,35 @@ export const CronBuilder = ({ value, timezone = 'UTC', onChange, onTimezoneChang
 
       {/* Next Executions Preview */}
       <div>
-        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, marginBottom: spacing[2], display: 'block' }}>
+        <Text
+          type="secondary"
+          className="cron-field-label"
+        >
           Next 5 Scheduled Executions
         </Text>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Space direction="vertical" size="small" className="console-width-full">
           {nextExecutions.length > 0 ? (
             nextExecutions.map((exec, i) => (
               <div
                 key={i}
-                style={{
-                  padding: `${spacing[2]} ${spacing[3]}`,
-                  background: cssVar.bg.elevated,
-                  border: `1px solid ${cssVar.border.default}`,
-                  borderRadius: token.borderRadius,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
+                className="cron-next-execution"
               >
                 <Space>
-                  <Tag color={i === 0 ? 'blue' : 'default'} style={{ margin: 0 }}>
+                  <Text type="supporting" color="secondary">
                     {i + 1}
-                  </Tag>
-                  <Text style={{ fontSize: 13 }}>{exec.format('ddd, MMM D, YYYY')}</Text>
+                  </Text>
+                  <Text className="console-type-body">{exec.format('ddd, MMM D, YYYY')}</Text>
                 </Space>
-                <Text strong style={{ fontSize: 13, fontFamily: 'monospace' }}>
+                <Text strong className="console-type-body console-font-mono">
                   {exec.format('HH:mm:ss')} {timezone}
                 </Text>
               </div>
             ))
           ) : (
             <div
-              style={{
-                padding: spacing[3],
-                background: cssVar.warning.bg,
-                border: `1px solid ${cssVar.warning.border}`,
-                borderRadius: token.borderRadius,
-                textAlign: 'center',
-              }}
+              className="cron-error-state"
             >
-              <Text style={{ color: cssVar.warning.text }}>
+              <Text className="console-text-warning">
                 Unable to calculate next executions. Please verify your cron expression.
               </Text>
             </div>

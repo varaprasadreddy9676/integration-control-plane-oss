@@ -1,51 +1,14 @@
-import {
-  useMemo,
-  useState,
-  useEffect,
-  useCallback,
-} from 'react';
-import {
-  Link,
-} from 'react-router-dom';
-import {
-  App,
-  Alert,
-  Button,
-  Card,
-  Divider,
-  Dropdown,
-  Flex,
-  Grid,
-  Input,
-  Space,
-  Typography,
-  Switch,
-  Collapse,
-  Tag,
-  Tooltip,
-} from 'antd';
-import {
-  CodeOutlined,
-  InfoCircleOutlined,
-  LinkOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-  FileTextOutlined,
-  CheckCircleFilled,
-  UndoOutlined,
-  HighlightOutlined,
-  FileAddOutlined,
-  DatabaseOutlined,
-  BookOutlined,
-} from '@ant-design/icons';
-import {
-  MonacoEditorInput,
-} from './MonacoEditorInput';
-import {
-  cssVar,
-  useDesignTokens,
-  spacingToNumber,
-} from '../../../design-system/utils';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { App, Card, Divider, Dropdown, Flex, Grid, Input, Space, Switch, Collapse, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Text } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { MonacoEditorInput } from './MonacoEditorInput';
+import { useDesignTokens, spacingToNumber } from '../../../design-system/utils';
+import { Button } from '../../../components/common/LegacyButton';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { InlineNotice as Notice } from '../../../components/common';
 
 // Default source fields will be dynamically loaded from the API based on selected event type
 // No hardcoded values here - everything comes from the event_types collection in MongoDB
@@ -104,23 +67,25 @@ const JavascriptTab = ({
   validationStatus?: 'idle' | 'success' | 'error';
   validationMessage?: string;
 }) => {
-  const { spacing, token } = useDesignTokens();
-  const colors = cssVar.legacy;
+  const { spacing } = useDesignTokens();
 
   return (
-    <div className="panel" style={{ padding: spacing[3], borderRadius: token.borderRadiusLG }}>
-      <Space direction="vertical" size={spacingToNumber(spacing[2])} style={{ width: '100%' }}>
+    <div className="panel transformation-script-panel">
+      <Space direction="vertical" size={spacingToNumber(spacing[2])} className="console-width-full">
         <Flex justify="space-between" align="center">
           <div>
-            <Typography.Title level={5} style={{ margin: 0 }}>
+            <Heading level={5} className="console-margin-none">
               JavaScript Transform
-            </Typography.Title>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            </Heading>
+            <Text type="supporting" size="sm" color="secondary">
               Available: <code>payload</code>, <code>context</code>
               <Tooltip title="Sandbox environment: No network, filesystem, or imports. 10s timeout.">
-                <InfoCircleOutlined style={{ marginLeft: 6, color: colors.info[500], cursor: 'help' }} />
+                <GatewayIcon
+                  name="InfoCircleOutlined"
+                  className="console-margin-left-2 console-text-info console-cursor-help"
+                />
               </Tooltip>
-            </Typography.Text>
+            </Text>
           </div>
           <Collapse
             ghost
@@ -128,23 +93,12 @@ const JavascriptTab = ({
               {
                 key: 'example',
                 label: (
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    <CodeOutlined /> Example
-                  </Typography.Text>
+                  <Text type="supporting" size="sm" color="secondary">
+                    <GatewayIcon name="CodeOutlined" /> Example
+                  </Text>
                 ),
                 children: (
-                  <pre
-                    style={{
-                      margin: 0,
-                      whiteSpace: 'pre-wrap',
-                      fontFamily: token.fontFamilyCode,
-                      fontSize: 12,
-                      padding: spacing[2],
-                      background: colors.neutral[900],
-                      color: colors.neutral[50],
-                      borderRadius: token.borderRadius,
-                    }}
-                  >
+                  <pre className="transformation-code-example">
                     {`const result = {
   event_type: context.eventType,
   entity_id: payload.patientRID,
@@ -167,16 +121,13 @@ return result;`}
                   <Space size={4} style={{ paddingLeft: (field.depth || 0) * 8 }}>
                     <span>{field.label}</span>
                     {field.typeBadge && (
-                      <Tag
-                        color={field.type === 'array' ? 'blue' : 'purple'}
-                        style={{ fontSize: '10px', lineHeight: '16px' }}
-                      >
+                      <Text type="supporting" color="secondary">
                         {field.typeBadge}
-                      </Tag>
+                      </Text>
                     )}
-                    <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                    <Text type="code" color="secondary">
                       {field.path || field.key}
-                    </Typography.Text>
+                    </Text>
                   </Space>
                 ),
                 onClick: () => {
@@ -189,14 +140,14 @@ return result;`}
               })),
             }}
           >
-            <Button icon={<FileAddOutlined />} size="small">
+            <Button icon={<GatewayIcon name="FileAddOutlined" />} size="small">
               Insert Field
             </Button>
           </Dropdown>
-          <Button icon={<HighlightOutlined />} onClick={onValidate} size="small">
+          <Button icon={<GatewayIcon name="HighlightOutlined" />} onClick={onValidate} size="small">
             Validate
           </Button>
-          <Button icon={<UndoOutlined />} onClick={onReset} size="small">
+          <Button icon={<GatewayIcon name="UndoOutlined" />} onClick={onReset} size="small">
             Insert example
           </Button>
         </Flex>
@@ -204,36 +155,25 @@ return result;`}
         <Collapse
           size="small"
           ghost
-          style={{ marginTop: spacing[3], marginBottom: spacing[2] }}
+          className="console-margin-top-3 console-margin-bottom-2"
           items={[
             {
               key: 'lookup-help',
               label: (
                 <Space size={4}>
-                  <DatabaseOutlined style={{ color: colors.primary[600] }} />
-                  <Typography.Text strong style={{ fontSize: 13 }}>
+                  <GatewayIcon name="DatabaseOutlined" className="console-text-accent" />
+                  <Text size="base" weight="semibold">
                     Using Lookup Tables in Scripts
-                  </Typography.Text>
+                  </Text>
                 </Space>
               ),
               children: (
                 <div>
-                  <Typography.Text style={{ fontSize: 12 }}>
+                  <Text type="supporting" size="sm">
                     Use the <code>lookup(sourceCode, mappingType)</code> function to translate codes using your
                     configured lookup tables:
-                  </Typography.Text>
-                  <pre
-                    style={{
-                      background: colors.neutral[900],
-                      color: colors.neutral[100],
-                      padding: spacing[2],
-                      borderRadius: 4,
-                      fontSize: 12,
-                      overflow: 'auto',
-                      marginTop: 8,
-                      marginBottom: 8,
-                    }}
-                  >
+                  </Text>
+                  <pre className="transformation-code-example transformation-lookup-example">
                     {`// Simple lookup
 externalServiceCode: lookup(payload.serviceCode, 'SERVICE_CODE'),
 
@@ -246,30 +186,28 @@ items: payload.items?.map(item => ({
   externalCode: lookup(item.code, 'ITEM_CODE')
 }))`}
                   </pre>
-                  <Typography.Link href="/help/lookup-guide" target="_blank" style={{ fontSize: 12 }}>
-                    <BookOutlined style={{ marginRight: 4 }} />
+                  <a href="/help/lookup-guide" target="_blank" rel="noreferrer">
+                    <GatewayIcon name="BookOutlined" className="console-margin-right-1" />
                     View Complete Lookup Tables Guide
-                  </Typography.Link>
+                  </a>
                 </div>
               ),
             },
           ]}
         />
 
-        <div style={{ marginTop: spacing[2] }}>
+        <div className="console-margin-top-2">
           <MonacoEditorInput value={scriptValue} onChange={onScriptChange} height="400px" />
         </div>
 
         {validationStatus !== 'idle' && (
-          <Alert
+          <Notice
             type={validationStatus === 'success' ? 'success' : 'error'}
-            showIcon
             message={validationStatus === 'success' ? 'Script validated' : 'Validation failed'}
             description={validationMessage}
-            style={{ borderRadius: token.borderRadiusLG, marginTop: spacing[2] }}
+            className="transformation-validation-notice console-margin-top-2"
           />
         )}
-
       </Space>
     </div>
   );
@@ -323,25 +261,29 @@ const TestTransformationPanel = ({
   onToggleAutoRun: (val: boolean) => void;
   lastRunMeta?: { durationMs?: number; status?: number };
 }) => {
-  const { spacing, token } = useDesignTokens();
-  const colors = cssVar.legacy;
+  const { spacing } = useDesignTokens();
   const eventPayloadText = useMemo(() => (eventPayload ? JSON.stringify(eventPayload, null, 2) : ''), [eventPayload]);
 
   const isSuccess = lastRunMeta?.status && lastRunMeta.status >= 200 && lastRunMeta.status < 300;
   const isError = lastRunMeta?.status && lastRunMeta.status >= 400;
 
   return (
-    <Card className="panel" style={{ borderRadius: token.borderRadiusLG, padding: spacing[3] }}>
-      <Flex align="center" justify="space-between" style={{ marginBottom: spacing[3] }}>
+    <Card className="panel transformation-test-panel">
+      <Flex align="center" justify="space-between" className="console-margin-bottom-3">
         <Space align="center">
-          <Typography.Title level={5} style={{ margin: 0 }}>
+          <Heading level={5} className="console-margin-none">
             Test Preview
-          </Typography.Title>
+          </Heading>
           {lastRunMeta?.durationMs && (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {isSuccess && <CheckCircleFilled style={{ color: colors.success[600], marginRight: 4 }} />}
+            <Text type="supporting" size="sm" color="secondary">
+              {isSuccess && (
+                <GatewayIcon
+                  name="CheckCircleFilled"
+                  className="console-text-success console-margin-right-1"
+                />
+              )}
               {lastRunMeta.durationMs}ms
-            </Typography.Text>
+            </Text>
           )}
         </Space>
         <Space size={spacingToNumber(spacing[2])}>
@@ -351,34 +293,36 @@ const TestTransformationPanel = ({
                 {
                   key: 'load',
                   label: 'Load example',
-                  icon: <FileTextOutlined />,
+                  icon: <GatewayIcon name="FileTextOutlined" />,
                   onClick: onLoadExample,
                 },
                 {
                   key: 'paste',
                   label: 'Paste from clipboard',
-                  icon: <LinkOutlined />,
+                  icon: <GatewayIcon name="LinkOutlined" />,
                   onClick: onPaste,
                 },
                 eventPayloadText && {
                   key: 'schema',
                   label: 'Use event schema',
-                  icon: <ReloadOutlined />,
+                  icon: <GatewayIcon name="ReloadOutlined" />,
                   onClick: () => onUseEventPayload?.(eventPayloadText),
                 },
               ].filter(Boolean) as any,
             }}
             placement="bottomRight"
           >
-            <Button icon={<InfoCircleOutlined />} size="small">
+            <Button icon={<GatewayIcon name="InfoCircleOutlined" />} size="small">
               Load
             </Button>
           </Dropdown>
           <Space size={4}>
             <Switch checked={autoRun} onChange={onToggleAutoRun} size="small" />
-            <Typography.Text style={{ fontSize: 12 }}>Auto</Typography.Text>
+            <Text type="supporting" size="sm">
+              Auto
+            </Text>
           </Space>
-          <Button icon={<ThunderboltOutlined />} type="primary" onClick={onRunPreview} size="small">
+          <Button icon={<GatewayIcon name="ThunderboltOutlined" />} type="primary" onClick={onRunPreview} size="small">
             Run
           </Button>
         </Space>
@@ -387,27 +331,21 @@ const TestTransformationPanel = ({
       {/* Event Schema Reference - Collapsed */}
       {eventPayloadText && (
         <Collapse
-          ghost
-          style={{ marginBottom: spacing[2] }}
+          ghost className="console-margin-bottom-2"
           items={[
             {
               key: 'schema',
               label: (
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  <InfoCircleOutlined /> Event Schema
-                </Typography.Text>
+                <Text type="supporting" size="sm" color="secondary">
+                  <GatewayIcon name="InfoCircleOutlined" /> Event Schema
+                </Text>
               ),
               children: (
                 <Input.TextArea
                   rows={5}
                   value={eventPayloadText}
                   readOnly
-                  style={{
-                    fontFamily: token.fontFamilyCode,
-                    fontSize: 12,
-                    background: colors.neutral[900],
-                    color: colors.neutral[50],
-                  }}
+                  className="transformation-code-textarea"
                 />
               ),
             },
@@ -416,58 +354,32 @@ const TestTransformationPanel = ({
       )}
 
       {/* Compact Input/Output Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: spacing[2],
-        }}
-      >
+      <div className="transformation-input-output-grid console-gap-2">
         <div>
-          <Typography.Text strong style={{ display: 'block', marginBottom: spacing[1.5], fontSize: 13 }}>
+          <Text size="base" weight="semibold" display="block" className="console-margin-bottom-1-5">
             Input
-          </Typography.Text>
+          </Text>
           <Input.TextArea
             rows={12}
             value={sampleInput}
             onChange={(e) => onSampleInputChange(e.target.value)}
             placeholder='{"orderId": 12345}'
-            style={{
-              fontFamily: token.fontFamilyCode,
-              fontSize: 12,
-              background: colors.neutral[900],
-              color: colors.neutral[50],
-              borderRadius: token.borderRadius,
-            }}
+            className="transformation-code-textarea"
           />
         </div>
         <div>
-          <Flex justify="space-between" align="center" style={{ marginBottom: spacing[1.5] }}>
-            <Typography.Text strong style={{ fontSize: 13 }}>
+          <Flex justify="space-between" align="center" className="console-margin-bottom-1-5">
+            <Text size="base" weight="semibold">
               Output
-            </Typography.Text>
-            {isError && (
-              <Tag color="error" style={{ margin: 0, fontSize: 11 }}>
-                Error
-              </Tag>
-            )}
-            {isSuccess && (
-              <Tag color="success" style={{ margin: 0, fontSize: 11 }}>
-                Success
-              </Tag>
-            )}
+            </Text>
+            {isError && <StatusBadge label="Error" variant="error" showIcon={false} />}
+            {isSuccess && <StatusBadge label="Success" variant="success" showIcon={false} />}
           </Flex>
           <Input.TextArea
             rows={12}
             value={sampleOutput}
             readOnly
-            style={{
-              fontFamily: token.fontFamilyCode,
-              fontSize: 12,
-              background: colors.neutral[900],
-              color: colors.neutral[50],
-              borderRadius: token.borderRadius,
-            }}
+            className="transformation-code-textarea"
           />
         </div>
       </div>
@@ -490,8 +402,7 @@ export const TransformationSection = ({
   examplePayloads = [],
 }: Props) => {
   const { message, modal } = App.useApp();
-  const { spacing, token } = useDesignTokens();
-  const colors = cssVar.legacy;
+  const { spacing } = useDesignTokens();
   const [validationState, setValidationState] = useState<{ status: 'idle' | 'success' | 'error'; message?: string }>({
     status: 'idle',
   });
@@ -523,13 +434,7 @@ export const TransformationSection = ({
       const meta = { durationMs: Math.max(1, Math.round(performance.now() - started)), status: 500 };
       setLastRunMeta(meta);
     }
-  }, [
-    sampleInput,
-    getPreviewContext,
-    scriptValue,
-    onSampleOutputChange,
-    message,
-  ]);
+  }, [sampleInput, getPreviewContext, scriptValue, onSampleOutputChange, message]);
 
   const handleValidateScript = () => {
     try {
@@ -586,7 +491,7 @@ return result;`);
 
   return (
     <div>
-      <div style={{ marginBottom: spacing[3] }}>
+      <div className="console-margin-bottom-3">
         <JavascriptTab
           scriptValue={scriptValue}
           onScriptChange={onScriptChange}
@@ -598,7 +503,7 @@ return result;`);
         />
       </div>
 
-      <Divider style={{ margin: `${spacing[3]} 0` }} />
+      <Divider className="console-margin-y-3" />
 
       <TestTransformationPanel
         sampleInput={sampleInput}

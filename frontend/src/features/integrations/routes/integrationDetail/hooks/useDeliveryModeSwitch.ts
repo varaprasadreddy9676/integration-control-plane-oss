@@ -1,4 +1,4 @@
-import type { FormInstance } from 'antd';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 
 interface UseDeliveryModeSwitchParams {
   form: FormInstance;

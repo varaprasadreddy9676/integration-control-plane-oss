@@ -1,26 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  App,
-  Alert,
-  Button,
-  Card,
-  Modal,
-  Space,
-  Tag,
-  Typography,
-  Upload,
-  message as staticMessage,
-} from 'antd';
-import {
-  DeleteOutlined,
-  DownloadOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  UploadOutlined,
-} from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { App, Modal, Space, Upload, message as staticMessage } from '@/components/common/LegacyAntdControls';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Banner } from '@astryxdesign/core/Banner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { TableColumnsType } from 'antd';
+import type { TableColumnsType } from '@/components/common/LegacyAntdControls';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PageTemplate } from '../../../components/common/PageTemplate';
 import { ModernTable } from '../../../components/common/ModernTable';
 import {
   bulkDeleteIntegrations,
@@ -34,6 +21,9 @@ import {
 import type { IntegrationConfig } from '../../../mocks/types';
 import { useTenant } from '../../../app/tenant-context';
 import { celebrateActivation } from '../../../design-system/delight';
+import { Button } from '../../../components/common/LegacyButton';
+import { InlineHint } from '../../../components/common/InlineHint';
+import { StatusBadge } from '../../../components/common/StatusBadge';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -101,9 +91,13 @@ export const BulkOperationsRoute = () => {
 
       if (variables.operation === 'activate' && completed > 0) celebrateActivation();
       if (failed > 0) {
-        message.warning(`${operationLabel[variables.operation]} completed for ${completed}; ${failed} could not be changed.`);
+        message.warning(
+          `${operationLabel[variables.operation]} completed for ${completed}; ${failed} could not be changed.`
+        );
       } else {
-        message.success(`${operationLabel[variables.operation]} completed for ${completed} integration${completed === 1 ? '' : 's'}.`);
+        message.success(
+          `${operationLabel[variables.operation]} completed for ${completed} integration${completed === 1 ? '' : 's'}.`
+        );
       }
     },
     onError: (error: Error) => message.error(error.message || 'Bulk operation failed'),
@@ -197,7 +191,7 @@ export const BulkOperationsRoute = () => {
       dataIndex: 'httpMethod',
       key: 'httpMethod',
       width: 110,
-      render: (method?: string) => <Tag>{method || 'POST'}</Tag>,
+      render: (method?: string) => <Text code>{method || 'POST'}</Text>,
     },
     {
       title: 'Status',
@@ -205,153 +199,193 @@ export const BulkOperationsRoute = () => {
       key: 'isActive',
       width: 120,
       render: (isActive?: boolean) => (
-        <Tag color={isActive ? 'success' : 'default'}>{isActive ? 'Active' : 'Inactive'}</Tag>
+        <StatusBadge
+          status={isActive ? 'ACTIVE' : 'INACTIVE'}
+          label={isActive ? 'Active' : 'Inactive'}
+          variant={isActive ? 'success' : 'neutral'}
+        />
       ),
     },
   ];
 
   return (
-    <div>
-      <PageHeader
-        title="Bulk Operations"
-        description="Apply controlled changes to multiple outbound integrations or move configurations between environments."
-        statusChips={[{ label: `${selectedIntegrationIds.length} selected` }]}
-        actions={
-          <Space wrap>
-            <Button icon={<DownloadOutlined />} onClick={handleExport} disabled={isLoading} loading={exportLoading}>
-              {selectedIntegrationIds.length > 0 ? 'Export selected' : 'Export all'}
-            </Button>
-            <Button type="primary" icon={<UploadOutlined />} onClick={() => setActiveTab('import')}>
-              Import
-            </Button>
-          </Space>
-        }
-      />
-
-      <Card
-        tabList={[
-          { key: 'operations', tab: 'Bulk changes' },
-          { key: 'import', tab: 'Import / export' },
-        ]}
-        activeTabKey={activeTab}
-        onTabChange={(key) => setActiveTab(key as 'operations' | 'import')}
-      >
-        {activeTab === 'operations' && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Alert
-              type="info"
-              showIcon
-              message="Select outbound integrations, then apply one action. Changes are limited to the active organization."
-            />
+    <PageTemplate
+      className="bulk-operations-template"
+      header={
+        <PageHeader
+          title="Bulk Operations"
+          description="Apply controlled changes to multiple outbound integrations or move configurations between environments."
+          actions={
             <Space wrap>
               <Button
-                icon={<PlayCircleOutlined />}
-                disabled={selectedIntegrationIds.length === 0}
-                onClick={() => setSelectedOperation('activate')}
+                icon={<GatewayIcon name="DownloadOutlined" />}
+                onClick={handleExport}
+                disabled={isLoading}
+                loading={exportLoading}
               >
-                Activate
+                {selectedIntegrationIds.length > 0 ? 'Export selected' : 'Export all'}
               </Button>
               <Button
-                icon={<PauseCircleOutlined />}
-                disabled={selectedIntegrationIds.length === 0}
-                onClick={() => setSelectedOperation('deactivate')}
+                type="primary"
+                icon={<GatewayIcon name="UploadOutlined" />}
+                onClick={() => setActiveTab('import')}
               >
-                Deactivate
-              </Button>
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                disabled={selectedIntegrationIds.length === 0}
-                onClick={() => setSelectedOperation('delete')}
-              >
-                Delete
+                Import
               </Button>
             </Space>
-            <ModernTable
-              columns={columns}
-              dataSource={integrations}
-              rowKey="id"
-              loading={isLoading}
-              rowSelection={{
-                selectedRowKeys: selectedIntegrationIds,
-                onChange: (keys) => setSelectedIntegrationIds(keys.map(String)),
-                preserveSelectedRowKeys: false,
-              }}
-              pagination={{ pageSize: 20, showSizeChanger: true }}
-            />
-          </Space>
+          }
+        />
+      }
+    >
+      <div className="ui-extracted-f47c9efba2">
+        <TabList
+          value={activeTab}
+          onChange={(key) => {
+            if (key === 'operations' || key === 'import') setActiveTab(key);
+          }}
+          size="md"
+          layout="hug"
+          role="tablist"
+          aria-label="Bulk operation views"
+          hasDivider
+          overflow="scroll"
+        >
+          <Tab value="operations" label="Bulk changes" panelId="bulk-changes-panel" id="bulk-changes-tab" />
+          <Tab value="import" label="Import / export" panelId="bulk-import-panel" id="bulk-import-tab" />
+        </TabList>
+
+        {activeTab === 'operations' && (
+          <section id="bulk-changes-panel" role="tabpanel" aria-labelledby="bulk-changes-tab" tabIndex={0}>
+            <Space direction="vertical" size="middle" className="ui-extracted-1538840196">
+              <InlineHint>
+                Select outbound integrations, then apply one action. Changes are limited to the active organization.
+              </InlineHint>
+              <Space wrap>
+                <Button
+                  icon={<GatewayIcon name="PlayCircleOutlined" />}
+                  disabled={selectedIntegrationIds.length === 0}
+                  onClick={() => setSelectedOperation('activate')}
+                >
+                  Activate
+                </Button>
+                <Button
+                  icon={<GatewayIcon name="PauseCircleOutlined" />}
+                  disabled={selectedIntegrationIds.length === 0}
+                  onClick={() => setSelectedOperation('deactivate')}
+                >
+                  Deactivate
+                </Button>
+                <Button
+                  danger
+                  icon={<GatewayIcon name="DeleteOutlined" />}
+                  disabled={selectedIntegrationIds.length === 0}
+                  onClick={() => setSelectedOperation('delete')}
+                >
+                  Delete
+                </Button>
+              </Space>
+              <ModernTable
+                columns={columns}
+                dataSource={integrations}
+                rowKey="id"
+                loading={isLoading}
+                rowSelection={{
+                  selectedRowKeys: selectedIntegrationIds,
+                  onChange: (keys) => setSelectedIntegrationIds(keys.map(String)),
+                  preserveSelectedRowKeys: false,
+                }}
+                pagination={{ pageSize: 20, showSizeChanger: true }}
+              />
+            </Space>
+          </section>
         )}
 
         {activeTab === 'import' && (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            {importStep === 'upload' && (
-              <div>
-                <Title level={4}>Import configurations</Title>
-                <Dragger accept=".json,application/json" beforeUpload={handleFileUpload} showUploadList={false}>
-                  <p className="ant-upload-drag-icon"><UploadOutlined /></p>
-                  <p className="ant-upload-text">Select or drop an Integration Gateway JSON export</p>
-                  <p className="ant-upload-hint">Credentials and other sensitive values are never included in exports.</p>
-                </Dragger>
-                {validationErrors.length > 0 && (
-                  <Alert
-                    type="error"
-                    showIcon
-                    message="The file could not be imported"
-                    description={validationErrors.join(' ')}
-                    style={{ marginTop: 16 }}
+          <section id="bulk-import-panel" role="tabpanel" aria-labelledby="bulk-import-tab" tabIndex={0}>
+            <Space direction="vertical" size="large" className="ui-extracted-1538840196">
+              {importStep === 'upload' && (
+                <div>
+                  <Title level={4}>Import configurations</Title>
+                  <Dragger accept=".json,application/json" beforeUpload={handleFileUpload} showUploadList={false}>
+                    <p className="ant-upload-drag-icon">
+                      <GatewayIcon name="UploadOutlined" />
+                    </p>
+                    <p className="ant-upload-text">Select or drop an Integration Gateway JSON export</p>
+                    <p className="ant-upload-hint">
+                      Credentials and other sensitive values are never included in exports.
+                    </p>
+                  </Dragger>
+                  {validationErrors.length > 0 && (
+                    <Banner
+                      status="error"
+                      title="The file could not be imported"
+                      description={validationErrors.join(' ')}
+                      className="console-margin-top-4"
+                    />
+                  )}
+                </div>
+              )}
+
+              {importStep === 'preview' && importData && (
+                <div>
+                  <Title level={4}>Review import</Title>
+                  <Banner
+                    status="warning"
+                    title={`${importData.integrations.length} integration${importData.integrations.length === 1 ? '' : 's'} will be created in organization ${orgId}.`}
+                    description="Existing integrations are not overwritten. Imports remain inactive until credentials and environment-specific values are reviewed."
+                    className="console-margin-bottom-4"
                   />
-                )}
-              </div>
-            )}
+                  <ModernTable
+                    columns={columns as TableColumnsType<Partial<IntegrationConfig>>}
+                    dataSource={importData.integrations}
+                    rowKey={(record, index) => record.id || record.name || String(index)}
+                    pagination={{ pageSize: 10 }}
+                  />
+                  <Space className="console-margin-top-4">
+                    <Button
+                      type="primary"
+                      loading={importMutation.isPending}
+                      onClick={() => importMutation.mutate(importData)}
+                    >
+                      Import configurations
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setImportStep('upload');
+                        setImportData(null);
+                      }}
+                    >
+                      Choose another file
+                    </Button>
+                  </Space>
+                </div>
+              )}
 
-            {importStep === 'preview' && importData && (
               <div>
-                <Title level={4}>Review import</Title>
-                <Alert
-                  type="warning"
-                  showIcon
-                  message={`${importData.integrations.length} integration${importData.integrations.length === 1 ? '' : 's'} will be created in organization ${orgId}.`}
-                  description="Existing integrations are not overwritten. Imports remain inactive until credentials and environment-specific values are reviewed."
-                  style={{ marginBottom: 16 }}
-                />
-                <ModernTable
-                  columns={columns as TableColumnsType<Partial<IntegrationConfig>>}
-                  dataSource={importData.integrations}
-                  rowKey={(record, index) => record.id || record.name || String(index)}
-                  pagination={{ pageSize: 10 }}
-                />
-                <Space style={{ marginTop: 16 }}>
+                <Title level={4}>Export configurations</Title>
+                <Text type="secondary">
+                  Export the selected integrations, or all outbound integrations when no rows are selected.
+                </Text>
+                <div className="console-margin-top-3">
                   <Button
-                    type="primary"
-                    loading={importMutation.isPending}
-                    onClick={() => importMutation.mutate(importData)}
+                    icon={<GatewayIcon name="DownloadOutlined" />}
+                    onClick={handleExport}
+                    disabled={isLoading}
+                    loading={exportLoading}
                   >
-                    Import configurations
+                    {selectedIntegrationIds.length > 0 ? 'Export selected' : 'Export all'}
                   </Button>
-                  <Button onClick={() => { setImportStep('upload'); setImportData(null); }}>
-                    Choose another file
-                  </Button>
-                </Space>
+                </div>
               </div>
-            )}
-
-            <div>
-              <Title level={4}>Export configurations</Title>
-              <Text type="secondary">
-                Export the selected integrations, or all outbound integrations when no rows are selected.
-              </Text>
-              <div style={{ marginTop: 12 }}>
-                <Button icon={<DownloadOutlined />} onClick={handleExport} disabled={isLoading} loading={exportLoading}>
-                  {selectedIntegrationIds.length > 0 ? 'Export selected' : 'Export all'}
-                </Button>
-              </div>
-            </div>
-          </Space>
+            </Space>
+          </section>
         )}
-      </Card>
+      </div>
 
       <Modal
-        title={selectedOperation ? `${operationLabel[selectedOperation]} selected integrations?` : 'Confirm bulk action'}
+        title={
+          selectedOperation ? `${operationLabel[selectedOperation]} selected integrations?` : 'Confirm bulk action'
+        }
         open={selectedOperation !== null}
         onOk={executeBulkOperation}
         onCancel={() => setSelectedOperation(null)}
@@ -359,24 +393,24 @@ export const BulkOperationsRoute = () => {
         okText={selectedOperation ? operationLabel[selectedOperation] : 'Confirm'}
         okButtonProps={{ danger: selectedOperation === 'delete' }}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" className="console-width-full">
           <Text>
-            This action affects {selectedIntegrationIds.length} integration{selectedIntegrationIds.length === 1 ? '' : 's'}
+            This action affects {selectedIntegrationIds.length} integration
+            {selectedIntegrationIds.length === 1 ? '' : 's'}
             in organization {orgId}.
           </Text>
           {selectedIntegrations.length > 0 && (
             <Text type="secondary">{selectedIntegrations.map((integration) => integration.name).join(', ')}</Text>
           )}
           {selectedOperation === 'delete' && (
-            <Alert
-              type="error"
-              showIcon
-              message="Deletion cannot be undone"
+            <Banner
+              status="error"
+              title="Deletion cannot be undone"
               description="Future deliveries stop immediately. Historical delivery logs are retained."
             />
           )}
         </Space>
       </Modal>
-    </div>
+    </PageTemplate>
   );
 };

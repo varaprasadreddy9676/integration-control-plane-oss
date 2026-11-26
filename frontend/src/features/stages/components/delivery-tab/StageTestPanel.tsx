@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { Alert, Button, Input, Radio, Space, Switch, Typography } from 'antd';
-import { PlayCircleOutlined } from '@ant-design/icons';
+import { Typography } from '@/components/common/LegacyTypography';
+import { Input, Radio, Space, Switch } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import { useMutation } from '@tanstack/react-query';
 import type { StageConfig, StageRun } from '../../../../services/stages-api';
 import { testStage } from '../../../../services/stages-api';
 import { StageRunView } from '../StageRunView';
 import { apiFieldErrors } from './stageDraft';
 import { sampleRequest, sampleResponse } from '../../deliveryTargets';
+import { Button } from '../../../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../../../components/common';
 
 const { Text } = Typography;
 
-const mono = { fontFamily: 'var(--font-mono, ui-monospace, monospace)', fontSize: 12 };
+const mono = { fontFamily: 'var(--font-mono, ui-monospace, monospace)', fontSize: 'var(--console-type-caption)' };
 
 const parse = (text: string, what: string): { value?: unknown; error?: string } => {
   if (text.trim() === '') return { value: undefined };
@@ -24,7 +27,13 @@ const parse = (text: string, what: string): { value?: unknown; error?: string } 
 /** What the stage sees, for a sample run: the event plus what exists at its position. */
 export const sampleScope = (
   stage: StageConfig,
-  { event, request, code, response, protocol = 'http' }: { event: unknown; request: unknown; code: string; response: unknown; protocol?: string }
+  {
+    event,
+    request,
+    code,
+    response,
+    protocol = 'http',
+  }: { event: unknown; request: unknown; code: string; response: unknown; protocol?: string }
 ) => {
   const delivery: Record<string, unknown> = { attempt: 1 };
   if (stage.hook === 'before_send') delivery.request = sampleRequest(protocol, request);
@@ -72,8 +81,20 @@ export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: Stag
       live,
       ...(source === 'delivery'
         ? { deliveryId: deliveryId.trim() }
-        : { sample: sampleScope(stage, { event: event.value, request: body.value, code, response: body.value, protocol }) }),
-      ...(live ? {} : { stubResponses: Array.isArray(stubs.value) ? (stubs.value as Array<{ status: number; body: unknown }>) : [] }),
+        : {
+            sample: sampleScope(stage, {
+              event: event.value,
+              request: body.value,
+              code,
+              response: body.value,
+              protocol,
+            }),
+          }),
+      ...(live
+        ? {}
+        : {
+            stubResponses: Array.isArray(stubs.value) ? (stubs.value as Array<{ status: number; body: unknown }>) : [],
+          }),
     });
   };
 
@@ -81,7 +102,7 @@ export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: Stag
   const fieldErrors = apiFieldErrors(run.error);
 
   return (
-    <Space direction="vertical" size={14} style={{ width: '100%' }}>
+    <Space direction="vertical" size={14} className="console-width-full">
       <Radio.Group value={source} onChange={(e) => setSource(e.target.value)} optionType="button">
         <Radio.Button value="sample">A sample</Radio.Button>
         <Radio.Button value="delivery" disabled={!integrationId}>
@@ -90,15 +111,27 @@ export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: Stag
       </Radio.Group>
 
       {source === 'sample' ? (
-        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+        <Space direction="vertical" size={10} className="console-width-full">
           <div>
             <Text strong>The event</Text>
-            <Input.TextArea aria-label="Sample event" value={eventText} onChange={(e) => setEventText(e.target.value)} autoSize={{ minRows: 3, maxRows: 10 }} style={mono} />
+            <Input.TextArea
+              aria-label="Sample event"
+              value={eventText}
+              onChange={(e) => setEventText(e.target.value)}
+              autoSize={{ minRows: 3, maxRows: 10 }}
+              style={mono}
+            />
           </div>
           {stage.hook === 'before_send' ? (
             <div>
               <Text strong>The request about to be sent</Text>
-              <Input.TextArea aria-label="Sample request body" value={bodyText} onChange={(e) => setBodyText(e.target.value)} autoSize={{ minRows: 3, maxRows: 10 }} style={mono} />
+              <Input.TextArea
+                aria-label="Sample request body"
+                value={bodyText}
+                onChange={(e) => setBodyText(e.target.value)}
+                autoSize={{ minRows: 3, maxRows: 10 }}
+                style={mono}
+              />
             </div>
           ) : (
             <div>
@@ -108,18 +141,29 @@ export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: Stag
                   aria-label="Sample answer code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  style={{ width: 120 }}
+                  className="console-width-compact-control"
                   placeholder={protocol === 'http' ? '200' : 'SENT'}
                 />
               </Space>
-              <Input.TextArea aria-label="Sample answer body" value={bodyText} onChange={(e) => setBodyText(e.target.value)} autoSize={{ minRows: 3, maxRows: 10 }} style={mono} />
+              <Input.TextArea
+                aria-label="Sample answer body"
+                value={bodyText}
+                onChange={(e) => setBodyText(e.target.value)}
+                autoSize={{ minRows: 3, maxRows: 10 }}
+                style={mono}
+              />
             </div>
           )}
         </Space>
       ) : (
         <div>
           <Text strong>Delivery ID</Text>
-          <Input aria-label="Delivery ID" value={deliveryId} onChange={(e) => setDeliveryId(e.target.value)} placeholder="From the delivery logs" />
+          <Input
+            aria-label="Delivery ID"
+            value={deliveryId}
+            onChange={(e) => setDeliveryId(e.target.value)}
+            placeholder="From the delivery logs"
+          />
         </div>
       )}
 
@@ -128,31 +172,35 @@ export const StageTestPanel = ({ stage, integrationId, protocol = 'http' }: Stag
         <Text>Call the real APIs</Text>
       </Space>
       {live ? (
-        <Alert
+        <Notice
           type="warning"
-          showIcon
           message="The step will call the real APIs"
           description="Anything those calls change is changed for real. The test is recorded in the audit log; it schedules nothing and changes no delivery."
         />
       ) : (
         <div>
           <Text strong>Stand-in answers</Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+          <Text type="secondary" className="console-caption-block">
             Each HTTP call gets the next answer in this list (the last one repeats). Nothing leaves the gateway.
           </Text>
-          <Input.TextArea aria-label="Stand-in answers" value={stubText} onChange={(e) => setStubText(e.target.value)} autoSize={{ minRows: 3, maxRows: 10 }} style={mono} />
+          <Input.TextArea
+            aria-label="Stand-in answers"
+            value={stubText}
+            onChange={(e) => setStubText(e.target.value)}
+            autoSize={{ minRows: 3, maxRows: 10 }}
+            style={mono}
+          />
         </div>
       )}
 
-      <Button type="primary" icon={<PlayCircleOutlined />} loading={run.isPending} onClick={start}>
+      <Button type="primary" icon={<GatewayIcon name="PlayCircleOutlined" />} loading={run.isPending} onClick={start}>
         Run the stage
       </Button>
 
-      {problem && <Alert type="error" showIcon message={problem} role="alert" />}
+      {problem && <Notice type="error" message={problem} role="alert" />}
       {error && (
-        <Alert
+        <Notice
           type="error"
-          showIcon
           role="alert"
           message={error.message}
           description={fieldErrors.length ? fieldErrors.map((d) => `${d.path}: ${d.message}`).join('; ') : undefined}

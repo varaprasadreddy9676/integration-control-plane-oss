@@ -31,6 +31,7 @@ vi.mock('../components/common/ModernTable', async () => {
 });
 
 vi.mock('../design-system/utils', () => ({
+  editorFontSize: () => 14,
   withAlpha: (color: string) => color,
   spacingToNumber: (value: string | number) => {
     if (typeof value === 'number') return value;

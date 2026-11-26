@@ -1,0 +1,66 @@
+// Transitional boundary for controls whose current behavior still depends on Ant Design.
+// Replace exports with Astryx-backed adapters as each component reaches parity.
+export {
+  App,
+  AutoComplete,
+  Avatar,
+  Badge,
+  Breadcrumb,
+  Card,
+  Checkbox,
+  Col,
+  Collapse,
+  ConfigProvider,
+  DatePicker,
+  Descriptions,
+  Divider,
+  Drawer,
+  Dropdown,
+  Flex,
+  Form,
+  Grid,
+  Input,
+  InputNumber,
+  List,
+  message,
+  Modal,
+  notification,
+  Pagination,
+  Popconfirm,
+  Popover,
+  Progress,
+  Radio,
+  Result,
+  Row,
+  Segmented,
+  Select,
+  Skeleton,
+  Spin,
+  Statistic,
+  Steps,
+  Switch,
+  Table,
+  TimePicker,
+  Timeline,
+  Tooltip,
+  Upload,
+  theme,
+} from 'antd';
+
+export { LegacySpace as Space } from './LegacySpace';
+
+export type {
+  Breakpoint,
+  CollapseProps,
+  FormInstance,
+  MenuProps,
+  RadioChangeEvent,
+  TableColumnsType,
+  TablePaginationConfig,
+  TableProps,
+  ThemeConfig,
+  UploadFile,
+} from 'antd';
+export type { NamePath } from 'antd/es/form/interface';
+export type { ColumnType } from 'antd/es/table';
+export type { Breakpoint as ResponsiveBreakpoint } from 'antd/es/_util/responsiveObserver';

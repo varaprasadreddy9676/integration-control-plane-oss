@@ -1,45 +1,71 @@
-import { useMemo, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Switch, Tag, message } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { Form, Input, InputNumber, Modal, Select, Space, Switch, message } from "@/components/common/LegacyAntdControls";
+import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../app/auth-context';
 import { PageHeader } from '../../components/common/PageHeader';
-import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
-import { createAdminUser, listAdminUsers, resetAdminUserPassword, setAdminUserActive, updateAdminUser } from '../../services/api';
+import { PageTemplate } from '../../components/common/PageTemplate';
+import { FilterBar } from '../../components/common/FilterBar';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import {
+  createAdminUser,
+  listAdminUsers,
+  resetAdminUserPassword,
+  setAdminUserActive,
+  updateAdminUser,
+} from '../../services/api';
 import { ModernTable } from '../../components/common/ModernTable';
+import { StatePanel } from '../../components/common/StatePanel';
+import { Button } from '../../components/common/LegacyButton';
+import { InlineNotice as Notice } from '../../components/common';
 
 export const UserManagementRoute = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
-  const { spacing, token } = useDesignTokens();
   const [messageApi, contextHolder] = message.useMessage();
+  const [searchDraft, setSearchDraft] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [adminUserModalOpen, setAdminUserModalOpen] = useState(false);
   const [adminEditUser, setAdminEditUser] = useState<any | null>(null);
   const [adminResetPasswordUser, setAdminResetPasswordUser] = useState<any | null>(null);
   const [adminUsersFilterOrg, setAdminUsersFilterOrg] = useState<number | undefined>(undefined);
   const [adminUsersFilterRole, setAdminUsersFilterRole] = useState<string | undefined>(undefined);
   const [adminUsersFilterStatus, setAdminUsersFilterStatus] = useState<'active' | 'disabled' | 'all'>('active');
-  const [adminUsersSearch, setAdminUsersSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [adminUserForm] = Form.useForm();
   const [adminResetForm] = Form.useForm();
 
-  const filterPayload = useMemo(() => ({
-    orgId: adminUsersFilterOrg,
-    role: adminUsersFilterRole,
-    search: adminUsersSearch || undefined,
-    isActive: adminUsersFilterStatus === 'all'
-      ? undefined
-      : adminUsersFilterStatus === 'active',
-    page,
-    limit: pageSize
-  }), [adminUsersFilterOrg, adminUsersFilterRole, adminUsersFilterStatus, adminUsersSearch, page, pageSize]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchDraft.trim());
+      setPage(1);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft]);
 
-  const { data: adminUsersResponse, refetch: refetchAdminUsers } = useQuery({
+  const filterPayload = useMemo(
+    () => ({
+      orgId: adminUsersFilterOrg,
+      role: adminUsersFilterRole,
+      search: debouncedSearch || undefined,
+      isActive: adminUsersFilterStatus === 'all' ? undefined : adminUsersFilterStatus === 'active',
+      page,
+      limit: pageSize,
+    }),
+    [adminUsersFilterOrg, adminUsersFilterRole, adminUsersFilterStatus, debouncedSearch, page, pageSize]
+  );
+
+  const {
+    data: adminUsersResponse,
+    isLoading,
+    error,
+    refetch: refetchAdminUsers,
+  } = useQuery({
     queryKey: ['adminUsers', filterPayload],
     queryFn: () => listAdminUsers(filterPayload),
     enabled: isAdmin,
-    staleTime: 5 * 1000
+    staleTime: 5 * 1000,
   });
 
   const adminUsers = adminUsersResponse?.users || [];
@@ -54,10 +80,13 @@ export const UserManagementRoute = () => {
       dataIndex: 'isActive',
       key: 'isActive',
       render: (value: boolean) => (
-        <Tag color={value ? 'green' : 'red'}>
-          {value ? 'Active' : 'Disabled'}
-        </Tag>
-      )
+        <StatusBadge
+          label={value ? 'Active' : 'Disabled'}
+          variant={value ? 'success' : 'neutral'}
+          showIcon={false}
+          size="small"
+        />
+      ),
     },
     {
       title: 'Actions',
@@ -72,7 +101,7 @@ export const UserManagementRoute = () => {
                 email: record.email,
                 role: record.role,
                 orgId: record.orgId ?? null,
-                isActive: record.isActive
+                isActive: record.isActive,
               });
               setAdminUserModalOpen(true);
             }}
@@ -108,7 +137,7 @@ export const UserManagementRoute = () => {
                     } catch (error: any) {
                       messageApi.error(error?.message || 'Failed to update user');
                     }
-                  }
+                  },
                 });
                 return;
               }
@@ -125,61 +154,113 @@ export const UserManagementRoute = () => {
             {record.isActive ? 'Disable' : 'Enable'}
           </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ];
 
   return (
-    <div>
+    <PageTemplate
+      as="main"
+      className="user-management-page"
+      contentClassName="user-management-page__content"
+      header={
+        <PageHeader
+          title="User Management"
+          description="Create and manage admins and org-scoped users."
+          actions={
+            isAdmin ? (
+              <Button
+                type="primary"
+                icon={<GatewayIcon name="PlusOutlined" />}
+                onClick={() => {
+                  setAdminEditUser(null);
+                  adminUserForm.resetFields();
+                  adminUserForm.setFieldsValue({ role: 'ORG_ADMIN', isActive: true });
+                  setAdminUserModalOpen(true);
+                }}
+              >
+                Create user
+              </Button>
+            ) : null
+          }
+        />
+      }
+    >
       {contextHolder}
-      <PageHeader
-        title="User Management"
-        description="Create and manage admins and org-scoped users."
-      />
 
       {!isAdmin ? (
-        <Alert
-          type="error"
-          message="Admin access only"
-          description="You need an admin account to manage users."
-          showIcon
+        <StatePanel
+          glyph="searching"
+          tone="neutral"
+          title="User management is restricted"
+          description="You need an administrator account to manage users."
         />
       ) : (
-        <>
-          <Card className="panel" style={{ borderRadius: token.borderRadiusLG }}>
-            <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
-              <Space wrap>
-                <Input.Search
-                  placeholder="Search by email"
-                  allowClear
-                  value={adminUsersSearch}
-                  onChange={(event) => setAdminUsersSearch(event.target.value)}
-                  onSearch={() => {
+        <div className="user-management-workspace">
+          <FilterBar
+            rightSlot={
+              searchDraft || adminUsersFilterOrg || adminUsersFilterRole || adminUsersFilterStatus !== 'active' ? (
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setSearchDraft('');
+                    setAdminUsersFilterOrg(undefined);
+                    setAdminUsersFilterRole(undefined);
+                    setAdminUsersFilterStatus('active');
                     setPage(1);
-                    refetchAdminUsers();
                   }}
-                  style={{ minWidth: 220 }}
+                >
+                  Clear filters
+                </Button>
+              ) : null
+            }
+          >
+            <div className="user-management-filter-grid">
+              <label className="user-management-filter-field">
+                <span>Search</span>
+                <Input
+                  aria-label="Search users"
+                  placeholder="Email address"
+                  allowClear
+                  value={searchDraft}
+                  onChange={(event) => setSearchDraft(event.target.value)}
                 />
+              </label>
+              <label className="user-management-filter-field">
+                <span>Organization ID</span>
                 <InputNumber
-                  placeholder="Filter orgId"
-                  value={adminUsersFilterOrg}
+                  aria-label="Filter by organization ID"
+                  placeholder="Any organization"
+                  controls={false}
+                  value={adminUsersFilterOrg} className="console-width-full"
                   onChange={(value) => {
                     setAdminUsersFilterOrg(value ? Number(value) : undefined);
                     setPage(1);
                   }}
                 />
+              </label>
+              <label className="user-management-filter-field">
+                <span>Role</span>
                 <Select
-                  placeholder="Role"
+                  aria-label="Filter users by role"
+                  placeholder="All roles"
                   allowClear
                   value={adminUsersFilterRole}
                   onChange={(value) => {
                     setAdminUsersFilterRole(value);
                     setPage(1);
                   }}
-                  options={[{ value: 'ADMIN' }, { value: 'ORG_ADMIN' }, { value: 'ORG_USER' }]}
-                  style={{ minWidth: 140 }}
+                  options={[
+                    { label: 'Admin', value: 'ADMIN' },
+                    { label: 'Organization admin', value: 'ORG_ADMIN' },
+                    { label: 'Organization user', value: 'ORG_USER' },
+                  ]}
                 />
+              </label>
+              <label className="user-management-filter-field">
+                <span>Status</span>
                 <Select
+                  aria-label="Filter users by status"
                   value={adminUsersFilterStatus}
                   onChange={(value) => {
                     setAdminUsersFilterStatus(value);
@@ -188,41 +269,62 @@ export const UserManagementRoute = () => {
                   options={[
                     { label: 'Active', value: 'active' },
                     { label: 'Disabled', value: 'disabled' },
-                    { label: 'All', value: 'all' }
+                    { label: 'All', value: 'all' },
                   ]}
-                  style={{ minWidth: 120 }}
+                  className="ui-extracted-09c64cc592"
                 />
-                <Button onClick={() => refetchAdminUsers()}>Refresh</Button>
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    setAdminEditUser(null);
-                    adminUserForm.resetFields();
-                    adminUserForm.setFieldsValue({ role: 'ORG_ADMIN', isActive: true });
-                    setAdminUserModalOpen(true);
-                  }}
-                >
-                  Create User
+              </label>
+              <Button
+                aria-label="Refresh users"
+                icon={<GatewayIcon name="ReloadOutlined" />}
+                onClick={() => refetchAdminUsers()}
+                loading={isLoading}
+              >
+                Refresh
+              </Button>
+            </div>
+          </FilterBar>
+
+          {error && (
+            <Notice
+              type="error"
+              message="Could not load users"
+              description={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+              action={
+                <Button size="small" onClick={() => refetchAdminUsers()}>
+                  Retry
                 </Button>
-              </Space>
-              <ModernTable
-                dataSource={adminUsers}
-                rowKey={(row) => row.id}
-                size="small"
-                pagination={{
-                  current: page,
-                  pageSize,
-                  total: adminUsersTotal,
-                  showSizeChanger: true,
-                  onChange: (nextPage, nextPageSize) => {
-                    setPage(nextPage);
-                    setPageSize(nextPageSize);
-                  }
-                }}
-                columns={adminUserColumns}
-              />
-            </Space>
-          </Card>
+              }
+            />
+          )}
+
+          <section className="user-management-table-section" aria-label="User directory">
+            <div className="user-management-table-heading">
+              <span>Users</span>
+              <span>{adminUsersTotal.toLocaleString()} total</span>
+            </div>
+            <ModernTable
+              dataSource={adminUsers}
+              rowKey={(row) => row.id}
+              size="small"
+              loading={isLoading}
+              pagination={{
+                current: page,
+                pageSize,
+                total: adminUsersTotal,
+                showSizeChanger: true,
+                onChange: (nextPage, nextPageSize) => {
+                  setPage(nextPage);
+                  setPageSize(nextPageSize);
+                },
+              }}
+              columns={adminUserColumns}
+              emptyState={{
+                title: 'No users found',
+                description: 'Adjust the filters or create a user for this organization.',
+              }}
+            />
+          </section>
 
           <Modal
             title={adminEditUser ? 'Edit User' : 'Create User'}
@@ -246,7 +348,7 @@ export const UserManagementRoute = () => {
                       email: values.email,
                       role: values.role,
                       orgId: values.orgId,
-                      isActive: values.isActive
+                      isActive: values.isActive,
                     });
                     messageApi.success('User updated');
                   } else {
@@ -254,7 +356,7 @@ export const UserManagementRoute = () => {
                       email: values.email,
                       password: values.password,
                       role: values.role,
-                      orgId: values.orgId
+                      orgId: values.orgId,
                     });
                     messageApi.success('User created');
                   }
@@ -291,11 +393,11 @@ export const UserManagementRoute = () => {
                         return Promise.reject(new Error('Org ID is required for non-admin users'));
                       }
                       return Promise.resolve();
-                    }
-                  })
+                    },
+                  }),
                 ]}
               >
-                <InputNumber style={{ width: '100%' }} />
+                <InputNumber className="console-width-full" />
               </Form.Item>
               <Form.Item name="isActive" label="Active" valuePropName="checked" initialValue={true}>
                 <Switch />
@@ -329,8 +431,8 @@ export const UserManagementRoute = () => {
               </Form.Item>
             </Form>
           </Modal>
-        </>
+        </div>
       )}
-    </div>
+    </PageTemplate>
   );
 };

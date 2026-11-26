@@ -1,255 +1,252 @@
-import { Card, Typography, Alert, Divider, Tabs, Space, Tag } from 'antd';
-import { BookOutlined, CodeOutlined, ThunderboltOutlined, BulbOutlined, DatabaseOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
-import { Grid } from 'antd';
-import { useMemo } from 'react';
-
-const { Title, Paragraph, Text } = Typography;
+import { useState } from 'react';
+import { Card, Divider, Space } from '@/components/common/LegacyAntdControls';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Tab, TabList } from '@astryxdesign/core';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { PageTemplate } from '../../../components/common/PageTemplate';
+import { InlineHint } from '../../../components/common/InlineHint';
 
 export const LookupGuideRoute = () => {
-  const { spacing, token, shadows } = useDesignTokens();
-  const colors = cssVar.legacy;
-  const screens = Grid.useBreakpoint();
-  const isNarrow = !screens.md;
-
-  const codeBlockStyle = {
-    background: colors.neutral[900],
-    color: colors.neutral[100],
-    padding: spacing[4],
-    borderRadius: token.borderRadius,
-    fontSize: 13,
-    fontFamily: 'Monaco, Menlo, "Courier New", monospace',
-    overflow: 'auto',
-    whiteSpace: 'pre' as const,
-    lineHeight: 1.6
-  };
-
-  const sectionStyle = {
-    marginBottom: spacingToNumber(spacing[6])
-  };
+  const [activeTab, setActiveTab] = useState('overview');
 
   return (
-    <div style={{ padding: isNarrow ? spacing[4] : spacing[6] }}>
-      <Card
-        variant="borderless"
-        style={{
-          background: cssVar.bg.surface,
-          borderRadius: token.borderRadiusLG,
-          boxShadow: shadows.sm,
-          maxWidth: 1200,
-          margin: '0 auto'
-        }}
-      >
-        {/* Header */}
-        <div style={sectionStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3], marginBottom: spacing[4] }}>
-            <BookOutlined style={{ fontSize: 32, color: colors.primary[600] }} />
-            <div>
-              <Title level={2} style={{ margin: 0 }}>Lookup Tables Guide</Title>
-              <Text type="secondary">Complete guide to using code mappings in the Event Gateway</Text>
-            </div>
+    <PageTemplate
+      title="Lookup tables"
+      description="Reference for mapping source codes to target values in integration payloads."
+      breadcrumb={[{ label: 'Help', path: '/help' }, { label: 'Lookup tables' }]}
+      compact
+      contentClassName="lookup-guide-content"
+    >
+      <div className="lookup-guide-inner">
+        <div className="console-margin-bottom-5">
+          <div className="console-margin-bottom-5">
+            <InlineHint>
+              <strong>What are lookup tables?</strong> Translate codes and identifiers between source and external
+              systems. They run after transformations, before delivery.
+            </InlineHint>
           </div>
-
-          <Alert
-            type="info"
-            showIcon
-            message="What are Lookup Tables?"
-            description="Lookup tables provide a way to translate codes and identifiers between your source system and external systems (CRM, ERP, etc.). They run AFTER your transformations to ensure consistent code mapping across all integrations."
-            style={{ marginBottom: spacing[5] }}
-          />
         </div>
 
-        <Tabs
-          defaultActiveKey="overview"
-          items={[
+        {(() => {
+          const items = [
             {
               key: 'overview',
-              label: (
-                <span>
-                  <DatabaseOutlined /> Overview
-                </span>
-              ),
+              label: 'Overview',
+              icon: <GatewayIcon name="DatabaseOutlined" aria-hidden="true" />,
               children: (
                 <div>
                   {/* How It Works */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>
-                      <ThunderboltOutlined style={{ color: colors.primary[600], marginRight: 8 }} />
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>
+                      <GatewayIcon name="ThunderboltOutlined" className="console-text-info console-margin-right-2" />
                       How It Works
-                    </Title>
-                    <Paragraph>
+                    </Heading>
+                    <AstryxText as="p" display="block">
                       Lookup tables follow a simple three-step execution process:
-                    </Paragraph>
-                    <div style={{
-                      background: colors.primary[50],
-                      padding: spacing[4],
-                      borderRadius: token.borderRadius,
-                      borderLeft: `4px solid ${colors.primary[600]}`
-                    }}>
-                      <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                        <div>
-                          <Tag color="blue">Step 1</Tag>
-                          <Text strong>Standard Transformation Runs First</Text>
-                          <Paragraph style={{ marginTop: 4, marginBottom: 0 }}>
+                    </AstryxText>
+                    <div className="lookup-guide-info-panel">
+                      <Space direction="vertical" className="console-width-full" size="middle">
+                        <div className="console-flex-baseline-wrap">
+                          <AstryxText type="supporting" color="secondary">
+                            Step 1
+                          </AstryxText>
+                          <AstryxText weight="semibold">Standard Transformation Runs First</AstryxText>
+                          <AstryxText as="p" display="block" className="console-margin-top-1-reset-bottom">
                             Your transformation script executes and generates the output payload
-                          </Paragraph>
+                          </AstryxText>
                         </div>
-                        <div>
-                          <Tag color="cyan">Step 2</Tag>
-                          <Text strong>Lookup Mappings Apply</Text>
-                          <Paragraph style={{ marginTop: 4, marginBottom: 0 }}>
+                        <div className="console-flex-baseline-wrap">
+                          <AstryxText type="supporting" color="secondary">
+                            Step 2
+                          </AstryxText>
+                          <AstryxText weight="semibold">Lookup Mappings Apply</AstryxText>
+                          <AstryxText as="p" display="block" className="console-margin-top-1-reset-bottom">
                             The system finds fields specified in your lookup configs and translates the codes
-                          </Paragraph>
+                          </AstryxText>
                         </div>
-                        <div>
-                          <Tag color="green">Step 3</Tag>
-                          <Text strong>Final Payload Delivered</Text>
-                          <Paragraph style={{ marginTop: 4, marginBottom: 0 }}>
+                        <div className="console-flex-baseline-wrap">
+                          <AstryxText type="supporting" color="secondary">
+                            Step 3
+                          </AstryxText>
+                          <AstryxText weight="semibold">Final Payload Delivered</AstryxText>
+                          <AstryxText as="p" display="block" className="console-margin-top-1-reset-bottom">
                             The transformed payload with mapped codes is sent to the target endpoint
-                          </Paragraph>
+                          </AstryxText>
                         </div>
                       </Space>
                     </div>
                   </div>
 
                   {/* Key Concepts */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>
-                      <BulbOutlined style={{ color: colors.warning[600], marginRight: 8 }} />
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>
+                      <GatewayIcon name="BulbOutlined" className="console-text-warning console-margin-right-2" />
                       Key Concepts
-                    </Title>
+                    </Heading>
 
-                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                    <Space direction="vertical" size="large" className="console-width-full">
                       <div>
-                        <Text strong style={{ fontSize: 15 }}>Lookup Type</Text>
-                        <Paragraph>
-                          A category of code mapping (e.g., <code>SERVICE_CODE</code>, <code>DIAGNOSIS_CODE</code>, <code>PROVIDER_ID</code>).
-                          You can create any type names that make sense for your integration.
-                        </Paragraph>
+                        <AstryxText weight="semibold" className="console-type-section">
+                          Lookup Type
+                        </AstryxText>
+                        <AstryxText as="p" display="block">
+                          A category of code mapping (e.g., <code>SERVICE_CODE</code>, <code>DIAGNOSIS_CODE</code>,{' '}
+                          <code>PROVIDER_ID</code>). You can create any type names that make sense for your integration.
+                        </AstryxText>
                       </div>
 
                       <div>
-                        <Text strong style={{ fontSize: 15 }}>Source & Target Codes</Text>
-                        <Paragraph>
+                        <AstryxText weight="semibold" className="console-type-section">
+                          Source & Target Codes
+                        </AstryxText>
+                        <AstryxText as="p" display="block">
                           <strong>Source:</strong> The code from your source system (e.g., <code>SVC001</code>)<br />
-                          <strong>Target:</strong> The code expected by the external system (e.g., <code>EXT_SVC_001</code>)
-                        </Paragraph>
+                          <strong>Target:</strong> The code expected by the external system (e.g.,{' '}
+                          <code>EXT_SVC_001</code>)
+                        </AstryxText>
                       </div>
 
                       <div>
-                        <Text strong style={{ fontSize: 15 }}>Hierarchical Override</Text>
-                        <Paragraph>
+                        <AstryxText weight="semibold" className="console-type-section">
+                          Hierarchical Override
+                        </AstryxText>
+                        <AstryxText as="p" display="block">
                           Lookups support a two-level hierarchy:
-                        </Paragraph>
-                        <ul style={{ marginTop: 4 }}>
-                          <li><strong>Parent Level:</strong> Default mappings that apply to all entities</li>
-                          <li><strong>Entity-Specific:</strong> Override mappings for specific child entities</li>
+                        </AstryxText>
+                        <ul className="console-margin-top-1">
+                          <li>
+                            <strong>Parent Level:</strong> Default mappings that apply to all entities
+                          </li>
+                          <li>
+                            <strong>Entity-Specific:</strong> Override mappings for specific child entities
+                          </li>
                         </ul>
-                        <Paragraph type="secondary" style={{ fontSize: 13 }}>
-                          When resolving a code, the system checks entity-specific mappings first, then falls back to parent-level mappings.
-                        </Paragraph>
+                        <AstryxText
+                          as="p"
+                          display="block"
+                          type="supporting"
+                          color="secondary"
+                          className="console-type-body"
+                        >
+                          When resolving a code, the system checks entity-specific mappings first, then falls back to
+                          parent-level mappings.
+                        </AstryxText>
                       </div>
 
                       <div>
-                        <Text strong style={{ fontSize: 15 }}>Unmapped Behavior</Text>
-                        <Paragraph>Controls what happens when no mapping exists:</Paragraph>
-                        <ul style={{ marginTop: 4 }}>
-                          <li><Tag color="default">PASSTHROUGH</Tag> Keep the original value unchanged</li>
-                          <li><Tag color="error">FAIL</Tag> Block the integration delivery and mark as failed</li>
-                          <li><Tag color="warning">DEFAULT</Tag> Use a default value you specify</li>
+                        <AstryxText weight="semibold" className="console-type-section">
+                          Unmapped Behavior
+                        </AstryxText>
+                        <AstryxText as="p" display="block">
+                          Controls what happens when no mapping exists:
+                        </AstryxText>
+                        <ul className="console-margin-top-1">
+                          <li>
+                            <code>PASSTHROUGH</code> Keep the original value unchanged
+                          </li>
+                          <li>
+                            <code>FAIL</code> Block the integration delivery and mark it failed
+                          </li>
+                          <li>
+                            <code>DEFAULT</code> Use a default value you specify
+                          </li>
                         </ul>
                       </div>
                     </Space>
                   </div>
 
                   {/* Use Cases */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>
-                      <CheckCircleOutlined style={{ color: colors.success[600], marginRight: 8 }} />
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>
+                      <GatewayIcon name="CheckCircleOutlined" className="console-text-success console-margin-right-2" />
                       Common Use Cases
-                    </Title>
+                    </Heading>
 
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                      <Card size="small" style={{ background: colors.neutral[50] }}>
-                        <Text strong>Service Code Mapping</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
-                          Map your internal service codes to external billing codes (e.g., source system <code>CONSULT_001</code> → Insurance <code>99213</code>)
-                        </Paragraph>
+                    <Space direction="vertical" size="middle" className="console-width-full">
+                      <Card size="small" className="console-bg-subtle">
+                        <AstryxText weight="semibold">Service Code Mapping</AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
+                          Map your internal service codes to external billing codes (e.g., source system{' '}
+                          <code>CONSULT_001</code> → Insurance <code>99213</code>)
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ background: colors.neutral[50] }}>
-                        <Text strong>Provider ID Translation</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
-                          Translate doctor IDs between systems (e.g., source system <code>DOC_123</code> → CRM <code>PROV_XYZ</code>)
-                        </Paragraph>
+                      <Card size="small" className="console-bg-subtle">
+                        <AstryxText weight="semibold">Provider ID Translation</AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
+                          Translate doctor IDs between systems (e.g., source system <code>DOC_123</code> → CRM{' '}
+                          <code>PROV_XYZ</code>)
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ background: colors.neutral[50] }}>
-                        <Text strong>Diagnosis Code Conversion</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
+                      <Card size="small" className="console-bg-subtle">
+                        <AstryxText weight="semibold">Diagnosis Code Conversion</AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
                           Convert diagnosis codes to ICD-10 or other standard formats
-                        </Paragraph>
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ background: colors.neutral[50] }}>
-                        <Text strong>Location/Facility Mapping</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
+                      <Card size="small" className="console-bg-subtle">
+                        <AstryxText weight="semibold">Location/Facility Mapping</AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
                           Map clinic locations to external facility identifiers
-                        </Paragraph>
+                        </AstryxText>
                       </Card>
                     </Space>
                   </div>
                 </div>
-              )
+              ),
             },
             {
               key: 'integration-config',
-              label: (
-                <span>
-                  <CodeOutlined /> Integration Configuration
-                </span>
-              ),
+              label: 'Integration Configuration',
+              icon: <GatewayIcon name="CodeOutlined" aria-hidden="true" />,
               children: (
                 <div>
                   {/* Configuring in Integrations */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>Adding Lookups to a Integration</Title>
-                    <Paragraph>
-                      When creating or editing a integration, scroll to the <strong>"Code Mappings (Lookups)"</strong> section
-                      and click "Add Mapping" to configure automatic code translation.
-                    </Paragraph>
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>Adding Lookups to a Integration</Heading>
+                    <AstryxText as="p" display="block">
+                      When creating or editing a integration, scroll to the <strong>"Code Mappings (Lookups)"</strong>{' '}
+                      section and click "Add Mapping" to configure automatic code translation.
+                    </AstryxText>
 
-                    <Alert
-                      type="warning"
-                      showIcon
-                      message="Important: Lookups run AFTER transformations"
-                      description="Make sure your transformation produces the fields you want to map. Lookups will look for those fields in the transformed payload."
-                      style={{ marginBottom: spacing[4] }}
-                    />
+                    <InlineHint tone="warning">
+                      Lookups run after transformations. Make sure your script outputs the fields you want to map.
+                    </InlineHint>
 
-                    <Title level={5}>Example Configuration</Title>
-                    <Paragraph>
+                    <Heading level={5}>Example Configuration</Heading>
+                    <AstryxText as="p" display="block">
                       Let's say you want to map service codes in an appointment event:
-                    </Paragraph>
+                    </AstryxText>
 
-                    <Card size="small" style={{ background: colors.neutral[50], marginBottom: spacing[4] }}>
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <div><Text strong>Mapping Type:</Text> <code>SERVICE_CODE</code></div>
-                        <div><Text strong>Source Field:</Text> <code>serviceCode</code></div>
-                        <div><Text strong>Target Field:</Text> <code>externalServiceCode</code></div>
-                        <div><Text strong>Unmapped Behavior:</Text> <Tag color="default">PASSTHROUGH</Tag></div>
+                    <Card size="small" className="console-bg-subtle console-margin-bottom-4">
+                      <Space direction="vertical" size="small" className="console-width-full">
+                        <div>
+                          <AstryxText weight="semibold">Mapping Type:</AstryxText> <code>SERVICE_CODE</code>
+                        </div>
+                        <div>
+                          <AstryxText weight="semibold">Source Field:</AstryxText> <code>serviceCode</code>
+                        </div>
+                        <div>
+                          <AstryxText weight="semibold">Target Field:</AstryxText> <code>externalServiceCode</code>
+                        </div>
+                        <div>
+                          <AstryxText weight="semibold">Unmapped Behavior:</AstryxText> <code>PASSTHROUGH</code>
+                        </div>
                       </Space>
                     </Card>
 
-                    <Text strong>Before Lookup:</Text>
-                    <pre style={codeBlockStyle}>{`{
+                    <AstryxText weight="semibold">Before Lookup:</AstryxText>
+                    <pre className="lookup-guide-code">{`{
   "name": "John Doe",
   "serviceCode": "CONSULT_001",
   "appointmentDate": "2026-02-01"
 }`}</pre>
 
-                    <Text strong>After Lookup:</Text>
-                    <pre style={codeBlockStyle}>{`{
+                    <AstryxText weight="semibold">After Lookup:</AstryxText>
+                    <pre className="lookup-guide-code">{`{
   "name": "John Doe",
   "serviceCode": "CONSULT_001",
   "externalServiceCode": "99213",  // ← Added by lookup
@@ -258,22 +255,28 @@ export const LookupGuideRoute = () => {
                   </div>
 
                   {/* Array Fields */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>Mapping Array Fields</Title>
-                    <Paragraph>
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>Mapping Array Fields</Heading>
+                    <AstryxText as="p" display="block">
                       Lookups support array notation using <code>[]</code> to map codes within arrays:
-                    </Paragraph>
+                    </AstryxText>
 
-                    <Card size="small" style={{ background: colors.neutral[50], marginBottom: spacing[4] }}>
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <div><Text strong>Mapping Type:</Text> <code>ITEM_CODE</code></div>
-                        <div><Text strong>Source Field:</Text> <code>items[].code</code></div>
-                        <div><Text strong>Target Field:</Text> <code>items[].externalCode</code></div>
+                    <Card size="small" className="console-bg-subtle console-margin-bottom-4">
+                      <Space direction="vertical" size="small" className="console-width-full">
+                        <div>
+                          <AstryxText weight="semibold">Mapping Type:</AstryxText> <code>ITEM_CODE</code>
+                        </div>
+                        <div>
+                          <AstryxText weight="semibold">Source Field:</AstryxText> <code>items[].code</code>
+                        </div>
+                        <div>
+                          <AstryxText weight="semibold">Target Field:</AstryxText> <code>items[].externalCode</code>
+                        </div>
                       </Space>
                     </Card>
 
-                    <Text strong>Before Lookup:</Text>
-                    <pre style={codeBlockStyle}>{`{
+                    <AstryxText weight="semibold">Before Lookup:</AstryxText>
+                    <pre className="lookup-guide-code">{`{
   "billNumber": "BILL-001",
   "items": [
     { "code": "MED_123", "quantity": 2 },
@@ -281,8 +284,8 @@ export const LookupGuideRoute = () => {
   ]
 }`}</pre>
 
-                    <Text strong>After Lookup:</Text>
-                    <pre style={codeBlockStyle}>{`{
+                    <AstryxText weight="semibold">After Lookup:</AstryxText>
+                    <pre className="lookup-guide-code">{`{
   "billNumber": "BILL-001",
   "items": [
     { "code": "MED_123", "externalCode": "EXT_MED_123", "quantity": 2 },
@@ -291,39 +294,30 @@ export const LookupGuideRoute = () => {
 }`}</pre>
                   </div>
                 </div>
-              )
+              ),
             },
             {
               key: 'scripts',
-              label: (
-                <span>
-                  <CodeOutlined /> Using in Scripts
-                </span>
-              ),
+              label: 'Using in Scripts',
+              icon: <GatewayIcon name="CodeOutlined" aria-hidden="true" />,
               children: (
                 <div>
                   {/* lookup() Function */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>The <code>lookup()</code> Function</Title>
-                    <Paragraph>
-                      In SCRIPT transformations, you can use the <code>lookup(code, type)</code> function
-                      to perform lookups directly in your JavaScript code.
-                    </Paragraph>
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>
+                      The <code>lookup()</code> Function
+                    </Heading>
+                    <AstryxText as="p" display="block">
+                      In SCRIPT transformations, you can use the <code>lookup(code, type)</code> function to perform
+                      lookups directly in your JavaScript code.
+                    </AstryxText>
 
-                    <Alert
-                      type="info"
-                      showIcon
-                      message="Function Signature"
-                      description={
-                        <code style={{ fontSize: 13 }}>
-                          lookup(sourceCode: string, mappingType: string): string | null
-                        </code>
-                      }
-                      style={{ marginBottom: spacing[4] }}
-                    />
+                    <InlineHint>
+                      Function signature: <code>lookup(sourceCode: string, mappingType: string): string | null</code>
+                    </InlineHint>
 
-                    <Title level={5}>Basic Usage</Title>
-                    <pre style={codeBlockStyle}>{`// Simple lookup
+                    <Heading level={5}>Basic Usage</Heading>
+                    <pre className="lookup-guide-code">{`// Simple lookup
 const externalServiceCode = lookup(payload.serviceCode, 'SERVICE_CODE');
 
 return {
@@ -331,8 +325,8 @@ return {
   externalServiceCode: externalServiceCode
 };`}</pre>
 
-                    <Title level={5}>With Fallback</Title>
-                    <pre style={codeBlockStyle}>{`// Provide a default if lookup fails
+                    <Heading level={5}>With Fallback</Heading>
+                    <pre className="lookup-guide-code">{`// Provide a default if lookup fails
 const externalCode = lookup(payload.diagnosisCode, 'DIAGNOSIS_CODE') || 'UNKNOWN';
 
 return {
@@ -340,8 +334,8 @@ return {
   externalDiagnosisCode: externalCode
 };`}</pre>
 
-                    <Title level={5}>Conditional Logic</Title>
-                    <pre style={codeBlockStyle}>{`const externalCode = lookup(payload.serviceCode, 'SERVICE_CODE');
+                    <Heading level={5}>Conditional Logic</Heading>
+                    <pre className="lookup-guide-code">{`const externalCode = lookup(payload.serviceCode, 'SERVICE_CODE');
 
 if (!externalCode) {
   // Handle unmapped code
@@ -354,8 +348,8 @@ return {
   serviceCode: externalCode
 };`}</pre>
 
-                    <Title level={5}>Mapping Arrays</Title>
-                    <pre style={codeBlockStyle}>{`// Map codes in an array using .map()
+                    <Heading level={5}>Mapping Arrays</Heading>
+                    <pre className="lookup-guide-code">{`// Map codes in an array using .map()
 return {
   ...payload,
   items: payload.items.map(item => ({
@@ -365,8 +359,8 @@ return {
   }))
 };`}</pre>
 
-                    <Title level={5}>Complex Transformation</Title>
-                    <pre style={codeBlockStyle}>{`// Combine multiple lookups with logic
+                    <Heading level={5}>Complex Transformation</Heading>
+                    <pre className="lookup-guide-code">{`// Combine multiple lookups with logic
 const providerCode = lookup(payload.doctorId, 'PROVIDER_ID');
 const locationCode = lookup(payload.clinicId, 'LOCATION_ID');
 const serviceCode = lookup(payload.serviceType, 'SERVICE_CODE');
@@ -395,82 +389,98 @@ return {
                   </div>
 
                   {/* Best Practices */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>
-                      <BulbOutlined style={{ color: colors.warning[600], marginRight: 8 }} />
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>
+                      <GatewayIcon name="BulbOutlined" className="console-text-warning console-margin-right-2" />
                       Best Practices
-                    </Title>
+                    </Heading>
 
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                      <Card size="small" style={{ borderLeft: `4px solid ${colors.success[600]}` }}>
-                        <Text strong style={{ color: colors.success[600] }}>✓ DO</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
-                          Use meaningful lookup type names like <code>SERVICE_CODE</code>, not generic names like <code>CODE_1</code>
-                        </Paragraph>
+                    <Space direction="vertical" size="middle" className="console-width-full">
+                      <Card size="small" className="lookup-guide-rule lookup-guide-rule--success">
+                        <AstryxText weight="semibold" className="console-text-success">
+                          DO
+                        </AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
+                          Use meaningful lookup type names like <code>SERVICE_CODE</code>, not generic names like{' '}
+                          <code>CODE_1</code>
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ borderLeft: `4px solid ${colors.success[600]}` }}>
-                        <Text strong style={{ color: colors.success[600] }}>✓ DO</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
+                      <Card size="small" className="lookup-guide-rule lookup-guide-rule--success">
+                        <AstryxText weight="semibold" className="console-text-success">
+                          DO
+                        </AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
                           Always handle null returns from <code>lookup()</code> - not all codes may have mappings
-                        </Paragraph>
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ borderLeft: `4px solid ${colors.success[600]}` }}>
-                        <Text strong style={{ color: colors.success[600] }}>✓ DO</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
+                      <Card size="small" className="lookup-guide-rule lookup-guide-rule--success">
+                        <AstryxText weight="semibold" className="console-text-success">
+                          DO
+                        </AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
                           Use the logger to track unmapped codes for troubleshooting: <code>logger.warn()</code>
-                        </Paragraph>
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ borderLeft: `4px solid ${colors.error[600]}` }}>
-                        <Text strong style={{ color: colors.error[600] }}>✗ DON'T</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
+                      <Card size="small" className="lookup-guide-rule lookup-guide-rule--error">
+                        <AstryxText weight="semibold" className="console-text-error">
+                          AVOID
+                        </AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
                           Don't use lookups for complex transformations - use them only for simple code mapping
-                        </Paragraph>
+                        </AstryxText>
                       </Card>
 
-                      <Card size="small" style={{ borderLeft: `4px solid ${colors.error[600]}` }}>
-                        <Text strong style={{ color: colors.error[600] }}>✗ DON'T</Text>
-                        <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>
+                      <Card size="small" className="lookup-guide-rule lookup-guide-rule--error">
+                        <AstryxText weight="semibold" className="console-text-error">
+                          AVOID
+                        </AstryxText>
+                        <AstryxText as="p" display="block" className="console-margin-top-1">
                           Don't create duplicate lookup types with different names - keep naming consistent
-                        </Paragraph>
+                        </AstryxText>
                       </Card>
                     </Space>
                   </div>
                 </div>
-              )
+              ),
             },
             {
               key: 'examples',
-              label: (
-                <span>
-                  <ThunderboltOutlined /> Real-World Examples
-                </span>
-              ),
+              label: 'Real-World Examples',
+              icon: <GatewayIcon name="ThunderboltOutlined" aria-hidden="true" />,
               children: (
                 <div>
                   {/* CleverTap Integration */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>Example 1: CleverTap CRM Integration</Title>
-                    <Paragraph>
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>Example 1: CleverTap CRM Integration</Heading>
+                    <AstryxText as="p" display="block">
                       Mapping appointment types to CleverTap event categories:
-                    </Paragraph>
+                    </AstryxText>
 
-                    <Text strong>Lookup Table Setup:</Text>
-                    <div style={{ marginTop: spacing[3], marginBottom: spacing[3] }}>
-                      <Card size="small" style={{ background: colors.neutral[50] }}>
-                        <Text>Type: <code>APPOINTMENT_TYPE</code></Text>
+                    <AstryxText weight="semibold">Lookup Table Setup:</AstryxText>
+                    <div className="console-margin-vertical-3">
+                      <Card size="small" className="console-bg-subtle">
+                        <AstryxText>
+                          Type: <code>APPOINTMENT_TYPE</code>
+                        </AstryxText>
                       </Card>
-                      <ul style={{ marginTop: 8 }}>
-                        <li><code>NEW_PATIENT</code> → <code>first_visit</code></li>
-                        <li><code>FOLLOW_UP</code> → <code>follow_up_visit</code></li>
-                        <li><code>EMERGENCY</code> → <code>emergency_visit</code></li>
+                      <ul className="console-margin-top-2">
+                        <li>
+                          <code>NEW_PATIENT</code> → <code>first_visit</code>
+                        </li>
+                        <li>
+                          <code>FOLLOW_UP</code> → <code>follow_up_visit</code>
+                        </li>
+                        <li>
+                          <code>EMERGENCY</code> → <code>emergency_visit</code>
+                        </li>
                       </ul>
                     </div>
 
-                    <Text strong>Transformation Script:</Text>
-                    <pre style={codeBlockStyle}>{`const eventCategory = lookup(payload.appointmentType, 'APPOINTMENT_TYPE');
+                    <AstryxText weight="semibold">Transformation Script:</AstryxText>
+                    <pre className="lookup-guide-code">{`const eventCategory = lookup(payload.appointmentType, 'APPOINTMENT_TYPE');
 
 return {
   identity: payload.email,
@@ -487,26 +497,34 @@ return {
                   </div>
 
                   {/* Billing Integration */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>Example 2: Insurance Billing Integration</Title>
-                    <Paragraph>
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>Example 2: Insurance Billing Integration</Heading>
+                    <AstryxText as="p" display="block">
                       Converting internal service codes to CPT codes for insurance claims:
-                    </Paragraph>
+                    </AstryxText>
 
-                    <Text strong>Lookup Table Setup:</Text>
-                    <div style={{ marginTop: spacing[3], marginBottom: spacing[3] }}>
-                      <Card size="small" style={{ background: colors.neutral[50] }}>
-                        <Text>Type: <code>CPT_CODE</code></Text>
+                    <AstryxText weight="semibold">Lookup Table Setup:</AstryxText>
+                    <div className="console-margin-vertical-3">
+                      <Card size="small" className="console-bg-subtle">
+                        <AstryxText>
+                          Type: <code>CPT_CODE</code>
+                        </AstryxText>
                       </Card>
-                      <ul style={{ marginTop: 8 }}>
-                        <li><code>GENERAL_CONSULT</code> → <code>99213</code> (Office visit)</li>
-                        <li><code>DETAILED_EXAM</code> → <code>99215</code> (Comprehensive)</li>
-                        <li><code>LAB_CBC</code> → <code>85025</code> (Complete Blood Count)</li>
+                      <ul className="console-margin-top-2">
+                        <li>
+                          <code>GENERAL_CONSULT</code> → <code>99213</code> (Office visit)
+                        </li>
+                        <li>
+                          <code>DETAILED_EXAM</code> → <code>99215</code> (Comprehensive)
+                        </li>
+                        <li>
+                          <code>LAB_CBC</code> → <code>85025</code> (Complete Blood Count)
+                        </li>
                       </ul>
                     </div>
 
-                    <Text strong>Transformation Script:</Text>
-                    <pre style={codeBlockStyle}>{`const cptCode = lookup(payload.serviceCode, 'CPT_CODE');
+                    <AstryxText weight="semibold">Transformation Script:</AstryxText>
+                    <pre className="lookup-guide-code">{`const cptCode = lookup(payload.serviceCode, 'CPT_CODE');
 
 if (!cptCode) {
   logger.error(\`Missing CPT mapping for: \${payload.serviceCode}\`);
@@ -528,77 +546,105 @@ return {
                   </div>
 
                   {/* Multi-Location Scenario */}
-                  <div style={sectionStyle}>
-                    <Title level={4}>Example 3: Multi-Location Provider Network</Title>
-                    <Paragraph>
+                  <div className="console-margin-bottom-5">
+                    <Heading level={4}>Example 3: Multi-Location Provider Network</Heading>
+                    <AstryxText as="p" display="block">
                       Different clinics may use different external system IDs. Use entity-specific overrides:
-                    </Paragraph>
+                    </AstryxText>
 
-                    <Text strong>Setup:</Text>
-                    <div style={{ marginTop: spacing[3], marginBottom: spacing[3] }}>
-                      <Alert
-                        type="info"
-                        showIcon
-                        message="Parent Level Mapping"
-                        description={
-                          <div>
-                            <Text>Type: <code>PROVIDER_NETWORK_ID</code></Text>
-                            <ul style={{ marginTop: 8, marginBottom: 0 }}>
-                              <li>Default clinic mapping: <code>CLINIC_MAIN</code> → <code>NETWORK_001</code></li>
-                            </ul>
-                          </div>
-                        }
-                      />
-                      <div style={{ marginTop: spacing[3] }}>
-                        <Alert
-                          type="warning"
-                          showIcon
-                          message="Entity Override for Clinic #2"
-                          description={
-                            <div>
-                              <Text>Override for specific entity (RID: 150)</Text>
-                              <ul style={{ marginTop: 8, marginBottom: 0 }}>
-                                <li><code>CLINIC_MAIN</code> → <code>NETWORK_BRANCH_05</code></li>
-                              </ul>
-                            </div>
-                          }
-                        />
+                    <AstryxText weight="semibold">Setup:</AstryxText>
+                    <div className="console-margin-vertical-3">
+                      <div>
+                        <AstryxText weight="semibold">Parent-level mapping</AstryxText>
+                        <div>
+                          <AstryxText>
+                            Type: <code>PROVIDER_NETWORK_ID</code>
+                          </AstryxText>
+                        </div>
+                        <AstryxText type="supporting" color="secondary">
+                          Default clinic mapping: <code>CLINIC_MAIN</code> → <code>NETWORK_001</code>
+                        </AstryxText>
+                      </div>
+                      <div className="console-margin-top-3">
+                        <AstryxText weight="semibold">Entity override for Clinic #2</AstryxText>
+                        <div>
+                          <AstryxText type="supporting" color="secondary">
+                            Entity RID: 150
+                          </AstryxText>
+                        </div>
+                        <AstryxText type="supporting" color="secondary">
+                          <code>CLINIC_MAIN</code> → <code>NETWORK_BRANCH_05</code>
+                        </AstryxText>
                       </div>
                     </div>
 
-                    <Text strong>Result:</Text>
-                    <Paragraph>
-                      When events come from Clinic #2 (entity RID 150), the lookup will use <code>NETWORK_BRANCH_05</code> instead
-                      of the parent-level <code>NETWORK_001</code>.
-                    </Paragraph>
+                    <AstryxText weight="semibold">Result:</AstryxText>
+                    <AstryxText as="p" display="block">
+                      When events come from Clinic #2 (entity RID 150), the lookup will use{' '}
+                      <code>NETWORK_BRANCH_05</code> instead of the parent-level <code>NETWORK_001</code>.
+                    </AstryxText>
                   </div>
                 </div>
-              )
-            }
-          ]}
-        />
+              ),
+            },
+          ];
+          return (
+            <>
+              <TabList
+                role="tablist"
+                aria-label="Lookup guide sections"
+                value={activeTab}
+                onChange={setActiveTab}
+                hasDivider
+              >
+                {items.map((item) => (
+                  <Tab
+                    key={item.key}
+                    id={`lookup-guide-${item.key}-tab`}
+                    value={item.key}
+                    label={item.label}
+                    icon={item.icon}
+                    panelId={`lookup-guide-${item.key}-panel`}
+                  />
+                ))}
+              </TabList>
+              {items.map((item) => (
+                <div
+                  key={item.key}
+                  id={`lookup-guide-${item.key}-panel`}
+                  role="tabpanel"
+                  aria-labelledby={`lookup-guide-${item.key}-tab`}
+                  hidden={activeTab !== item.key}
+                  tabIndex={0}
+                >
+                  {item.children}
+                </div>
+              ))}
+            </>
+          );
+        })()}
 
         <Divider />
 
         {/* Footer Help */}
-        <Alert
-          type="success"
-          showIcon
-          message="Need Help?"
-          description={
-            <div>
-              <Paragraph>
-                If you need assistance setting up lookup tables or have questions about code mappings:
-              </Paragraph>
-              <ul style={{ marginBottom: 0 }}>
-                <li>Check the <strong>Lookup Tables</strong> section to view and manage your mappings</li>
-                <li>Use the <strong>Stats</strong> page to see which mappings are being used most</li>
-                <li>Review the <strong>Delivery Logs</strong> to see if lookups are working correctly</li>
-              </ul>
-            </div>
-          }
-        />
-      </Card>
-    </div>
+        <div>
+          <Heading level={4}>Need help?</Heading>
+          <AstryxText as="p" display="block">
+            If you need assistance with lookup setup or code mappings:
+          </AstryxText>
+          <ul>
+            <li>
+              Check <strong>Lookup Tables</strong> to view and manage mappings
+            </li>
+            <li>
+              Use <strong>Stats</strong> to see which mappings are used most
+            </li>
+            <li>
+              Review <strong>Delivery Logs</strong> to verify lookup results
+            </li>
+          </ul>
+        </div>
+      </div>
+    </PageTemplate>
   );
 };

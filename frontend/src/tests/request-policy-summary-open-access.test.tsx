@@ -6,19 +6,18 @@ import { RequestPolicySummary } from '../features/integrations/components/detail
 
 // Regression test: an inbound integration with no IP/origin restrictions and no rate limiting
 // used to render a plain, untooltipped <Tag>Open</Tag> in compact mode — a security-relevant
-// "accepts requests from any source" state with no visual urgency and no explanation. Fixed to
-// an orange "Open access" tag with an explanatory tooltip, matching the "No Auth" treatment
-// added to the Authentication column at the same time.
+// "accepts requests from any source" state with no visual urgency and no explanation. Keep it
+// distinct as a warning status badge, while configuration counts stay neutral rather than colored.
 
-describe('RequestPolicySummary — unrestricted policy in compact mode', () => {
-  it('renders an orange "Open access" tag instead of the old plain "Open" tag', () => {
+describe('RequestPolicySummary — policy presentation', () => {
+  it('renders a warning status badge for unrestricted access instead of a colored Tag', () => {
     const { container } = render(<RequestPolicySummary policy={null} compact />);
 
     expect(screen.getByText('Open access')).toBeInTheDocument();
     expect(screen.queryByText('Open')).not.toBeInTheDocument();
 
-    const tag = container.querySelector('.ant-tag') as HTMLElement;
-    expect(tag.className).toContain('ant-tag-orange');
+    expect(container.querySelector('.status-badge--tone-warning')).toBeInTheDocument();
+    expect(container.querySelector('.ant-tag')).not.toBeInTheDocument();
   });
 
   it('shows an explanatory security tooltip on hover', async () => {
@@ -27,7 +26,9 @@ describe('RequestPolicySummary — unrestricted policy in compact mode', () => {
     await userEvent.hover(screen.getByText('Open access'));
 
     expect(
-      await screen.findByText('No IP/origin restrictions or rate limiting configured — accepts requests from any source')
+      await screen.findByText(
+        'No IP/origin restrictions or rate limiting configured — accepts requests from any source'
+      )
     ).toBeInTheDocument();
   });
 
@@ -38,19 +39,22 @@ describe('RequestPolicySummary — unrestricted policy in compact mode', () => {
     expect(screen.queryByText('Open access')).not.toBeInTheDocument();
   });
 
-  it('still renders IP/origin/rate-limit tags normally when a policy is configured', () => {
-    render(
+  it('renders configured policy counts as neutral text instead of colored Tags', () => {
+    const { container } = render(
       <RequestPolicySummary
         compact
         policy={{
           allowedIpCidrs: ['10.0.0.0/8'],
-          allowedBrowserOrigins: [],
-          rateLimit: { enabled: false },
+          allowedBrowserOrigins: ['https://example.test'],
+          rateLimit: { enabled: true, maxRequests: 20, windowSeconds: 60 },
         }}
       />
     );
 
     expect(screen.getByText('1 IP rule')).toBeInTheDocument();
+    expect(screen.getByText('1 origin')).toBeInTheDocument();
+    expect(screen.getByText('20/60s')).toBeInTheDocument();
     expect(screen.queryByText('Open access')).not.toBeInTheDocument();
+    expect(container.querySelector('.ant-tag')).not.toBeInTheDocument();
   });
 });

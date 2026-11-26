@@ -1,4 +1,4 @@
-import type { FormInstance } from 'antd';
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 import { AuthenticationFields } from '../../../../shared/integration-forms';
 import { SecureLabel } from './shared';
 

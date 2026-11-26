@@ -11,7 +11,7 @@ export const useSamplePayload = ({
   selectedEventTypeData,
   setSampleInput
 }: UseSamplePayloadParams) => {
-  const prevEventTypeRef = useRef<string | undefined>();
+  const prevEventTypeRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (selectedEventTypeData?.samplePayload && selectedEventType && selectedEventType !== prevEventTypeRef.current) {

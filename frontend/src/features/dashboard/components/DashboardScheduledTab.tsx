@@ -1,17 +1,21 @@
 import { useMemo } from 'react';
-import { Card, Typography, Skeleton, List, Space, Tag } from 'antd';
-import { ClockCircleOutlined, CheckCircleOutlined, WarningOutlined, DashboardOutlined } from '@ant-design/icons';
+import { Card, List, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { BarChart, ComposedChart, LineChart } from '../../../components/charts';
 import { ModernTable } from '../../../components/common/ModernTable';
+import { Button } from '../../../components/common/LegacyButton';
 import { CountdownTo } from '../../../components/common/RefreshCountdown';
 import { formatNumber, formatDateTime, formatDuration } from '../../../utils/format';
-import { cssVar, useDesignTokens, spacingToNumber, withAlpha } from '../../../design-system/utils';
+import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import {
   DashboardEmptyState,
+  DashboardLoadingState,
   DashboardSectionTitle,
   DashboardMetricTile,
-  useDashboardPanelStyle,
-  useDashboardTagTone,
+  getDashboardIntegrationRowKey,
+  getDashboardRateTone,
+  DASHBOARD_PANEL_CLASS,
 } from './DashboardPrimitives';
 
 interface DashboardScheduledTabProps {
@@ -51,9 +55,7 @@ export const DashboardScheduledTab = ({
   hiddenLegends,
   onLegendClick,
 }: DashboardScheduledTabProps) => {
-  const { themeColors, spacing, token, borderRadius } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-  const tagTone = useDashboardTagTone();
+  const { themeColors, spacing, token } = useDesignTokens();
   // Next Scheduled Run Countdown
   const nextScheduledRun = useMemo(() => {
     const activeJobs = scheduledJobs.filter((job: any) => job.isActive && job.nextRunTime);
@@ -86,7 +88,7 @@ export const DashboardScheduledTab = ({
         label: 'Total Executions',
         value: formatNumber(total),
         delta: timeLabel,
-        icon: <DashboardOutlined />,
+        icon: <GatewayIcon name="DashboardOutlined" />,
         tone: themeColors.primary.default,
         onClick: () => onNavigate('/logs?triggerType=SCHEDULED'),
       },
@@ -94,7 +96,7 @@ export const DashboardScheduledTab = ({
         label: 'Execution Success Rate',
         value: `${successRate}%`,
         delta: `${formatNumber(successful)} successful`,
-        icon: <CheckCircleOutlined />,
+        icon: <GatewayIcon name="CheckCircleOutlined" />,
         // total === 0 means no scheduled jobs have run yet — a neutral "no data"
         // state, not a failure; must not read as red the way a real 0% success
         // rate out of real executions would.
@@ -112,14 +114,14 @@ export const DashboardScheduledTab = ({
         label: 'Avg Execution Duration',
         value: formatDuration(avgDuration),
         delta: `P95: ${formatDuration(p95Duration)}`,
-        icon: <ClockCircleOutlined />,
+        icon: <GatewayIcon name="ClockCircleOutlined" />,
         tone: themeColors.info.text,
       },
       {
         label: 'Next Scheduled Run',
         value: <CountdownTo target={nextScheduledRun?.job?.nextRunTime} />,
         delta: nextScheduledRun?.job?.name || 'No active jobs',
-        icon: <WarningOutlined />,
+        icon: <GatewayIcon name="WarningOutlined" />,
         tone:
           nextScheduledRun?.ms && nextScheduledRun.ms < 5 * 60 * 1000
             ? themeColors.warning.text
@@ -292,16 +294,20 @@ export const DashboardScheduledTab = ({
   return (
     <>
       {/* Real-Time Health Status KPI Cards */}
-      <section className="dashboard-overview" style={{ marginTop: spacing[4] }}>
-        <div className="dashboard-kpis">
-          {kpiMetrics.map((metric) => (
-            <DashboardMetricTile key={metric.label} {...metric} loading={analyticsLoading} />
-          ))}
-        </div>
+      <section className="dashboard-overview console-margin-top-4">
+        {analyticsLoading ? (
+          <DashboardLoadingState title="Loading scheduled job health" />
+        ) : (
+          <div className="dashboard-kpis">
+            {kpiMetrics.map((metric) => (
+              <DashboardMetricTile key={metric.label} {...metric} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Job Performance Metrics - Job Health Table */}
-      <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+      <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
         <Card
           title={
             <DashboardSectionTitle
@@ -309,13 +315,16 @@ export const DashboardScheduledTab = ({
               subtitle="Health and performance metrics for scheduled jobs"
             />
           }
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 'var(--spacing-0)' } }}
           variant="borderless"
-          loading={analyticsLoading}
         >
-          {jobHealthData.length > 0 ? (
+          {analyticsLoading ? (
+            <DashboardLoadingState title="Loading job health" />
+          ) : jobHealthData.length > 0 ? (
             <ModernTable<any>
               size="middle"
+              tableLayout="fixed"
+              scroll={{ x: '100%' }}
               dataSource={jobHealthData}
               enableResize={true}
               stickyHeader={false}
@@ -326,61 +335,69 @@ export const DashboardScheduledTab = ({
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} jobs`,
                 position: ['bottomCenter'],
               }}
-              rowKey="__KEEP___KEEP_integrationConfig__Id__"
+              rowKey={getDashboardIntegrationRowKey}
               columns={[
                 {
                   title: 'Job Name',
                   dataIndex: '__KEEP_integrationName__',
                   key: '__KEEP_integrationName__',
-                  width: 220,
+                  width: 200,
                   ellipsis: true,
                   sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
                   render: (name: string, record: any) => (
-                    <Typography.Link
+                    <Button
+                      type="link"
+                      size="small"
                       onClick={() => onNavigate(getIntegrationPath(record))}
-                      style={{ fontWeight: 600, fontSize: 14 }}
-                      ellipsis
+                      style={{
+                        color: cssVar.accent.text,
+                        fontWeight: 600,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
                       {name || 'Unknown'}
-                    </Typography.Link>
+                    </Button>
                   ),
                 },
                 {
                   title: 'Schedule',
                   dataIndex: 'schedule',
                   key: 'schedule',
-                  width: 180,
+                  width: 150,
                   ellipsis: true,
                   render: (schedule: string) => (
-                    <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                    <Text type="code" color="secondary">
                       {schedule}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
                   title: 'Last Run',
                   dataIndex: 'lastRun',
                   key: 'lastRun',
-                  width: 150,
+                  width: 125,
                   render: (timestamp: string | null) =>
                     timestamp ? (
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="supporting" color="secondary">
                         {formatDateTime(timestamp)}
-                      </Typography.Text>
+                      </Text>
                     ) : (
-                      <Typography.Text type="secondary">—</Typography.Text>
+                      <Text color="secondary">—</Text>
                     ),
                 },
                 {
                   title: 'Next Run',
                   dataIndex: 'nextRun',
                   key: 'nextRun',
-                  width: 150,
+                  width: 125,
                   render: (timestamp: string | null) =>
                     timestamp ? (
-                      <Typography.Text style={{ fontSize: 12 }}>{formatDateTime(timestamp)}</Typography.Text>
+                      <Text type="supporting">{formatDateTime(timestamp)}</Text>
                     ) : (
-                      <Typography.Text type="secondary">—</Typography.Text>
+                      <Text color="secondary">—</Text>
                     ),
                 },
                 {
@@ -388,17 +405,18 @@ export const DashboardScheduledTab = ({
                   dataIndex: 'successRate',
                   key: 'successRate',
                   align: 'right',
-                  width: 130,
+                  width: 110,
                   sorter: (a: any, b: any) => parseFloat(a.successRate) - parseFloat(b.successRate),
                   render: (rate: string) => {
                     const numRate = parseFloat(rate);
-                    const color =
-                      numRate >= 95
-                        ? themeColors.success.text
-                        : numRate >= 85
-                          ? themeColors.warning.text
-                          : themeColors.error.text;
-                    return <Tag style={tagTone(color)}>{rate}%</Tag>;
+                    return (
+                      <Text
+                        className={`dashboard-metric-tone dashboard-metric-tone--${getDashboardRateTone(numRate)}`}
+                        hasTabularNumbers
+                      >
+                        {rate}%
+                      </Text>
+                    );
                   },
                 },
                 {
@@ -406,12 +424,12 @@ export const DashboardScheduledTab = ({
                   dataIndex: 'avgResponseTime',
                   key: 'avgResponseTime',
                   align: 'right',
-                  width: 130,
+                  width: 110,
                   sorter: (a: any, b: any) => a.avgResponseTime - b.avgResponseTime,
                   render: (duration: number) => (
-                    <Typography.Text style={{ fontSize: 13, fontFamily: 'ui-monospace, monospace' }}>
+                    <Text type="code" hasTabularNumbers>
                       {formatDuration(duration)}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -419,52 +437,38 @@ export const DashboardScheduledTab = ({
                   dataIndex: 'recordsProcessed',
                   key: 'recordsProcessed',
                   align: 'right',
-                  width: 150,
+                  width: 130,
                   sorter: (a: any, b: any) => a.recordsProcessed - b.recordsProcessed,
-                  render: (count: number) => (
-                    <Typography.Text style={{ fontSize: 13 }}>{count > 0 ? formatNumber(count) : '—'}</Typography.Text>
-                  ),
+                  render: (count: number) => <Text hasTabularNumbers>{count > 0 ? formatNumber(count) : '—'}</Text>,
                 },
                 {
                   title: 'Status',
                   dataIndex: 'health',
                   key: 'health',
                   align: 'center',
-                  width: 120,
-                  fixed: 'right',
+                  width: 100,
                   sorter: (a: any, b: any) => a.health.status.localeCompare(b.health.status),
                   render: (health: any) => (
-                    <Tag
-                      style={{
-                        borderRadius: borderRadius.full,
-                        fontSize: 12,
-                        padding: `${spacing['0.5']} ${spacing[2]}`,
-                        borderColor: withAlpha(health.color, 0.25),
-                        background: withAlpha(health.color, 0.1),
-                        color: health.color,
-                        fontWeight: 700,
-                        margin: 0,
-                      }}
-                    >
+                    <Text className={`dashboard-metric-tone dashboard-metric-tone--${health.status.toLowerCase()}`}>
                       {health.status}
-                    </Tag>
+                    </Text>
                   ),
                 },
               ]}
             />
           ) : (
             <div style={{ textAlign: 'center', padding: `${spacing[9]} 0` }}>
-              <WarningOutlined style={{ fontSize: spacing[10], color: cssVar.text.disabled }} />
-              <Typography.Text type="secondary" style={{ display: 'block', marginTop: spacing[2] }}>
+              <GatewayIcon name="WarningOutlined" className="console-empty-state-icon" />
+              <Text as="div" display="block" type="supporting" color="secondary" className="console-margin-top-2">
                 {noDataHint}
-              </Typography.Text>
+              </Text>
             </div>
           )}
         </Card>
       </section>
 
       {/* Execution Duration Trend */}
-      <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+      <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
         <Card
           variant="borderless"
           title={
@@ -476,7 +480,7 @@ export const DashboardScheduledTab = ({
           styles={{ body: { padding: spacing[5] } }}
         >
           {analyticsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading run duration" />
           ) : durationTrendData.length > 0 ? (
             <LineChart
               data={durationTrendData}
@@ -497,7 +501,7 @@ export const DashboardScheduledTab = ({
       {/* Reliability Tracking */}
       <section className="dashboard-tab-grid">
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -508,7 +512,7 @@ export const DashboardScheduledTab = ({
           styles={{ body: { padding: spacing[4] } }}
         >
           {analyticsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading job reliability" />
           ) : reliabilityChartData.length > 0 ? (
             <ComposedChart
               data={reliabilityChartData}
@@ -532,13 +536,13 @@ export const DashboardScheduledTab = ({
         </Card>
 
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={<DashboardSectionTitle title="Failure Analysis" subtitle="Error patterns and retry metrics" />}
           styles={{ body: { padding: spacing[4] } }}
         >
           {errorsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading job failures" />
           ) : (
             <>
               <Space
@@ -555,10 +559,10 @@ export const DashboardScheduledTab = ({
                     borderRadius: token.borderRadius,
                   }}
                 >
-                  <Typography.Text type="secondary">Failed Jobs</Typography.Text>
-                  <Typography.Text strong style={{ fontSize: 16, color: themeColors.error.text }}>
+                  <Text color="secondary">Failed Jobs</Text>
+                  <Text type="large" weight="semibold" hasTabularNumbers style={{ color: themeColors.error.text }}>
                     {failureAnalysis.failedJobsCount}
-                  </Typography.Text>
+                  </Text>
                 </div>
                 <div
                   style={{
@@ -569,27 +573,24 @@ export const DashboardScheduledTab = ({
                     borderRadius: token.borderRadius,
                   }}
                 >
-                  <Typography.Text type="secondary">Retry Attempts</Typography.Text>
-                  <Typography.Text strong style={{ fontSize: 16, color: themeColors.warning.text }}>
+                  <Text color="secondary">Retry Attempts</Text>
+                  <Text type="large" weight="semibold" hasTabularNumbers style={{ color: themeColors.warning.text }}>
                     {failureAnalysis.retriedErrors}
-                  </Typography.Text>
+                  </Text>
                 </div>
               </Space>
 
               {failureAnalysis.topFailureReasons.length > 0 && (
                 <div>
-                  <Typography.Text
-                    type="secondary"
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      display: 'block',
-                      marginBottom: spacing[2],
-                    }}
+                  <Text
+                    as="div"
+                    type="supporting"
+                    color="secondary"
+                    weight="semibold"
+                    className="console-margin-bottom-2"
                   >
                     Top Failure Reasons
-                  </Typography.Text>
+                  </Text>
                   <List
                     size="small"
                     dataSource={failureAnalysis.topFailureReasons}
@@ -597,11 +598,13 @@ export const DashboardScheduledTab = ({
                       <List.Item
                         style={{ padding: `${spacing[2]} 0`, borderBlockEnd: `1px solid ${cssVar.border.default}` }}
                       >
-                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                          <Typography.Text ellipsis style={{ fontSize: 12, maxWidth: 180 }}>
+                        <Space className="console-width-full-between">
+                          <Text type="supporting" maxLines={1} className="ui-extracted-0ace823dbe">
                             {error.category || error.message}
-                          </Typography.Text>
-                          <Tag style={tagTone(themeColors.error.text)}>{formatNumber(error.count)}</Tag>
+                          </Text>
+                          <Text type="supporting" color="secondary" hasTabularNumbers>
+                            {formatNumber(error.count)}
+                          </Text>
                         </Space>
                       </List.Item>
                     )}
@@ -617,7 +620,7 @@ export const DashboardScheduledTab = ({
       {recordsProcessedTrend.length > 0 && (
         <section className="dashboard-tab-grid">
           <Card
-            style={panelStyle}
+            className={DASHBOARD_PANEL_CLASS}
             variant="borderless"
             title={
               <DashboardSectionTitle
@@ -628,7 +631,7 @@ export const DashboardScheduledTab = ({
             styles={{ body: { padding: spacing[5] } }}
           >
             {analyticsLoading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
+              <DashboardLoadingState title="Loading processed records" />
             ) : (
               <BarChart
                 data={recordsProcessedTrend}
@@ -645,14 +648,14 @@ export const DashboardScheduledTab = ({
           </Card>
 
           <Card
-            style={panelStyle}
+            className={DASHBOARD_PANEL_CLASS}
             variant="borderless"
             title={<DashboardSectionTitle title="Data Source Performance" subtitle="Query times and timeout rates" />}
-            styles={{ body: { padding: 0 } }}
+            styles={{ body: { padding: 'var(--spacing-0)' } }}
           >
             {analyticsLoading ? (
               <div style={{ padding: spacing[4] }}>
-                <Skeleton active paragraph={{ rows: 6 }} />
+                <DashboardLoadingState title="Loading data-source performance" />
               </div>
             ) : dataSourcePerformance.length > 0 ? (
               <ModernTable<any>
@@ -669,9 +672,7 @@ export const DashboardScheduledTab = ({
                     key: 'dataSource',
                     width: 180,
                     ellipsis: true,
-                    render: (name: string) => (
-                      <Typography.Text style={{ fontSize: 13, fontWeight: 500 }}>{name}</Typography.Text>
-                    ),
+                    render: (name: string) => <Text weight="medium">{name}</Text>,
                   },
                   {
                     title: 'Avg Query Time',
@@ -679,11 +680,7 @@ export const DashboardScheduledTab = ({
                     key: 'avgQueryTime',
                     align: 'right',
                     width: 140,
-                    render: (time: number) => (
-                      <Typography.Text style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
-                        {formatDuration(time)}
-                      </Typography.Text>
-                    ),
+                    render: (time: number) => <Text type="code">{formatDuration(time)}</Text>,
                   },
                   {
                     title: 'Max Query Time',
@@ -692,9 +689,9 @@ export const DashboardScheduledTab = ({
                     align: 'right',
                     width: 140,
                     render: (time: number) => (
-                      <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                      <Text type="code" color="secondary">
                         {formatDuration(time)}
-                      </Typography.Text>
+                      </Text>
                     ),
                   },
                   {
@@ -706,11 +703,13 @@ export const DashboardScheduledTab = ({
                     render: (rate: string) => {
                       const numRate = parseFloat(rate);
                       return numRate > 0 ? (
-                        <Tag style={tagTone(themeColors.error.text)}>{rate}%</Tag>
+                        <Text className="dashboard-metric-tone dashboard-metric-tone--error" hasTabularNumbers>
+                          {rate}%
+                        </Text>
                       ) : (
-                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        <Text type="supporting" color="secondary">
                           0%
-                        </Typography.Text>
+                        </Text>
                       );
                     },
                   },
@@ -721,9 +720,9 @@ export const DashboardScheduledTab = ({
                     align: 'right',
                     width: 130,
                     render: (count: number) => (
-                      <Typography.Text strong style={{ fontSize: 13 }}>
+                      <Text weight="semibold" hasTabularNumbers>
                         {formatNumber(count)}
-                      </Typography.Text>
+                      </Text>
                     ),
                   },
                 ]}

@@ -1,160 +1,80 @@
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  SyncOutlined,
-  ExclamationCircleOutlined,
-  BranchesOutlined,
-  ClockCircleOutlined,
-  StopOutlined,
-  MinusCircleOutlined,
-} from '@ant-design/icons';
-import { Tag } from 'antd';
+import { Badge } from '@astryxdesign/core/Badge';
+import type { BadgeVariant } from '@astryxdesign/core/Badge';
 import type { ReactNode } from 'react';
-import { cssVar, useDesignTokens } from '../../design-system/utils';
 import type { DeliveryStatus, IntegrationScope } from '../../mocks/types';
 
-const iconMap: Record<string, ReactNode> = {
-  SUCCESS: <CheckCircleOutlined />,
-  FAILED: <CloseCircleOutlined />,
-  RETRYING: <SyncOutlined spin />,
-  PENDING: <ClockCircleOutlined />,
-  QUEUED: <ClockCircleOutlined />,
-  PENDING_OR_RETRYING: <ClockCircleOutlined />,
-  SKIPPED: <MinusCircleOutlined />,
-  ABANDONED: <StopOutlined />,
-  ENTITY_ONLY: <BranchesOutlined />,
-  INCLUDE_CHILDREN: <BranchesOutlined />,
-  INHERITED: <BranchesOutlined />,
-  LOCAL: <BranchesOutlined />,
+export type StatusBadgeVariant = Extract<
+  BadgeVariant,
+  'neutral' | 'info' | 'success' | 'warning' | 'error' | 'blue' | 'green' | 'orange' | 'red'
+>;
+
+const statusLabels: Record<string, string> = {
+  RECEIVED: 'Pending',
+  PROCESSING: 'Pending',
+  SUCCESS: 'Delivered',
+  DELIVERED: 'Delivered',
+  FAILED: 'Failed',
+  RETRYING: 'Retrying',
+  PENDING: 'Pending',
+  QUEUED: 'Pending',
+  PENDING_OR_RETRYING: 'Pending',
+  SKIPPED: 'Skipped',
+  ABANDONED: 'Abandoned',
+  STUCK: 'Failed',
+  ENTITY_ONLY: 'Entity only',
+  INCLUDE_CHILDREN: 'Include children',
+  INHERITED: 'Inherited',
+  LOCAL: 'Local',
 };
 
+export const getStatusLabel = (status?: string): string => {
+  const normalizedStatus = String(status || '').toUpperCase();
+  return statusLabels[normalizedStatus] ?? status ?? 'Unknown';
+};
+
+const statusVariants: Record<string, StatusBadgeVariant> = {
+  RECEIVED: 'warning',
+  PROCESSING: 'warning',
+  SUCCESS: 'success',
+  DELIVERED: 'success',
+  FAILED: 'error',
+  RETRYING: 'warning',
+  PENDING: 'warning',
+  QUEUED: 'warning',
+  PENDING_OR_RETRYING: 'warning',
+  SKIPPED: 'neutral',
+  ABANDONED: 'error',
+  STUCK: 'error',
+  ENTITY_ONLY: 'blue',
+  INCLUDE_CHILDREN: 'blue',
+  INHERITED: 'neutral',
+  LOCAL: 'info',
+};
+
+type LegacyStatus = DeliveryStatus | 'INHERITED' | 'LOCAL' | 'PENDING_OR_RETRYING' | IntegrationScope;
+
 interface StatusBadgeProps {
-  status: DeliveryStatus | 'INHERITED' | 'LOCAL' | 'PENDING_OR_RETRYING' | IntegrationScope;
+  status?: LegacyStatus | string;
+  label?: ReactNode;
+  variant?: StatusBadgeVariant;
   size?: 'small' | 'default' | 'large';
   showIcon?: boolean;
 }
 
-/**
- * StatusBadge - Semantic status indicator following Modern Enterprise UI principles
- *
- * Color is semantic, never decorative:
- * - Green: Success / healthy
- * - Red: Failure / blocking
- * - Amber: Warning / retrying
- * - Blue: Informational / pending
- * - Gray: Neutral / inactive
- */
-export const StatusBadge = ({ status, size = 'default', showIcon = true }: StatusBadgeProps) => {
-  const { spacing, borderRadius } = useDesignTokens();
-
-  const toneMap: Record<string, { color: string; bg: string; border: string }> = {
-    SUCCESS: {
-      color: cssVar.success.text,
-      bg: cssVar.success.bg,
-      border: cssVar.success.border,
-    },
-    FAILED: {
-      color: cssVar.error.text,
-      bg: cssVar.error.bg,
-      border: cssVar.error.border,
-    },
-    RETRYING: {
-      color: cssVar.warning.text,
-      bg: cssVar.warning.bg,
-      border: cssVar.warning.border,
-    },
-    PENDING: {
-      color: cssVar.warning.text,
-      bg: cssVar.warning.bg,
-      border: cssVar.warning.border,
-    },
-    QUEUED: {
-      color: cssVar.warning.text,
-      bg: cssVar.warning.bg,
-      border: cssVar.warning.border,
-    },
-    PENDING_OR_RETRYING: {
-      color: cssVar.warning.text,
-      bg: cssVar.warning.bg,
-      border: cssVar.warning.border,
-    },
-    SKIPPED: {
-      color: cssVar.text.muted,
-      bg: cssVar.bg.subtle,
-      border: cssVar.border.subtle,
-    },
-    // Abandoned means every retry has already been exhausted — the worst outcome a
-    // delivery can reach — so it must read as a failure, not a neutral/inactive state,
-    // to match the red "Failed" count these rows are counted under in the summary pill.
-    ABANDONED: {
-      color: cssVar.error.text,
-      bg: cssVar.error.bg,
-      border: cssVar.error.border,
-    },
-    ENTITY_ONLY: {
-      color: cssVar.primary[700],
-      bg: cssVar.primary[100],
-      border: cssVar.primary[300],
-    },
-    INCLUDE_CHILDREN: {
-      color: cssVar.primary[700],
-      bg: cssVar.primary[100],
-      border: cssVar.primary[300],
-    },
-    INHERITED: {
-      color: cssVar.text.secondary,
-      bg: cssVar.bg.subtle,
-      border: cssVar.border.default,
-    },
-    LOCAL: {
-      color: cssVar.info.text,
-      bg: cssVar.info.bg,
-      border: cssVar.info.border,
-    },
-  };
-
-  const toneStyle = toneMap[status] ?? {
-    color: cssVar.text.primary,
-    bg: cssVar.bg.subtle,
-    border: cssVar.border.default,
-  };
-
-  // Size-based styling
-  const sizeStyles = {
-    small: {
-      fontSize: 11,
-      padding: `2px ${spacing[2]}`,
-      fontWeight: 700,
-    },
-    default: {
-      fontSize: 12,
-      padding: `${spacing['1']} ${spacing[2]}`,
-      fontWeight: 700,
-    },
-    large: {
-      fontSize: 13,
-      padding: `${spacing['1.5']} ${spacing['2.5']}`,
-      fontWeight: 700,
-    },
-  };
-
-  const sizeStyle = sizeStyles[size];
+/** Astryx badge for consistent status and metadata labels across the console. */
+export const StatusBadge = ({ status, label, variant, size = 'default', showIcon = true }: StatusBadgeProps) => {
+  const normalizedStatus = String(status || '').toUpperCase();
+  const text = label ?? getStatusLabel(status);
+  const resolvedVariant = variant ?? statusVariants[normalizedStatus] ?? 'neutral';
 
   return (
-    <Tag
-      icon={showIcon ? iconMap[status] : undefined}
-      style={{
-        borderRadius: borderRadius.full, // Pill shape
-        color: toneStyle.color,
-        background: toneStyle.bg,
-        borderColor: toneStyle.border,
-        fontSize: sizeStyle.fontSize,
-        padding: sizeStyle.padding,
-        fontWeight: sizeStyle.fontWeight,
-        margin: 0,
-      }}
-    >
-      {status}
-    </Tag>
+    <Badge
+      className={`status-badge status-badge--${size} status-badge--tone-${resolvedVariant}`}
+      data-size={size}
+      icon={showIcon && status ? <span aria-hidden="true" className="status-badge__dot" /> : undefined}
+      label={text}
+      data-status={normalizedStatus || undefined}
+      variant="neutral"
+    />
   );
 };

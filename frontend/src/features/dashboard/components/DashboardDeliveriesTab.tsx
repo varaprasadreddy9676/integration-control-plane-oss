@@ -1,16 +1,19 @@
 import { useMemo } from 'react';
-import { Button, Card, List, Segmented, Space, Tag, Typography, Skeleton } from 'antd';
-import { BarChartOutlined, LineChartOutlined, WarningOutlined } from '@ant-design/icons';
+import { Card, List, Segmented, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { BarChart, FunnelChart, FunnelData } from '../../../components/charts';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { formatDateTime, formatNumber } from '../../../utils/format';
 import { cssVar, useDesignTokens, spacingToNumber } from '../../../design-system/utils';
 import {
   DashboardEmptyState,
+  DashboardLoadingState,
   DashboardSectionTitle,
-  useDashboardPanelStyle,
-  useDashboardTagTone,
+  getDashboardIntegrationRowKey,
+  DASHBOARD_PANEL_CLASS,
 } from './DashboardPrimitives';
+import { Button } from '../../../components/common/LegacyButton';
 
 interface DashboardDeliveriesTabProps {
   analyticsLoading: boolean;
@@ -85,9 +88,7 @@ export const DashboardDeliveriesTab = ({
   hiddenLegends,
   onLegendClick,
 }: DashboardDeliveriesTabProps) => {
-  const { themeColors, spacing, token, borderRadius } = useDesignTokens();
-  const panelStyle = useDashboardPanelStyle();
-  const tagTone = useDashboardTagTone();
+  const { themeColors, spacing } = useDesignTokens();
 
   const performanceChartBars =
     performanceChartMetric === 'count'
@@ -186,7 +187,7 @@ export const DashboardDeliveriesTab = ({
 
   return (
     <>
-      <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+      <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
         <Card
           title={<DashboardSectionTitle title={performanceTitle} subtitle={performanceSubtitle} />}
           extra={
@@ -194,11 +195,12 @@ export const DashboardDeliveriesTab = ({
               {manageLabel}
             </Button>
           }
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 'var(--spacing-0)' } }}
           variant="borderless"
-          loading={analyticsLoading}
         >
-          {integrationPerformance && integrationPerformance.length > 0 ? (
+          {analyticsLoading ? (
+            <DashboardLoadingState title="Loading delivery performance" />
+          ) : integrationPerformance && integrationPerformance.length > 0 ? (
             <ModernTable<any>
               size="middle"
               dataSource={integrationPerformance}
@@ -211,7 +213,7 @@ export const DashboardDeliveriesTab = ({
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} integrations`,
                 position: ['bottomCenter'],
               }}
-              rowKey="__KEEP___KEEP_integrationConfig__Id__"
+              rowKey={getDashboardIntegrationRowKey}
               columns={[
                 {
                   title: performanceEntityLabel,
@@ -221,13 +223,21 @@ export const DashboardDeliveriesTab = ({
                   ellipsis: true,
                   sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
                   render: (name: string, record: any) => (
-                    <Typography.Link
+                    <Button
+                      type="link"
+                      size="small"
                       onClick={() => onNavigate(getIntegrationPath(record))}
-                      style={{ fontWeight: 600, fontSize: 14 }}
-                      ellipsis
+                      style={{
+                        color: cssVar.accent.text,
+                        fontWeight: 600,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
                       {name || 'Unknown'}
-                    </Typography.Link>
+                    </Button>
                   ),
                 },
                 {
@@ -238,9 +248,9 @@ export const DashboardDeliveriesTab = ({
                   width: 150,
                   sorter: (a: any, b: any) => a.total - b.total,
                   render: (value: number) => (
-                    <Typography.Text strong style={{ fontSize: 13, color: token.colorText }}>
+                    <Text weight="semibold" color="primary" hasTabularNumbers>
                       {formatNumber(value)}
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -250,22 +260,7 @@ export const DashboardDeliveriesTab = ({
                   align: 'right',
                   width: 150,
                   sorter: (a: any, b: any) => parseFloat(a.successRate) - parseFloat(b.successRate),
-                  render: (rate: number) => (
-                    <Tag
-                      style={{
-                        borderRadius: borderRadius.full,
-                        fontSize: 12,
-                        padding: `${spacing['1']} ${spacing[2]}`,
-                        borderColor: themeColors.success.border,
-                        background: themeColors.success.bg,
-                        color: themeColors.success.text,
-                        fontWeight: 700,
-                        margin: 0,
-                      }}
-                    >
-                      {rate}%
-                    </Tag>
-                  ),
+                  render: (rate: number) => <Text hasTabularNumbers>{rate}%</Text>,
                 },
                 {
                   title: 'Avg Latency',
@@ -275,11 +270,9 @@ export const DashboardDeliveriesTab = ({
                   width: 140,
                   sorter: (a: any, b: any) => a.avgResponseTime - b.avgResponseTime,
                   render: (latency: number) => (
-                    <Typography.Text
-                      style={{ fontSize: 13, color: token.colorText, fontFamily: 'ui-monospace, monospace' }}
-                    >
+                    <Text type="code" color="primary" hasTabularNumbers>
                       {latency} ms
-                    </Typography.Text>
+                    </Text>
                   ),
                 },
                 {
@@ -289,22 +282,7 @@ export const DashboardDeliveriesTab = ({
                   align: 'right',
                   width: 130,
                   sorter: (a: any, b: any) => a.successful - b.successful,
-                  render: (count: number) => (
-                    <Tag
-                      style={{
-                        borderRadius: borderRadius.full,
-                        fontSize: 12,
-                        padding: `${spacing['1']} ${spacing[2]}`,
-                        borderColor: themeColors.success.border,
-                        background: themeColors.success.bg,
-                        color: themeColors.success.text,
-                        fontWeight: 600,
-                        margin: 0,
-                      }}
-                    >
-                      {formatNumber(count)}
-                    </Tag>
-                  ),
+                  render: (count: number) => <Text hasTabularNumbers>{formatNumber(count)}</Text>,
                 },
                 {
                   title: 'Failed',
@@ -316,24 +294,11 @@ export const DashboardDeliveriesTab = ({
                   resizable: false,
                   render: (count: number) =>
                     count > 0 ? (
-                      <Tag
-                        style={{
-                          borderRadius: borderRadius.full,
-                          fontSize: 12,
-                          padding: `${spacing['1']} ${spacing[2]}`,
-                          borderColor: themeColors.error.border,
-                          background: themeColors.error.bg,
-                          color: themeColors.error.text,
-                          fontWeight: 700,
-                          margin: 0,
-                        }}
-                      >
+                      <Text style={{ color: themeColors.error.text }} hasTabularNumbers>
                         {formatNumber(count)}
-                      </Tag>
+                      </Text>
                     ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                        —
-                      </Typography.Text>
+                      <Text color="secondary">—</Text>
                     ),
                 },
                 {
@@ -344,26 +309,7 @@ export const DashboardDeliveriesTab = ({
                   width: 120,
                   sorter: (a: any, b: any) => a.skipped - b.skipped,
                   render: (count: number) =>
-                    count > 0 ? (
-                      <Tag
-                        style={{
-                          borderRadius: borderRadius.full,
-                          fontSize: 12,
-                          padding: `${spacing['1']} ${spacing[2]}`,
-                          borderColor: themeColors.warning.border,
-                          background: themeColors.warning.bg,
-                          color: themeColors.warning.text,
-                          fontWeight: 700,
-                          margin: 0,
-                        }}
-                      >
-                        {formatNumber(count)}
-                      </Tag>
-                    ) : (
-                      <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                        —
-                      </Typography.Text>
-                    ),
+                    count > 0 ? <Text hasTabularNumbers>{formatNumber(count)}</Text> : <Text color="secondary">—</Text>,
                 },
               ]}
             />
@@ -378,8 +324,8 @@ export const DashboardDeliveriesTab = ({
                 gap: spacing[2],
               }}
             >
-              <WarningOutlined style={{ fontSize: spacing[10], color: cssVar.text.disabled }} />
-              <Typography.Text type="secondary">No activity in the selected period</Typography.Text>
+              <GatewayIcon name="WarningOutlined" className="console-empty-state-icon" />
+              <Text color="secondary">No activity in the selected period</Text>
               <Button type="primary" onClick={onCreateNew}>
                 Create {performanceEntityLabel}
               </Button>
@@ -390,7 +336,7 @@ export const DashboardDeliveriesTab = ({
 
       <section className="dashboard-tab-grid">
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -414,8 +360,8 @@ export const DashboardDeliveriesTab = ({
                 value={performanceChartLayout}
                 onChange={(value) => setPerformanceChartLayout(value as 'horizontal' | 'vertical')}
                 options={[
-                  { label: <BarChartOutlined />, value: 'horizontal' },
-                  { label: <LineChartOutlined />, value: 'vertical' },
+                  { label: <GatewayIcon name="BarChartOutlined" />, value: 'horizontal' },
+                  { label: <GatewayIcon name="LineChartOutlined" />, value: 'vertical' },
                 ]}
               />
             </Space>
@@ -423,7 +369,7 @@ export const DashboardDeliveriesTab = ({
           styles={{ body: { padding: spacing[4] } }}
         >
           {analyticsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading integration performance" />
           ) : performanceChartData.length > 0 ? (
             <BarChart
               data={performanceChartData}
@@ -448,7 +394,7 @@ export const DashboardDeliveriesTab = ({
         </Card>
 
         <Card
-          style={panelStyle}
+          className={DASHBOARD_PANEL_CLASS}
           variant="borderless"
           title={
             <DashboardSectionTitle
@@ -459,9 +405,10 @@ export const DashboardDeliveriesTab = ({
           styles={{ body: { padding: spacing[4] } }}
         >
           {analyticsLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
+            <DashboardLoadingState title="Loading attention items" />
           ) : attentionItems.length > 0 ? (
             <List
+              rowKey="integrationId"
               dataSource={attentionItems}
               renderItem={(item) => (
                 <List.Item
@@ -479,7 +426,7 @@ export const DashboardDeliveriesTab = ({
                     </Button>,
                   ]}
                 >
-                  <Space direction="vertical" size={spacingToNumber(spacing[1])} style={{ width: '100%' }}>
+                  <Space direction="vertical" size={spacingToNumber(spacing[1])} className="console-width-full">
                     <Space
                       style={{
                         width: '100%',
@@ -488,7 +435,9 @@ export const DashboardDeliveriesTab = ({
                         gap: spacing[2],
                       }}
                     >
-                      <Typography.Link
+                      <Button
+                        type="link"
+                        size="small"
                         onClick={() =>
                           onNavigate(
                             getIntegrationPath({
@@ -497,26 +446,34 @@ export const DashboardDeliveriesTab = ({
                             })
                           )
                         }
-                        style={{ fontWeight: 600, fontSize: 13 }}
+                        style={{ color: cssVar.accent.text, fontWeight: 600 }}
                       >
                         {item.name}
-                      </Typography.Link>
-                      <Tag style={tagTone(item.failed > 0 ? themeColors.error.text : themeColors.warning.text)}>
+                      </Button>
+                      <Text
+                        color={item.failed > 0 ? 'primary' : 'secondary'}
+                        style={{ whiteSpace: 'nowrap', ...(item.failed > 0 ? { color: themeColors.error.text } : {}) }}
+                        hasTabularNumbers
+                      >
                         {item.failed > 0
                           ? `${formatNumber(item.failed)} failed`
                           : `${formatNumber(item.skipped)} skipped`}
-                      </Tag>
+                      </Text>
                     </Space>
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="supporting" color="secondary">
                       {item.primaryIssue}
-                    </Typography.Text>
+                    </Text>
                     <Space size={spacingToNumber(spacing[1])} wrap>
-                      <Tag style={tagTone(themeColors.error.text)}>{item.failureRate.toFixed(1)}% failure rate</Tag>
-                      <Tag style={tagTone(themeColors.warning.text)}>{item.successRate.toFixed(1)}% success</Tag>
+                      <Text type="supporting" color="secondary" hasTabularNumbers>
+                        {item.failureRate.toFixed(1)}% failure rate
+                      </Text>
+                      <Text type="supporting" color="secondary" hasTabularNumbers>
+                        {item.successRate.toFixed(1)}% success
+                      </Text>
                       {item.lastSeen ? (
-                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        <Text type="supporting" color="secondary">
                           Last activity {formatDateTime(item.lastSeen)}
-                        </Typography.Text>
+                        </Text>
                       ) : null}
                     </Space>
                   </Space>
@@ -532,7 +489,7 @@ export const DashboardDeliveriesTab = ({
       {showEventAudit && (
         <section className="dashboard-tab-grid">
           <Card
-            style={panelStyle}
+            className={DASHBOARD_PANEL_CLASS}
             variant="borderless"
             title={
               <DashboardSectionTitle
@@ -548,42 +505,46 @@ export const DashboardDeliveriesTab = ({
             styles={{ body: { padding: spacing[4] } }}
           >
             {eventAuditLoading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
+              <DashboardLoadingState title="Loading event audit" />
             ) : auditInsights.totalReceived > 0 ? (
-              <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
+              <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
                 <div className="dashboard-stat-row">
-                  <Typography.Text type="secondary">Skip rate</Typography.Text>
-                  <Typography.Text strong>{auditInsights.skipRate.toFixed(1)}%</Typography.Text>
+                  <Text color="secondary">Skip rate</Text>
+                  <Text weight="semibold" hasTabularNumbers>
+                    {auditInsights.skipRate.toFixed(1)}%
+                  </Text>
                 </div>
                 <div className="dashboard-stat-row">
-                  <Typography.Text type="secondary">Duplicate rate</Typography.Text>
-                  <Typography.Text strong>{auditInsights.duplicateRate.toFixed(1)}%</Typography.Text>
+                  <Text color="secondary">Duplicate rate</Text>
+                  <Text weight="semibold" hasTabularNumbers>
+                    {auditInsights.duplicateRate.toFixed(1)}%
+                  </Text>
                 </div>
                 <div className="dashboard-stat-row">
-                  <Typography.Text type="secondary">Top skip reason</Typography.Text>
-                  <Typography.Text strong>{auditInsights.topSkipReason?.[0] || '—'}</Typography.Text>
+                  <Text color="secondary">Top skip reason</Text>
+                  <Text weight="semibold">{auditInsights.topSkipReason?.[0] || '—'}</Text>
                 </div>
                 <div className="dashboard-stat-row">
-                  <Typography.Text type="secondary">Noisiest source</Typography.Text>
-                  <Typography.Text strong>{auditInsights.topSource?.[0] || '—'}</Typography.Text>
+                  <Text color="secondary">Noisiest source</Text>
+                  <Text weight="semibold">{auditInsights.topSource?.[0] || '—'}</Text>
                 </div>
 
                 {auditInsights.topSkipReasons.length > 0 && (
                   <div>
-                    <Typography.Text
-                      type="secondary"
-                      style={{ display: 'block', marginBottom: spacing[2], fontSize: 12 }}
+                    <Text
+                      as="div"
+                      display="block"
+                      type="supporting"
+                      color="secondary"
+                      className="console-margin-bottom-2"
                     >
                       Top skip reasons
-                    </Typography.Text>
-                    <Space wrap>
+                    </Text>
+                    <Space direction="vertical" size={spacingToNumber(spacing[1])}>
                       {auditInsights.topSkipReasons.map(([reason, count]) => (
-                        <Tag
-                          key={reason}
-                          style={tagTone(reason === 'DUPLICATE' ? themeColors.warning.text : themeColors.info.text)}
-                        >
+                        <Text key={reason} type="supporting" color="secondary" hasTabularNumbers>
                           {reason}: {formatNumber(count)}
-                        </Tag>
+                        </Text>
                       ))}
                     </Space>
                   </div>
@@ -591,17 +552,20 @@ export const DashboardDeliveriesTab = ({
 
                 {auditInsights.topDuplicateTypes.length > 0 && (
                   <div>
-                    <Typography.Text
-                      type="secondary"
-                      style={{ display: 'block', marginBottom: spacing[2], fontSize: 12 }}
+                    <Text
+                      as="div"
+                      display="block"
+                      type="supporting"
+                      color="secondary"
+                      className="console-margin-bottom-2"
                     >
                       Duplicate types
-                    </Typography.Text>
-                    <Space wrap>
+                    </Text>
+                    <Space direction="vertical" size={spacingToNumber(spacing[1])}>
                       {auditInsights.topDuplicateTypes.map(([reason, count]) => (
-                        <Tag key={reason} style={tagTone(themeColors.warning.text)}>
+                        <Text key={reason} type="supporting" color="secondary" hasTabularNumbers>
                           {reason || 'Unknown'}: {formatNumber(count)}
-                        </Tag>
+                        </Text>
                       ))}
                     </Space>
                   </div>
@@ -609,22 +573,28 @@ export const DashboardDeliveriesTab = ({
 
                 {auditInsights.topSources.length > 0 && (
                   <div>
-                    <Typography.Text
-                      type="secondary"
-                      style={{ display: 'block', marginBottom: spacing[2], fontSize: 12 }}
+                    <Text
+                      as="div"
+                      display="block"
+                      type="supporting"
+                      color="secondary"
+                      className="console-margin-bottom-2"
                     >
                       Busiest sources
-                    </Typography.Text>
+                    </Text>
                     <List
                       size="small"
+                      rowKey={(item) => item[0]}
                       dataSource={auditInsights.topSources}
                       renderItem={([source, count]) => (
                         <List.Item
                           style={{ padding: `${spacing[2]} 0`, borderBlockEnd: `1px solid ${cssVar.border.default}` }}
                         >
-                          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                            <Typography.Text style={{ fontSize: 12 }}>{source || 'Unknown source'}</Typography.Text>
-                            <Tag style={tagTone(themeColors.info.text)}>{formatNumber(count)}</Tag>
+                          <Space className="console-width-full-between">
+                            <Text type="supporting">{source || 'Unknown source'}</Text>
+                            <Text type="supporting" color="secondary" hasTabularNumbers>
+                              {formatNumber(count)}
+                            </Text>
                           </Space>
                         </List.Item>
                       )}
@@ -639,7 +609,7 @@ export const DashboardDeliveriesTab = ({
 
           {funnelData.length > 0 && (
             <Card
-              style={panelStyle}
+              className={DASHBOARD_PANEL_CLASS}
               variant="borderless"
               title={
                 <DashboardSectionTitle
@@ -650,7 +620,7 @@ export const DashboardDeliveriesTab = ({
               styles={{ body: { padding: spacing[4] } }}
             >
               {eventAuditLoading ? (
-                <Skeleton active paragraph={{ rows: 6 }} />
+                <DashboardLoadingState title="Loading event flow" />
               ) : (
                 <FunnelChart data={funnelData} height={300} showPercentages={true} onSegmentClick={onViewEventAudit} />
               )}

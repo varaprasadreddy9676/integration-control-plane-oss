@@ -60,7 +60,7 @@ describe('hasSourceEvent', () => {
   });
 
   it('is false for inbound calls and script jobs, which never come from an event', () => {
-    expect(hasSourceEvent({ messageId: 'req_1987654321910_x', direction: 'INBOUND' })).toBe(false);
+    expect(hasSourceEvent({ messageId: 'req_1791972725310_x', direction: 'INBOUND' })).toBe(false);
     expect(hasSourceEvent({ messageId: 'scriptjob_1_2', direction: 'SCRIPT_JOB' })).toBe(false);
     expect(hasSourceEvent({ messageId: 'evt-1', direction: 'OUTBOUND' })).toBe(true);
   });
@@ -93,7 +93,7 @@ describe('SourceEventPanel', () => {
       throw new APIError('Not found', 404);
     };
     renderPanel('evt-gone');
-    expect(await screen.findByText(/no longer available/i)).toBeTruthy();
+    expect(await screen.findByText(/source event unavailable/i)).toBeTruthy();
   });
 
   it('shows a retryable error for other failures', async () => {
@@ -101,7 +101,7 @@ describe('SourceEventPanel', () => {
       throw new APIError('boom', 500);
     };
     renderPanel('evt-1');
-    await waitFor(() => expect(screen.getByText(/couldn.t load the source event/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/could not load source event/i)).toBeTruthy());
   });
 
   it('falls back to the delivery log payload when the audit kept none', async () => {

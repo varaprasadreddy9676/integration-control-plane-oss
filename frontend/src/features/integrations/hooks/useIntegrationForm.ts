@@ -1,5 +1,5 @@
-import { Form } from 'antd';
-import type { FormInstance } from 'antd/lib/form';
+import { Form } from "@/components/common/LegacyAntdControls";
+import type { FormInstance } from "@/components/common/LegacyAntdControls";
 
 /**
  * Custom hook to manage all form-related state and watches for integration configuration forms.
