@@ -146,43 +146,49 @@ export const buildIntegrationSectionItems = ({
   const values = form.getFieldsValue(true);
 
   const renderBasicInfoSummary = () => (
-    <ConfigSection icon={<GatewayIcon name="ApiOutlined" />} title="Basic Information">
-      <Space direction="vertical" size="small" className="console-width-full">
-        <div className="console-flex-gap-2">
-          <Text type="secondary" className="console-label-min-width">
+    <ConfigSection
+      icon={<GatewayIcon name="ApiOutlined" />}
+      title="Basic Information"
+      className="integration-basic-summary-card"
+    >
+      <div className="integration-basic-summary">
+        <div className="integration-basic-summary__row">
+          <Text type="secondary" className="integration-basic-summary__label">
             Rule Name:
           </Text>
           <Text strong>{values.name || <Text type="secondary">Not set</Text>}</Text>
         </div>
-        <div className="console-flex-gap-2">
-          <Text type="secondary" className="console-label-min-width">
+        <div className="integration-basic-summary__row">
+          <Text type="secondary" className="integration-basic-summary__label">
             Event Type:
           </Text>
           <Text strong>
             <code>{values.eventType || <Text type="secondary">Not set</Text>}</code>
           </Text>
         </div>
-        <div className="console-flex-gap-2">
-          <Text type="secondary" className="console-label-min-width">
+        <div className="integration-basic-summary__row">
+          <Text type="secondary" className="integration-basic-summary__label">
             Target URL:
           </Text>
-          <Text strong>{values.targetUrl || <Text type="secondary">Not set</Text>}</Text>
+          <Text strong className="integration-basic-summary__url">
+            {values.targetUrl || <Text type="secondary">Not set</Text>}
+          </Text>
         </div>
-        <div className="console-flex-gap-2">
-          <Text type="secondary" className="console-label-min-width">
+        <div className="integration-basic-summary__row">
+          <Text type="secondary" className="integration-basic-summary__label">
             HTTP Method:
           </Text>
           <Text className="font-mono">{values.httpMethod || 'POST'}</Text>
         </div>
         {values.scope && (
-          <div className="console-flex-gap-2">
-            <Text type="secondary" className="console-label-min-width">
+          <div className="integration-basic-summary__row">
+            <Text type="secondary" className="integration-basic-summary__label">
               Scope:
             </Text>
             <Text>{values.scope === 'GLOBAL' ? 'All Tenants' : 'Current Tenant'}</Text>
           </div>
         )}
-      </Space>
+      </div>
     </ConfigSection>
   );
 

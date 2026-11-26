@@ -1,4 +1,4 @@
-import { Form, Switch } from "@/components/common/LegacyAntdControls";
+import { Form, Switch } from '@/components/common/LegacyAntdControls';
 import { Text } from '@astryxdesign/core/Text';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { FormActions } from '../../../components/common';
 import { formatDateTime } from '../../../../../utils/format';
 import { cssVar } from '../../../../../design-system/utils';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
+import { StatusBadge } from '../../../../../components/common/StatusBadge';
 
 interface IntegrationPageHeaderProps {
   isCreate: boolean;
@@ -78,9 +79,13 @@ export const IntegrationPageHeader = ({
       titleSuffix={
         !isCreate ? (
           <div className="console-flex-center-gap-2">
-            <Text color="secondary" className="console-caption-secondary">
-              {isActiveValue === false ? 'Paused' : 'Active'}
-            </Text>
+            <StatusBadge
+              label={isActiveValue === false ? 'Paused' : 'Active'}
+              variant={isActiveValue === false ? 'neutral' : 'success'}
+              showIcon={false}
+              size="small"
+              className={isActiveValue === false ? undefined : 'integration-active-status'}
+            />
             <Form.Item name="isActive" valuePropName="checked" noStyle>
               <Switch size="small" disabled={isPortalSession} />
             </Form.Item>
@@ -104,7 +109,7 @@ export const IntegrationPageHeader = ({
             }}
           >
             {extraActions && <div className="integration-page-header-secondary-actions">{extraActions}</div>}
-            <div className="integration-page-header-primary-actions ui-extracted-55a6f49ed2" >
+            <div className="integration-page-header-primary-actions ui-extracted-55a6f49ed2">
               <FormActions
                 mode="view"
                 isEditMode={isEditMode}

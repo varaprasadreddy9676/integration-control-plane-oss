@@ -1,34 +1,41 @@
-# Console Design
+# Console Design Rules
 
-The console is an operational tool. Prioritise reading failures, comparing deliveries, and configuring integrations over decorative presentation.
+This document is the product UI contract for the medics Integration Gateway console. Implementation progress and evidence belong in [ui-overhaul-progress.md](ui-overhaul-progress.md) and [ui-overhaul-report.md](ui-overhaul-report.md); this file is not a release diary.
 
-## System Rules
+## Design System
 
-- UI text: Inter, 13-14px for controls and rows, 15-16px for section headings, 20px for page titles. Use sentence case and zero letter spacing.
-- Numbers and identifiers: tabular figures; JetBrains Mono for metrics, payloads, and identifiers. Keep units visible.
-- Spacing: 4px increments, normally 8px within controls and 12-16px between groups. Size forms to their content.
-- Corners: 4px controls, 8px genuinely framed tools and overlays. Circles remain appropriate for avatars and status dots.
-- Elevation: none for page sections and rows; restrained shadow for menus and dialogs. No coloured glows or floating rows.
-- Colour: metadata and zero/unknown metrics are neutral. Failure counts receive error colour only when nonzero. A trend's direction alone does not imply good or bad. Latency needs a configured threshold before it receives alarm colouring.
-- Copy: concise state plus a useful recovery action. Do not repeat instructions, filters, or date windows in every panel.
-- Motion: feedback only, 150-250ms transform/opacity where needed. Respect reduced motion. State panels use a small monochrome glyph, not illustration; the Lottie animations and the lottie-web dependency were removed rather than left half-wired.
-- Preserve focus visibility, the skip link, leaf-only countdown timers, predicate-based unsaved-change guards, and error navigation on long forms.
+- Astryx is the source for components, type, spacing, color, radius, and theme behavior. Use the shared adapters in `src/components/common` only where legacy behavior has not yet reached parity.
+- Keep one light/dark mode mechanism through the Astryx theme provider. Derive compatibility tokens from the same theme; do not create page-specific palettes.
+- Use Inter for interface text and JetBrains Mono with tabular figures for identifiers, code, and operational numbers.
+- Type scale: caption 12px, body 13px, control 14px, section 16px, title 20px, numeral 24px. Do not introduce per-component font-size values.
+- Use 4px spacing increments, typically 8px within controls and 12-16px between related groups. Route content aligns to the shared 24px page gutter.
+- Controls use 4px corners; genuinely framed tools and overlays use at most 8px. Page sections, rows, and tables do not float on decorative shadows.
 
-## Verification Record
+## Page Structure
 
-The September 9, 2026 pass covered the dashboard, populated and empty delivery logs, the delivery-detail drawer, outbound configuration, inbound configuration, and integration lists in light and dark themes against validation data for Org 33.
+- All 46 product routes use `PageTemplate`; console routes use its shared `PageHeader`, title scale, and content gutter, while documentation and portal-launch states use the same frame without console navigation. The standalone login route is outside that product-route matrix but follows the same type, color, keyboard, and responsive rules.
+- Keep the global shell to one organization selector, one search entry point, one Create menu, and the primary navigation. Do not repeat navigation in a Recent section.
+- The shared top header uses one control height and centerline. Let search flex between the organization selector and utility actions; compact other labels at tablet/mobile widths before controls wrap or clip. Keep the labeled Logout button visible immediately after the account name on every viewport rather than only in a menu.
+- Configuration pages are for configuration: do not add delivery statistics, logs, quotas, or redundant explanatory copy to them.
+- Use rows and tables for dense operational records. Reserve cards for individually framed tools or discrete summaries, not nested card collections.
+- Keep primary actions visually consistent and obvious. A page should have one clear primary action; secondary actions must not compete through equal emphasis.
 
-Implemented changes include neutral dashboard KPIs in a stable five-column desktop row; compact shared form controls; neutral metadata tags; denser tables and empty states; removal of redundant configuration explainers; and removal of the default-date active-filter strip. Error colour remains reserved for active failures, while open access and missing authentication retain warning colour.
+## Language and Status
 
-Delivery-log cURL previews mask credential headers by default. This includes conventional authorization headers, custom authentication headers, and the gateway API key. Revealing credentials remains an explicit privileged action.
+- Use concise, product-neutral language and sentence case. Say “step”, not “stage”, in user-facing copy.
+- Metadata is neutral. Use status color once, for an actual lifecycle or health state; zero and unknown values are neutral. Direction alone does not make a trend good or bad.
+- Status labels use the agreed vocabulary and sentence case. Do not encode status through uppercase chips or duplicate the same status color in a badge, icon, border, and number.
+- Empty states explain what is absent and, when useful, give a recovery action. Permission denial is a neutral notice, not an error.
 
-Local gates:
+## Interaction and Accessibility
 
-- `NODE_OPTIONS=--no-experimental-webstorage npx vitest run`: 39 files, 121 tests passed.
-- `npx tsc --noEmit`: passed.
-- `npm run build`: passed. Vite still reports existing chunks larger than 500 kB.
-- Source-scoped graphify rebuild: 2,527 nodes, 3,763 edges, 259 communities.
+- Preserve visible keyboard focus, skip navigation, keyboard-operable menus/tabs, semantic labels, accessible names for icon-only controls, and reduced-motion preferences.
+- Unsaved-change prompts remain predicate-based: prompt only when the current form differs from its saved state.
+- Use motion as brief interaction feedback (150-250ms opacity or transform), never ambient animation. Empty/loading/error states use the shared `StatePanel` with a small monochrome glyph.
+- Keep form defaults sensible and expose advanced options progressively where that reduces configuration burden without hiding required behavior.
+- At narrow widths, controls and actions wrap deliberately, dense tables use their supported responsive mode, and no page may create horizontal document overflow.
+- Delivery-log details open in a right-side drawer without dimming the retained table. Diagnostic code stays scrollable/selectable with line numbers, readable token colors, and copy actions that do not cover the first line; absent payloads use an explicit empty state.
 
-Validation deployment completed from the verified bundle. Backup: `/var/www/html/integration-gateway.bak-ui-20260909-103159`. Production was not changed.
+## Verification
 
-Known follow-up work is not a blocker for this UI pass: split the largest lazy chunks, remove legacy dead animation assets after confirming no downstream consumer, and clean existing Ant Design/jsdom deprecation warnings in the test output. Broader low-traffic administration screens should continue adopting these system rules as they are touched.
+The active acceptance matrix, remaining design-system gaps, and measured migration status are tracked in `docs/ui-overhaul-progress.md`, `docs/design-system-gaps.md`, and the final `docs/ui-overhaul-report.md`. Do not treat a successful build or screenshot capture alone as visual acceptance; inspect representative light/dark and narrow/desktop states and record unresolved fixture or environment limits.

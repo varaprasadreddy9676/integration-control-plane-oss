@@ -59,17 +59,25 @@ interface StatusBadgeProps {
   variant?: StatusBadgeVariant;
   size?: 'small' | 'default' | 'large';
   showIcon?: boolean;
+  className?: string;
 }
 
 /** Astryx badge for consistent status and metadata labels across the console. */
-export const StatusBadge = ({ status, label, variant, size = 'default', showIcon = true }: StatusBadgeProps) => {
+export const StatusBadge = ({
+  status,
+  label,
+  variant,
+  size = 'default',
+  showIcon = true,
+  className,
+}: StatusBadgeProps) => {
   const normalizedStatus = String(status || '').toUpperCase();
   const text = label ?? getStatusLabel(status);
   const resolvedVariant = variant ?? statusVariants[normalizedStatus] ?? 'neutral';
 
   return (
     <Badge
-      className={`status-badge status-badge--${size} status-badge--tone-${resolvedVariant}`}
+      className={`status-badge status-badge--${size} status-badge--tone-${resolvedVariant}${className ? ` ${className}` : ''}`}
       data-size={size}
       icon={showIcon && status ? <span aria-hidden="true" className="status-badge__dot" /> : undefined}
       label={text}

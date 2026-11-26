@@ -4,10 +4,11 @@ import { medicsTheme } from '../design-system/theme/medics-theme';
 import { resolveThemeToken } from '../design-system/theme/resolve-theme-token';
 
 describe('console theme hover tokens', () => {
-  it.each(['light', 'dark'] as const)('uses a visible surface color in %s mode', (mode) => {
+  it.each(['light', 'dark'] as const)('derives a visible surface color from semantic tokens in %s mode', (mode) => {
     const tokens = medicsTheme.localTokens as Record<string, string | [string, string]>;
+    const expectedHover =
+      'color-mix(in srgb, var(--color-text-primary) 4%, var(--color-background-surface))';
 
-    const expectedHover = mode === 'light' ? '#F4F6F8' : '#1F2A3A';
     expect(resolveThemeToken(tokens['--color-background-row-hover'], mode)).toBe(expectedHover);
     expect(tokens['--color-hover']).toBe('var(--color-background-row-hover)');
     expect(tokens['--color-row-hover']).toBe('var(--color-background-row-hover)');

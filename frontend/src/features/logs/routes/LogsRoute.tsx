@@ -70,6 +70,7 @@ import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
 import { useAuth } from '../../../app/auth-context';
 import { useTenant } from '../../../app/tenant-context';
 import { Hl7LogPanel, isHl7LogLike } from '../components/Hl7LogPanel';
+import { LogCodeViewer } from '../components/LogCodeViewer';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Button } from '../../../components/common/LegacyButton';
 import { Text } from '@astryxdesign/core/Text';
@@ -1713,21 +1714,22 @@ export const LogsRoute = () => {
                               key: 'curl',
                               label: outboundCurlCommand ? 'Inbound cURL' : 'cURL',
                               children: (
-                                <div className="console-position-relative">
+                                <div className="console-position-relative logs-code-viewer-host">
                                   {outboundCurlCommand && (
                                     <div className="console-code-preview__caption">Caller → Gateway</div>
                                   )}
                                   <div
                                     className={
                                       outboundCurlCommand
-                                        ? 'console-overlay-copy-action-left console-overlay-copy-action-left--offset console-flex-gap-1'
-                                        : 'console-overlay-copy-action-left console-flex-gap-1'
+                                        ? 'logs-code-copy-actions logs-code-copy-actions--offset console-flex-gap-1'
+                                        : 'logs-code-copy-actions console-flex-gap-1'
                                     }
                                   >
                                     <Button
                                       size="small"
                                       icon={<GatewayIcon name="CopyOutlined" />}
                                       aria-label="Copy inbound cURL"
+                                      disabled={!curlCommand}
                                       onClick={() => copyToClipboard(curlCommand || '')}
                                     />
                                     {isSuperAdmin() && (
@@ -1757,26 +1759,7 @@ export const LogsRoute = () => {
                                       </Tooltip>
                                     )}
                                   </div>
-                                  <pre
-                                    ref={(el) => {
-                                      if (el) {
-                                        el.onkeydown = (e) => {
-                                          if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                                            e.preventDefault();
-                                            const selection = window.getSelection();
-                                            const range = document.createRange();
-                                            range.selectNodeContents(el);
-                                            selection?.removeAllRanges();
-                                            selection?.addRange(range);
-                                          }
-                                        };
-                                      }
-                                    }}
-                                    tabIndex={0}
-                                    className="clamped-code-block console-code-preview"
-                                  >
-                                    {curlCommand}
-                                  </pre>
+                                  <LogCodeViewer value={curlCommand} language="shell" label="cURL command" />
                                 </div>
                               ),
                             },
@@ -1786,7 +1769,7 @@ export const LogsRoute = () => {
                                     key: 'outbound-curl',
                                     label: 'Outbound cURL',
                                     children: (
-                                      <div className="console-position-relative">
+                                      <div className="console-position-relative logs-code-viewer-host">
                                         <div className="console-margin-bottom-2 console-text-secondary console-type-caption">
                                           Gateway → External API
                                         </div>
@@ -1795,28 +1778,13 @@ export const LogsRoute = () => {
                                           icon={<GatewayIcon name="CopyOutlined" />}
                                           aria-label="Copy outbound cURL"
                                           onClick={() => copyToClipboard(outboundCurlCommand)}
-                                          className="console-overlay-copy-action-left console-overlay-copy-action-left--offset"
+                                          className="logs-code-copy-actions logs-code-copy-actions--offset"
                                         />
-                                        <pre
-                                          ref={(el) => {
-                                            if (el) {
-                                              el.onkeydown = (e) => {
-                                                if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                                                  e.preventDefault();
-                                                  const selection = window.getSelection();
-                                                  const range = document.createRange();
-                                                  range.selectNodeContents(el);
-                                                  selection?.removeAllRanges();
-                                                  selection?.addRange(range);
-                                                }
-                                              };
-                                            }
-                                          }}
-                                          tabIndex={0}
-                                          className="clamped-code-block console-code-preview"
-                                        >
-                                          {outboundCurlCommand}
-                                        </pre>
+                                        <LogCodeViewer
+                                          value={outboundCurlCommand}
+                                          language="shell"
+                                          label="Outbound cURL command"
+                                        />
                                       </div>
                                     ),
                                   },
@@ -1845,34 +1813,16 @@ export const LogsRoute = () => {
                       key: 'response',
                       label: 'Response',
                       children: (
-                        <div className="console-position-relative">
+                        <div className="console-position-relative logs-code-viewer-host">
                           <Button
                             size="small"
                             icon={<GatewayIcon name="CopyOutlined" />}
                             aria-label="Copy response body"
+                            disabled={!formattedResponseBody}
                             onClick={() => copyToClipboard(formattedResponseBody)}
-                            className="console-overlay-copy-action-left"
+                            className="logs-code-copy-actions"
                           />
-                          <pre
-                            ref={(el) => {
-                              if (el) {
-                                el.onkeydown = (e) => {
-                                  if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                                    e.preventDefault();
-                                    const selection = window.getSelection();
-                                    const range = document.createRange();
-                                    range.selectNodeContents(el);
-                                    selection?.removeAllRanges();
-                                    selection?.addRange(range);
-                                  }
-                                };
-                              }
-                            }}
-                            tabIndex={0}
-                            className="clamped-code-block console-code-preview console-code-preview--muted"
-                          >
-                            {formattedResponseBody}
-                          </pre>
+                          <LogCodeViewer value={formattedResponseBody} language="json" label="Response body" />
                         </div>
                       ),
                     },
@@ -2744,6 +2694,7 @@ export const LogsRoute = () => {
         }
         placement="right"
         width={screens.xxl ? 920 : screens.lg ? 720 : '100%'}
+        mask={false}
         open={Boolean(detailRecord)}
         onClose={() => setDetailRecord(null)}
         destroyOnClose

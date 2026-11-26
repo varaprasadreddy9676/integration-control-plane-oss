@@ -1867,18 +1867,17 @@ html[data-theme="dark"] .ant-pagination-item-active a {
   outline-offset: 2px;
 }
 
-/* Keep stacked mobile rows readable even when a resolved theme token is wrong.
-   Selected rows retain their distinct active fill. */
+/* Keep stacked mobile rows on the same semantic surfaces as desktop rows. */
 html[data-theme="light"] .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover,
 html[data-theme="light"] .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover > td {
-  background-color: #fcfcff !important;
-  color: #1b1b22 !important;
+  background-color: var(--color-background-surface) !important;
+  color: var(--color-text-primary) !important;
   transition: none !important;
 }
 
 html[data-theme="dark"] .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover,
 html[data-theme="dark"] .modern-table-wrapper.mobile-card-mode .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover > td {
-  background-color: #181c22 !important;
-  color: #dee2ec !important;
+  background-color: var(--color-background-surface) !important;
+  color: var(--color-text-primary) !important;
   transition: none !important;
 }

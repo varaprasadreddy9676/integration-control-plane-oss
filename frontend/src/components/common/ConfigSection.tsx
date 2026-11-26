@@ -9,6 +9,7 @@ interface ConfigSectionProps {
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
+  className?: string;
 }
 
 /**
@@ -16,12 +17,12 @@ interface ConfigSectionProps {
  * for grouping related fields within a config/editor tab. Replaces the
  * repeated ad-hoc `<Icon/><Text strong>Title</Text>` pattern.
  */
-export const ConfigSection = ({ icon, title, description, actions, children }: ConfigSectionProps) => {
+export const ConfigSection = ({ icon, title, description, actions, children, className }: ConfigSectionProps) => {
   const { spacing } = useDesignTokens();
   const colors = cssVar.legacy;
 
   return (
-    <section className="config-section" aria-label={title}>
+    <section className={`config-section${className ? ` ${className}` : ''}`} aria-label={title}>
       <div
         style={{
           display: 'flex',

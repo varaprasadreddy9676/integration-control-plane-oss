@@ -115,8 +115,8 @@ async function checkLookupRowHover(page, theme, width) {
     const rowBackground = getComputedStyle(rowElement).backgroundColor;
     const cellBackgrounds = cells.map((candidate) => getComputedStyle(candidate).backgroundColor);
     const color = getComputedStyle(cell).color;
-    const expectedFallbackBackground = theme === 'dark' ? 'rgb(24, 28, 34)' : 'rgb(252, 252, 255)';
-    const expectedFallbackColor = theme === 'dark' ? 'rgb(222, 226, 236)' : 'rgb(27, 27, 34)';
+    const expectedFallbackBackground = resolveColor('var(--color-background-surface)');
+    const expectedFallbackColor = resolveColor('var(--color-text-primary)');
     const visibleTextSamples = cells
       .filter((candidate) => !candidate.classList.contains('ant-table-selection-column'))
       .flatMap((candidate) => [...candidate.querySelectorAll('*')])
@@ -143,15 +143,17 @@ async function checkLookupRowHover(page, theme, width) {
       });
     const mobileCardMode = cell.closest('.modern-table-wrapper')?.classList.contains('mobile-card-mode') ?? false;
     const expectedBackground = resolveColor(
-      mobileCardMode ? expectedFallbackBackground : 'var(--color-background-row-hover)'
+      mobileCardMode ? 'var(--color-background-surface)' : 'var(--color-background-row-hover)'
     );
     const expectedColor = resolveColor('var(--color-text-primary)');
     const [first, second] = [luminance(background), luminance(color)].sort((a, b) => b - a);
-    const root = document.documentElement;
-    const previousSurface = root.style.getPropertyValue('--color-bg-surface');
+    const root = cell.closest('[data-astryx-theme]') || document.documentElement;
+    const previousSurface = root.style.getPropertyValue('--color-background-surface');
     const previousForeground = root.style.getPropertyValue('--color-text-primary');
-    root.style.setProperty('--color-bg-surface', '#000000');
-    root.style.setProperty('--color-text-primary', '#111111');
+    const probeSurface = theme === 'dark' ? '#121820' : '#F8FAFC';
+    const probeForeground = theme === 'dark' ? '#E2E8F0' : '#1E293B';
+    root.style.setProperty('--color-background-surface', probeSurface);
+    root.style.setProperty('--color-text-primary', probeForeground);
     const fallbackBackground = getComputedStyle(cell).backgroundColor;
     const fallbackRowBackground = getComputedStyle(rowElement).backgroundColor;
     const fallbackColor = getComputedStyle(cell).color;
@@ -179,8 +181,8 @@ async function checkLookupRowHover(page, theme, width) {
           background: surfaceColor,
         };
       });
-    if (previousSurface) root.style.setProperty('--color-bg-surface', previousSurface);
-    else root.style.removeProperty('--color-bg-surface');
+    if (previousSurface) root.style.setProperty('--color-background-surface', previousSurface);
+    else root.style.removeProperty('--color-background-surface');
     if (previousForeground) root.style.setProperty('--color-text-primary', previousForeground);
     else root.style.removeProperty('--color-text-primary');
     return {
@@ -198,9 +200,9 @@ async function checkLookupRowHover(page, theme, width) {
       fallbackColor,
       fallbackTextSamples,
       fallbackPasses:
-        fallbackBackground === expectedFallbackBackground &&
-        fallbackRowBackground === expectedFallbackBackground &&
-        fallbackColor === expectedFallbackColor,
+        fallbackBackground === resolveColor(probeSurface) &&
+        fallbackRowBackground === resolveColor(probeSurface) &&
+        fallbackColor === resolveColor(probeForeground),
     };
   }, theme);
   hoverChecks.push({ route: '10-lookups', theme, width, ...result });
@@ -267,7 +269,7 @@ async function checkLookupRowHover(page, theme, width) {
     issues.push({
       route: '/lookups',
       kind: 'contrast',
-      detail: `${theme} mobile lookup hover fallback is ${result.fallbackRowBackground} / ${result.fallbackColor}, expected ${theme === 'dark' ? 'rgb(24, 28, 34) / rgb(222, 226, 236)' : 'rgb(252, 252, 255) / rgb(27, 27, 34)'}`,
+      detail: `${theme} mobile lookup hover did not follow its semantic surface/text tokens (${result.fallbackRowBackground} / ${result.fallbackColor})`,
     });
   }
 }
@@ -694,14 +696,14 @@ async function checkDeliveryLogSemantics(page) {
   const httpCode = table.locator('tbody code').filter({ hasText: /^202$/ });
   const httpCodeIsPlain = (await httpCode.count()) === 1;
   const summaryCounts = Object.fromEntries(
-    (await page.locator('.logs-summary-strip .stat-pill').evaluateAll((pills) =>
+    await page.locator('.logs-summary-strip .stat-pill').evaluateAll((pills) =>
       pills
         .map((pill) => {
           const match = pill.getAttribute('aria-label')?.match(/^Filter by (.+?): ([\d,]+)/);
           return match ? [match[1], Number(match[2].replace(/,/g, ''))] : null;
         })
         .filter(Boolean)
-    ))
+    )
   );
   const summaryCountsMatchFixture =
     summaryCounts.Total === 2 &&
@@ -709,7 +711,8 @@ async function checkDeliveryLogSemantics(page) {
     summaryCounts.Failed === 1 &&
     summaryCounts.Skipped === 0 &&
     summaryCounts.Pending === 0;
-  const passes = rowCount === 2 && tagCount === 0 && deliveredStatus > 0 && httpCodeIsPlain && summaryCountsMatchFixture;
+  const passes =
+    rowCount === 2 && tagCount === 0 && deliveredStatus > 0 && httpCodeIsPlain && summaryCountsMatchFixture;
   tabChecks.push({
     route: '13-logs',
     check: 'delivery-log-status-and-diagnostic-semantics',
@@ -725,11 +728,20 @@ async function checkDeliveryLogSemantics(page) {
     issues.push({
       route: '/logs',
       kind: 'delivery-log-semantics',
-      detail: JSON.stringify({ rowCount, tagCount, deliveredStatus, httpCodeIsPlain, summaryCounts, summaryCountsMatchFixture }),
+      detail: JSON.stringify({
+        rowCount,
+        tagCount,
+        deliveredStatus,
+        httpCodeIsPlain,
+        summaryCounts,
+        summaryCountsMatchFixture,
+      }),
     });
   }
 
-  const reviewRow = page.locator('.ant-table-tbody > tr.ant-table-row').filter({ hasText: 'Visit Completed to Analytics' });
+  const reviewRow = page
+    .locator('.ant-table-tbody > tr.ant-table-row')
+    .filter({ hasText: 'Visit Completed to Analytics' });
   await reviewRow.click();
   const drawer = page.locator('.ant-drawer').last();
   const timelineTab = drawer.getByRole('tab', { name: 'Timeline' });
@@ -743,7 +755,15 @@ async function checkDeliveryLogSemantics(page) {
   const antTags = await timelinePanel.locator('.ant-tag').count();
   const antTypography = await timelinePanel.locator('.ant-typography').count();
   const timelinePasses = completed > 0 && failed === 1 && antTags === 0 && antTypography === 0;
-  tabChecks.push({ route: '13-logs', check: 'trace-timeline-status-presentation', completed, failed, antTags, antTypography, passes: timelinePasses });
+  tabChecks.push({
+    route: '13-logs',
+    check: 'trace-timeline-status-presentation',
+    completed,
+    failed,
+    antTags,
+    antTypography,
+    passes: timelinePasses,
+  });
   if (!timelinePasses) {
     issues.push({
       route: '/logs',
@@ -754,6 +774,70 @@ async function checkDeliveryLogSemantics(page) {
   await page.screenshot({ path: join(outputDir, '13-logs-trace-timeline-light-1440.png'), animations: 'disabled' });
   await page.keyboard.press('Escape');
   await drawer.waitFor({ state: 'hidden' });
+}
+
+async function checkGlobalHeaderLayout(page, width) {
+  const result = await page.evaluate((viewportWidth) => {
+    const selectors = [
+      '.global-org-switcher',
+      '.global-search-trigger',
+      '.global-create-trigger',
+      '.global-failure-counter',
+      '.global-header-icon-button',
+      '.global-user-menu-trigger',
+      '.global-logout-trigger:not(.global-logout-trigger--mobile)',
+    ];
+    const header = document.querySelector('.product-top-nav');
+    if (!header) return { present: false, passes: true };
+    const bounds = selectors
+      .map((selector) => {
+        const element = header.querySelector(selector);
+        if (!element || getComputedStyle(element).display === 'none') return null;
+        const rect = element.getBoundingClientRect();
+        return { selector, top: rect.top, bottom: rect.bottom, right: rect.right };
+      })
+      .filter(Boolean);
+    if (viewportWidth >= 768) {
+      const centers = bounds.map(({ top, bottom }) => (top + bottom) / 2);
+      const centerlineDeviation = centers.length ? Math.max(...centers) - Math.min(...centers) : Infinity;
+      const exceedsHeader = bounds.some(({ right }) => right > header.getBoundingClientRect().right + 1);
+      return { present: true, centerlineDeviation, exceedsHeader, passes: centerlineDeviation <= 2 && !exceedsHeader };
+    }
+    const topActions = header.querySelector('.mobile-top-actions');
+    const headerRect = header.getBoundingClientRect();
+    const actionsRect = topActions?.getBoundingClientRect();
+    const logout = header.querySelector('.global-logout-trigger--mobile');
+    const logoutRect = logout?.getBoundingClientRect();
+    const logoutLabel = logout?.querySelector('.global-logout-label');
+    const passes =
+      header.scrollWidth <= header.clientWidth &&
+      Boolean(
+        logoutRect &&
+          logoutRect.width >= 64 &&
+          logoutLabel &&
+          getComputedStyle(logoutLabel).display !== 'none' &&
+          logoutLabel.textContent?.trim() === 'Log out' &&
+          logoutRect.left >= headerRect.left &&
+          logoutRect.right <= headerRect.right
+      ) &&
+      (!actionsRect || (actionsRect.left >= headerRect.left && actionsRect.right <= headerRect.right));
+    return {
+      present: true,
+      scrollWidth: header.scrollWidth,
+      clientWidth: header.clientWidth,
+      mobileLogoutVisible: Boolean(
+        logoutRect && logoutRect.width >= 64 && logoutLabel && getComputedStyle(logoutLabel).display !== 'none'
+      ),
+      logoutBounds: logoutRect && { left: logoutRect.left, right: logoutRect.right, width: logoutRect.width },
+      actionsBounds: actionsRect && { left: actionsRect.left, right: actionsRect.right },
+      headerBounds: { left: headerRect.left, right: headerRect.right },
+      passes,
+    };
+  }, width);
+  tabChecks.push({ route: 'shared-header', check: `layout-${width}`, ...result });
+  if (!result.passes) {
+    issues.push({ route: 'shared-header', kind: 'layout', detail: JSON.stringify(result) });
+  }
 }
 
 async function checkEventSourceMetadata(page) {
@@ -1402,7 +1486,9 @@ async function checkDashboardTrend(page, width) {
   await outboundTab.click();
   const outboundPanel = page.locator('#dashboard-panel-outbound');
   await outboundPanel.waitFor({ state: 'visible' });
-  await outboundPanel.getByText('Event Type Performance').waitFor({ state: 'visible' });
+  await outboundPanel
+    .getByRole('heading', { name: 'Event Type Performance', exact: true })
+    .waitFor({ state: 'visible' });
   const remainingStatusChips = await outboundPanel.locator('.ant-tag').count();
   const outboundTabPasses = remainingStatusChips === 0;
   tabChecks.push({ route: '01-dashboard', width, tab: 'Outbound', remainingStatusChips, passes: outboundTabPasses });
@@ -1534,7 +1620,8 @@ async function checkDashboardTrend(page, width) {
 async function checkTraceViewerTabs(page, outputDir, width) {
   const dlqRow = page.locator('.dlq-table-section .ant-table-tbody > tr.ant-table-row').first();
   await dlqRow.waitFor({ state: 'visible' });
-  const noLegacyChips = (await page.locator('.dlq-table-section .ant-tag, .dlq-table-section .ant-alert').count()) === 0;
+  const noLegacyChips =
+    (await page.locator('.dlq-table-section .ant-tag, .dlq-table-section .ant-alert').count()) === 0;
   const confirmationPage = await page.context().newPage();
   await confirmationPage.goto(page.url(), { waitUntil: 'domcontentloaded' });
   const confirmationRow = confirmationPage.locator('.dlq-table-section .ant-table-tbody > tr.ant-table-row').first();
@@ -1553,19 +1640,38 @@ async function checkTraceViewerTabs(page, outputDir, width) {
   const deleteConfirmation = confirmationPage.locator('.ant-modal').filter({ hasText: 'Delete this entry?' });
   await deleteConfirmation.waitFor({ state: 'visible' });
   await confirmationPage.waitForTimeout(350);
-  const deleteConfirmationVisible = await deleteConfirmation.getByText('Delete this entry?', { exact: true }).first().isVisible();
+  const deleteConfirmationVisible = await deleteConfirmation
+    .getByText('Delete this entry?', { exact: true })
+    .first()
+    .isVisible();
   const confirmationBounds = await deleteConfirmation.boundingBox();
-  const confirmationFits = !!confirmationBounds && confirmationBounds.width > 0 && confirmationBounds.height > 0 &&
-    confirmationBounds.x >= 0 && confirmationBounds.y >= 0 && confirmationBounds.x + confirmationBounds.width <= width + 1;
+  const confirmationFits =
+    !!confirmationBounds &&
+    confirmationBounds.width > 0 &&
+    confirmationBounds.height > 0 &&
+    confirmationBounds.x >= 0 &&
+    confirmationBounds.y >= 0 &&
+    confirmationBounds.x + confirmationBounds.width <= width + 1;
   if (deleteConfirmationVisible) {
-    await confirmationPage.screenshot({ path: join(outputDir, `15-dlq-delete-confirmation-${width}.png`), animations: 'disabled' });
+    await confirmationPage.screenshot({
+      path: join(outputDir, `15-dlq-delete-confirmation-${width}.png`),
+      animations: 'disabled',
+    });
   }
   await confirmationPage.close();
   if (!compactActions || !menuActionsVisible || !deleteConfirmationVisible || !confirmationFits || !noLegacyChips) {
     issues.push({
       route: '/dlq',
       kind: 'row-actions',
-      detail: JSON.stringify({ actionButtonCount, compactActions, menuActionsVisible, deleteConfirmationVisible, confirmationFits, confirmationBounds, noLegacyChips }),
+      detail: JSON.stringify({
+        actionButtonCount,
+        compactActions,
+        menuActionsVisible,
+        deleteConfirmationVisible,
+        confirmationFits,
+        confirmationBounds,
+        noLegacyChips,
+      }),
     });
   }
   await dlqRow.getByRole('button', { name: /View details for/ }).click();
@@ -1605,13 +1711,14 @@ async function checkTraceViewerTabs(page, outputDir, width) {
     const panel = page.locator(`#${panelId}`);
     if ((await panel.getAttribute('aria-labelledby')) !== tabId) passed = false;
     const panelText = await panel.innerText();
-    const hasExpectedContent = label === 'Request'
-      ? panelText.includes('analytics.example.test/events')
-      : label === 'Response'
-        ? panelText.includes('503')
-        : label === 'Error Details'
-          ? panelText.includes('Scheduling API temporarily unavailable')
-          : panelText.includes('northstar-analytics');
+    const hasExpectedContent =
+      label === 'Request'
+        ? panelText.includes('analytics.example.test/events')
+        : label === 'Response'
+          ? panelText.includes('503')
+          : label === 'Error Details'
+            ? panelText.includes('Scheduling API temporarily unavailable')
+            : panelText.includes('northstar-analytics');
     if (!hasExpectedContent) {
       failedPanels.push(label);
       passed = false;
@@ -1622,8 +1729,14 @@ async function checkTraceViewerTabs(page, outputDir, width) {
     visitedPanels.add(panelId);
   }
 
-  const passes = passed && visitedPanels.size === expectedLabels.length && neutralDiagnostics && compactActions &&
-    menuActionsVisible && deleteConfirmationVisible && noLegacyChips;
+  const passes =
+    passed &&
+    visitedPanels.size === expectedLabels.length &&
+    neutralDiagnostics &&
+    compactActions &&
+    menuActionsVisible &&
+    deleteConfirmationVisible &&
+    noLegacyChips;
   tabChecks.push({
     route: '15-dlq',
     width,
@@ -1642,7 +1755,18 @@ async function checkTraceViewerTabs(page, outputDir, width) {
     issues.push({
       route: '/dlq',
       kind: 'tabs',
-      detail: JSON.stringify({ width, passed, passes, visitedPanels: visitedPanels.size, neutralDiagnostics, compactActions, actionButtonCount, menuActionsVisible, deleteConfirmationVisible, failedPanels }),
+      detail: JSON.stringify({
+        width,
+        passed,
+        passes,
+        visitedPanels: visitedPanels.size,
+        neutralDiagnostics,
+        compactActions,
+        actionButtonCount,
+        menuActionsVisible,
+        deleteConfirmationVisible,
+        failedPanels,
+      }),
     });
   await page.screenshot({
     path: join(outputDir, `15-dlq-trace-viewer-tabs-${width}.png`),
@@ -1658,8 +1782,14 @@ async function checkFlowBuilderCanvas(page, outputDir) {
     const map = minimap.getBoundingClientRect();
     const overlapsNode = nodes.some((node) => {
       const rect = node.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && map.left < rect.right && map.right > rect.left &&
-        map.top < rect.bottom && map.bottom > rect.top;
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        map.left < rect.right &&
+        map.right > rect.left &&
+        map.top < rect.bottom &&
+        map.bottom > rect.top
+      );
     });
     return {
       nodeCount: nodes.length,
@@ -1667,8 +1797,12 @@ async function checkFlowBuilderCanvas(page, outputDir) {
       overlapsNode,
     };
   });
-  const geometryPass = geometry.nodeCount > 0 && !!geometry.minimap &&
-    geometry.minimap.width <= 140 && geometry.minimap.height <= 100 && !geometry.overlapsNode;
+  const geometryPass =
+    geometry.nodeCount > 0 &&
+    !!geometry.minimap &&
+    geometry.minimap.width <= 140 &&
+    geometry.minimap.height <= 100 &&
+    !geometry.overlapsNode;
   tabChecks.push({ route: '07-flow-builder-new', check: 'canvas-minimap-layout', ...geometry, passes: geometryPass });
   if (!geometryPass) {
     issues.push({ route: '/flow-builder/new', kind: 'canvas-minimap', detail: JSON.stringify(geometry) });
@@ -1682,11 +1816,23 @@ async function checkFlowBuilderCanvas(page, outputDir) {
     const validationTooltip = page.getByRole('tooltip').first();
     await validationTooltip.waitFor({ state: 'visible' });
     const validationText = await validationTooltip.innerText();
-    const validationPass = /3 validation errors/i.test(validationLabel || '') &&
-      /3 Errors?/i.test(validationText) && /required|not configured/i.test(validationText);
-    tabChecks.push({ route: '07-flow-builder-new', check: 'validation-details', validationLabel, validationText, passes: validationPass });
+    const validationPass =
+      /3 validation errors/i.test(validationLabel || '') &&
+      /3 Errors?/i.test(validationText) &&
+      /required|not configured/i.test(validationText);
+    tabChecks.push({
+      route: '07-flow-builder-new',
+      check: 'validation-details',
+      validationLabel,
+      validationText,
+      passes: validationPass,
+    });
     if (!validationPass) {
-      issues.push({ route: '/flow-builder/new', kind: 'validation-details', detail: validationText || 'No validation details shown' });
+      issues.push({
+        route: '/flow-builder/new',
+        kind: 'validation-details',
+        detail: validationText || 'No validation details shown',
+      });
     }
     await page.screenshot({
       path: join(outputDir, '07-flow-builder-validation-details-1440.png'),
@@ -1701,10 +1847,21 @@ async function checkFlowBuilderCanvas(page, outputDir) {
     const nodeErrorTooltip = page.getByRole('tooltip').last();
     await nodeErrorTooltip.waitFor({ state: 'visible' });
     const nodeErrorText = await nodeErrorTooltip.innerText();
-    const nodeErrorPass = /validation error/i.test(nodeErrorLabel || '') && /not configured|required/i.test(nodeErrorText);
-    tabChecks.push({ route: '07-flow-builder-new', check: 'node-error-details', nodeErrorLabel, nodeErrorText, passes: nodeErrorPass });
+    const nodeErrorPass =
+      /validation error/i.test(nodeErrorLabel || '') && /not configured|required/i.test(nodeErrorText);
+    tabChecks.push({
+      route: '07-flow-builder-new',
+      check: 'node-error-details',
+      nodeErrorLabel,
+      nodeErrorText,
+      passes: nodeErrorPass,
+    });
     if (!nodeErrorPass) {
-      issues.push({ route: '/flow-builder/new', kind: 'node-error-details', detail: nodeErrorText || 'No node issue details shown' });
+      issues.push({
+        route: '/flow-builder/new',
+        kind: 'node-error-details',
+        detail: nodeErrorText || 'No node issue details shown',
+      });
     }
   }
 }
@@ -1723,6 +1880,10 @@ async function checkMobileChrome(page) {
       .getByRole('button', { name: 'More actions' })
       .isVisible()
       .catch(() => false),
+    logout: await page
+      .getByRole('button', { name: 'Log out' })
+      .isVisible()
+      .catch(() => false),
   };
   mobileChromeChecks.push(checks);
   for (const [control, visible] of Object.entries(checks)) {
@@ -1731,7 +1892,7 @@ async function checkMobileChrome(page) {
   }
   if (checks.moreActions) {
     await page.getByRole('button', { name: 'More actions' }).click();
-    for (const label of ['New integration', 'Dark mode', 'Sign out']) {
+    for (const label of ['New integration', 'Dark mode']) {
       const visible = await page
         .getByRole('menuitem', { name: label })
         .waitFor({ state: 'visible', timeout: 1000 })
@@ -1778,14 +1939,27 @@ async function checkSidebarControls(page, outputDir, width) {
     const overviewCollapsed = (await sidebar.getByRole('button', { name: 'Dashboard' }).count()) === 0;
     await sidebar.getByRole('button', { name: 'Expand Overview' }).click();
     const overviewRestored = await sidebar.getByRole('button', { name: 'Dashboard' }).isVisible();
-    const navigationFeedbackWorks = selectedAccent.includes(expectedSelectedAccent) &&
-      hoverBackground === expectedHoverBackground && hoverFeedbackWorks && groupToggleUsesDesignSystem &&
-      overviewCollapsed && overviewRestored;
+    const navigationFeedbackWorks =
+      selectedAccent.includes(expectedSelectedAccent) &&
+      hoverBackground === expectedHoverBackground &&
+      hoverFeedbackWorks &&
+      groupToggleUsesDesignSystem &&
+      overviewCollapsed &&
+      overviewRestored;
     if (!navigationFeedbackWorks) {
       issues.push({
         route: '/dashboard',
         kind: 'sidebar-interaction-feedback',
-        detail: JSON.stringify({ selectedAccent, expectedSelectedAccent, expectedHoverBackground, hoverBackground, hoverTextColor, groupToggleUsesDesignSystem, overviewCollapsed, overviewRestored }),
+        detail: JSON.stringify({
+          selectedAccent,
+          expectedSelectedAccent,
+          expectedHoverBackground,
+          hoverBackground,
+          hoverTextColor,
+          groupToggleUsesDesignSystem,
+          overviewCollapsed,
+          overviewRestored,
+        }),
       });
     }
     await page.screenshot({ path: join(outputDir, 'sidebar-expanded-light-1440.png'), animations: 'disabled' });
@@ -1799,17 +1973,50 @@ async function checkSidebarControls(page, outputDir, width) {
     const collapsedWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
     const collapsedStateWorks = (await expand.count()) === 1 && collapsedWidth < expandedWidth;
     if (!collapsedStateWorks) {
-      issues.push({ route: '/dashboard', kind: 'sidebar-collapse', detail: 'Desktop collapse control did not expose Expand sidebar' });
+      issues.push({
+        route: '/dashboard',
+        kind: 'sidebar-collapse',
+        detail: 'Desktop collapse control did not expose Expand sidebar',
+      });
     }
     await page.screenshot({ path: join(outputDir, 'sidebar-collapsed-light-1440.png'), animations: 'disabled' });
     await expand.click();
     await page.waitForTimeout(450);
     const restoredWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
-    const expandedStateWorks = (await page.getByRole('button', { name: 'Collapse sidebar' }).count()) === 1 && restoredWidth > collapsedWidth;
+    const expandedStateWorks =
+      (await page.getByRole('button', { name: 'Collapse sidebar' }).count()) === 1 && restoredWidth > collapsedWidth;
     if (!expandedStateWorks) {
-      issues.push({ route: '/dashboard', kind: 'sidebar-expand', detail: 'Desktop expand control did not restore the sidebar' });
+      issues.push({
+        route: '/dashboard',
+        kind: 'sidebar-expand',
+        detail: 'Desktop expand control did not restore the sidebar',
+      });
     }
-    tabChecks.push({ route: 'sidebar', mode: 'desktop', expandedWidth, collapsedWidth, restoredWidth, collapseInBrandHeader, noExpandedActionRow, selectedAccent, expectedSelectedAccent, expectedHoverBackground, hoverBackground, hoverTextColor, groupToggleUsesDesignSystem, overviewCollapsed, overviewRestored, navigationFeedbackWorks, passes: collapsedStateWorks && expandedStateWorks && collapseInBrandHeader && noExpandedActionRow && navigationFeedbackWorks, screenshots: 2 });
+    tabChecks.push({
+      route: 'sidebar',
+      mode: 'desktop',
+      expandedWidth,
+      collapsedWidth,
+      restoredWidth,
+      collapseInBrandHeader,
+      noExpandedActionRow,
+      selectedAccent,
+      expectedSelectedAccent,
+      expectedHoverBackground,
+      hoverBackground,
+      hoverTextColor,
+      groupToggleUsesDesignSystem,
+      overviewCollapsed,
+      overviewRestored,
+      navigationFeedbackWorks,
+      passes:
+        collapsedStateWorks &&
+        expandedStateWorks &&
+        collapseInBrandHeader &&
+        noExpandedActionRow &&
+        navigationFeedbackWorks,
+      screenshots: 2,
+    });
     return;
   }
 
@@ -1827,10 +2034,21 @@ async function checkSidebarControls(page, outputDir, width) {
   const closeFits = !!closeBounds && closeBounds.x >= 0 && closeBounds.x + closeBounds.width <= width + 1;
   const navVisible = await dialog.getByRole('navigation').getByText('Lookup Tables').isVisible();
   const noDuplicateActions = (await dialog.locator('.ant-select').count()) === 0;
-  const noDesktopToggle = (await dialog.getByRole('button', { name: /collapse sidebar|expand sidebar/i }).count()) === 0;
-  const openStateWorks = (await toggle.getAttribute('aria-expanded')) === 'true' && drawerFits && closeFits && navVisible && noDuplicateActions && noDesktopToggle;
+  const noDesktopToggle =
+    (await dialog.getByRole('button', { name: /collapse sidebar|expand sidebar/i }).count()) === 0;
+  const openStateWorks =
+    (await toggle.getAttribute('aria-expanded')) === 'true' &&
+    drawerFits &&
+    closeFits &&
+    navVisible &&
+    noDuplicateActions &&
+    noDesktopToggle;
   if (!openStateWorks) {
-    issues.push({ route: '/dashboard', kind: 'sidebar-mobile-open', detail: JSON.stringify({ drawerFits, closeFits, navVisible, noDuplicateActions, noDesktopToggle }) });
+    issues.push({
+      route: '/dashboard',
+      kind: 'sidebar-mobile-open',
+      detail: JSON.stringify({ drawerFits, closeFits, navVisible, noDuplicateActions, noDesktopToggle }),
+    });
   }
   await page.screenshot({ path: join(outputDir, 'sidebar-mobile-open-light-390.png'), animations: 'disabled' });
   await close.click();
@@ -1840,7 +2058,11 @@ async function checkSidebarControls(page, outputDir, width) {
   );
   const closeStateWorks = (await toggle.getAttribute('aria-expanded')) === 'false' && closedDialog;
   if (!closeStateWorks) {
-    issues.push({ route: '/dashboard', kind: 'sidebar-mobile-close', detail: 'Close navigation did not close the mobile drawer' });
+    issues.push({
+      route: '/dashboard',
+      kind: 'sidebar-mobile-close',
+      detail: 'Close navigation did not close the mobile drawer',
+    });
   }
   await toggle.click();
   await dialog.getByRole('navigation').getByText('Event Catalog').click();
@@ -1850,22 +2072,48 @@ async function checkSidebarControls(page, outputDir, width) {
     () => document.querySelector('dialog[aria-label="Integration Gateway navigation"]')?.open !== true
   );
   if (!navigationCloses) {
-    issues.push({ route: '/events', kind: 'sidebar-mobile-navigation', detail: 'Selecting a navigation item did not close the drawer' });
+    issues.push({
+      route: '/events',
+      kind: 'sidebar-mobile-navigation',
+      detail: 'Selecting a navigation item did not close the drawer',
+    });
   }
-  tabChecks.push({ route: 'sidebar', mode: 'mobile', drawerFits, closeFits, navVisible, noDuplicateActions, noDesktopToggle, closeStateWorks, navigationCloses, passes: openStateWorks && closeStateWorks && navigationCloses, screenshots: 1 });
+  tabChecks.push({
+    route: 'sidebar',
+    mode: 'mobile',
+    drawerFits,
+    closeFits,
+    navVisible,
+    noDuplicateActions,
+    noDesktopToggle,
+    closeStateWorks,
+    navigationCloses,
+    passes: openStateWorks && closeStateWorks && navigationCloses,
+    screenshots: 1,
+  });
 }
 
 async function checkEventAuditLayout(page, outputDir) {
   const headerBounds = await page.locator('.page-header').boundingBox();
   const tableBounds = await page.locator('.event-audit-table-panel').boundingBox();
-  const aligned = !!headerBounds && !!tableBounds &&
+  const aligned =
+    !!headerBounds &&
+    !!tableBounds &&
     Math.abs(headerBounds.x - tableBounds.x) <= 2 &&
     Math.abs(headerBounds.x + headerBounds.width - tableBounds.x - tableBounds.width) <= 2;
   if (!aligned) {
     issues.push({ route: '/events', kind: 'content-gutter', detail: JSON.stringify({ headerBounds, tableBounds }) });
   }
   await page.screenshot({ path: join(outputDir, '08-events-table-gutter-light-1440.png'), animations: 'disabled' });
-  tabChecks.push({ route: '08-events', check: 'page-header-and-table-gutters', aligned, headerBounds, tableBounds, passes: aligned, screenshots: 1 });
+  tabChecks.push({
+    route: '08-events',
+    check: 'page-header-and-table-gutters',
+    aligned,
+    headerBounds,
+    tableBounds,
+    passes: aligned,
+    screenshots: 1,
+  });
 
   await page.getByRole('button', { name: 'Add Test Events' }).click();
   const dialog = page.getByRole('dialog', { name: 'Insert Test Events' });
@@ -1874,47 +2122,95 @@ async function checkEventAuditLayout(page, outputDir) {
   const mobileLabel = await dialog.locator('label').filter({ hasText: 'Patient Mobile' }).innerText();
   const optionalLabelIsSingular = mobileLabel.replace(/\s+/g, ' ').trim() === 'Patient Mobile (optional)';
   if (!warningVisible || !noAntdAlert || !optionalLabelIsSingular) {
-    issues.push({ route: '/events', kind: 'test-event-warning', detail: JSON.stringify({ warningVisible, noAntdAlert, mobileLabel }) });
+    issues.push({
+      route: '/events',
+      kind: 'test-event-warning',
+      detail: JSON.stringify({ warningVisible, noAntdAlert, mobileLabel }),
+    });
   }
   await page.waitForTimeout(350);
-  await page.screenshot({ path: join(outputDir, '08-events-test-event-warning-light-1440.png'), animations: 'disabled' });
+  await page.screenshot({
+    path: join(outputDir, '08-events-test-event-warning-light-1440.png'),
+    animations: 'disabled',
+  });
   await dialog.getByRole('button', { name: 'Cancel' }).click();
-  tabChecks.push({ route: '08-events', check: 'test-event-warning', warningVisible, noAntdAlert, optionalLabelIsSingular, passes: warningVisible && noAntdAlert && optionalLabelIsSingular, screenshots: 1 });
+  tabChecks.push({
+    route: '08-events',
+    check: 'test-event-warning',
+    warningVisible,
+    noAntdAlert,
+    optionalLabelIsSingular,
+    passes: warningVisible && noAntdAlert && optionalLabelIsSingular,
+    screenshots: 1,
+  });
 }
 
 async function checkTableGutter(page, route, selector) {
   const contentBounds = await page.locator('.page-template__content').boundingBox();
   const tableBounds = await page.locator(selector).boundingBox();
-  const aligned = !!contentBounds && !!tableBounds &&
+  const aligned =
+    !!contentBounds &&
+    !!tableBounds &&
     Math.abs(contentBounds.x - tableBounds.x) <= 2 &&
     Math.abs(contentBounds.x + contentBounds.width - tableBounds.x - tableBounds.width) <= 2;
   if (!aligned) {
     issues.push({ route, kind: 'content-gutter', detail: JSON.stringify({ selector, contentBounds, tableBounds }) });
   }
-  tabChecks.push({ route, check: 'page-content-and-table-gutters', selector, aligned, contentBounds, tableBounds, passes: aligned });
+  tabChecks.push({
+    route,
+    check: 'page-content-and-table-gutters',
+    selector,
+    aligned,
+    contentBounds,
+    tableBounds,
+    passes: aligned,
+  });
   if (route === '/logs') {
     const moreButton = page.getByRole('button', { name: 'More actions for Visit Completed to Analytics' });
     const [forceVisible, actionBounds] = await Promise.all([moreButton.isVisible(), moreButton.boundingBox()]);
-    const actionFits = !!tableBounds && !!actionBounds && forceVisible &&
-      actionBounds.x >= tableBounds.x && actionBounds.x + actionBounds.width <= tableBounds.x + tableBounds.width + 1;
+    const actionFits =
+      !!tableBounds &&
+      !!actionBounds &&
+      forceVisible &&
+      actionBounds.x >= tableBounds.x &&
+      actionBounds.x + actionBounds.width <= tableBounds.x + tableBounds.width + 1;
     if (!actionFits) {
-      issues.push({ route, kind: 'row-action-clipping', detail: JSON.stringify({ forceVisible, actionBounds, tableBounds }) });
+      issues.push({
+        route,
+        kind: 'row-action-clipping',
+        detail: JSON.stringify({ forceVisible, actionBounds, tableBounds }),
+      });
     }
     await moreButton.click();
     const forceMenuItem = page.getByRole('menuitem', { name: 'Force retry' });
     const forceMenuVisible = await forceMenuItem.isVisible();
     if (!forceMenuVisible) {
-      issues.push({ route, kind: 'force-retry-menu', detail: 'Force retry was not available from the row action menu' });
+      issues.push({
+        route,
+        kind: 'force-retry-menu',
+        detail: 'Force retry was not available from the row action menu',
+      });
     } else {
       await forceMenuItem.click();
-      const confirmationVisible = await page.locator('.ant-modal-confirm-title').getByText('Force retry delivery?', { exact: true }).isVisible();
+      const confirmationVisible = await page
+        .locator('.ant-modal-confirm-title')
+        .getByText('Force retry delivery?', { exact: true })
+        .isVisible();
       if (!confirmationVisible) {
         issues.push({ route, kind: 'force-retry-confirmation', detail: 'Force retry did not open its confirmation' });
       } else {
         await page.locator('.ant-modal-confirm').getByRole('button', { name: 'Cancel' }).click();
       }
     }
-    tabChecks.push({ route, check: 'force-retry-action-fits-and-confirms', actionFits, forceMenuVisible, passes: actionFits && forceMenuVisible, actionBounds, tableBounds });
+    tabChecks.push({
+      route,
+      check: 'force-retry-action-fits-and-confirms',
+      actionFits,
+      forceMenuVisible,
+      passes: actionFits && forceMenuVisible,
+      actionBounds,
+      tableBounds,
+    });
   }
 }
 
@@ -1990,18 +2286,32 @@ async function visit(page, name, path, width, height, screenshotPath) {
     await page.waitForTimeout(750);
   }
   if (name === '13-logs') {
-    await page.waitForFunction(
-      () => {
-        const pills = [...document.querySelectorAll('.logs-summary-strip .stat-pill')];
-        return pills.length > 0 && pills.every((pill) => {
-          const target = pill.getAttribute('aria-label')?.match(/^Filter by .+?: ([\d,]+)/)?.[1]?.replace(/,/g, '');
-          const shown = pill.querySelector('.stat-pill__value')?.textContent?.trim().replace(/,/g, '');
-          return target !== undefined && shown === target;
-        });
-      },
-      undefined,
-      { timeout: 5000 }
-    ).catch(() => issues.push({ route: path, kind: 'animated-counts', detail: 'Delivery summary counts did not settle to their accessible values' }));
+    await page
+      .waitForFunction(
+        () => {
+          const pills = [...document.querySelectorAll('.logs-summary-strip .stat-pill')];
+          return (
+            pills.length > 0 &&
+            pills.every((pill) => {
+              const target = pill
+                .getAttribute('aria-label')
+                ?.match(/^Filter by .+?: ([\d,]+)/)?.[1]
+                ?.replace(/,/g, '');
+              const shown = pill.querySelector('.stat-pill__value')?.textContent?.trim().replace(/,/g, '');
+              return target !== undefined && shown === target;
+            })
+          );
+        },
+        undefined,
+        { timeout: 5000 }
+      )
+      .catch(() =>
+        issues.push({
+          route: path,
+          kind: 'animated-counts',
+          detail: 'Delivery summary counts did not settle to their accessible values',
+        })
+      );
   }
   if (name === '07-flow-builder-new') {
     await page.locator('.react-flow__node .flow-builder-node-label').first().waitFor({ state: 'visible' });
@@ -2057,6 +2367,7 @@ try {
       for (const [name, path] of routesToCapture) {
         if (name === '47-login') continue;
         await visit(page, name, path, width, height, join(outputDir, `${name}-${theme}-${width}.png`));
+        if (name === '01-dashboard' && theme === 'light') await checkGlobalHeaderLayout(page, width);
         if (
           (width === 1440 || width === 390) &&
           theme === 'light' &&
@@ -2185,6 +2496,7 @@ try {
       for (const [name, path] of routesToCapture) {
         if (name === '47-login') continue;
         await visit(page, name, path, width, 900, null);
+        if (name === '01-dashboard') await checkGlobalHeaderLayout(page, width);
       }
     }
     await context.close();
@@ -2227,7 +2539,7 @@ const hoverReadout = [
 ].join(', ');
 await writeFile(
   join(outputDir, 'README.md'),
-  `# UI review captures\n\nGenerated by frontend/scripts/capture-review.mjs against the local synthetic fixture. No validation or production data is used.\n\n- ${routesToCapture.length} routed screens captured in light and dark at 1440x1000 and 390x844.\n- ${process.env.REVIEW_SMOKE === '1' ? 'Overflow sweep skipped in smoke mode.' : 'All routed screens checked for horizontal overflow at 320, 768, and 1024 pixels.'}\n- Result: ${report.passed ? 'PASS' : 'FAIL'} (${issues.length} issue(s)); see report.json.\n${hoverReadout ? `- Lookup hover contrast: ${hoverReadout}.\n` : ''}${mobileChromeChecks.length ? '- Mobile chrome checks passed for organization switching, search, and More actions.\n' : ''}${mobileScopeNoticeChecks.some(({ passes }) => passes) ? '- Mobile system-status scope notice check passed.\n' : ''}- ${warnings.length} non-fatal browser warning(s) are recorded in report.json.\n`
+  `# UI review captures\n\nGenerated by frontend/scripts/capture-review.mjs against the local synthetic fixture. No validation or production data is used.\n\n- ${routesToCapture.length} routed screens captured in light and dark at 1440x1000 and 390x844.\n- ${process.env.REVIEW_SMOKE === '1' ? 'Overflow sweep skipped in smoke mode.' : 'All routed screens checked for horizontal overflow at 320, 768, and 1024 pixels.'}\n- Result: ${report.passed ? 'PASS' : 'FAIL'} (${issues.length} issue(s)); see report.json.\n${hoverReadout ? `- Lookup hover contrast: ${hoverReadout}.\n` : ''}${mobileChromeChecks.length ? '- Mobile chrome checks passed for organization switching, search, More actions, and direct Logout.\n' : ''}${mobileScopeNoticeChecks.some(({ passes }) => passes) ? '- Mobile system-status scope notice check passed.\n' : ''}- ${warnings.length} non-fatal browser warning(s) are recorded in report.json.\n`
 );
 process.stdout.write(
   `Captured ${report.screenshotCount} screenshots across ${routesToCapture.length} routes; ${issues.length} error(s), ${warnings.length} warning(s). Report: ${resolve(outputDir, 'report.json')}\n`

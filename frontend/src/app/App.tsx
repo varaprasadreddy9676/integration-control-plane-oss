@@ -462,6 +462,7 @@ export const App = () => {
     refetchInterval: 60_000,
   });
   const failedCount = failedStats?.failed ?? 0;
+  const failedDeliveryLabel = `${failedCount.toLocaleString()} ${failedCount === 1 ? 'failed delivery' : 'failed deliveries'}`;
 
   const handleOrgChange = (value?: number) => {
     if (!value) {
@@ -573,13 +574,6 @@ export const App = () => {
       onClick: toggleMode,
     },
     { type: 'divider' as const },
-    {
-      key: 'logout',
-      icon: <GatewayIcon name="LogoutOutlined" />,
-      label: 'Sign out',
-      danger: true,
-      onClick: handleLogout,
-    },
   ];
 
   // User profile dropdown items
@@ -616,13 +610,6 @@ export const App = () => {
           { type: 'divider' as const },
         ]
       : []),
-    {
-      key: 'logout',
-      icon: <GatewayIcon name="LogoutOutlined" />,
-      label: 'Sign out',
-      danger: true,
-      onClick: handleLogout,
-    },
   ];
 
   useEffect(() => {
@@ -686,7 +673,7 @@ export const App = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: spacing[3],
-                      flex: isMobile ? '1 1 100%' : 1,
+                      flex: isMobile ? '1 1 100%' : '0 1 18rem',
                       minWidth: 0,
                     }}
                   >
@@ -714,17 +701,11 @@ export const App = () => {
                               (isSuperAdmin || isAdmin ? 'Global Admin View' : 'Tenant')}
                           </Typography.Text>
                           <div className="console-flex-center-gap-2">
-                            <Typography.Text
-                              type="secondary"
-                              className="ui-extracted-f83ef7a23d"
-                            >
+                            <Typography.Text type="secondary" className="ui-extracted-f83ef7a23d">
                               {tenant?.tenantCode ?? (isSuperAdmin || isAdmin ? 'Select org from dropdown' : '')}
                             </Typography.Text>
                             {tenant && (
-                              <Typography.Text
-                                type="secondary"
-                                className="ui-extracted-f83ef7a23d"
-                              >
+                              <Typography.Text type="secondary" className="ui-extracted-f83ef7a23d">
                                 • {tenant.region ?? 'Global'}
                               </Typography.Text>
                             )}
@@ -740,7 +721,8 @@ export const App = () => {
                         size="small"
                         placeholder="Switch org"
                         value={orgId && orgId > 0 ? orgId : undefined}
-                        style={isMobile ? { flex: 1, minWidth: 0 } : { minWidth: 160 }}
+                        className="global-org-switcher"
+                        style={isMobile ? { flex: 1, minWidth: 0 } : undefined}
                         allowClear
                         options={adminOrgs.map((org) => ({
                           label: org.name ? `${org.name} (Org ${org.orgId})` : `Org ${org.orgId}`,
@@ -752,7 +734,7 @@ export const App = () => {
                   </div>
 
                   {/* Right: Actions */}
-                  <Space size={spacingToNumber(spacing[2])}>
+                  <Space className="product-top-nav-actions" size={spacingToNumber(spacing[2])}>
                     <Tooltip title="Search pages (⌘K)">
                       <Button
                         className="global-search-trigger"
@@ -768,31 +750,32 @@ export const App = () => {
 
                     {!isPortalSession && (
                       <Dropdown trigger={['click']} menu={{ items: createMenuItems }}>
-                        <Button type="primary" icon={<GatewayIcon name="PlusOutlined" />} aria-label="Create">
-                          {!isMobile && 'Create'}
+                        <Button
+                          className="global-create-trigger"
+                          type="default"
+                          icon={<GatewayIcon name="PlusOutlined" />}
+                          aria-label="Create"
+                        >
+                          <span className="global-create-label">{!isMobile && 'Create'}</span>
                         </Button>
                       </Dropdown>
                     )}
 
                     {/* Failed deliveries badge — only when there are failures */}
                     {failedCount > 0 && (
-                      <Tooltip title={`${failedCount} failed deliveries — click to view`}>
+                      <Tooltip title={`${failedDeliveryLabel} — click to view`}>
                         <Button
                           type="text"
-                          icon={<GatewayIcon name="WarningOutlined" className="ui-extracted-4308a8b95b" />}
+                          icon={<GatewayIcon name="WarningOutlined" />}
                           onClick={() =>
                             navigate('/logs?status=FAILED&dateRange=all', {
                               state: { applyFilters: Date.now() },
                             })
                           }
-                          aria-label={`${failedCount} failed deliveries`}
-                          className="ui-extracted-6768a4d7c5"
+                          aria-label={failedDeliveryLabel}
+                          className="global-failure-counter"
                         >
-                          <span
-                            className="ui-extracted-9264b62352"
-                          >
-                            {failedCount}
-                          </span>
+                          <span>{failedDeliveryLabel}</span>
                         </Button>
                       </Tooltip>
                     )}
@@ -803,22 +786,12 @@ export const App = () => {
                       onClick={toggleMode}
                       icon={mode === 'dark' ? <GatewayIcon name="SunOutlined" /> : <GatewayIcon name="MoonOutlined" />}
                       aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                      style={{ color: token.colorTextSecondary, height: 40, width: 40 }}
+                      className="global-header-icon-button"
                     />
 
                     {/* User profile dropdown */}
                     <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-                      <Button
-                        type="text"
-                        style={{
-                          height: 40,
-                          padding: `0 ${spacing[2]}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: spacing[2],
-                        }}
-                        aria-label="User menu"
-                      >
+                      <Button type="text" className="global-user-menu-trigger" aria-label="User menu">
                         <Avatar
                           size={28}
                           style={{
@@ -846,6 +819,17 @@ export const App = () => {
                         )}
                       </Button>
                     </Dropdown>
+                    <Tooltip title="Log out">
+                      <Button
+                        type="default"
+                        icon={<GatewayIcon name="LogoutOutlined" />}
+                        className="global-logout-trigger"
+                        aria-label="Log out"
+                        onClick={handleLogout}
+                      >
+                        <span className="global-logout-label">Log out</span>
+                      </Button>
+                    </Tooltip>
                   </Space>
                 </div>
               }
@@ -882,6 +866,25 @@ export const App = () => {
                     <Dropdown menu={{ items: mobileMoreMenuItems }} trigger={['click']} placement="bottomRight">
                       <Button type="text" icon={<GatewayIcon name="EllipsisOutlined" />} aria-label="More actions" />
                     </Dropdown>
+                    <div className="mobile-account-actions" aria-label={`Signed in as ${user?.email ?? 'user'}`}>
+                      <Avatar size={24} className="mobile-account-avatar">
+                        {(user?.email?.[0] ?? 'U').toUpperCase()}
+                      </Avatar>
+                      <Typography.Text className="mobile-account-name" ellipsis>
+                        {user?.email?.split('@')[0]}
+                      </Typography.Text>
+                      <Tooltip title="Log out">
+                        <Button
+                          type="default"
+                          icon={<GatewayIcon name="LogoutOutlined" />}
+                          className="global-logout-trigger global-logout-trigger--mobile"
+                          aria-label="Log out"
+                          onClick={handleLogout}
+                        >
+                          <span className="global-logout-label">Log out</span>
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </Space>
                 ) : undefined
               }

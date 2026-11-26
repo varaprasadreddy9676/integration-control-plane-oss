@@ -23,28 +23,6 @@
   line-height: 1.2;
 }
 
-.ui-extracted-4308a8b95b {
-  color: var(--color-error);
-}
-
-.ui-extracted-6768a4d7c5 {
-  align-items: center;
-  background: var(--color-error-muted);
-  border: 0.0625rem solid var(--color-border-error);
-  border-radius: 0.5rem;
-  color: var(--color-error);
-  display: inline-flex;
-  font-weight: 600;
-  gap: var(--spacing-2);
-  height: 2.25rem;
-  padding-inline: var(--spacing-3);
-}
-
-.ui-extracted-9264b62352 {
-  font-family: var(--font-mono, monospace);
-  font-size: var(--console-type-caption);
-}
-
 .ui-extracted-6fe7cac9b3 {
   white-space: pre;
 }

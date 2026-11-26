@@ -131,12 +131,31 @@ const foundationTokens: Record<string, string | [string, string]> = {
   '--space-10': '40px',
   '--space-12': '48px',
   '--color-background-sidebar': ['#171B22', '#0B1220'],
-  '--color-background-row-hover': ['#F4F6F8', '#1F2A3A'],
-  '--color-background-row-active': ['#DBEAFE', '#263549'],
-  '--color-text-sidebar': ['#AEB7C2', '#9AA6B2'],
-  '--color-background-sidebar-hover': ['#252B34', '#1A2333'],
-  '--color-background-sidebar-active': ['#252B34', '#1E293B'],
-  '--color-text-sidebar-active': ['#FFFFFF', '#E5E7EB'],
+  '--color-background-row-hover': 'color-mix(in srgb, var(--color-text-primary) 4%, var(--color-background-surface))',
+  '--color-background-row-active': 'color-mix(in srgb, var(--color-accent) 12%, var(--color-background-surface))',
+  '--color-text-sidebar': 'color-mix(in srgb, var(--color-on-dark) 70%, transparent)',
+  '--color-background-sidebar-hover': 'color-mix(in srgb, var(--color-background-sidebar) 92%, var(--color-on-dark))',
+  '--color-background-sidebar-active': 'color-mix(in srgb, var(--color-background-sidebar) 92%, var(--color-on-dark))',
+  '--color-text-sidebar-active': 'var(--color-on-dark)',
+};
+
+const paletteTokens: Record<string, string | [string, string]> = {
+  '--color-background-body': ['#F8FAFC', '#0D1118'],
+  '--color-background-surface': ['#FFFFFF', '#181C22'],
+  '--color-background-card': 'var(--color-background-surface)',
+  '--color-background-popover': 'var(--color-background-surface)',
+  '--color-background-muted': 'color-mix(in srgb, var(--color-text-primary) 4%, var(--color-background-surface))',
+  '--color-text-primary': ['#1E293B', '#DEE2EC'],
+  '--color-text-secondary': ['#64748B', '#A5ABB9'],
+  '--color-border': ['#E2E8F0', '#EDF1FA1A'],
+  '--color-border-emphasized': 'color-mix(in srgb, var(--color-text-primary) 20%, var(--color-border))',
+  '--color-success': ['#15803D', '#64af4c'],
+  '--color-success-muted': 'color-mix(in srgb, var(--color-success) 14%, transparent)',
+  '--color-border-success': 'color-mix(in srgb, var(--color-success) 36%, var(--color-background-surface))',
+  '--color-text-success': 'var(--color-success)',
+  '--color-error-muted': 'color-mix(in srgb, var(--color-error) 12%, transparent)',
+  '--color-border-error': 'color-mix(in srgb, var(--color-error) 38%, var(--color-background-surface))',
+  '--color-text-error': 'var(--color-error)',
 };
 
 export const medicsTheme = defineTheme({
@@ -154,5 +173,6 @@ export const medicsTheme = defineTheme({
   },
   radius: { base: 4, multiplier: 1 },
   motion: { fast: 175, medium: 200, ratio: 0.75 },
+  tokens: paletteTokens,
   localTokens: { ...legacyColorAliases, ...foundationTokens },
 });
