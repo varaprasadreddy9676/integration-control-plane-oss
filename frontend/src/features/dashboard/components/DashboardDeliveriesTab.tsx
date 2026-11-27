@@ -48,8 +48,8 @@ interface DashboardDeliveriesTabProps {
   } | null;
   funnelData: FunnelData[];
   errorBreakdown?: Array<{
-    __KEEP___KEEP_integrationConfig__Id__: string;
-    __KEEP_integrationName__?: string | null;
+    integrationConfigId: string;
+    integrationName?: string | null;
     count: number;
     lastSeen?: string | null;
     category?: string | null;
@@ -106,13 +106,13 @@ export const DashboardDeliveriesTab = ({
 
   const attentionItems = useMemo(() => {
     const errorByIntegration = new Map(
-      errorBreakdown.map((item) => [String(item.__KEEP___KEEP_integrationConfig__Id__), item])
+      errorBreakdown.map((item) => [String(item.integrationConfigId), item])
     );
 
     return integrationPerformance
       .map((integration: any) => {
         const integrationId = String(
-          integration.__KEEP___KEEP_integrationConfig__Id__ || integration.integrationConfigId || integration.id || ''
+          integration.integrationConfigId || integration.integrationConfigId || integration.id || ''
         );
         const total = Number(integration.total || 0);
         const failed = Number(integration.failed || 0);
@@ -130,7 +130,7 @@ export const DashboardDeliveriesTab = ({
 
         return {
           integrationId,
-          name: integration.__KEEP_integrationName__ || integration.integrationName || integrationId || 'Unknown',
+          name: integration.integrationName || integration.integrationName || integrationId || 'Unknown',
           failed,
           skipped,
           total,
@@ -217,11 +217,11 @@ export const DashboardDeliveriesTab = ({
               columns={[
                 {
                   title: performanceEntityLabel,
-                  dataIndex: '__KEEP_integrationName__',
-                  key: '__KEEP_integrationName__',
+                  dataIndex: 'integrationName',
+                  key: 'integrationName',
                   width: 300,
                   ellipsis: true,
-                  sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
+                  sorter: (a: any, b: any) => a.integrationName.localeCompare(b.integrationName),
                   render: (name: string, record: any) => (
                     <Button
                       type="link"
@@ -441,8 +441,8 @@ export const DashboardDeliveriesTab = ({
                         onClick={() =>
                           onNavigate(
                             getIntegrationPath({
-                              __KEEP___KEEP_integrationConfig__Id__: item.integrationId,
-                              __KEEP_integrationName__: item.name,
+                              integrationConfigId: item.integrationId,
+                              integrationName: item.name,
                             })
                           )
                         }

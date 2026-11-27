@@ -561,6 +561,7 @@ export const InboundIntegrationsRoute = ({
       onFilter: (value: any, record: any) => record.isActive === value,
       render: (isActive: boolean, record: any) => (
         <Switch
+          aria-label={`Enable ${record.name}`}
           checked={isActive}
           onChange={(checked) => handleToggle(record, checked)}
           checkedChildren={<GatewayIcon name="CheckCircleOutlined" />}
@@ -703,6 +704,7 @@ export const InboundIntegrationsRoute = ({
 
           {/* Status Filter */}
           <Select
+            aria-label="Filter inbound integrations by status"
             placeholder="Status"
             value={statusFilter}
             onChange={setStatusFilter}

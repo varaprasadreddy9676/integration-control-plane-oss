@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { App, Card, Space, Select, Input, Modal, Progress, Timeline, Badge } from "@/components/common/LegacyAntdControls";
+import { App, Space, Select, Input, Modal, Progress, Timeline, Badge } from "@/components/common/LegacyAntdControls";
+import { Panel } from '../../../design-system/primitives';
 import { Text as AstryxText } from '@astryxdesign/core/Text';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Tab, TabList } from '@astryxdesign/core';
@@ -48,7 +49,7 @@ interface IntegrationVersion {
 }
 
 interface CompatibilityMatrix {
-  __KEEP_integrationName__: string;
+  integrationName: string;
   versions: Array<{
     id: string;
     version: string;
@@ -89,7 +90,7 @@ interface CompatibilityMatrix {
 
 export const VersionsRoute = () => {
   const navigate = useNavigateWithParams();
-  const { __KEEP_integrationName__ } = useParams<{ __KEEP_integrationName__: string }>();
+  const { integrationName } = useParams<{ integrationName: string }>();
   const queryClient = useQueryClient();
   const { message: msgApi } = App.useApp();
   const { spacing, token } = useDesignTokens();
@@ -103,6 +104,9 @@ export const VersionsRoute = () => {
   const [rollbackModalVisible, setRollbackModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('versions');
   const [compareVersions, setCompareVersions] = useState<[string?, string?]>([]);
+  const [compareModalVisible, setCompareModalVisible] = useState(false);
+  const [comparison, setComparison] = useState<any>(null);
+  const [comparing, setComparing] = useState(false);
   const [formData, setFormData] = useState<Partial<IntegrationVersion>>({});
   const [loading, setLoading] = useState(false);
 
@@ -113,9 +117,9 @@ export const VersionsRoute = () => {
     isError: versionsError,
     refetch: refetchVersions,
   } = useQuery({
-    queryKey: ['integration-versions', __KEEP_integrationName__],
-    queryFn: () => getIntegrationVersions(__KEEP_integrationName__!),
-    enabled: !!__KEEP_integrationName__,
+    queryKey: ['integration-versions', integrationName],
+    queryFn: () => getIntegrationVersions(integrationName!),
+    enabled: !!integrationName,
     staleTime: 60_000,
   });
 
@@ -125,15 +129,15 @@ export const VersionsRoute = () => {
     isError: compatibilityError,
     refetch: refetchCompatibility,
   } = useQuery({
-    queryKey: ['integration-compatibility', __KEEP_integrationName__],
-    queryFn: () => getIntegrationCompatibilityMatrix(__KEEP_integrationName__!),
-    enabled: !!__KEEP_integrationName__,
+    queryKey: ['integration-compatibility', integrationName],
+    queryFn: () => getIntegrationCompatibilityMatrix(integrationName!),
+    enabled: !!integrationName,
     staleTime: 60_000,
   });
 
   // Mutations
   const createVersionMutation = useMutation({
-    mutationFn: (data: any) => createIntegrationVersion(__KEEP_integrationName__!, data),
+    mutationFn: (data: any) => createIntegrationVersion(integrationName!, data),
     onSuccess: () => {
       msgApi.success('Version created successfully');
       setCreateModalVisible(false);
@@ -147,7 +151,7 @@ export const VersionsRoute = () => {
 
   const updateVersionMutation = useMutation({
     mutationFn: ({ versionId, data }: { versionId: string; data: any }) =>
-      updateIntegrationVersion(__KEEP_integrationName__!, versionId, data),
+      updateIntegrationVersion(integrationName!, versionId, data),
     onSuccess: () => {
       msgApi.success('Version updated successfully');
       setEditModalVisible(false);
@@ -161,7 +165,7 @@ export const VersionsRoute = () => {
   });
 
   const deleteVersionMutation = useMutation({
-    mutationFn: (versionId: string) => deleteIntegrationVersion(__KEEP_integrationName__!, versionId),
+    mutationFn: (versionId: string) => deleteIntegrationVersion(integrationName!, versionId),
     onSuccess: () => {
       msgApi.success('Version deleted successfully');
       setSelectedVersion(null);
@@ -173,7 +177,7 @@ export const VersionsRoute = () => {
   });
 
   const setDefaultMutation = useMutation({
-    mutationFn: (versionId: string) => setDefaultIntegrationVersion(__KEEP_integrationName__!, versionId),
+    mutationFn: (versionId: string) => setDefaultIntegrationVersion(integrationName!, versionId),
     onSuccess: () => {
       msgApi.success('Default version updated successfully');
       queryClient.invalidateQueries({ queryKey: ['integration-versions'] });
@@ -185,7 +189,7 @@ export const VersionsRoute = () => {
 
   const activateVersionMutation = useMutation({
     mutationFn: ({ versionId, activate }: { versionId: string; activate: boolean }) =>
-      activateIntegrationVersion(__KEEP_integrationName__!, versionId, { activate }),
+      activateIntegrationVersion(integrationName!, versionId, { activate }),
     onSuccess: (_, variables) => {
       const action = variables.activate ? 'activated' : 'deactivated';
       msgApi.success(`Version ${action} successfully`);
@@ -198,7 +202,7 @@ export const VersionsRoute = () => {
 
   const rollbackMutation = useMutation({
     mutationFn: ({ versionId, reason }: { versionId: string; reason: string }) =>
-      rollbackIntegrationVersion(__KEEP_integrationName__!, versionId, { reason }),
+      rollbackIntegrationVersion(integrationName!, versionId, { reason }),
     onSuccess: () => {
       msgApi.success('Rollback completed successfully');
       setRollbackModalVisible(false);
@@ -297,10 +301,21 @@ export const VersionsRoute = () => {
     setRollbackModalVisible(true);
   };
 
-  const handleCompareVersions = () => {
-    if (compareVersions.length === 2) {
-      // Navigate to comparison view
-      navigate(`/versions/${__KEEP_integrationName__}/compare/${compareVersions[0]}/${compareVersions[1]}`);
+  const handleCompareVersions = async () => {
+    if (compareVersions.length !== 2) return;
+    try {
+      setComparing(true);
+      const result = await compareIntegrationVersions(
+        integrationName!,
+        compareVersions[0]!,
+        compareVersions[1]!
+      );
+      setComparison(result);
+      setCompareModalVisible(true);
+    } catch (error: any) {
+      msgApi.error(error?.message || 'Could not compare versions');
+    } finally {
+      setComparing(false);
     }
   };
 
@@ -390,7 +405,7 @@ export const VersionsRoute = () => {
         contentClassName="version-management-workspace__content"
         header={
           <PageHeader
-            title={`Versions: ${__KEEP_integrationName__}`}
+            title={`Versions: ${integrationName}`}
             breadcrumb={[{ label: 'Integrations', path: '/integrations' }, { label: 'Versions' }]}
             compact
           />
@@ -414,7 +429,7 @@ export const VersionsRoute = () => {
       contentClassName="version-management-workspace__content"
       header={
         <PageHeader
-          title={`Version Management: ${__KEEP_integrationName__}`}
+          title={`Version Management: ${integrationName}`}
           description={`Manage event rule versions and compatibility. ${versions.length.toLocaleString()} ${versions.length === 1 ? 'version' : 'versions'}, ${versions.filter((v) => v.isActive).length} active, ${versions.filter((v) => v.isPrerelease).length} pre-release.`}
           compact
           actions={
@@ -458,12 +473,12 @@ export const VersionsRoute = () => {
         tabIndex={0}
       >
         <div className="versions-panel-content">
-          <Card
+          <Panel
             title="Version History"
-            size="small"
-            extra={
+            actions={
               <Space>
                 <Select
+                  aria-label="Select versions to compare"
                   placeholder="Select versions to compare"
                   mode="multiple"
                   maxCount={2}
@@ -471,15 +486,16 @@ export const VersionsRoute = () => {
                   value={compareVersions}
                   onChange={setCompareVersions}
                   options={versions.map((v) => ({
-                    value: v.id,
+                    value: v.version,
                     label: v.version,
-                    disabled: v.id === compareVersions[0] || v.id === compareVersions[1],
+                    disabled: v.version === compareVersions[0] || v.version === compareVersions[1],
                   }))}
                 />
                 <Button
                   type="primary"
                   size="middle"
                   disabled={compareVersions.length !== 2}
+                  loading={comparing}
                   onClick={handleCompareVersions}
                 >
                   Compare
@@ -495,7 +511,7 @@ export const VersionsRoute = () => {
               pagination={{ pageSize: 10 }}
               rowClassName={(record: IntegrationVersion) => (record.isDefault ? 'default-version-row' : '')}
             />
-          </Card>
+          </Panel>
         </div>
       </div>
       <div
@@ -505,7 +521,7 @@ export const VersionsRoute = () => {
         hidden={activeTab !== 'timeline'}
         tabIndex={0}
       >
-        <Card title="Version Timeline" size="small">
+        <Panel title="Version Timeline">
           <Timeline
             mode="left"
             items={versions.map((version) => ({
@@ -533,7 +549,7 @@ export const VersionsRoute = () => {
               ),
             }))}
           />
-        </Card>
+        </Panel>
       </div>
 
       {/* Create Version Modal */}
@@ -814,6 +830,63 @@ export const VersionsRoute = () => {
             />
           </div>
         </Space>
+      </Modal>
+
+      <Modal
+        title="Compare versions"
+        open={compareModalVisible}
+        onCancel={() => setCompareModalVisible(false)}
+        footer={<Button onClick={() => setCompareModalVisible(false)}>Close</Button>}
+        width={640}
+      >
+        {comparison ? (
+          <Space direction="vertical" size={12} className="console-width-full">
+            <Space size={24}>
+              {(['v1', 'v2'] as const).map((key) => {
+                const entry = comparison.versions?.[key];
+                return (
+                  <Panel key={key} title={key.toUpperCase()}>
+                    <Space direction="vertical" size={2}>
+                      <AstryxText weight="semibold">{entry?.version || '—'}</AstryxText>
+                      <AstryxText type="supporting" color="secondary">
+                        {entry?.integration?.name || '—'}
+                      </AstryxText>
+                      <AstryxText type="supporting" color="secondary">
+                        Updated {entry?.integration?.updatedAt ? formatDateTime(entry.integration.updatedAt) : '—'}
+                      </AstryxText>
+                    </Space>
+                  </Panel>
+                );
+              })}
+            </Space>
+            <Space direction="vertical" size={4}>
+              <AstryxText>
+                <AstryxText type="supporting" color="secondary">
+                  Direction:{' '}
+                </AstryxText>
+                {comparison.comparison?.direction || '—'}
+              </AstryxText>
+              <AstryxText>
+                <AstryxText type="supporting" color="secondary">
+                  Version difference:{' '}
+                </AstryxText>
+                {String(comparison.comparison?.difference ?? '—')}
+              </AstryxText>
+              <AstryxText>
+                <AstryxText type="supporting" color="secondary">
+                  Compatibility:{' '}
+                </AstryxText>
+                {comparison.comparison?.compatibility?.level ||
+                  (comparison.comparison?.compatibility?.compatible === false ? 'incompatible' : 'compatible')}
+              </AstryxText>
+              {comparison.comparison?.compatibility?.reason && (
+                <AstryxText type="supporting" color="secondary">
+                  {comparison.comparison.compatibility.reason}
+                </AstryxText>
+              )}
+            </Space>
+          </Space>
+        ) : null}
       </Modal>
 
       <style>{`

@@ -48,37 +48,6 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   onDeleteNode,
   onDuplicateNode,
 }) => {
-  const [form] = Form.useForm();
-
-  // Update form when selected node changes
-  React.useEffect(() => {
-    if (selectedNode) {
-      form.setFieldsValue(selectedNode.data);
-    } else {
-      form.resetFields();
-    }
-  }, [selectedNode, form]);
-
-  const handleFormChange = (_changedValues: any, allValues: any) => {
-    if (selectedNode) {
-      // Never allow changing the discriminant. It breaks the FlowNodeData union.
-      const { nodeType: _nodeType, errors: _errors, warnings: _warnings, ...updates } = allValues || {};
-      onUpdateNode(selectedNode.id, updates);
-    }
-  };
-
-  const handleDelete = () => {
-    if (selectedNode) {
-      onDeleteNode(selectedNode.id);
-    }
-  };
-
-  const handleDuplicate = () => {
-    if (selectedNode && onDuplicateNode) {
-      onDuplicateNode(selectedNode.id);
-    }
-  };
-
   if (!selectedNode) {
     return (
       <div
@@ -97,6 +66,47 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
       </div>
     );
   }
+
+  return (
+    <InspectorPanelEditor
+      selectedNode={selectedNode}
+      onUpdateNode={onUpdateNode}
+      onDeleteNode={onDeleteNode}
+      onDuplicateNode={onDuplicateNode}
+    />
+  );
+};
+
+interface InspectorPanelEditorProps extends Omit<InspectorPanelProps, 'selectedNode'> {
+  selectedNode: FlowNode;
+}
+
+const InspectorPanelEditor: React.FC<InspectorPanelEditorProps> = ({
+  selectedNode,
+  onUpdateNode,
+  onDeleteNode,
+  onDuplicateNode,
+}) => {
+  const [form] = Form.useForm();
+
+  // Update form when selected node changes
+  React.useEffect(() => {
+    form.setFieldsValue(selectedNode.data);
+  }, [selectedNode, form]);
+
+  const handleFormChange = (_changedValues: any, allValues: any) => {
+    // Never allow changing the discriminant. It breaks the FlowNodeData union.
+    const { nodeType: _nodeType, errors: _errors, warnings: _warnings, ...updates } = allValues || {};
+    onUpdateNode(selectedNode.id, updates);
+  };
+
+  const handleDelete = () => {
+    onDeleteNode(selectedNode.id);
+  };
+
+  const handleDuplicate = () => {
+    onDuplicateNode?.(selectedNode.id);
+  };
 
   return (
     <div
@@ -223,11 +233,9 @@ function renderTriggerFields(data: TriggerNodeData, form: any): React.ReactNode 
           <>
             {triggerType === 'INBOUND' && (
               <>
-                <Banner
-                  status="info"
-                  title="Inbound Integration"
-                  description="This integration acts as an HTTP proxy, forwarding incoming requests to a target URL."
-                />
+                <Text type="supporting" size="sm" color="secondary" display="block">
+                  Inbound Integration: This integration acts as an HTTP proxy, forwarding incoming requests to a target URL.
+                </Text>
                 <Form.Item
                   label="Integration Identifier"
                   name="inboundType"
@@ -472,7 +480,9 @@ function renderTransformFields(data: TransformNodeData, form: any): React.ReactN
                   className="console-font-mono"
                 />
               </Form.Item>
-              <Banner title="JavaScript function that receives input and returns transformed output" status="info" />
+              <Text type="supporting" size="sm" color="secondary" display="block">
+                JavaScript function that receives input and returns transformed output
+              </Text>
             </>
           );
         }}
@@ -483,11 +493,10 @@ function renderTransformFields(data: TransformNodeData, form: any): React.ReactN
 
 function renderFilterFields(_data: FilterNodeData, _form: any): React.ReactNode {
   return (
-    <Banner
-      status="warning"
-      title="This legacy node is not executed by the delivery runtime"
-      description="Remove it before saving. To skip selected events today, use a transformation that returns null."
-    />
+    <Text type="supporting" size="sm" color="secondary" display="block">
+      This legacy node is not executed by the delivery runtime. Remove it before saving. To skip selected events today,
+      use a transformation that returns null.
+    </Text>
   );
 }
 
@@ -501,11 +510,10 @@ function renderScheduleScriptFields(data: ScheduleScriptNodeData, form: any): Re
           className="console-font-mono"
         />
       </Form.Item>
-      <Banner
-        title="Script must return a timestamp (ms) or a recurring config object"
-        description="This is executed by the scheduler to determine when to run the integration."
-        status="info"
-      />
+      <Text type="supporting" size="sm" color="secondary" display="block">
+        Script must return a timestamp (ms) or a recurring config object. This is executed by the scheduler to determine
+        when to run the integration.
+      </Text>
     </>
   );
 }
@@ -547,11 +555,9 @@ function renderDelayFields(data: DelayNodeData, form: any): React.ReactNode {
 function renderMultiActionFields(data: MultiActionNodeData, form: any): React.ReactNode {
   return (
     <>
-      <Banner
-        status="info"
-        title="Actions run in order"
-        description="Each endpoint is attempted and recorded independently, even when an earlier action fails."
-      />
+      <Text type="supporting" size="sm" color="secondary" display="block">
+        Actions run in order. Each endpoint is attempted and recorded independently, even when an earlier action fails.
+      </Text>
 
       <Form.List name="actions">
         {(fields, { add, remove }) => (
@@ -667,7 +673,7 @@ function renderResponseFields(data: ResponseNodeData, form: any): React.ReactNod
 function renderIntegrationFields(data: IntegrationNodeData, form: any): React.ReactNode {
   return (
     <>
-      <Form.Item label="Integration Name" name="__KEEP_integrationName__">
+      <Form.Item label="Integration Name" name="integrationName">
         <Input placeholder="Optional name" />
       </Form.Item>
 

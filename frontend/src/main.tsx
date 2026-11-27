@@ -4,6 +4,7 @@ import '@ant-design/v5-patch-for-react-19';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './app/App';
+import { BrandingProvider } from './app/branding-provider';
 import { TenantProvider } from './app/tenant-context';
 import { ThemeProvider } from './app/theme-provider';
 import { AuthProvider } from './app/auth-context';
@@ -19,6 +20,7 @@ import './design-system/theme/global.css';
 import './components/common/primitives.css';
 import './design-system/theme/motion.css';
 import './design-system/theme/surfaces.css';
+import './design-system/theme/corners.css';
 import './design-system/theme/product-foundations.css';
 import './design-system/extracted-static-styles.css';
 import { dissolve } from './design-system/delight';
@@ -41,7 +43,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <TenantProvider>
-                <App />
+                <BrandingProvider>
+                  <App />
+                </BrandingProvider>
               </TenantProvider>
             </AuthProvider>
           </QueryClientProvider>

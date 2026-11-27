@@ -41,8 +41,8 @@ const props = () => {
     integrationPerformance: [
       {
         id: 'job-1',
-        __KEEP___KEEP_integrationConfig__Id__: 'job-1',
-        __KEEP_integrationName__: 'Daily appointment sync',
+        integrationConfigId: 'job-1',
+        integrationName: 'Daily appointment sync',
         total: 120,
         successful: 116,
         failed: 2,
@@ -65,8 +65,8 @@ const props = () => {
       {
         id: 'execution-1',
         startedAt: now,
-        __KEEP___KEEP_integrationConfig__Id__: 'job-1',
-        __KEEP_integrationName__: 'Daily appointment sync',
+        integrationConfigId: 'job-1',
+        integrationName: 'Daily appointment sync',
         status: 'FAILED',
         attemptCount: 2,
         durationMs: 900,

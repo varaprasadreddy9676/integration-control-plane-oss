@@ -1,7 +1,6 @@
-import { Divider, Form, Input } from '@/components/common/LegacyAntdControls';
-import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Divider, Form, Input, Space } from '@/components/common/LegacyAntdControls';
+import { Text } from '@astryxdesign/core/Text';
 import { Button } from '../../../components/common/LegacyButton';
-import { InlineNotice as Notice } from '../../../components/common';
 
 interface FcmConfigFieldsProps {
   spacing: Record<string, string>;
@@ -47,49 +46,41 @@ export function FcmConfigFields({ spacing, httpComplete, onBack, onNext }: FcmCo
         />
       </Form.Item>
 
-      <Notice
-        type="warning"
-        icon={<GatewayIcon name="BellOutlined" />}
-        message="Firebase Setup"
-        description={
-          <div>
-            <p className="console-margin-bottom-2">To get your Firebase service account credentials:</p>
-            <ol className="console-indent-5-margin-bottom-2">
-              <li>
-                Open{' '}
-                <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer">
-                  Firebase Console
-                </a>
-              </li>
-              <li>Project Settings → Service Accounts → Generate new private key</li>
-              <li>
-                Copy <strong>project_id</strong>, <strong>client_email</strong>, and <strong>private_key</strong> from
-                the downloaded JSON
-              </li>
-            </ol>
-            <p className="console-margin-bottom-1">
-              <strong>Payload your app must send (device token):</strong>
-            </p>
-            <code
-              className="ui-extracted-e8bd2112ae"
-            >
-              {
-                '{ "token": "<device_fcm_token>", "title": "New Bill", "body": "₹500 due", "data": { "billId": "123" } }'
-              }
-            </code>
-            <p className="console-margin-bottom-1">
-              <strong>Broadcast to all users (topic):</strong>
-            </p>
-            <code className="console-caption-block">
-              {'{ "topic": "all-patients", "title": "System Update", "body": "..." }'}
-            </code>
-            <p className="console-margin-top-2-reset-bottom">
-              All <code>data</code> values must be strings. Use <code>androidPriority: "high"</code> for time-sensitive
-              alerts (default).
-            </p>
-          </div>
-        }
-      />
+      <Space direction="vertical" size="small" className="console-margin-top-2">
+        <Text type="supporting" size="sm" color="secondary" weight="semibold" display="block">
+          Firebase Setup
+        </Text>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          To get your Firebase service account credentials:
+        </Text>
+        <ol className="console-indent-5-margin-bottom-2">
+          <li>
+            Open{' '}
+            <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer">
+              Firebase Console
+            </a>
+          </li>
+          <li>Project Settings → Service Accounts → Generate new private key</li>
+          <li>
+            Copy <strong>project_id</strong>, <strong>client_email</strong>, and <strong>private_key</strong> from the
+            downloaded JSON
+          </li>
+        </ol>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          <strong>Payload your app must send (device token):</strong>
+        </Text>
+        <code className="ui-extracted-e8bd2112ae">
+          {'{ "token": "<device_fcm_token>", "title": "New Bill", "body": "₹500 due", "data": { "billId": "123" } }'}
+        </code>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          <strong>Broadcast to all users (topic):</strong>
+        </Text>
+        <code className="console-caption-block">{'{ "topic": "all-patients", "title": "System Update", "body": "..." }'}</code>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          All <code>data</code> values must be strings. Use <code>androidPriority: "high"</code> for time-sensitive
+          alerts (default).
+        </Text>
+      </Space>
 
       <Divider className="console-margin-y-4" />
 

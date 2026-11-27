@@ -348,6 +348,7 @@ export const EventAuditRoute = () => {
           </Text>
           <Select
             placeholder="Status"
+          aria-label="Filter by status"
             allowClear
             className="event-audit-filter-select"
             value={statusFilter}
@@ -370,6 +371,7 @@ export const EventAuditRoute = () => {
           />
           <Select
             placeholder="Source"
+          aria-label="Filter by source"
             allowClear
             className="event-audit-filter-select"
             value={sourceFilter}
@@ -382,6 +384,7 @@ export const EventAuditRoute = () => {
           />
           <Select
             placeholder="Event Type"
+          aria-label="Filter by event type"
             allowClear
             className="console-filter-field"
             value={eventTypeFilter}
@@ -394,6 +397,7 @@ export const EventAuditRoute = () => {
           />
           <Select
             placeholder="Skip Category"
+          aria-label="Filter by skip category"
             allowClear
             className="console-filter-field"
             value={skipCategoryFilter}

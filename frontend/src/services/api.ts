@@ -2436,15 +2436,13 @@ export const updateCheckpoint = async (
 export const getScheduledIntegrations = async (filters?: {
   status?: string;
   integrationConfigId?: string;
-  __KEEP___KEEP_integrationConfig__Id__?: string;
   eventType?: string;
   limit?: number;
 }): Promise<ScheduledIntegration[]> => {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
-  if (filters?.integrationConfigId) params.set('integrationConfigId', filters.integrationConfigId);
-  if (filters?.__KEEP___KEEP_integrationConfig__Id__)
-    params.set('__KEEP___KEEP_integrationConfig__Id__', filters.__KEEP___KEEP_integrationConfig__Id__);
+  if (filters?.integrationConfigId)
+    params.set('integrationConfigId', filters.integrationConfigId);
   if (filters?.eventType) params.set('eventType', filters.eventType);
   if (filters?.limit) params.set('limit', filters.limit.toString());
 

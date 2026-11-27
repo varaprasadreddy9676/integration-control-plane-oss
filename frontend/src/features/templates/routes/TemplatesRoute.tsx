@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   App,
-  Card,
   Modal,
   Space,
   Input,
@@ -28,6 +27,7 @@ import { useNavigateWithParams } from '../../../utils/navigation';
 import { markMorphSource } from '../../../design-system/view-transition';
 import { prefetchDetailRoute } from '../../../app/route-prefetch';
 import { Button } from '../../../components/common/LegacyButton';
+import { ModernTable } from '../../../components/common/ModernTable';
 
 const { TextArea } = Input;
 
@@ -220,95 +220,81 @@ export const TemplatesRoute = () => {
     }
   };
 
-  const getCategoryIcon = (category: string) => {
-    const toneClass =
-      {
-        EHR: 'console-text-info',
-        PMS: 'console-text-success',
-        BILLING: 'console-text-warning',
-        LAB: 'console-text-accent',
-        IMAGING: 'console-text-error',
-      }[category] || 'console-text-secondary';
-
-    switch (category) {
-      case 'EHR':
-        return <GatewayIcon name="BookOutlined" className={toneClass} />;
-      case 'PMS':
-        return <GatewayIcon name="AppstoreOutlined" className={toneClass} />;
-      case 'BILLING':
-        return <GatewayIcon name="FilterOutlined" className={toneClass} />;
-      case 'LAB':
-        return <GatewayIcon name="SearchOutlined" className={toneClass} />;
-      case 'IMAGING':
-        return <GatewayIcon name="FilterOutlined" className={toneClass} />;
-      default:
-        return <GatewayIcon name="AppstoreOutlined" className={toneClass} />;
-    }
-  };
-
-  const renderTemplateCard = (template: IntegrationTemplate) => (
-    <Card
-      key={template.id}
-      hoverable
-      className="template-card"
-      actions={[
-        <Button
-          key="details"
-          type="text"
-          onMouseEnter={() => prefetchDetailRoute('template')}
-          onFocus={() => prefetchDetailRoute('template')}
-          onClick={(event) => {
-            markMorphSource(
-              event.currentTarget.closest('.ant-card')?.querySelector<HTMLElement>('.ant-card-meta-title') ?? null
-            );
-            navigate(`/templates/${template.id}`, { state: { title: template.name } });
-          }}
-          block
-        >
-          Edit Template
-        </Button>,
-        <Button key="create" type="primary" onClick={() => handleCreateFromTemplate(template)} block>
-          Use Template
-        </Button>,
-      ]}
-    >
-      <Card.Meta
-        avatar={getCategoryIcon(template.category)}
-        title={
-          <Space>
-            {template.name}
-            {template.isActive && <StatusBadge label="Active" variant="success" />}
-          </Space>
-        }
-        description={
-          <Space direction="vertical" size="small" className="console-width-full">
+  const templateColumns = [
+    {
+      title: 'Template',
+      dataIndex: 'name',
+      key: 'name',
+      width: 360,
+      render: (_: string, template: IntegrationTemplate) => (
+        <Space direction="vertical" size={2}>
+          <strong>{template.name}</strong>
+          <AstryxText type="supporting" color="secondary">
+            {template.description}
+          </AstryxText>
+          {template.metadata?.vendor && (
             <AstryxText type="supporting" color="secondary">
-              {template.description}
+              {template.metadata.vendor}
             </AstryxText>
-            <Space wrap className="template-card-metadata">
-              <StatusBadge label={template.category} variant="info" showIcon={false} />
-              {template.metadata?.vendor && (
-                <AstryxText type="supporting" color="secondary">
-                  {template.metadata.vendor}
-                </AstryxText>
-              )}
-              {template.eventType && <code className="console-font-mono console-type-body">{template.eventType}</code>}
-            </Space>
-            {template.transformationMode && (
-              <AstryxText type="supporting" color="secondary">
-                {template.transformationMode} transform
-              </AstryxText>
-            )}
-            {template.actions && template.actions.length > 0 && (
-              <AstryxText type="supporting" color="secondary">
-                {template.actions.length} actions
-              </AstryxText>
-            )}
-          </Space>
-        }
-      />
-    </Card>
-  );
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Category',
+      dataIndex: 'category',
+      key: 'category',
+      width: 150,
+      render: (_: string, template: IntegrationTemplate) => (
+        <StatusBadge label={template.category} variant="info" showIcon={false} />
+      ),
+    },
+    {
+      title: 'Event',
+      dataIndex: 'eventType',
+      key: 'eventType',
+      width: 190,
+      render: (eventType: string | undefined) =>
+        eventType ? <code className="console-font-mono console-type-body">{eventType}</code> : '—',
+    },
+    {
+      title: 'Status',
+      dataIndex: 'isActive',
+      key: 'status',
+      width: 120,
+      render: (isActive: boolean) => (isActive ? <StatusBadge label="Active" variant="success" /> : '—'),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 220,
+      render: (_: unknown, template: IntegrationTemplate) => (
+        <Space size="small">
+          <Button
+            type="text"
+            size="small"
+            aria-label={`Edit ${template.name}`}
+            onMouseEnter={() => prefetchDetailRoute('template')}
+            onFocus={() => prefetchDetailRoute('template')}
+            onClick={(event) => {
+              markMorphSource(event.currentTarget.closest('tr')?.querySelector<HTMLElement>('strong') ?? null);
+              navigate(`/templates/${template.id}`, { state: { title: template.name } });
+            }}
+          >
+            Edit
+          </Button>
+          <Button
+            type="primary"
+            size="small"
+            aria-label={`Use ${template.name}`}
+            onClick={() => handleCreateFromTemplate(template)}
+          >
+            Use template
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <PageTemplate
@@ -365,6 +351,7 @@ export const TemplatesRoute = () => {
           width={250}
         />
         <Select
+          aria-label="Filter templates by category"
           placeholder="Category"
           value={categoryFilter}
           onChange={setCategoryFilter}
@@ -383,7 +370,13 @@ export const TemplatesRoute = () => {
             description={templates.length === 0 ? undefined : 'Adjust the search or category filter.'}
           />
         ) : (
-          <div className="template-card-grid">{filteredTemplates.map(renderTemplateCard)}</div>
+          <ModernTable
+            columns={templateColumns}
+            dataSource={filteredTemplates}
+            rowKey="id"
+            pagination={false}
+            size="small"
+          />
         )}
       </div>
 

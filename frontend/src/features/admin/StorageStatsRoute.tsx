@@ -14,6 +14,7 @@ import { ModernTable } from '../../components/common/ModernTable';
 import { StatePanel } from '../../components/common/StatePanel';
 import { InlineHint } from '../../components/common/InlineHint';
 import { Button as AstryxButton } from '@astryxdesign/core/Button';
+import { cssVar } from '../../design-system/utils';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -157,7 +158,18 @@ export const StorageStatsRoute = () => {
       dataIndex: 'percentOfTotal',
       key: 'percentOfTotal',
       sorter: (a: CollectionStat, b: CollectionStat) => a.percentOfTotal - b.percentOfTotal,
-      render: (v: number) => (v === 0 ? <Text color="secondary">—</Text> : <Progress percent={v} size="small" />),
+      render: (v: number, record: CollectionStat) =>
+        v === 0 ? (
+          <Text color="secondary">—</Text>
+        ) : (
+          <Progress
+            aria-label={`${record.name} storage used`}
+            percent={v}
+            size="small"
+            strokeColor={cssVar.border.default}
+            trailColor={cssVar.border.subtle}
+          />
+        ),
       width: 160,
     },
     {
@@ -207,10 +219,10 @@ export const StorageStatsRoute = () => {
     >
       <div className="storage-workspace">
         {isOrgView && (
-          <InlineHint>
+          <Text type="supporting" color="secondary">
             Organization scope: document counts are specific to your organization; disk and index sizes are
             platform-wide.
-          </InlineHint>
+          </Text>
         )}
 
         {error && data && (

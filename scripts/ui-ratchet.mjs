@@ -224,8 +224,8 @@ const visitRoutes = (node) => {
   ts.forEachChild(node, visitRoutes);
 };
 visitRoutes(appAst);
-if (applicationRoutes.length !== 46) {
-  violations.push(`product route count is ${applicationRoutes.length}; expected 46 (login excluded)`);
+if (applicationRoutes.length !== 47) {
+  violations.push(`product route count is ${applicationRoutes.length}; expected 47 (login excluded)`);
 }
 
 if (violations.length) {

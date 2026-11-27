@@ -11,6 +11,7 @@ import {
   Space,
   Input,
   Divider,
+  Dropdown,
   Switch,
   Modal,
   App,
@@ -48,6 +49,7 @@ import { ConfigGrid } from '../../../components/common/ConfigGrid';
 import { ConfigFieldHelp } from '../../../components/common/ConfigFieldHelp';
 import { InlineHint } from '../../../components/common/InlineHint';
 import { AuthenticationFields, HttpConfigFields } from '../../../shared/integration-forms';
+import { FormItemRadioGroup } from '../../../shared/forms/FormItemControls';
 import { RequestPolicySection } from '../../integrations/components/detail/RequestPolicySection';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { Button } from '../../../components/common/LegacyButton';
@@ -99,9 +101,9 @@ function InboundIntegrationTabs({
           className="inbound-integration-tab-list"
           hasDivider
           onChange={selectTab}
-          overflow="visible"
+          overflow="auto"
           role="tablist"
-          size="md"
+          size="sm"
           value={selectedKey}
         >
           {items.map((item) => (
@@ -147,7 +149,7 @@ export const InboundIntegrationDetailRoute = () => {
   const { id } = useParams();
   const navigate = useNavigateWithParams();
   const queryClient = useQueryClient();
-  const { spacing, token } = useDesignTokens();
+  const { spacing } = useDesignTokens();
   const { mode } = useThemeMode();
   const colors = cssVar.legacy;
   const { message: messageApi, modal } = App.useApp();
@@ -1114,7 +1116,7 @@ return {
   return (
     <PageTemplate
       as="main"
-      className="inbound-integration-detail-template"
+      className="inbound-integration-detail-template configuration-workspace"
       contentClassName="inbound-integration-detail-template__content"
       header={
         <PageHeader
@@ -1129,7 +1131,7 @@ return {
           ]}
           dense
           actions={
-            <>
+            <Space size="small" wrap>
               <IntegrationHistoryButton
                 integrationId={isCreate ? undefined : id}
                 onRestored={() => queryClient.invalidateQueries({ queryKey: ['inbound-integration', id] })}
@@ -1145,7 +1147,7 @@ return {
                   communicationConfig: document.actions?.[0]?.communicationConfig,
                 })}
               />
-            </>
+            </Space>
           }
         />
       }
@@ -1165,7 +1167,7 @@ return {
               : `${errorFields.length} fields need attention before this can be saved.`
           )
         }
-        style={{ margin: `0 ${spacing[3]} ${spacing[4]}` }}
+        className="configuration-form"
         initialValues={{
           actionType: 'HTTP', // NEW: HTTP or COMMUNICATION
           httpMethod: 'POST',
@@ -1208,7 +1210,7 @@ return {
               disabled: false, // First tab always enabled
               children: (
                 <div className="integration-tab-content">
-                  <Space direction="vertical" size="middle" className="ui-extracted-32ee142ac2">
+                  <Space direction="vertical" size="small" className="ui-extracted-32ee142ac2">
                     <ConfigGrid columns={2}>
                       <Form.Item
                         name="name"
@@ -1267,7 +1269,7 @@ return {
                       }
                       rules={[{ required: true, message: 'Action type is required' }]}
                     >
-                      <Radio.Group>
+                      <FormItemRadioGroup>
                         <Radio.Button value="HTTP">
                           <Space>
                             <GatewayIcon name="ApiOutlined" />
@@ -1280,7 +1282,7 @@ return {
                             Communication
                           </Space>
                         </Radio.Button>
-                      </Radio.Group>
+                      </FormItemRadioGroup>
                     </Form.Item>
 
                     {actionType === 'COMMUNICATION' && (
@@ -1372,13 +1374,13 @@ return {
                       </ConfigGrid>
                     )}
 
-                    <Divider className="console-margin-y-2" />
-
-                    <div className="ui-extracted-8d0d7af51a">
-                      <Button type="primary" onClick={() => setActiveTab('http')} disabled={!basicComplete}>
-                        {actionType === 'COMMUNICATION' ? 'Continue to Provider' : 'Continue to Target API'}
-                      </Button>
-                    </div>
+                    {isCreate && (
+                      <section className="ui-extracted-8d0d7af51a">
+                        <Button type="primary" onClick={() => setActiveTab('http')} disabled={!basicComplete}>
+                          {actionType === 'COMMUNICATION' ? 'Continue to Provider' : 'Continue to Target API'}
+                        </Button>
+                      </section>
+                    )}
                   </Space>
                 </div>
               ),
@@ -2266,67 +2268,24 @@ return {
         />
 
         {/* Persistent sticky footer — always visible regardless of active tab */}
-        <div
-          style={{
-            position: 'sticky',
-            bottom: 0,
-            zIndex: 10,
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: spacing[2],
-            padding: `${spacing[3]} 0`,
-            marginTop: spacing[2],
-            borderTop: `1px solid ${cssVar.border.default}`,
-            background: cssVar.bg.base,
-            boxShadow: token?.boxShadowSecondary,
-          }}
-        >
-          <Space direction="vertical" size={4}>
-            <Text type="secondary" className="console-type-caption">
-              Testing tools
-            </Text>
-            <Space wrap>
-              <Button
-                size="middle"
-                icon={<GatewayIcon name="CopyOutlined" />}
-                onClick={handleCopyCurl}
-                disabled={!integration}
-              >
-                Copy curl
-              </Button>
-
-              {(actionType === 'COMMUNICATION' || integration?.actions?.length > 0) && (
-                <Button
-                  size="middle"
-                  icon={<GatewayIcon name="MailOutlined" />}
-                  onClick={handleOpenTestEmailModal}
-                  disabled={!integration}
-                >
-                  Send Test Email
-                </Button>
-              )}
-
-              {actionType !== 'COMMUNICATION' && !integration?.actions?.length && (
-                <Button
-                  size="middle"
-                  icon={<GatewayIcon name="ThunderboltOutlined" />}
-                  onClick={handleTestRuntime}
-                  disabled={!integration}
-                >
-                  Test runtime
-                </Button>
-              )}
-            </Space>
-          </Space>
-          <Space wrap>
+        <footer className="configuration-action-bar">
+          {integration && (
+            <Dropdown placement="topLeft" trigger={['click']} menu={{ items: [
+              { key: 'curl', label: 'Copy curl', icon: <GatewayIcon name="CopyOutlined" />, onClick: handleCopyCurl },
+              actionType === 'COMMUNICATION' || integration.actions?.length
+                ? { key: 'email', label: 'Send Test Email', icon: <GatewayIcon name="MailOutlined" />, onClick: handleOpenTestEmailModal }
+                : { key: 'runtime', label: 'Test runtime', icon: <GatewayIcon name="ThunderboltOutlined" />, onClick: handleTestRuntime },
+            ] }}>
+              <Button size="small" icon={<GatewayIcon name="ThunderboltOutlined" />}>Test tools</Button>
+            </Dropdown>
+          )}
+          <Space className="configuration-save-actions" size="small" wrap>
             <Button size="middle" onClick={handleCancel}>
               Cancel
             </Button>
             {activeTab !== 'review' && (
               <Button size="middle" onClick={() => setActiveTab('review')} icon={<GatewayIcon name="EyeOutlined" />}>
-                Review Changes
+                Review
               </Button>
             )}
             <Button
@@ -2340,7 +2299,7 @@ return {
               {isCreate ? 'Create Integration' : 'Save Changes'}
             </Button>
           </Space>
-        </div>
+        </footer>
       </Form>
 
       <Modal

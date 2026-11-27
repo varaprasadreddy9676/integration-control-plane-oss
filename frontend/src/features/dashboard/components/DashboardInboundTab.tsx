@@ -19,6 +19,8 @@ import {
 
 interface DashboardInboundTabProps {
   days: number;
+  /** The dashboard's global metric strip already carries these figures. */
+  showKpis?: boolean;
   timeLabel: string;
   analyticsLoading: boolean;
   analytics: any;
@@ -34,6 +36,7 @@ interface DashboardInboundTabProps {
 
 export const DashboardInboundTab = ({
   days,
+  showKpis = true,
   timeLabel,
   analyticsLoading,
   analytics,
@@ -142,8 +145,8 @@ export const DashboardInboundTab = ({
         const successRate = parseFloat(integration.successRate) || 0;
         const failureRate = 100 - successRate;
         return {
-          name: integration.__KEEP_integrationName__?.substring(0, 30) || 'Unknown',
-          nameShort: integration.__KEEP_integrationName__?.substring(0, 20) || 'Unknown',
+          name: integration.integrationName?.substring(0, 30) || 'Unknown',
+          nameShort: integration.integrationName?.substring(0, 20) || 'Unknown',
           successRate,
           failureRate,
           total: integration.total,
@@ -189,17 +192,19 @@ export const DashboardInboundTab = ({
   return (
     <>
       {/* Real-Time Health Status KPI Cards */}
-      <section className="dashboard-overview console-margin-top-4">
-        {analyticsLoading ? (
-          <DashboardLoadingState title="Loading inbound health" />
-        ) : (
-          <div className="dashboard-kpis">
-            {kpiMetrics.map((metric) => (
-              <DashboardMetricTile key={metric.label} {...metric} />
-            ))}
-          </div>
-        )}
-      </section>
+      {showKpis !== false && (
+        <section className="dashboard-overview console-margin-top-4">
+          {analyticsLoading ? (
+            <DashboardLoadingState title="Loading inbound health" />
+          ) : (
+            <div className="dashboard-kpis">
+              {kpiMetrics.map((metric) => (
+                <DashboardMetricTile key={metric.label} {...metric} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* API Performance Metrics */}
       <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
@@ -270,11 +275,11 @@ export const DashboardInboundTab = ({
               columns={[
                 {
                   title: 'Endpoint',
-                  dataIndex: '__KEEP_integrationName__',
-                  key: '__KEEP_integrationName__',
+                  dataIndex: 'integrationName',
+                  key: 'integrationName',
                   width: 250,
                   ellipsis: true,
-                  sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
+                  sorter: (a: any, b: any) => a.integrationName.localeCompare(b.integrationName),
                   render: (name: string, record: any) => (
                     <Button
                       type="link"

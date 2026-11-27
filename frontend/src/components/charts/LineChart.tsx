@@ -10,14 +10,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import {
-  chartColors,
-  chartAxisConfig,
-  chartGridConfig,
-  chartTooltipStyle,
-  chartLegendConfig,
-  chartCursor,
   chartMargins,
   chartAnimationConfig,
+  useChartTheme,
   ChartMargin,
 } from '../../design-system/theme/chart-theme';
 
@@ -47,13 +42,14 @@ export function LineChart({
   margin = chartMargins.default,
   smooth = true,
 }: LineChartProps) {
+  const { chartColors, chartAxisConfig, chartGridConfig, chartTooltipStyle, chartLegendConfig, chartCursor } = useChartTheme();
   const coloredLines = useMemo(() => {
     return lines.map((line, index) => ({
       ...line,
       color: line.color || chartColors.categorical[index % chartColors.categorical.length],
       strokeWidth: line.strokeWidth || 2,
     }));
-  }, [lines]);
+  }, [lines, chartColors]);
 
   return (
     <ResponsiveContainer width="100%" height={height}>

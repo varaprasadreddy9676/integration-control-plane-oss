@@ -688,7 +688,7 @@ async function checkLogDetailSemantics(page, width) {
   }
 }
 
-async function checkDeliveryLogSemantics(page) {
+async function checkDeliveryLogSemantics(page, width) {
   const table = page.locator('.logs-table-wrapper');
   const rowCount = await table.locator('.ant-table-tbody > tr.ant-table-row').count();
   const tagCount = await page.locator('.ant-tag').count();
@@ -696,7 +696,7 @@ async function checkDeliveryLogSemantics(page) {
   const httpCode = table.locator('tbody code').filter({ hasText: /^202$/ });
   const httpCodeIsPlain = (await httpCode.count()) === 1;
   const summaryCounts = Object.fromEntries(
-    await page.locator('.logs-summary-strip .stat-pill').evaluateAll((pills) =>
+    await page.locator('.logs-summary-strip .stat-filters__item').evaluateAll((pills) =>
       pills
         .map((pill) => {
           const match = pill.getAttribute('aria-label')?.match(/^Filter by (.+?): ([\d,]+)/);
@@ -712,7 +712,7 @@ async function checkDeliveryLogSemantics(page) {
     summaryCounts.Skipped === 0 &&
     summaryCounts.Pending === 0;
   const passes =
-    rowCount === 2 && tagCount === 0 && deliveredStatus > 0 && httpCodeIsPlain && summaryCountsMatchFixture;
+    rowCount === 2 && tagCount === 0 && deliveredStatus > 0 && (width < 768 || httpCodeIsPlain) && summaryCountsMatchFixture;
   tabChecks.push({
     route: '13-logs',
     check: 'delivery-log-status-and-diagnostic-semantics',
@@ -742,14 +742,77 @@ async function checkDeliveryLogSemantics(page) {
   const reviewRow = page
     .locator('.ant-table-tbody > tr.ant-table-row')
     .filter({ hasText: 'Visit Completed to Analytics' });
-  await reviewRow.click();
-  const drawer = page.locator('.ant-drawer').last();
+  const failedFilter = page.getByRole('button', { name: 'Filter by Failed: 1' });
+  await failedFilter.click();
+  await table.locator('tr.ant-table-row').first().waitFor();
+  const openFailure = reviewRow.getByRole('button', { name: 'Visit Completed to Analytics', exact: true });
+  await openFailure.click();
+  const drawer = page.locator(width >= 1200 ? '.logs-inspector' : '.logs-detail-drawer').last();
   const timelineTab = drawer.getByRole('tab', { name: 'Timeline' });
   await timelineTab.waitFor({ state: 'visible' });
   await timelineTab.click();
   const panelId = await timelineTab.getAttribute('aria-controls');
   const timelinePanel = page.locator(`#${panelId}`);
   await timelinePanel.getByRole('button', { name: 'Copy trace ID' }).waitFor({ state: 'visible' });
+  const drawerGeometry = await page.evaluate(() => {
+    const header = document.querySelector('.product-top-nav');
+    const panel = document.querySelector('.logs-inspector, .ant-drawer-content-wrapper');
+    if (!header || !panel) return null;
+    const headerRect = header.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const drawerHeader = panel.querySelector('.logs-inspector-header, .ant-drawer-header');
+    const extra = drawerHeader?.querySelector('.logs-inspector-actions, .ant-drawer-extra');
+    const extraRect = extra?.getBoundingClientRect();
+    return {
+      headerBottom: headerRect.bottom,
+      panelTop: panelRect.top,
+      panelBottom: panelRect.bottom,
+      viewportHeight: window.innerHeight,
+      drawerHeaderWidth: drawerHeader?.clientWidth,
+      drawerHeaderScrollWidth: drawerHeader?.scrollWidth,
+      extraLeft: extraRect?.left,
+      extraRight: extraRect?.right,
+      drawerHeaderLeft: drawerHeader?.getBoundingClientRect().left,
+      drawerHeaderRight: drawerHeader?.getBoundingClientRect().right,
+    };
+  });
+  const drawerKeepsHeaderVisible = Boolean(
+    drawerGeometry &&
+      drawerGeometry.panelTop >= drawerGeometry.headerBottom - 1 &&
+      drawerGeometry.panelBottom <= drawerGeometry.viewportHeight + 1
+  );
+  tabChecks.push({
+    route: '13-logs',
+    check: `drawer-preserves-global-header-${width}`,
+    geometry: drawerGeometry,
+    passes: drawerKeepsHeaderVisible,
+  });
+  if (!drawerKeepsHeaderVisible) {
+    issues.push({
+      route: '/logs',
+      kind: 'drawer-covers-global-header',
+      detail: JSON.stringify(drawerGeometry),
+    });
+  }
+  const drawerActionsFit = Boolean(
+    drawerGeometry &&
+      (drawerGeometry.drawerHeaderScrollWidth ?? 0) <= (drawerGeometry.drawerHeaderWidth ?? 0) + 1 &&
+      (drawerGeometry.extraLeft ?? 0) >= (drawerGeometry.drawerHeaderLeft ?? 0) - 1 &&
+      (drawerGeometry.extraRight ?? 0) <= (drawerGeometry.drawerHeaderRight ?? 0) + 1
+  );
+  tabChecks.push({
+    route: '13-logs',
+    check: `drawer-title-actions-fit-${width}`,
+    geometry: drawerGeometry,
+    passes: drawerActionsFit,
+  });
+  if (!drawerActionsFit) {
+    issues.push({
+      route: '/logs',
+      kind: 'drawer-title-actions-overflow',
+      detail: JSON.stringify(drawerGeometry),
+    });
+  }
   const completed = await timelinePanel.getByText('Completed', { exact: true }).count();
   const failed = await timelinePanel.getByText('Failed', { exact: true }).count();
   const antTags = await timelinePanel.locator('.ant-tag').count();
@@ -771,9 +834,129 @@ async function checkDeliveryLogSemantics(page) {
       detail: JSON.stringify({ completed, failed, antTags, antTypography }),
     });
   }
-  await page.screenshot({ path: join(outputDir, '13-logs-trace-timeline-light-1440.png'), animations: 'disabled' });
-  await page.keyboard.press('Escape');
+  await page.screenshot({
+    path: join(outputDir, `13-logs-trace-timeline-light-${width}.png`),
+    animations: 'disabled',
+  });
+  if (width >= 1200) {
+    const resize = drawer.getByRole('slider', { name: 'Inspector width' });
+    const before = (await drawer.boundingBox()).width;
+    await resize.focus();
+    await resize.press('ArrowRight');
+    const after = (await drawer.boundingBox()).width;
+    const list = await table.boundingBox();
+    const inspector = await drawer.boundingBox();
+    if (after <= before || list.x + list.width > inspector.x + 1) {
+      issues.push({ route: '/logs', kind: 'split-layout', detail: JSON.stringify({ before, after, list, inspector }) });
+    }
+    await Promise.all([
+      page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/api/v1/logs')),
+      page.getByRole('button', { name: 'Refresh delivery logs' }).click(),
+    ]);
+    await timelinePanel.getByRole('button', { name: 'Copy trace ID' }).waitFor({ state: 'visible' });
+  }
+  let replayPosts = 0;
+  let replayBody;
+  const onRequest = (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/review-log-2/replay')) {
+      replayPosts++;
+      replayBody = request.postDataJSON();
+    }
+  };
+  const replayRequest = '**/api/v1/logs/review-log-2/replay*';
+  await page.route(replayRequest, async (route) => {
+    onRequest(route.request());
+    await route.fulfill({ json: { message: 'Fixture replay queued', status: 'queued' } });
+  });
+  await drawer.getByRole('button', { name: 'Edit payload' }).click();
+  const correction = page.getByRole('dialog', { name: 'Replay with edited payload' });
+  const payload = correction.getByRole('textbox', { name: 'Replay payload' });
+  const validate = correction.getByRole('button', { name: 'Validate JSON' });
+  const replay = correction.getByRole('button', { name: 'Replay live' });
+  await payload.fill('{');
+  await validate.click();
+  await correction.getByText('Payload is not valid JSON').waitFor();
+  if (await replay.isEnabled()) issues.push({ route: '/logs', kind: 'invalid-replay-enabled' });
+  await payload.fill('{"visitId":"visit-demo-2206","clinicCode":"DEMO-CORRECTED"}');
+  await validate.click();
+  await correction.getByText('Valid JSON. No delivery sent.').waitFor();
+  if (replayPosts !== 0) issues.push({ route: '/logs', kind: 'validation-sent-replay' });
+  await page.screenshot({ path: join(outputDir, `13-logs-validate-json-light-${width}.png`), animations: 'disabled' });
+  await replay.click();
+  await correction.waitFor({ state: 'hidden' });
+  await page.unroute(replayRequest);
+  if (replayPosts !== 1 || replayBody?.payload?.clinicCode !== 'DEMO-CORRECTED') {
+    issues.push({ route: '/logs', kind: 'replay-request-mismatch' });
+  }
+  if (width === 390) {
+    await page.getByText('Replay initiated with edited payload.', { exact: true }).waitFor({ state: 'hidden' });
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.waitForTimeout(100);
+    const compactGeometry = await page.evaluate(() => {
+      const header = document.querySelector('.product-top-nav');
+      const panel = document.querySelector('.ant-drawer-content-wrapper');
+      const drawerHeader = panel?.querySelector('.ant-drawer-header');
+      const extra = drawerHeader?.querySelector('.ant-drawer-extra');
+      const logout = header?.querySelector('.global-logout-trigger--mobile');
+      const logoutLabel = logout?.querySelector('.global-logout-label');
+      if (!header || !panel || !drawerHeader || !extra || !logout || !logoutLabel) return null;
+      const headerRect = header.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const headerArea = drawerHeader.getBoundingClientRect();
+      const extraArea = extra.getBoundingClientRect();
+      const logoutArea = logout.getBoundingClientRect();
+      return {
+        headerBottom: headerRect.bottom,
+        panelTop: panelRect.top,
+        panelBottom: panelRect.bottom,
+        viewportHeight: window.innerHeight,
+        headerWidth: drawerHeader.clientWidth,
+        headerScrollWidth: drawerHeader.scrollWidth,
+        extraLeft: extraArea.left,
+        extraRight: extraArea.right,
+        drawerHeaderLeft: headerArea.left,
+        drawerHeaderRight: headerArea.right,
+        logoutWidth: logoutArea.width,
+        logoutLeft: logoutArea.left,
+        logoutRight: logoutArea.right,
+        logoutLabel: logoutLabel.textContent?.trim(),
+        logoutLabelDisplay: getComputedStyle(logoutLabel).display,
+      };
+    });
+    const compactPasses = Boolean(
+      compactGeometry &&
+        compactGeometry.panelTop >= compactGeometry.headerBottom - 1 &&
+        compactGeometry.panelBottom <= compactGeometry.viewportHeight + 1 &&
+        compactGeometry.headerScrollWidth <= compactGeometry.headerWidth + 1 &&
+        compactGeometry.extraLeft >= compactGeometry.drawerHeaderLeft - 1 &&
+        compactGeometry.extraRight <= compactGeometry.drawerHeaderRight + 1 &&
+        compactGeometry.logoutWidth >= 64 &&
+        compactGeometry.logoutLabel === 'Log out' &&
+        compactGeometry.logoutLabelDisplay !== 'none' &&
+        compactGeometry.logoutLeft >= 0 &&
+        compactGeometry.logoutRight <= 320
+    );
+    tabChecks.push({ route: '13-logs', check: 'drawer-fits-320', geometry: compactGeometry, passes: compactPasses });
+    if (!compactPasses) {
+      issues.push({ route: '/logs', kind: 'drawer-layout-320', detail: JSON.stringify(compactGeometry) });
+    }
+    await page.screenshot({
+      path: join(outputDir, '13-logs-trace-timeline-light-320.png'),
+      animations: 'disabled',
+    });
+  }
+  if (width >= 1200) await drawer.getByRole('button', { name: 'Close delivery inspector' }).click();
+  else await drawer.getByRole('button', { name: 'Close', exact: true }).click();
   await drawer.waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => document.activeElement?.classList.contains('logs-open-delivery'), undefined, {
+    timeout: 2000,
+  }).catch(() => undefined);
+  if (new URL(page.url()).searchParams.get('status') !== 'FAILED' || !(await openFailure.isVisible()) ||
+      !(await openFailure.evaluate((element) => document.activeElement === element))) {
+    issues.push({ route: '/logs', kind: 'return-to-filtered-results' });
+  }
+  await failedFilter.click();
+  await table.getByRole('button', { name: 'Appointment Created to Scheduling', exact: true }).waitFor();
 }
 
 async function checkGlobalHeaderLayout(page, width) {
@@ -801,13 +984,31 @@ async function checkGlobalHeaderLayout(page, width) {
       const centers = bounds.map(({ top, bottom }) => (top + bottom) / 2);
       const centerlineDeviation = centers.length ? Math.max(...centers) - Math.min(...centers) : Infinity;
       const exceedsHeader = bounds.some(({ right }) => right > header.getBoundingClientRect().right + 1);
-      return { present: true, centerlineDeviation, exceedsHeader, passes: centerlineDeviation <= 2 && !exceedsHeader };
+      const userMenu = header.querySelector('.global-user-menu-trigger');
+      const logout = header.querySelector('.global-logout-trigger:not(.global-logout-trigger--mobile)');
+      const userMenuRect = userMenu?.getBoundingClientRect();
+      const logoutRect = logout?.getBoundingClientRect();
+      const logoutAfterUser = Boolean(
+        userMenuRect && logoutRect && userMenuRect.right <= logoutRect.left && logoutRect.right >= userMenuRect.right
+      );
+      return {
+        present: true,
+        centerlineDeviation,
+        exceedsHeader,
+        logoutAfterUser,
+        logoutBounds: logoutRect && { left: logoutRect.left, right: logoutRect.right },
+        passes: centerlineDeviation <= 2 && !exceedsHeader && logoutAfterUser,
+      };
     }
     const topActions = header.querySelector('.mobile-top-actions');
     const headerRect = header.getBoundingClientRect();
     const actionsRect = topActions?.getBoundingClientRect();
     const logout = header.querySelector('.global-logout-trigger--mobile');
     const logoutRect = logout?.getBoundingClientRect();
+    const accountName = header.querySelector('.mobile-account-name');
+    const accountNameRect = accountName?.getBoundingClientRect();
+    const navToggle = header.querySelector('[data-testid="mobile-nav-toggle"]');
+    const navToggleRect = navToggle?.getBoundingClientRect();
     const logoutLabel = logout?.querySelector('.global-logout-label');
     const passes =
       header.scrollWidth <= header.clientWidth &&
@@ -817,6 +1018,10 @@ async function checkGlobalHeaderLayout(page, width) {
           logoutLabel &&
           getComputedStyle(logoutLabel).display !== 'none' &&
           logoutLabel.textContent?.trim() === 'Log out' &&
+          accountNameRect &&
+          accountNameRect.right <= logoutRect.left + 1 &&
+          navToggleRect &&
+          navToggleRect.right < logoutRect.left &&
           logoutRect.left >= headerRect.left &&
           logoutRect.right <= headerRect.right
       ) &&
@@ -829,6 +1034,8 @@ async function checkGlobalHeaderLayout(page, width) {
         logoutRect && logoutRect.width >= 64 && logoutLabel && getComputedStyle(logoutLabel).display !== 'none'
       ),
       logoutBounds: logoutRect && { left: logoutRect.left, right: logoutRect.right, width: logoutRect.width },
+      accountNameBounds: accountNameRect && { left: accountNameRect.left, right: accountNameRect.right },
+      navToggleBounds: navToggleRect && { left: navToggleRect.left, right: navToggleRect.right },
       actionsBounds: actionsRect && { left: actionsRect.left, right: actionsRect.right },
       headerBounds: { left: headerRect.left, right: headerRect.right },
       passes,
@@ -1045,7 +1252,8 @@ async function checkFollowUpTestResult(page, outputDir) {
 }
 
 async function checkTemplateMetadata(page, width) {
-  const cards = page.locator('.template-card');
+  // Templates render as rows: the list is a table, not a grid of cards.
+  const cards = page.locator('.modern-table-wrapper tbody tr.ant-table-row');
   const quickSetup = page.locator('section[aria-labelledby="quick-setup-heading"]');
   const cardCount = await cards.count();
   const tagCount = await cards.locator('.ant-tag').count();
@@ -1152,7 +1360,26 @@ async function checkScheduledJobDetailTabs(page, outputDir, width) {
   });
 }
 
+async function checkConfigurationActionsFit(page, route, selector, width) {
+  const fits = await page.locator(selector).evaluate((bar) => {
+    const bounds = bar.getBoundingClientRect();
+    return getComputedStyle(bar).flexWrap === 'wrap' &&
+      bounds.right <= innerWidth + 1 &&
+      [...bar.querySelectorAll('button')].every((button) => {
+        const rect = button.getBoundingClientRect();
+        return !rect.width || (rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1);
+      });
+  });
+  tabChecks.push({ route, width, check: 'configuration-actions-fit', passes: fits });
+  if (!fits) issues.push({ route, width, kind: 'configuration-actions-overflow', detail: selector });
+}
+
 async function checkIntegrationSectionTabs(page, outputDir, width) {
+  await checkConfigurationActionsFit(page, '03-integration-detail', '.integration-page-header-actions', width);
+  await page.getByRole('button', { name: 'More integration actions' }).click();
+  await page.getByRole('menuitem', { name: 'Export configuration' }).waitFor();
+  await page.getByRole('menuitem', { name: 'Duplicate integration' }).waitFor();
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Edit Integration' }).click();
   const tabList = page.getByRole('tablist', { name: 'Integration configuration sections' });
   await tabList.waitFor({ state: 'visible' });
@@ -1205,6 +1432,9 @@ async function checkIntegrationSectionTabs(page, outputDir, width) {
       detail: `Integration tab navigation or panel association failed at ${width}px (${checkedTabs} tabs checked)`,
     });
   }
+  await tabList.getByRole('tab', { name: 'Basic Info' }).click();
+  await page.getByRole('button', { name: 'Save Changes' }).waitFor();
+  await checkConfigurationActionsFit(page, '03-integration-detail', '.configuration-action-bar', width);
   await page.screenshot({
     path: join(outputDir, `03-integration-detail-edit-tabs-${width}.png`),
     animations: 'disabled',
@@ -1212,6 +1442,10 @@ async function checkIntegrationSectionTabs(page, outputDir, width) {
 }
 
 async function checkInboundIntegrationTabs(page, outputDir, width) {
+  await page.getByRole('button', { name: 'Test tools' }).click();
+  await page.getByRole('menuitem', { name: 'Test runtime' }).waitFor();
+  await page.getByRole('menuitem', { name: 'Copy curl' }).waitFor();
+  await page.keyboard.press('Escape');
   const tabList = page.getByRole('tablist', { name: 'Inbound integration configuration' });
   await tabList.waitFor({ state: 'visible' });
   const tabs = tabList.getByRole('tab');
@@ -1268,8 +1502,9 @@ async function checkInboundIntegrationTabs(page, outputDir, width) {
   for (const id of visitedPanels) {
     if ((await page.locator(`#${id}`).count()) !== 1) retained = false;
   }
-  const wraps = await tabList.evaluate((strip) => getComputedStyle(strip).flexWrap === 'wrap');
-  passed = passed && retained && wraps && reviewMetadataPass && antAlertCount === 0;
+  const fits = await tabList.evaluate((list) => list.getBoundingClientRect().right <= window.innerWidth);
+  const hasSave = await page.getByRole('button', { name: 'Save Changes' }).isVisible();
+  passed = passed && retained && fits && hasSave && reviewMetadataPass && antAlertCount === 0;
   tabChecks.push({
     route: '05-inbound-detail',
     width,
@@ -1278,7 +1513,8 @@ async function checkInboundIntegrationTabs(page, outputDir, width) {
     reviewMetadataTags,
     reviewMetadataPass,
     antAlertCount,
-    wraps,
+    fits,
+    hasSave,
     screenshots: tabCount,
     passed,
   });
@@ -1405,15 +1641,21 @@ async function checkSystemStatusTabs(page, outputDir, width) {
 }
 
 async function checkDashboardTrend(page, width) {
-  const chart = page.locator('.dashboard-chart-card').first();
+  const chart = page.locator('.dashboard-overview-panels .ds-panel').first();
   await chart.waitFor({ state: 'visible' });
-  const kpiRects = await page.locator('.dashboard-kpis .dashboard-metric-tile').evaluateAll((tiles) =>
+  // Supports both KPI layouts while the dashboard migrates: the old floating
+  // cards and the divided metric strip that replaces them.
+  const strip = page.locator('.ds-metrics--five');
+  const usesStrip = (await strip.count()) > 0;
+  const kpiSelector = usesStrip ? '.ds-metrics--five .ds-metric' : '.dashboard-kpis .dashboard-metric-tile';
+  const containerSelector = usesStrip ? '.ds-metrics--five' : '.dashboard-kpis';
+  const kpiRects = await page.locator(kpiSelector).evaluateAll((tiles) =>
     tiles.map((tile) => {
       const rect = tile.getBoundingClientRect();
       return { x: rect.x, y: rect.y, width: rect.width };
     })
   );
-  const kpiContainer = await page.locator('.dashboard-kpis').evaluate((element) => {
+  const kpiContainer = await page.locator(containerSelector).evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { x: rect.x, width: rect.width };
   });
@@ -1423,8 +1665,10 @@ async function checkDashboardTrend(page, width) {
       Math.abs(kpiRects[0].y - kpiRects[1].y) < 2 &&
       kpiRects[2].y > kpiRects[0].y &&
       kpiRects[0].x < kpiRects[1].x);
+  // A divided strip fills its grid; only the legacy cards centred an odd last tile.
   const mobileOddLastKpiCentered =
     width > 720 ||
+    usesStrip ||
     kpiRects.length % 2 === 0 ||
     Math.abs(
       kpiRects[kpiRects.length - 1].x +
@@ -1482,10 +1726,25 @@ async function checkDashboardTrend(page, width) {
     });
   }
 
-  const outboundTab = page.locator('#dashboard-tab-outbound');
-  await outboundTab.click();
-  const outboundPanel = page.locator('#dashboard-panel-outbound');
-  await outboundPanel.waitFor({ state: 'visible' });
+  // Direction is a filter now: pick it from the segmented control, then the
+  // contextual performance view. The panel id stays `performance`.
+  const selectDirection = async (label) => {
+    const item = page.locator('.ant-segmented-item', { hasText: new RegExp(`^${label}$`) }).first();
+    await item.click();
+    await page.waitForTimeout(250);
+  };
+
+  const openPerformance = async () => {
+    await page.locator('#dashboard-tab-performance').click();
+    await page.waitForFunction(
+      () => document.getElementById('dashboard-tab-performance')?.getAttribute('aria-selected') === 'true'
+    );
+    await page.locator('#dashboard-panel-performance').waitFor({ state: 'visible' });
+  };
+
+  await selectDirection('Outbound');
+  await openPerformance();
+  const outboundPanel = page.locator('#dashboard-panel-performance');
   await outboundPanel
     .getByRole('heading', { name: 'Event Type Performance', exact: true })
     .waitFor({ state: 'visible' });
@@ -1505,8 +1764,6 @@ async function checkDashboardTrend(page, width) {
     for (const { key, title, expectedStatus } of [
       { key: 'errors', title: 'Top Errors' },
       { key: 'logs', title: 'Recent Failures', expectedStatus: 'FAILED' },
-      { key: 'inbound', title: 'Performance by Endpoint' },
-      { key: 'scheduled', title: 'Job Health Status' },
     ]) {
       const tab = page.locator(`#dashboard-tab-${key}`);
       await tab.click();
@@ -1529,6 +1786,30 @@ async function checkDashboardTrend(page, width) {
           route: '/dashboard',
           kind: `${key}-status-vocabulary`,
           detail: `${remainingTags} AntD tags remain; expected status count: ${expectedStatus ? statusCount : 'none'}`,
+        });
+      }
+      await page.screenshot({
+        path: join(outputDir, `01-dashboard-${key}-light-${width}.png`),
+        animations: 'disabled',
+      });
+    }
+
+    for (const { direction, heading, key } of [
+      { direction: 'Inbound', heading: 'Performance by Endpoint', key: 'inbound' },
+      { direction: 'Scheduled', heading: 'Job Health Status', key: 'scheduled' },
+    ]) {
+      await selectDirection(direction);
+      await openPerformance();
+      const panel = page.locator('#dashboard-panel-performance');
+      await panel.getByText(heading, { exact: true }).waitFor({ state: 'visible' });
+      await page.waitForTimeout(750);
+      const remainingTags = await panel.locator('.ant-tag').count();
+      tabChecks.push({ route: '01-dashboard', width, tab: key, remainingTags });
+      if (remainingTags > 0) {
+        issues.push({
+          route: '/dashboard',
+          kind: `${key}-status-vocabulary`,
+          detail: `${remainingTags} AntD tags remain in the ${direction} performance view`,
         });
       }
       await page.screenshot({
@@ -1909,16 +2190,16 @@ async function checkSidebarControls(page, outputDir, width) {
   if (width === 1440) {
     const sidebar = page.getByTestId('app-sidebar');
     const selectedItem = sidebar.locator('.astryx-side-nav-item[data-selected="selected"]').first();
-    const selectedAccent = await selectedItem.evaluate((element) => getComputedStyle(element).boxShadow);
+    const selectedAccent = await selectedItem.evaluate((element) => getComputedStyle(element).backgroundImage);
     const expectedSelectedAccent = await sidebar.evaluate((element) => {
       const probe = document.createElement('span');
-      probe.style.backgroundColor = 'var(--color-sidebar-accent)';
+      probe.style.backgroundColor = 'var(--color-app-chrome-accent)';
       element.append(probe);
       const color = getComputedStyle(probe).backgroundColor;
       probe.remove();
       return color;
     });
-    const dashboardItem = sidebar.getByRole('button', { name: 'Dashboard' });
+    const logsItem = sidebar.getByRole('button', { name: /Delivery Logs/ });
     const expectedHoverBackground = await sidebar.evaluate((element) => {
       const probe = document.createElement('span');
       probe.style.backgroundColor = 'var(--color-sidebar-hover)';
@@ -1927,9 +2208,13 @@ async function checkSidebarControls(page, outputDir, width) {
       probe.remove();
       return color;
     });
-    await dashboardItem.hover();
-    const hoverBackground = await dashboardItem.evaluate((element) => getComputedStyle(element).backgroundColor);
-    const hoverTextColor = await dashboardItem.evaluate((element) => getComputedStyle(element).color);
+    await logsItem.hover();
+    await page.waitForFunction((expected) => {
+      const link = document.querySelector('.app-sidebar .astryx-side-nav-item:hover');
+      return link && getComputedStyle(link).backgroundColor === expected;
+    }, expectedHoverBackground);
+    const hoverBackground = await logsItem.evaluate((element) => getComputedStyle(element).backgroundColor);
+    const hoverTextColor = await logsItem.evaluate((element) => getComputedStyle(element).color);
     const hoverFeedbackWorks = hoverBackground !== 'rgba(0, 0, 0, 0)' && hoverTextColor !== 'rgb(0, 0, 0)';
     const groupToggle = sidebar.getByRole('button', { name: 'Collapse Overview' });
     const groupToggleUsesDesignSystem = await groupToggle.evaluate((element) =>
@@ -1965,13 +2250,21 @@ async function checkSidebarControls(page, outputDir, width) {
     await page.screenshot({ path: join(outputDir, 'sidebar-expanded-light-1440.png'), animations: 'disabled' });
     const collapse = page.getByRole('button', { name: 'Collapse sidebar' });
     const expandedWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
+    const railsAlign = async () => {
+      const rail = await sidebar.boundingBox();
+      const header = await page.locator('.product-top-nav').boundingBox();
+      return Boolean(rail && header && Math.abs(rail.y - header.y) <= 1 &&
+        Math.abs(rail.x + rail.width - header.x) <= 2);
+    };
+    const expandedAlignment = await railsAlign();
     const collapseInBrandHeader = await collapse.evaluate((button) => !!button.closest('.astryx-side-nav-heading'));
     const noExpandedActionRow = (await sidebar.locator('.app-sidebar__collapse-row').count()) === 0;
     await collapse.click();
     await page.waitForTimeout(450);
     const expand = page.getByRole('button', { name: 'Expand sidebar' });
     const collapsedWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
-    const collapsedStateWorks = (await expand.count()) === 1 && collapsedWidth < expandedWidth;
+    const collapsedStateWorks = (await expand.count()) === 1 && collapsedWidth < expandedWidth &&
+      expandedAlignment && (await railsAlign());
     if (!collapsedStateWorks) {
       issues.push({
         route: '/dashboard',
@@ -2183,7 +2476,7 @@ async function checkTableGutter(page, route, selector) {
     }
     await moreButton.click();
     const forceMenuItem = page.getByRole('menuitem', { name: 'Force retry' });
-    const forceMenuVisible = await forceMenuItem.isVisible();
+    const forceMenuVisible = await forceMenuItem.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false);
     if (!forceMenuVisible) {
       issues.push({
         route,
@@ -2195,7 +2488,7 @@ async function checkTableGutter(page, route, selector) {
       const confirmationVisible = await page
         .locator('.ant-modal-confirm-title')
         .getByText('Force retry delivery?', { exact: true })
-        .isVisible();
+        .waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false);
       if (!confirmationVisible) {
         issues.push({ route, kind: 'force-retry-confirmation', detail: 'Force retry did not open its confirmation' });
       } else {
@@ -2217,12 +2510,13 @@ async function checkTableGutter(page, route, selector) {
 async function createContext(theme, width, height, { authenticate = true } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
   await context.addInitScript(
-    ({ selectedTheme }) => {
+    ({ selectedTheme, selectedPack }) => {
       localStorage.setItem('themeMode', selectedTheme);
       localStorage.setItem('density', 'middle');
+      localStorage.setItem('uiPack', selectedPack);
       localStorage.setItem('ig_feature_flags', JSON.stringify({ integrationFlowBuilderEnabled: true }));
     },
-    { selectedTheme: theme }
+    { selectedTheme: theme, selectedPack: process.env.REVIEW_PACK || 'ledger' }
   );
   const page = await context.newPage();
   page.on('console', (message) => {
@@ -2276,7 +2570,7 @@ async function visit(page, name, path, width, height, screenshotPath) {
     await page
       .waitForFunction(
         () =>
-          document.querySelectorAll('.dashboard-chart-card svg.recharts-surface path.recharts-rectangle').length >= 3,
+          document.querySelectorAll('.dashboard-overview-panels svg.recharts-surface path.recharts-rectangle').length >= 3,
         undefined,
         { timeout: 10000 }
       )
@@ -2289,7 +2583,7 @@ async function visit(page, name, path, width, height, screenshotPath) {
     await page
       .waitForFunction(
         () => {
-          const pills = [...document.querySelectorAll('.logs-summary-strip .stat-pill')];
+          const pills = [...document.querySelectorAll('.logs-summary-strip .stat-filters__item')];
           return (
             pills.length > 0 &&
             pills.every((pill) => {
@@ -2297,7 +2591,7 @@ async function visit(page, name, path, width, height, screenshotPath) {
                 .getAttribute('aria-label')
                 ?.match(/^Filter by .+?: ([\d,]+)/)?.[1]
                 ?.replace(/,/g, '');
-              const shown = pill.querySelector('.stat-pill__value')?.textContent?.trim().replace(/,/g, '');
+              const shown = pill.querySelector('.stat-filters__value')?.textContent?.trim().replace(/,/g, '');
               return target !== undefined && shown === target;
             })
           );
@@ -2378,7 +2672,14 @@ try {
           await checkAdminFixtureContent(page, name, width);
         }
         if (width === 1440 && theme === 'light' && name === '20-system-logs') await checkSystemLogTabs(page);
-        if (width === 1440 && theme === 'light' && name === '13-logs') await checkDeliveryLogSemantics(page);
+        if ((width === 1440 || width === 390) && theme === 'light' && name === '13-logs') {
+          await checkDeliveryLogSemantics(page, width);
+        }
+        if (width === 1440 && theme === 'dark' && name === '13-logs') {
+          await page.getByRole('button', { name: 'Visit Completed to Analytics', exact: true }).click();
+          await page.getByRole('complementary', { name: 'Delivery inspector' }).getByText('Send Request').waitFor();
+          await page.screenshot({ path: join(outputDir, '13-logs-trace-timeline-dark-1440.png'), animations: 'disabled' });
+        }
         if (width === 1440 && theme === 'light' && name === '27-settings-event-source') {
           await checkEventSourceMetadata(page);
         }
@@ -2497,6 +2798,14 @@ try {
         if (name === '47-login') continue;
         await visit(page, name, path, width, 900, null);
         if (name === '01-dashboard') await checkGlobalHeaderLayout(page, width);
+        if (name === '03-integration-detail') {
+          await checkConfigurationActionsFit(page, name, '.integration-page-header-actions', width);
+          await page.getByRole('button', { name: 'Edit Integration' }).click();
+          await checkConfigurationActionsFit(page, name, '.configuration-action-bar', width);
+        }
+        if (name === '05-inbound-detail') {
+          await checkConfigurationActionsFit(page, name, '.configuration-action-bar', width);
+        }
       }
     }
     await context.close();

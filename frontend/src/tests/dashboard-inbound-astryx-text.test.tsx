@@ -41,8 +41,8 @@ const props = () => ({
   integrationPerformance: [
     {
       id: 'endpoint-1',
-      __KEEP___KEEP_integrationConfig__Id__: 'endpoint-1',
-      __KEEP_integrationName__: 'Partner Intake',
+      integrationConfigId: 'endpoint-1',
+      integrationName: 'Partner Intake',
       total: 120,
       successRate: '96.7',
       avgResponseTime: 84,

@@ -1,14 +1,22 @@
+import { useMemo } from 'react';
 import { resolveThemeTokens } from '@astryxdesign/core/theme/tokens';
+import type { DefinedTheme } from '@astryxdesign/core/theme';
+import { useThemeMode } from '../../app/theme-provider';
+import { accentForMode } from './accents';
 import { medicsConsoleTheme } from './medics-console';
 import { typography } from '../tokens/typography';
 
 type ThemeMode = 'light' | 'dark';
 
-const makeChartTheme = (mode: ThemeMode) => {
-  const tokens = resolveThemeTokens(medicsConsoleTheme, { mode });
+const makeChartTheme = (
+  mode: ThemeMode,
+  theme: DefinedTheme = medicsConsoleTheme,
+  accent: ReturnType<typeof accentForMode> = null,
+) => {
+  const tokens = resolveThemeTokens(theme, { mode });
   const palette = {
     primary: {
-      default: tokens['--color-accent'],
+      default: accent?.primary ?? tokens['--color-accent'],
       hover: tokens['--color-icon-accent'],
       text: tokens['--color-text-accent'],
     },
@@ -29,15 +37,15 @@ const makeChartTheme = (mode: ThemeMode) => {
 
   const colors = {
     primary: [palette.primary.default, palette.primary.hover, palette.primary.text, tokens['--color-data-blue-1']],
+    // Arbitrary categories are not statuses: a neutral ink ramp keeps colour
+    // reserved for success/warning/error series (which pass explicit colours).
     categorical: [
-      palette.primary.default,
-      palette.success.text,
-      palette.warning.text,
-      palette.info.text,
-      palette.error.text,
-      palette.primary.hover,
-      tokens['--color-data-categorical-teal'],
-      tokens['--color-data-categorical-yellow'],
+      accent?.primary ?? tokens['--color-accent'],
+      tokens['--color-text-secondary'],
+      tokens['--color-border'],
+      tokens['--color-text-primary'],
+      tokens['--color-icon-accent'],
+      tokens['--color-text-secondary'],
     ],
     sequential: [
       tokens['--color-data-blue-5'],
@@ -167,6 +175,15 @@ export const chartAnimationConfig = {
 };
 
 export const getChartTheme = makeChartTheme;
+
+/** Resolve chart styles from the pack and action accent active in the provider. */
+export const useChartTheme = () => {
+  const { theme, mode, accent } = useThemeMode();
+  return useMemo(
+    () => makeChartTheme(mode, theme, accentForMode(accent, mode)),
+    [theme, mode, accent],
+  );
+};
 
 export type ChartColor = typeof chartColors;
 export type ChartGradient = typeof chartGradients;

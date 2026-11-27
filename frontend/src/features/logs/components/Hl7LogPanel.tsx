@@ -337,7 +337,7 @@ export function Hl7LogPanel({
         metadata={metadata}
       />
 
-      <Descriptions bordered size="small" column={compact ? 1 : 2}>
+      <Descriptions size="small" column={compact ? 1 : 2}>
         <Descriptions.Item label="Protocol">
           <Text type="supporting" color="secondary">
             HL7 MLLP

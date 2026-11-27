@@ -26,7 +26,6 @@ import { Text } from '@astryxdesign/core/Text';
 import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { Button } from '../../../components/common/LegacyButton';
 import { StatusBadge } from '../../../components/common/StatusBadge';
-import { InlineNotice as Notice } from '../../../components/common';
 
 interface SmsConfigFieldsProps {
   spacing: Record<string, string>;
@@ -144,52 +143,46 @@ function Msg91Fields() {
         <Input size="middle" placeholder="91" className="ui-extracted-ca33716a4d" />
       </Form.Item>
 
-      <Notice
-        type="info"
-        icon={<GatewayIcon name="MessageOutlined" />}
-        message="MSG91 Setup"
-        className="console-margin-top-2"
-        description={
-          <div>
-            <p className="console-margin-bottom-2">To get your MSG91 credentials:</p>
-            <ol className="console-indent-5-margin-bottom-2">
-              <li>
-                Log in to{' '}
-                <a href="https://msg91.com" target="_blank" rel="noopener noreferrer">
-                  msg91.com
-                </a>
-              </li>
-              <li>
-                Go to <strong>API</strong> → copy your <strong>Auth Key</strong>
-              </li>
-              <li>
-                Register a <strong>Sender ID</strong> in your DLT portal (TRAI compliance)
-              </li>
-              <li>
-                For template SMS: create a flow in <strong>Campaign → Flow</strong> and copy the{' '}
-                <strong>Template ID</strong>
-              </li>
-            </ol>
-            <p className="console-margin-bottom-1">
-              <strong>Payload your app must send (plain text):</strong>
-            </p>
-            <code
-              className="ui-extracted-e8bd2112ae"
-            >
-              {'{ "to": "919876543210", "message": "Your OTP is 4321. Valid for 10 mins." }'}
-            </code>
-            <p className="console-margin-bottom-1">
-              <strong>Template-based (DLT-compliant, recommended):</strong>
-            </p>
-            <code className="console-caption-block">
-              {'{ "to": "919876543210", "templateId": "your_flow_id", "variables": { "VAR1": "4321", "VAR2": "10" } }'}
-            </code>
-            <p className="console-margin-top-2-reset-bottom">
-              Multiple recipients: pass <code>to</code> as an array: <code>["919876543210", "918888888888"]</code>
-            </p>
-          </div>
-        }
-      />
+      <Space direction="vertical" size="small" className="console-margin-top-2">
+        <Text type="supporting" size="sm" color="secondary" weight="semibold" display="block">
+          MSG91 Setup
+        </Text>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          To get your MSG91 credentials:
+        </Text>
+        <ol className="console-indent-5-margin-bottom-2">
+          <li>
+            Log in to{' '}
+            <a href="https://msg91.com" target="_blank" rel="noopener noreferrer">
+              msg91.com
+            </a>
+          </li>
+          <li>
+            Go to <strong>API</strong> → copy your <strong>Auth Key</strong>
+          </li>
+          <li>
+            Register a <strong>Sender ID</strong> in your DLT portal (TRAI compliance)
+          </li>
+          <li>
+            For template SMS: create a flow in <strong>Campaign → Flow</strong> and copy the <strong>Template ID</strong>
+          </li>
+        </ol>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          <strong>Payload your app must send (plain text):</strong>
+        </Text>
+        <code className="ui-extracted-e8bd2112ae">
+          {'{ "to": "919876543210", "message": "Your OTP is 4321. Valid for 10 mins." }'}
+        </code>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          <strong>Template-based (DLT-compliant, recommended):</strong>
+        </Text>
+        <code className="console-caption-block">
+          {'{ "to": "919876543210", "templateId": "your_flow_id", "variables": { "VAR1": "4321", "VAR2": "10" } }'}
+        </code>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          Multiple recipients: pass <code>to</code> as an array: <code>["919876543210", "918888888888"]</code>
+        </Text>
+      </Space>
     </>
   );
 }

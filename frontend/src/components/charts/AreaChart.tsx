@@ -10,15 +10,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import {
-  chartColors,
-  chartAxisConfig,
-  chartGridConfig,
-  chartTooltipStyle,
-  chartLegendConfig,
-  chartCursor,
   chartMargins,
   chartAnimationConfig,
-  chartGradients,
+  useChartTheme,
   ChartMargin,
 } from '../../design-system/theme/chart-theme';
 
@@ -51,6 +45,7 @@ export function AreaChart({
   stacked = false,
   smooth = true,
 }: AreaChartProps) {
+  const { chartColors, chartAxisConfig, chartGridConfig, chartTooltipStyle, chartLegendConfig, chartCursor, chartGradients } = useChartTheme();
   const coloredAreas = useMemo(() => {
     return areas.map((area, index) => ({
       ...area,
@@ -58,7 +53,7 @@ export function AreaChart({
       fillOpacity: area.fillOpacity !== undefined ? area.fillOpacity : 0.2,
       strokeWidth: area.strokeWidth || 2,
     }));
-  }, [areas]);
+  }, [areas, chartColors]);
 
   return (
     <ResponsiveContainer width="100%" height={height}>

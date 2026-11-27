@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Typography } from '@/components/common/LegacyTypography';
 import {
-  Card,
   Form,
   Input,
   Select,
@@ -23,6 +22,7 @@ import { FilterBar } from '../../components/common/FilterBar';
 import { MetaTag } from '../../components/common/MetaTag';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
+import { Metric, MetricStrip, Panel } from '../../design-system/primitives';
 import {
   getAdminAuditActionTypes,
   getAdminAuditLogs,
@@ -285,37 +285,16 @@ export const AuditLogsRoute = () => {
       <div className="audit-workspace">
         {/* Statistics */}
         {stats && (
-          <div className="audit-stats-strip" aria-label="Audit summary">
-            <Row gutter={16}>
-              <Col xs={12} md={6}>
-                <Statistic title="Total Events" value={stats.totalLogs} prefix={<GatewayIcon name="AuditOutlined" />} />
-              </Col>
-              <Col xs={12} md={6}>
-                <Statistic
-                  title="Success Rate"
-                  value={stats.successRate}
-                  suffix="%"
-                  valueStyle={{ color: token.colorSuccess }}
-                  prefix={<GatewayIcon name="CheckCircleOutlined" />}
-                />
-              </Col>
-              <Col xs={12} md={6}>
-                <Statistic
-                  title="Failed Actions"
-                  value={stats.failedActions}
-                  valueStyle={{ color: stats.failedActions > 0 ? token.colorError : token.colorTextSecondary }}
-                  prefix={<GatewayIcon name="CloseCircleOutlined" />}
-                />
-              </Col>
-              <Col xs={12} md={6}>
-                <Statistic
-                  title="Action types"
-                  value={stats.actionsByType.length}
-                  prefix={<GatewayIcon name="AuditOutlined" />}
-                />
-              </Col>
-            </Row>
-          </div>
+          <MetricStrip className="ds-metrics--four audit-stats-strip" aria-label="Audit summary">
+            <Metric label="Total events" value={stats.totalLogs.toLocaleString()} />
+            <Metric label="Success rate" value={`${stats.successRate}%`} />
+            <Metric
+              label="Failed actions"
+              value={stats.failedActions.toLocaleString()}
+              tone={stats.failedActions > 0 ? 'bad' : 'neutral'}
+            />
+            <Metric label="Action types" value={stats.actionsByType.length} />
+          </MetricStrip>
         )}
 
         {/* Filters */}
@@ -462,7 +441,7 @@ export const AuditLogsRoute = () => {
       >
         {selectedLog && (
           <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
-            <Descriptions bordered column={2} size="small">
+            <Descriptions column={2} size="small">
               <Descriptions.Item label="Timestamp" span={2}>
                 {dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
@@ -498,18 +477,18 @@ export const AuditLogsRoute = () => {
                 <Divider>Changes</Divider>
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Card title="Before" size="small">
+                    <Panel title="Before">
                       <pre className="console-code-scroll-caption">
                         {JSON.stringify(selectedLog.changes.before ?? null, null, 2)}
                       </pre>
-                    </Card>
+                    </Panel>
                   </Col>
                   <Col span={12}>
-                    <Card title="After" size="small">
+                    <Panel title="After">
                       <pre className="console-code-scroll-caption">
                         {JSON.stringify(selectedLog.changes.after ?? null, null, 2)}
                       </pre>
-                    </Card>
+                    </Panel>
                   </Col>
                 </Row>
               </>

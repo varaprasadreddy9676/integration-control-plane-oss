@@ -1,0 +1,16 @@
+/* Corner shape option. The theme ships soft corners; "sharp" tightens the
+   radius tokens at the document root so every primitive, panel and control
+   follows, without a second theme. */
+html[data-corners='sharp'] {
+  --radius-sm: 2px;
+  --radius-base: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-control: 2px;
+  --radius-inner: 2px;
+  --radius-element: 4px;
+  --radius-surface: 4px;
+  --radius-container: 6px;
+}

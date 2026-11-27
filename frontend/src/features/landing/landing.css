@@ -4,7 +4,6 @@
 @import "tailwindcss";
 
 /* Tell Tailwind v4 which files to scan for utility classes */
-@source "../../components/ui";
 @source "./sections";
 @source "./LandingPage.tsx";
 @source "./DocsPage.tsx";
@@ -490,7 +489,7 @@ html.lenis body {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8125rem;
   background-color: rgba(79, 110, 247, 0.1);
-  color: var(--accent-color);
+  color: var(--color-text-primary);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
 }

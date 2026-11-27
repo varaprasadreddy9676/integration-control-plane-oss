@@ -7,7 +7,7 @@ import { LifecycleSubjectSection } from './LifecycleSubjectSection';
 import type { LifecyclePanelContentProps } from './LifecyclePanel.types';
 import { StatePanel } from '../../../../../components/common/StatePanel';
 import { Button } from '../../../../../components/common/LegacyButton';
-import { InlineNotice as Notice } from '../../../../../components/common';
+import { InlineHint } from '../../../../../components/common/InlineHint';
 
 const { Text } = Typography;
 
@@ -77,11 +77,12 @@ export const LifecyclePanelContent = ({
     <Space direction="vertical" size={Number.parseInt(spacing[4], 10) || 16} className="console-width-full">
       {deliveryModeValue === 'IMMEDIATE' && hasSavedConfig && (
         <>
-          <Notice
-            type="info"
-            message="These matching and follow-up settings are saved but inactive for immediate delivery."
-            description="Switch to Send later, Recurring, or Hold until a follow-up event if you want these settings to take effect."
-          />
+          <InlineHint>
+            <span>These matching and follow-up settings are saved but inactive for immediate delivery.</span>{' '}
+            <span>
+              Switch to Send later, Recurring, or Hold until a follow-up event if you want these settings to take effect.
+            </span>
+          </InlineHint>
           {!showInactiveImmediateConfig && (
             <Button onClick={() => setShowInactiveImmediateConfig(true)}>Show advanced matching</Button>
           )}

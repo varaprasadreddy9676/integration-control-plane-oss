@@ -23,6 +23,7 @@ import { FilterBar } from '../../components/common/FilterBar';
 import { MetaTag } from '../../components/common/MetaTag';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
+import { Panel, Row as ListRow, RowList } from '../../design-system/primitives';
 import { FEATURES, OPERATIONS } from '../../utils/permissions';
 import { getRoles, createRole, updateRole, deleteRole, type RoleConfig } from '../../services/api';
 import { ModernTable } from '../../components/common/ModernTable';
@@ -325,46 +326,30 @@ export const RoleManagementRoute = () => {
               }
             />
           ) : (
-            <div className="role-card-list">
-              {filteredRoles.map((role) => (
-                <Card
-                  key={role.role}
-                  className="role-item-card"
-                  size="small"
-                  style={{
-                    borderRadius: token.borderRadius,
-                    borderLeft: `4px solid ${
-                      role.scope === 'global'
-                        ? token.colorError
-                        : role.scope === 'organization'
-                          ? token.colorPrimary
-                          : token.colorTextSecondary
-                    }`,
-                  }}
-                  hoverable
-                >
-                  <Row justify="space-between" align="top" gutter={[12, 12]}>
-                    <Col flex="auto">
-                      <Space direction="vertical" size={2}>
-                        <Space size={8}>
-                          <Text as="span" weight="semibold">
-                            {role.name}
-                          </Text>
-                          {role.isCustom && (
-                            <MetaTag variant="category" size="small">
-                              Custom
-                            </MetaTag>
-                          )}
-                          <MetaTag size="small">{role.scope.toUpperCase()}</MetaTag>
-                        </Space>
-                        <Text color="secondary">{role.description}</Text>
-                        <Text as="span" color="secondary">
-                          <GatewayIcon name="InfoCircleOutlined" /> {Object.keys(role.features).length} features
-                          configured
+            <Panel>
+              <RowList label="Roles">
+                {filteredRoles.map((role) => (
+                  <ListRow
+                    key={role.role}
+                    title={
+                      <>
+                        <Text as="span" weight="semibold">
+                          {role.name}
                         </Text>
-                      </Space>
-                    </Col>
-                    <Col>
+                        {role.isCustom && (
+                          <MetaTag variant="category" size="small">
+                            Custom
+                          </MetaTag>
+                        )}
+                        <StatusBadge
+                          label={role.scope.toUpperCase()}
+                          variant={role.scope === 'global' ? 'info' : 'neutral'}
+                          size="small"
+                          showIcon={false}
+                        />
+                      </>
+                    }
+                    actions={
                       <Space wrap>
                         <Button
                           type="primary"
@@ -394,17 +379,25 @@ export const RoleManagementRoute = () => {
                           </Popconfirm>
                         )}
                       </Space>
-                    </Col>
-                  </Row>
-                </Card>
-              ))}
-            </div>
+                    }
+                  >
+                    <Space direction="vertical" size={2}>
+                      <Text color="secondary">{role.description}</Text>
+                      <Text as="span" color="secondary">
+                        <GatewayIcon name="InfoCircleOutlined" /> {Object.keys(role.features).length} features
+                        configured
+                      </Text>
+                    </Space>
+                  </ListRow>
+                ))}
+              </RowList>
+            </Panel>
           )}
         </section>
 
         {/* Permission Matrix */}
         {filteredRoles.length > 0 && (
-          <Card
+          <Panel
             title={
               <Space>
                 <span>Permission Matrix</span>
@@ -425,7 +418,7 @@ export const RoleManagementRoute = () => {
               size="small"
               bordered
             />
-          </Card>
+          </Panel>
         )}
       </div>
 

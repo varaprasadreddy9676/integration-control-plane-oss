@@ -12,3 +12,13 @@
   background: var(--color-bg-subtle);
   color: var(--color-text-secondary);
 }
+
+/* Astryx's SideNav assumes a dark rail and carries a hard-coded white base
+   foreground. A theme pack may ship a light rail, so the rail's text follows
+   the pack's tokens instead. Remove when the shell is rebuilt. */
+.astryx-side-nav.app-sidebar {
+  color: var(--color-text-sidebar);
+}
+.astryx-side-nav.app-sidebar .astryx-side-nav-heading {
+  color: var(--color-app-rail-text);
+}

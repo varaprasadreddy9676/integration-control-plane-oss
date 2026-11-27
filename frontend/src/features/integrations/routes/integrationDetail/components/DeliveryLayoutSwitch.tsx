@@ -12,7 +12,7 @@ export const DeliveryLayoutSwitch = ({
   value: DeliveryLayout;
   onChange: (value: DeliveryLayout) => void;
 }) => (
-  <div className="console-row-wrap">
+  <div className="configuration-view-control">
     <Space size={6}>
       <Text weight="semibold">Layout</Text>
       <Tooltip title="Classic keeps the familiar tabs: Transformation, Response Transform, Delivery follow-up. Steps puts checks, follow-ups and alerts in one diagram. Same engine either way, and your choice is remembered.">

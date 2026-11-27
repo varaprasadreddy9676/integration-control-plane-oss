@@ -41,6 +41,7 @@ import { PageTemplate } from '../../components/common/PageTemplate';
 import { PermissionGuard } from '../../components/common';
 import { InlineHint } from '../../components/common/InlineHint';
 import { StatePanel } from '../../components/common/StatePanel';
+import { Panel } from '../../design-system/primitives';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Banner } from '@astryxdesign/core/Banner';
 import { cssVar, useDesignTokens } from '../../design-system/utils';
@@ -60,6 +61,7 @@ import { ModernTable } from '../../components/common/ModernTable';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Button } from '../../components/common/LegacyButton';
 import { Typography } from '../../components/common/LegacyTypography';
+import { FormItemSelect } from '../../shared/forms/FormItemControls';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -1127,7 +1129,7 @@ export const EventSourceSettingsRoute = () => {
         )}
 
         {/* Configuration form */}
-        <Card
+        <Panel
           title={
             <Space>
               <GatewayIcon name="DatabaseOutlined" />
@@ -1138,7 +1140,7 @@ export const EventSourceSettingsRoute = () => {
           <Form form={form} layout="vertical" size="middle">
             {/* Source type selector */}
             <Form.Item name="type" label="Source Type" rules={[{ required: true }]} className="ui-extracted-140b17fdb3">
-              <Select
+              <FormItemSelect
                 options={[
                   { value: 'none', label: 'None (no event source)' },
                   { value: 'mysql', label: 'MySQL Polling' },
@@ -1233,7 +1235,7 @@ export const EventSourceSettingsRoute = () => {
               </div>
             )}
           </Form>
-        </Card>
+        </Panel>
       </PageTemplate>
     </PermissionGuard>
   );

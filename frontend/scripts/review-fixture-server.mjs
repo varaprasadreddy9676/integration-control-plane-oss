@@ -2,6 +2,8 @@ import http from 'node:http';
 import { createServer } from 'vite';
 
 const orgId = 33;
+// Persisted across requests so the branding editor can be exercised in review.
+let brandingOverride = null;
 const now = new Date().toISOString();
 const tenant = {
   orgId,
@@ -116,6 +118,7 @@ const logs = [
     __KEEP_integrationName__: outbound[1].name,
     eventType: 'VISIT_COMPLETED',
     status: 'FAILED',
+    direction: 'OUTBOUND',
     responseStatus: 503,
     responseTimeMs: 3000,
     attemptCount: 3,
@@ -124,6 +127,7 @@ const logs = [
     traceId: 'review-trace-1',
     errorMessage: 'Remote service temporarily unavailable',
     requestPayload: { visitId: 'visit-demo-2206' },
+    originalPayload: { visitId: 'visit-demo-2206', clinicCode: 'DEMO-CLINIC' },
   },
 ];
 
@@ -510,7 +514,16 @@ function respond(pathname, searchParams) {
   if (pathname === '/stages/runtime') return { ready: true, mode: 'worker', isolated: true, problems: [] };
   if (pathname === '/inbound-integrations') return [inbound];
   if (pathname === '/inbound-integrations/review-inbound') return inbound;
-  if (pathname === '/logs') return asArrayPage(logs);
+  if (pathname === '/logs') {
+    const status = searchParams.get('status');
+    const search = searchParams.get('search')?.toLowerCase();
+    return asArrayPage(logs.filter((row) =>
+      (!status || row.status === status) &&
+      (!search || [row.integrationName, row.eventType, row.errorMessage].some((value) =>
+        value?.toLowerCase().includes(search)))
+    ));
+  }
+  if (pathname === '/logs/review-log-2/replay') return { message: 'Fixture replay queued', status: 'queued' };
   if (pathname === '/logs/stats/summary') return { ...emptyStats, byStatus: { SUCCESS: 1, FAILED: 1 } };
   if (pathname === '/logs/stats/delivery-follow-up') return { total: 0, pending: 0, completed: 0, failed: 0 };
   if (pathname === '/logs/review-log-1' || pathname === '/logs/review-log-2')
@@ -759,6 +772,7 @@ function respond(pathname, searchParams) {
     };
   if (pathname === '/config/ui')
     return {
+      ...(brandingOverride ? { branding: brandingOverride } : {}),
       httpMethods: ['POST', 'PUT', 'PATCH', 'GET', 'DELETE'].map((value) => ({ value, label: value })),
       authTypes: ['NONE', 'API_KEY', 'BASIC', 'BEARER', 'OAUTH2', 'CUSTOM', 'CUSTOM_HEADERS'].map((value) => ({
         value,
@@ -1228,6 +1242,31 @@ const api = http.createServer((req, res) => {
     });
     return res.end();
   }
+  if (req.method === 'PATCH' && pathname === '/admin/ui-config') {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(raw || '{}');
+        const config = parsed?.config ?? parsed;
+        if (config?.branding && typeof config.branding === 'object') {
+          brandingOverride = config.branding;
+        }
+      } catch {
+        /* ignore malformed body in the fixture */
+      }
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      res.end(JSON.stringify({ config: { branding: brandingOverride } }));
+    });
+    return;
+  }
+
   const body = JSON.stringify(respond(pathname, url.searchParams));
   res.writeHead(200, {
     'Access-Control-Allow-Origin': '*',

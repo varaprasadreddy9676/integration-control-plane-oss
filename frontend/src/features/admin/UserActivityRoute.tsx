@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Card, Space, DatePicker, Input, Select, Statistic, Row, Col, Drawer, Descriptions } from "@/components/common/LegacyAntdControls";
+import { Space, DatePicker, Input, Select, Statistic, Row, Col, Drawer, Descriptions } from "@/components/common/LegacyAntdControls";
 import { Text } from '@astryxdesign/core/Text';
+import { Panel } from '../../design-system/primitives';
 import { Icon as GatewayIcon } from '../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
@@ -418,7 +419,7 @@ export function UserActivityRoute() {
         >
           {selectedActivity && (
             <Space direction="vertical" size="large" className="console-width-full">
-              <Card title="Event Information" size="small">
+              <Panel title="Event Information">
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="Event">{selectedActivity.event}</Descriptions.Item>
                   <Descriptions.Item label="Category">
@@ -438,18 +439,18 @@ export function UserActivityRoute() {
                     <Descriptions.Item label="Error">{selectedActivity.errorMessage}</Descriptions.Item>
                   )}
                 </Descriptions>
-              </Card>
+              </Panel>
 
-              <Card title="User Information" size="small">
+              <Panel title="User Information">
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="Email">{selectedActivity.userEmail}</Descriptions.Item>
                   <Descriptions.Item label="Role">{selectedActivity.userRole}</Descriptions.Item>
                   <Descriptions.Item label="User ID">{selectedActivity.userId}</Descriptions.Item>
                   <Descriptions.Item label="Organization ID">{selectedActivity.orgId}</Descriptions.Item>
                 </Descriptions>
-              </Card>
+              </Panel>
 
-              <Card title="Location & Context" size="small">
+              <Panel title="Location & Context">
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="Page">{selectedActivity.page || '-'}</Descriptions.Item>
                   <Descriptions.Item label="Feature">{selectedActivity.feature || '-'}</Descriptions.Item>
@@ -459,9 +460,9 @@ export function UserActivityRoute() {
                   )}
                   <Descriptions.Item label="Session ID">{selectedActivity.sessionId || '-'}</Descriptions.Item>
                 </Descriptions>
-              </Card>
+              </Panel>
 
-              <Card title="Technical Details" size="small">
+              <Panel title="Technical Details">
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="IP Address">{selectedActivity.ipAddress || '-'}</Descriptions.Item>
                   <Descriptions.Item label="User Agent">
@@ -470,10 +471,10 @@ export function UserActivityRoute() {
                     </Text>
                   </Descriptions.Item>
                 </Descriptions>
-              </Card>
+              </Panel>
 
               {selectedActivity.changes && (
-                <Card title="Changes" size="small">
+                <Panel title="Changes">
                   <Space direction="vertical" className="console-width-full">
                     {selectedActivity.changes.before && (
                       <div>
@@ -492,23 +493,23 @@ export function UserActivityRoute() {
                       </div>
                     )}
                   </Space>
-                </Card>
+                </Panel>
               )}
 
               {selectedActivity.metadata && Object.keys(selectedActivity.metadata).length > 0 && (
-                <Card title="Metadata" size="small">
+                <Panel title="Metadata">
                   <pre className="console-type-caption">
                     {JSON.stringify(selectedActivity.metadata, null, 2)}
                   </pre>
-                </Card>
+                </Panel>
               )}
 
               {selectedActivity.target && (
-                <Card title="Target" size="small">
+                <Panel title="Target">
                   <pre className="console-type-caption">
                     {JSON.stringify(selectedActivity.target, null, 2)}
                   </pre>
-                </Card>
+                </Panel>
               )}
             </Space>
           )}

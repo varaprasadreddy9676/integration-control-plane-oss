@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Typography } from '@/components/common/LegacyTypography';
 import { Space } from '@/components/common/LegacyAntdControls';
 import { Banner } from '@astryxdesign/core/Banner';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
 import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import Editor from '@monaco-editor/react';
 import { cssVar, editorFontSize } from '../../../design-system/utils';
@@ -196,14 +197,9 @@ export const RawJsonEditor = ({
 
       {/* Help Text */}
       {!readOnly && (
-        <Banner status="info" title="How to use" collapsible={false}>
-          <ul style={{ margin: 'var(--spacing-0)', paddingLeft: spacing?.[3] || '12px' }}>
-            <li>Edit JSON directly in the editor above</li>
-            <li>Copy/paste from external files (like clevertap-integration-config-updated.json)</li>
-            <li>Click "Apply Changes" to update the form fields</li>
-            <li>Use "Download" to save the current configuration to a file</li>
-          </ul>
-        </Banner>
+        <AstryxText as="p" display="block" type="supporting">
+          Edit JSON directly or paste from a file, then click Apply Changes to update the form or Download to export.
+        </AstryxText>
       )}
     </div>
   );

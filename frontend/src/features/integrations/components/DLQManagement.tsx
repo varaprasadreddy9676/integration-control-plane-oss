@@ -601,7 +601,7 @@ export const DLQManagement = ({ integrationConfigId }: DLQManagementProps) => {
               <Text type="secondary">{getResolutionSummary(selectedEntry)}</Text>
             </Space>
 
-            <Descriptions column={1} bordered size="small">
+            <Descriptions column={1} size="small">
               <Descriptions.Item label="Outcome">
                 <Space>
                   {getResolutionTag(selectedEntry)}

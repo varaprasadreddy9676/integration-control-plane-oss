@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Typography } from '@/components/common/LegacyTypography';
-import { Card, Row, Col, Space, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Card, Space, Tooltip } from '@/components/common/LegacyAntdControls';
 import { Icon as GatewayIcon } from '../../../../components/common/Icon';
-import { useDesignTokens, withAlpha, cssVar } from '../../../../design-system/utils';
+import { cssVar } from '../../../../design-system/utils';
 import { Button } from '../../../../components/common/LegacyButton';
+import { Row as ItemRow, RowList } from '../../../../design-system/primitives';
 
 const { Text } = Typography;
 
@@ -217,8 +218,6 @@ interface SchedulingTemplatesProps {
  * - Recurring schedules (daily, weekly, hourly)
  */
 export const SchedulingTemplates = ({ deliveryMode, onSelectTemplate }: SchedulingTemplatesProps) => {
-  const { token, transitions } = useDesignTokens();
-  const colors = cssVar.legacy;
   const [collapsed, setCollapsed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -267,50 +266,46 @@ export const SchedulingTemplates = ({ deliveryMode, onSelectTemplate }: Scheduli
         </Text>
       ) : (
         <>
-          <Text
-            type="secondary"
-            className="ui-extracted-7a56940c3d"
-          >
+          <Text type="secondary" className="ui-extracted-7a56940c3d">
             Click a template to use it as a starting point. You can customize it after insertion.
           </Text>
 
-          <Row gutter={[12, 12]}>
-            {templates.map((template) => (
-              <Col xs={24} sm={12} md={8} key={template.id}>
-                <Tooltip title={template.usageNote}>
-                  <Card
-                    size="small"
-                    hoverable
-                    onClick={() => handleSelect(template)}
-                    style={{
-                      cursor: 'pointer',
-                      borderColor: selectedId === template.id ? colors.primary[500] : colors.neutral[700],
-                      transition: transitions.all,
-                      boxShadow:
-                        selectedId === template.id ? `0 0 0 1px ${withAlpha(colors.primary[500], 0.2)}` : 'none',
-                      background: selectedId === template.id ? withAlpha(colors.primary[500], 0.06) : cssVar.bg.surface,
-                    }}
-                    styles={{
-                      body: { padding: 'var(--spacing-3)' },
-                    }}
-                  >
-                    <Space direction="vertical" size={4} className="console-width-full">
-                      <Space>
-                        {template.icon}
-                        <Text type="secondary">{template.mode === 'DELAYED' ? 'Delayed' : 'Recurring'}</Text>
-                      </Space>
+          <RowList label="Scheduling templates">
+            {templates.map((template) => {
+              const isSelected = selectedId === template.id;
+              return (
+                <ItemRow
+                  key={template.id}
+                  title={
+                    <Space>
+                      {template.icon}
                       <Text strong className="console-type-body">
                         {template.name}
                       </Text>
-                      <Text type="secondary" className="console-type-caption">
-                        {template.description}
-                      </Text>
                     </Space>
-                  </Card>
-                </Tooltip>
-              </Col>
-            ))}
-          </Row>
+                  }
+                  actions={
+                    <Tooltip title={template.usageNote}>
+                      <Button
+                        type={isSelected ? 'primary' : 'default'}
+                        aria-pressed={isSelected}
+                        onClick={() => handleSelect(template)}
+                      >
+                        {isSelected ? 'Selected' : 'Use template'}
+                      </Button>
+                    </Tooltip>
+                  }
+                >
+                  <Space direction="vertical" size={4} className="console-width-full">
+                    <Text type="secondary">{template.mode === 'DELAYED' ? 'Delayed' : 'Recurring'}</Text>
+                    <Text type="secondary" className="console-type-caption">
+                      {template.description}
+                    </Text>
+                  </Space>
+                </ItemRow>
+              );
+            })}
+          </RowList>
         </>
       )}
     </Card>

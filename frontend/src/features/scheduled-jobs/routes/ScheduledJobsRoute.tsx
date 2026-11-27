@@ -359,6 +359,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
 
           {/* Status Filter */}
           <Select
+            aria-label="Filter scheduled jobs by status"
             placeholder="Status"
             value={statusFilter}
             onChange={setStatusFilter}

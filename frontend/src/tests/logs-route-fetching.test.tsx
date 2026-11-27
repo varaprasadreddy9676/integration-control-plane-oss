@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from 'antd';
@@ -198,6 +198,7 @@ describe('LogsRoute fetching', () => {
       expect(mockApi.getLogs).toHaveBeenCalledWith(expect.objectContaining({ provider: 'pathkind' }));
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
     expect(screen.getByRole('combobox', { name: 'Provider filter' })).toBeInTheDocument();
     expect(screen.getAllByText('pathkind').length).toBeGreaterThan(0);
   });

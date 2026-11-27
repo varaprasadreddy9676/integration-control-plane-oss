@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react';
-import { DashboardMetricTile } from './DashboardPrimitives';
+import { Metric, MetricStrip } from '../../../design-system/primitives';
+import { AnimatedNumber } from '../../../components/motion/AnimatedNumber';
+import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { StatePanel } from '../../../components/common/StatePanel';
 
 interface DashboardKpiSectionProps {
@@ -20,6 +22,11 @@ interface DashboardKpiSectionProps {
   loading: boolean;
 }
 
+/**
+ * The first viewport of the dashboard: one divided strip of metrics, not five
+ * floating cards. A serious figure colours the value only; the rest of the
+ * strip stays neutral so the failure count is the one thing that stands out.
+ */
 export const DashboardKpiSection = ({ metrics, loading }: DashboardKpiSectionProps) => {
   if (loading) {
     return (
@@ -31,16 +38,38 @@ export const DashboardKpiSection = ({ metrics, loading }: DashboardKpiSectionPro
 
   return (
     <section className="dashboard-overview" aria-label="Key performance indicators">
-      <div className="dashboard-kpis">
-        {metrics.map((metric) => (
-          <DashboardMetricTile
-            key={metric.label}
-            {...metric}
-            onClick={metric.onClick}
-            aria-label={metric.onClick ? `View details for ${metric.label}: ${metric.value}` : `${metric.label}: ${metric.value}`}
-          />
-        ))}
-      </div>
+      <MetricStrip className="ds-metrics--five">
+        {metrics.map((metric) => {
+          const hasTrend = metric.trend !== undefined && metric.trend !== 0;
+          return (
+            <Metric
+              key={metric.label}
+              label={metric.label}
+              value={<AnimatedNumber value={metric.value} />}
+              icon={metric.icon}
+              tone={metric.critical ? 'bad' : 'neutral'}
+              change={
+                hasTrend ? (
+                  <>
+                    <GatewayIcon
+                      size="xsm"
+                      name={metric.trend! > 0 ? 'ArrowUpOutlined' : 'ArrowDownOutlined'}
+                    />
+                    {Math.abs(metric.trend!).toFixed(1)}%
+                  </>
+                ) : undefined
+              }
+              detail={metric.delta || metric.trendLabel}
+              onClick={metric.onClick}
+              ariaLabel={
+                metric.onClick
+                  ? `View details for ${metric.label}: ${metric.value}`
+                  : `${metric.label}: ${metric.value}`
+              }
+            />
+          );
+        })}
+      </MetricStrip>
     </section>
   );
 };

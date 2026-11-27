@@ -17,6 +17,7 @@ import {
 } from '@/components/common/LegacyAntdControls';
 import { Tab, TabList } from '@astryxdesign/core';
 import { Banner } from '@astryxdesign/core/Banner';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
 import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import type { IntegrationConfig } from '../../../mocks/types';
 import { cssVar } from '../../../design-system/utils';
@@ -288,97 +289,21 @@ err := VerifyIntegration(secret, headers, requestBody)`;
       {contextHolder}
 
       <Row gutter={[16, 16]}>
-        {/* Educational Header - What is Integration Signing? */}
         <Col xs={24}>
-          <Card className="signing-info-card">
-            <Space direction="vertical" size="middle" className="console-width-full">
-              {/* Main Explanation */}
-              <div>
-                <Space align="start">
-                  <GatewayIcon size="lg" name="SafetyOutlined" className="console-text-accent" />
-                  <div>
-                    <Title level={5} className="console-margin-none console-margin-bottom-2">
-                      What is Integration Signing?
-                    </Title>
-                    <Paragraph className="console-margin-bottom-0 console-text-secondary">
-                      Integration signing adds a cryptographic signature to each integration delivery, allowing your
-                      receiving system to verify that the integration <strong>actually came from this system</strong>{' '}
-                      and <strong>hasn't been tampered with</strong>. It's like a digital seal that proves authenticity.
-                    </Paragraph>
-                  </div>
-                </Space>
-              </div>
-
-              {/* Benefits Grid */}
-              <Row gutter={[16, 16]}>
-                <Col xs={24} md={12}>
-                  <Space>
-                    <GatewayIcon size="md" name="CheckCircleOutlined" className="console-text-success" />
-                    <div>
-                      <Text strong>Verify Authenticity</Text>
-                      <br />
-                      <Text type="secondary" className="console-type-caption">
-                        Confirm integrations really came from your source system, not an attacker
-                      </Text>
-                    </div>
-                  </Space>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Space>
-                    <GatewayIcon size="md" name="SafetyOutlined" className="console-text-accent" />
-                    <div>
-                      <Text strong>Prevent Tampering</Text>
-                      <br />
-                      <Text type="secondary" className="console-type-caption">
-                        Detect if payload was modified in transit
-                      </Text>
-                    </div>
-                  </Space>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Space>
-                    <GatewayIcon size="md" name="ClockCircleOutlined" className="console-text-warning" />
-                    <div>
-                      <Text strong>Replay Protection</Text>
-                      <br />
-                      <Text type="secondary" className="console-type-caption">
-                        Stop attackers from resending old integrations
-                      </Text>
-                    </div>
-                  </Space>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Space>
-                    <GatewayIcon size="md" name="BugOutlined" className="console-text-error" />
-                    <div>
-                      <Text strong>Secure Compliance</Text>
-                      <br />
-                      <Text type="secondary" className="console-type-caption">
-                        Support applicable security and audit requirements
-                      </Text>
-                    </div>
-                  </Space>
-                </Col>
-              </Row>
-
-              {/* When to Use */}
-              <Banner
-                status="info"
-                title="When to enable signing"
-                description="Recommended for production, sensitive or regulated data, and public endpoints. Optional for local development and testing."
-              />
-
-              {/* Action Buttons */}
-              <Space>
-                <Button icon={<GatewayIcon name="BookOutlined" />} onClick={() => setLearnMoreOpen(true)}>
-                  Learn More & Setup Guide
-                </Button>
-                <Button type="link" icon={<GatewayIcon name="CodeOutlined" />} onClick={() => setCodeModalOpen(true)}>
-                  View Code Examples
-                </Button>
-              </Space>
+          <Space direction="vertical" size="small" className="console-width-full">
+            <AstryxText as="p" display="block" type="supporting">
+              Integration signing adds a cryptographic HMAC-SHA256 signature to each delivery so receivers can verify
+              authenticity and payload integrity.
+            </AstryxText>
+            <Space>
+              <Button icon={<GatewayIcon name="BookOutlined" />} onClick={() => setLearnMoreOpen(true)}>
+                Learn More &amp; Setup Guide
+              </Button>
+              <Button type="link" icon={<GatewayIcon name="CodeOutlined" />} onClick={() => setCodeModalOpen(true)}>
+                View Code Examples
+              </Button>
             </Space>
-          </Card>
+          </Space>
         </Col>
 
         {/* Enable Signing Toggle - Only show if not hidden */}
@@ -402,6 +327,10 @@ err := VerifyIntegration(secret, headers, requestBody)`;
                       ? '✓ Signatures will be added to all integration deliveries'
                       : 'Integrations will be sent without signatures (less secure)'}
                   </Text>
+                  <AstryxText type="supporting" display="block">
+                    Recommended for production, sensitive or regulated data, and public endpoints; optional for local
+                    development and testing.
+                  </AstryxText>
                   {!enableSigning && (
                     <Text type="warning" className="console-type-caption">
                       Not recommended for production systems handling sensitive or regulated data

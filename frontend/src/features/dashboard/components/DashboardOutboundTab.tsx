@@ -109,7 +109,7 @@ export const DashboardOutboundTab = ({
               : { status: 'Unhealthy', color: themeColors.error.text };
 
         const integrationError = errorAnalytics?.integrationBreakdown?.find(
-          (err: any) => err.__KEEP___KEEP_integrationConfig__Id__ === integration.__KEEP___KEEP_integrationConfig__Id__
+          (err: any) => err.integrationConfigId === integration.integrationConfigId
         );
         const primaryFailure = integrationError?.category || integrationError?.topErrorMessage || '—';
 
@@ -332,11 +332,11 @@ export const DashboardOutboundTab = ({
               columns={[
                 {
                   title: 'Integration Name',
-                  dataIndex: '__KEEP_integrationName__',
-                  key: '__KEEP_integrationName__',
+                  dataIndex: 'integrationName',
+                  key: 'integrationName',
                   width: 250,
                   ellipsis: true,
-                  sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
+                  sorter: (a: any, b: any) => a.integrationName.localeCompare(b.integrationName),
                   render: (name: string, record: any) => (
                     <Button type="link" onClick={() => onNavigate(getIntegrationPath(record))}>
                       {name || 'Unknown'}
@@ -542,7 +542,7 @@ export const DashboardOutboundTab = ({
                     >
                       <Space className="console-width-full-between">
                         <Text weight="medium" maxLines={1} className="ui-extracted-888b85c032">
-                          {integration.__KEEP_integrationName__}
+                          {integration.integrationName}
                         </Text>
                         <Text className="dashboard-metric-tone dashboard-metric-tone--error">
                           {formatNumber(integration.failed)} failures

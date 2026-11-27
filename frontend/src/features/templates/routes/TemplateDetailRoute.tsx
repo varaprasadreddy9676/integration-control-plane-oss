@@ -3,7 +3,6 @@ import { useParams, useLocation } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import {
   App,
-  Card,
   Col,
   Form,
   Input,
@@ -15,6 +14,7 @@ import {
   Divider,
   Collapse,
 } from '@/components/common/LegacyAntdControls';
+import { Panel } from '../../../design-system/primitives';
 import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MonacoEditorInput } from '../../integrations/components/MonacoEditorInput';
@@ -24,7 +24,7 @@ import { getTemplateById, createTemplate, updateTemplate } from '../../../servic
 import { useDesignTokens, spacingToNumber, withAlpha, cssVar } from '../../../design-system/utils';
 import { Button } from '../../../components/common/LegacyButton';
 import { Text as AstryxText } from '@astryxdesign/core/Text';
-import { InlineNotice as Notice } from '../../../components/common';
+import { FormItemSelect } from '../../../shared/forms/FormItemControls';
 
 const { TextArea } = Input;
 
@@ -226,7 +226,7 @@ export const TemplateDetailRoute = () => {
         <Row gutter={[spacingToNumber(spacing[4]), spacingToNumber(spacing[4])]}>
           {/* Left Column */}
           <Col xs={24} lg={12}>
-            <Card title="Basic Information" className="panel" size="small">
+            <Panel title="Basic Information" className="panel">
               <Form.Item
                 label="Template Name"
                 name="name"
@@ -250,13 +250,13 @@ export const TemplateDetailRoute = () => {
                     name="category"
                     rules={[{ required: true, message: 'Category is required' }]}
                   >
-                    <Select placeholder="Select category">
+                    <FormItemSelect placeholder="Select category">
                       {CATEGORIES.map((cat) => (
                         <Select.Option key={cat} value={cat}>
                           {cat}
                         </Select.Option>
                       ))}
-                    </Select>
+                    </FormItemSelect>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
@@ -271,17 +271,17 @@ export const TemplateDetailRoute = () => {
                 name="eventType"
                 rules={[{ required: true, message: 'At least one event type is required' }]}
               >
-                <Select mode="multiple" placeholder="Select event types" allowClear showSearch>
+                <FormItemSelect mode="multiple" placeholder="Select event types" allowClear showSearch>
                   {DEFAULT_EVENT_TYPES.map((event) => (
                     <Select.Option key={event} value={event}>
                       {event}
                     </Select.Option>
                   ))}
-                </Select>
+                </FormItemSelect>
               </Form.Item>
-            </Card>
+            </Panel>
 
-            <Card title="HTTP Configuration" className="panel" size="small" style={{ marginTop: spacing[3] }}>
+            <Panel title="HTTP Configuration" className="panel" style={{ marginTop: spacing[3] }}>
               <Form.Item
                 label="Target URL"
                 name="targetUrl"
@@ -301,13 +301,13 @@ export const TemplateDetailRoute = () => {
                     name="httpMethod"
                     rules={[{ required: true, message: 'HTTP method is required' }]}
                   >
-                    <Select>
+                    <FormItemSelect>
                       {HTTP_METHODS.map((method) => (
                         <Select.Option key={method} value={method}>
                           {method}
                         </Select.Option>
                       ))}
-                    </Select>
+                    </FormItemSelect>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
@@ -337,24 +337,24 @@ export const TemplateDetailRoute = () => {
                   JSON object with custom HTTP headers
                 </AstryxText>
               </Form.Item>
-            </Card>
+            </Panel>
           </Col>
 
           {/* Right Column */}
           <Col xs={24} lg={12}>
-            <Card title="Authentication" className="panel" size="small">
+            <Panel title="Authentication" className="panel">
               <Form.Item
                 label="Authentication Type"
                 name="authType"
                 rules={[{ required: true, message: 'Auth type is required' }]}
               >
-                <Select>
+                <FormItemSelect>
                   {AUTH_TYPES.map((type) => (
                     <Select.Option key={type} value={type}>
                       {type}
                     </Select.Option>
                   ))}
-                </Select>
+                </FormItemSelect>
               </Form.Item>
 
               <Form.Item label="Auth Configuration (JSON)">
@@ -369,43 +369,21 @@ export const TemplateDetailRoute = () => {
                   Configuration depends on auth type (apiKey, token, username/password, etc.)
                 </AstryxText>
               </Form.Item>
-            </Card>
+            </Panel>
 
-            <Card title="Transformation" className="panel" size="small" style={{ marginTop: spacing[3] }}>
+            <Panel title="Transformation" className="panel" style={{ marginTop: spacing[3] }}>
               <Form.Item label="Transformation Script">
-                <Notice
-                  type="success"
-                  closable
-                  message="Editor Keyboard Shortcuts"
-                  description={
-                    <div className="console-type-caption">
-                      <ul className="console-list-reset-indent">
-                        <li>
-                          <strong>Cmd/Ctrl + F</strong> - Find text
-                        </li>
-                        <li>
-                          <strong>Cmd/Ctrl + H</strong> - Find and replace
-                        </li>
-                        <li>
-                          <strong>Cmd/Ctrl + /</strong> - Toggle line comment
-                        </li>
-                        <li>
-                          <strong>Cmd/Ctrl + Shift + K</strong> - Delete line
-                        </li>
-                        <li>
-                          <strong>Alt + Up/Down</strong> - Move line up/down
-                        </li>
-                        <li>
-                          <strong>Cmd/Ctrl + D</strong> - Select next occurrence
-                        </li>
-                        <li>
-                          <strong>Cmd/Ctrl + Scroll</strong> - Zoom in/out
-                        </li>
-                      </ul>
-                    </div>
-                  }
+                <AstryxText
+                  as="p"
+                  display="block"
+                  type="supporting"
+                  color="secondary"
+                  size="sm"
                   className="console-margin-bottom-3"
-                />
+                >
+                  Editor shortcuts: Cmd/Ctrl+F find, Cmd/Ctrl+H replace, Cmd/Ctrl+/ toggle comment, Cmd/Ctrl+D select
+                  next occurrence.
+                </AstryxText>
                 <Collapse
                   size="small"
                   ghost
@@ -466,9 +444,9 @@ items: payload.items?.map(item => ({
                   JavaScript function to transform integration payloads
                 </AstryxText>
               </Form.Item>
-            </Card>
+            </Panel>
 
-            <Card title="Metadata (Optional)" className="panel" style={{ marginTop: spacing[6] }}>
+            <Panel title="Metadata (Optional)" className="panel" style={{ marginTop: spacing[6] }}>
               <Form.Item label="Template Metadata (JSON)">
                 <TextArea
                   rows={6}
@@ -481,7 +459,7 @@ items: payload.items?.map(item => ({
                   Additional metadata like vendor, documentation links, format, etc.
                 </AstryxText>
               </Form.Item>
-            </Card>
+            </Panel>
           </Col>
         </Row>
       </Form>

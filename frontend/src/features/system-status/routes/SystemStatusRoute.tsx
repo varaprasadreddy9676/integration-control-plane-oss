@@ -7,6 +7,7 @@ import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { PageTemplate } from '../../../components/common/PageTemplate';
+import { Row as ItemRow, RowList } from '../../../design-system/primitives';
 import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
 import { StatusBadge, type StatusBadgeVariant } from '../../../components/common/StatusBadge';
 import { PortalScopeBadge } from '../../../components/portal/PortalScopeBadge';
@@ -71,14 +72,18 @@ function humanizeKey(value?: string | null) {
 }
 
 function KeyValueTable({ rows }: { rows: Array<{ label: string; value: React.ReactNode }> }) {
+  // Key/value pairs are divided rows inside the panel, not a bordered table
+  // nested in a card.
   return (
-    <Descriptions size="small" column={1} bordered>
+    <RowList>
       {rows.map((row) => (
-        <Descriptions.Item key={row.label} label={row.label}>
-          {row.value}
-        </Descriptions.Item>
+        <ItemRow
+          key={row.label}
+          title={row.label}
+          actions={<span className="system-status-kv-value">{row.value}</span>}
+        />
       ))}
-    </Descriptions>
+    </RowList>
   );
 }
 
@@ -550,7 +555,7 @@ function getOverallHealthFactors(data?: SystemStatusResponse | null) {
 export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standalone' }) {
   const { spacing } = useDesignTokens();
   const { user } = useAuth();
-  const { orgId, tenant, clearOrgId } = useTenant();
+  const { orgId, tenant } = useTenant();
   const isStandalone = mode === 'standalone';
   const isPortalSession = !!(user as any)?.isPortalSession;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -617,7 +622,6 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   );
   const isGlobalScope = data?.scope === 'global';
   const organizations = data?.organizations || [];
-  const canReturnToGlobal = !isStandalone && !isPortalSession && effectiveOrgId > 0;
   const viewingLabel = isGlobalScope
     ? 'Viewing: All Organizations'
     : effectiveOrgId > 0
@@ -1079,7 +1083,7 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
           </Col>
           <Col xs={24} xl={12}>
             <Card size="small" title="Backlog Breakdown">
-              <Descriptions size="small" bordered column={1}>
+              <Descriptions size="small" column={1}>
                 <Descriptions.Item label="Pending Deliveries">
                   {Object.entries(data?.backlogs?.pendingDeliveries || {})
                     .map(([key, value]) => `${humanizeKey(key)}: ${value}`)
@@ -1163,7 +1167,12 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                       'Auto-refresh off'
                     )}
                   </Text>
-                  <Switch size="small" checked={autoRefresh} onChange={setAutoRefresh} />
+                  <Switch
+                    aria-label="Enable automatic system status refresh"
+                    size="small"
+                    checked={autoRefresh}
+                    onChange={setAutoRefresh}
+                  />
                 </Space>
                 <Button
                   icon={<GatewayIcon name="ReloadOutlined" />}
@@ -1177,27 +1186,6 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
           />
         }
       >
-        {canReturnToGlobal && (
-          <Banner
-            status="info"
-            title="Viewing one organization"
-            description={
-              <div className="system-status-scope-notice__body">
-                <span>
-                  {tenant?.tenantName
-                    ? `Showing detailed diagnostics for ${tenant.tenantName}.`
-                    : 'Showing detailed diagnostics for the selected organization.'}{' '}
-                  Return to global status to compare organizations.
-                </span>
-                <Button size="small" onClick={() => clearOrgId()}>
-                  Back to all organizations
-                </Button>
-              </div>
-            }
-            className="console-margin-bottom-4"
-          />
-        )}
-
         {error && <Banner status="error" title="Failed to load system status" description={(error as Error).message} />}
 
         {data?.processLifecycle?.current?.status === 'draining' && (

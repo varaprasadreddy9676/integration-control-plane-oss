@@ -41,10 +41,9 @@ export const getDashboardRateTone = (rate: number) => (rate >= 95 ? 'success' : 
 
 export const getDashboardIntegrationRowKey = (record: Record<string, unknown>): string => {
   const key = [
-    record.__KEEP___KEEP_integrationConfig__Id__,
     record.integrationConfigId,
     record.id,
-    record.__KEEP_integrationName__,
+    record.integrationName,
     record.integrationName,
   ].find((value) => (typeof value === 'string' && value.trim() !== '') || typeof value === 'number');
 

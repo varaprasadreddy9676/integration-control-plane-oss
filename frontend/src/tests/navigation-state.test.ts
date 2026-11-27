@@ -7,6 +7,11 @@ const groups = [
 ];
 
 describe('getActiveNavigationKey', () => {
+  it('keeps the integrations navigation selected while configuring inbound rules', () => {
+    const integrationGroups = [{ items: [{ key: '/integrations' }] }];
+    expect(getActiveNavigationKey('/inbound-integrations/42', integrationGroups)).toBe('/integrations');
+    expect(getActiveNavigationKey('/inbound-integrations-archive', integrationGroups)).toBeUndefined();
+  });
   it('matches nested routes using the most specific navigation key', () => {
     expect(getActiveNavigationKey('/admin/users/42', groups)).toBe('/admin/users');
     expect(getActiveNavigationKey('/scheduled-jobs/42', groups)).toBe('/scheduled-jobs');

@@ -457,6 +457,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
         {/* Filters */}
         <Select
           placeholder="Event"
+          aria-label="Filter by event"
           allowClear
           style={{ width: isNarrow ? '100%' : 140 }}
           size="small"
@@ -466,6 +467,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
         />
         <Select
           placeholder="Status"
+          aria-label="Filter by status"
           allowClear
           style={{ width: isNarrow ? '100%' : 110 }}
           size="small"
@@ -478,6 +480,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
         />
         <Select
           placeholder="Scope"
+          aria-label="Filter by scope"
           allowClear
           style={{ width: isNarrow ? '100%' : 140 }}
           size="small"
@@ -490,6 +493,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
         />
         <Select
           placeholder="Provider"
+          aria-label="Filter by provider"
           allowClear
           style={{ width: isNarrow ? '100%' : 150 }}
           size="small"
@@ -696,6 +700,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                     onChange={(checked, event) => onQuickToggle(record, checked, event.currentTarget as Element)}
                     size="small"
                     disabled={record.isInherited || isPortalSession}
+                    aria-label={`${record.name}: ${record.isActive ? 'active' : 'inactive'}`}
                   />
                 ),
               },

@@ -1,8 +1,7 @@
-import { Divider, Form, Input } from '@/components/common/LegacyAntdControls';
+import { Divider, Form, Input, Space } from '@/components/common/LegacyAntdControls';
 import type { FormInstance } from '@/components/common/LegacyAntdControls';
-import { Icon as GatewayIcon } from '../../../components/common/Icon';
+import { Text } from '@astryxdesign/core/Text';
 import { Button } from '../../../components/common/LegacyButton';
-import { InlineNotice as Notice } from '../../../components/common';
 
 interface MetaWhatsAppConfigFieldsProps {
   spacing: Record<string, string>;
@@ -32,41 +31,37 @@ export function MetaWhatsAppConfigFields({ spacing, httpComplete, onBack, onNext
         <Input.Password size="middle" placeholder="EAAxxxxxxxxxx..." />
       </Form.Item>
 
-      <Notice
-        type="warning"
-        icon={<GatewayIcon name="WhatsAppOutlined" />}
-        message="Meta Setup Required"
-        description={
-          <div>
-            <p className="console-margin-bottom-2">To get your WhatsApp Cloud API credentials:</p>
-            <ol className="console-indent-5-margin-bottom-2">
-              <li>
-                Go to{' '}
-                <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer">
-                  Meta Business Manager
-                </a>
-              </li>
-              <li>Navigate to WhatsApp → API Setup</li>
-              <li>
-                Copy the <strong>Phone Number ID</strong> (not the phone number itself)
-              </li>
-              <li>
-                Create a <strong>System User</strong> with WhatsApp permissions and generate a permanent token
-              </li>
-            </ol>
-            <p className="console-margin-bottom-1">
-              <strong>Payload your app must send:</strong>
-            </p>
-            <code className="console-type-caption">
-              {'{ "to": "+919876543210", "type": "text", "text": "Hello!" }'}
-            </code>
-            <p className="console-margin-top-2-reset-bottom">
-              Use <code>type: "template"</code> with <code>templateName</code> for pre-approved templates. Free-form
-              text only works within the 24-hour customer service window.
-            </p>
-          </div>
-        }
-      />
+      <Space direction="vertical" size="small" className="console-margin-top-2">
+        <Text type="supporting" size="sm" color="secondary" weight="semibold" display="block">
+          Meta Setup Required
+        </Text>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          To get your WhatsApp Cloud API credentials:
+        </Text>
+        <ol className="console-indent-5-margin-bottom-2">
+          <li>
+            Go to{' '}
+            <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer">
+              Meta Business Manager
+            </a>
+          </li>
+          <li>Navigate to WhatsApp → API Setup</li>
+          <li>
+            Copy the <strong>Phone Number ID</strong> (not the phone number itself)
+          </li>
+          <li>
+            Create a <strong>System User</strong> with WhatsApp permissions and generate a permanent token
+          </li>
+        </ol>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          <strong>Payload your app must send:</strong>
+        </Text>
+        <code className="console-type-caption">{'{ "to": "+919876543210", "type": "text", "text": "Hello!" }'}</code>
+        <Text type="supporting" size="sm" color="secondary" display="block">
+          Use <code>type: "template"</code> with <code>templateName</code> for pre-approved templates. Free-form text
+          only works within the 24-hour customer service window.
+        </Text>
+      </Space>
 
       <Divider className="console-margin-y-4" />
 

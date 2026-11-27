@@ -100,8 +100,10 @@ export const IntegrationFormBody = ({
         />
       )}
 
-      <DeliveryLayoutSwitch value={deliveryLayout} onChange={onChangeDeliveryLayout} />
-      {(isCreate || isEditMode) && <DeliveryModeSelector value={deliveryModeChoice} onChange={onChangeDeliveryMode} />}
+      <section className="configuration-view-tools" aria-label="Configuration layout">
+        <DeliveryLayoutSwitch value={deliveryLayout} onChange={onChangeDeliveryLayout} />
+        {(isCreate || isEditMode) && <DeliveryModeSelector value={deliveryModeChoice} onChange={onChangeDeliveryMode} />}
+      </section>
 
       <IntegrationSections
         activePanels={activePanels}

@@ -37,6 +37,7 @@ import { useIntegrationImportExport } from './integrationDetail/hooks/useIntegra
 import { IntegrationPageHeader } from './integrationDetail/components/IntegrationPageHeader';
 import { PageHeader as SharedPageHeader } from '../../../components/common/PageHeader';
 import { PageTemplate } from '../../../components/common/PageTemplate';
+import { IntegrationContextRail } from '../components/IntegrationContextRail';
 import { StatePanel } from '../../../components/common/StatePanel';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { RevealCredentialsButton } from '../../../components/common/RevealCredentialsButton';
@@ -981,7 +982,7 @@ const firstTime = addHours(now(), 1);
   return (
     <PageTemplate
       as="main"
-      className="integration-detail-template"
+      className="integration-detail-template configuration-workspace"
       contentClassName="integration-detail-template__content"
     >
       <div className="ui-extracted-d77a9b9b67">
@@ -1019,7 +1020,7 @@ const firstTime = addHours(now(), 1);
               onImport={handleImport}
               isPortalSession={isPortalSession}
               extraActions={
-                <>
+                <Space size="small" wrap>
                   <IntegrationHistoryButton
                     integrationId={isCreate ? undefined : id}
                     onRestored={() => queryClient.invalidateQueries({ queryKey: ['integration', id] })}
@@ -1034,10 +1035,12 @@ const firstTime = addHours(now(), 1);
                       customHeaders: document.customHeaders,
                     })}
                   />
-                </>
+                </Space>
               }
             />
           )}
+          <div className="integration-detail-layout">
+            <div className="integration-detail-main">
           {isDetailLoading ? (
             <StatePanel glyph="connecting" tone="busy" title="Loading configuration" size="regular" />
           ) : (
@@ -1162,6 +1165,14 @@ const firstTime = addHours(now(), 1);
               })}
             />
           )}
+            </div>
+            {!isCreate && existingIntegration && (
+              <IntegrationContextRail
+                integration={existingIntegration}
+                onOpenLogs={() => navigate(`/logs?integrationId=${encodeURIComponent(existingIntegration.id)}`)}
+              />
+            )}
+          </div>
         </IntegrationFormContainer>
 
         {/* Review & Confirm Drawer */}

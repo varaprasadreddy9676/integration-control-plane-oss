@@ -14,6 +14,7 @@ const iconMap = {
   AuditOutlined: Lucide.ClipboardCheck,
   BarChartOutlined: Lucide.ChartNoAxesColumnIncreasing,
   BellOutlined: Lucide.Bell,
+  BgColorsOutlined: Lucide.Palette,
   BlockOutlined: Lucide.Ban,
   BookOutlined: Lucide.BookOpen,
   BranchesOutlined: Lucide.GitBranch,

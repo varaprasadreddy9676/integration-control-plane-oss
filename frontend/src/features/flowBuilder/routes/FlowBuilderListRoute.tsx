@@ -6,7 +6,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { App, Space, Dropdown, Tooltip, Segmented } from "@/components/common/LegacyAntdControls";
-import { Banner } from '@astryxdesign/core/Banner';
 import { Text } from '@astryxdesign/core/Text';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import type { MenuProps, TableColumnsType } from "@/components/common/LegacyAntdControls";
@@ -302,8 +301,10 @@ export const FlowBuilderListRoute: React.FC = () => {
       />}
     >
 
-      <section className="flow-builder-capability-note">
-        <Banner status="info" title="Design inbound, event-driven, and scheduled integrations in one visual workflow." />
+      <section className="flow-builder-capability-note" aria-label="About the flow builder">
+        <Text type="supporting" as="p">
+          Inbound, event-driven and scheduled integrations are designed in the same visual workflow.
+        </Text>
       </section>
 
       {/* Filters */}

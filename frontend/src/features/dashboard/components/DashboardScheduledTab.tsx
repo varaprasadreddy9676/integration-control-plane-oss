@@ -20,6 +20,8 @@ import {
 
 interface DashboardScheduledTabProps {
   days: number;
+  /** The dashboard's global metric strip already carries these figures. */
+  showKpis?: boolean;
   timeLabel: string;
   analyticsLoading: boolean;
   errorsLoading: boolean;
@@ -44,6 +46,7 @@ export const DashboardScheduledTab = ({
   errorsLoading,
   analytics,
   timeseriesDaily,
+  showKpis = true,
   performanceAnalytics,
   errorAnalytics,
   integrationPerformance,
@@ -135,7 +138,7 @@ export const DashboardScheduledTab = ({
     return integrationPerformance
       .map((job: any) => {
         const successRate = parseFloat(job.successRate) || 0;
-        const jobDetails = scheduledJobs.find((j: any) => j.id === job.__KEEP___KEEP_integrationConfig__Id__);
+        const jobDetails = scheduledJobs.find((j: any) => j.id === job.integrationConfigId);
 
         // Determine health status
         let health: { status: string; color: string } = { status: 'Healthy', color: themeColors.success.text };
@@ -223,7 +226,7 @@ export const DashboardScheduledTab = ({
     scheduledJobLogs.forEach((log: any) => {
       const date = new Date(log.startedAt || log.createdAt).toISOString().split('T')[0];
       const jobName =
-        log.__KEEP_integrationName__ || log.integrationName || log.__KEEP___KEEP_integrationConfig__Id__ || 'Unknown';
+        log.integrationName || log.integrationName || log.integrationConfigId || 'Unknown';
       const records = log.recordsFetched || 0;
 
       if (!groupedByDate[date]) groupedByDate[date] = {};
@@ -253,7 +256,7 @@ export const DashboardScheduledTab = ({
     const grouped: Record<string, { queryTimes: number[]; timeouts: number; totalRecords: number; count: number }> = {};
 
     scheduledJobLogs.forEach((log: any) => {
-      const integrationId = log.__KEEP___KEEP_integrationConfig__Id__ || log.integrationConfigId || 'unknown';
+      const integrationId = log.integrationConfigId || log.integrationConfigId || 'unknown';
       if (!grouped[integrationId]) {
         grouped[integrationId] = { queryTimes: [], timeouts: 0, totalRecords: 0, count: 0 };
       }
@@ -271,7 +274,7 @@ export const DashboardScheduledTab = ({
     return Object.entries(grouped)
       .map(([integrationId, stats]) => {
         const integration = integrationPerformance.find(
-          (j: any) => j.__KEEP___KEEP_integrationConfig__Id__ === integrationId
+          (j: any) => j.integrationConfigId === integrationId
         );
 
         const avgQueryTime =
@@ -280,7 +283,7 @@ export const DashboardScheduledTab = ({
         const timeoutRate = stats.count > 0 ? (stats.timeouts / stats.count) * 100 : 0;
 
         return {
-          dataSource: integration?.__KEEP_integrationName__ || integrationId || 'Unknown',
+          dataSource: integration?.integrationName || integrationId || 'Unknown',
           avgQueryTime: Math.round(avgQueryTime),
           maxQueryTime: Math.round(maxQueryTime),
           timeoutRate: timeoutRate.toFixed(1),
@@ -294,17 +297,19 @@ export const DashboardScheduledTab = ({
   return (
     <>
       {/* Real-Time Health Status KPI Cards */}
-      <section className="dashboard-overview console-margin-top-4">
-        {analyticsLoading ? (
-          <DashboardLoadingState title="Loading scheduled job health" />
-        ) : (
-          <div className="dashboard-kpis">
-            {kpiMetrics.map((metric) => (
-              <DashboardMetricTile key={metric.label} {...metric} />
-            ))}
-          </div>
-        )}
-      </section>
+      {showKpis !== false && (
+        <section className="dashboard-overview console-margin-top-4">
+          {analyticsLoading ? (
+            <DashboardLoadingState title="Loading scheduled job health" />
+          ) : (
+            <div className="dashboard-kpis">
+              {kpiMetrics.map((metric) => (
+                <DashboardMetricTile key={metric.label} {...metric} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Job Performance Metrics - Job Health Table */}
       <section className={`${DASHBOARD_PANEL_CLASS} console-margin-top-4`}>
@@ -339,11 +344,11 @@ export const DashboardScheduledTab = ({
               columns={[
                 {
                   title: 'Job Name',
-                  dataIndex: '__KEEP_integrationName__',
-                  key: '__KEEP_integrationName__',
+                  dataIndex: 'integrationName',
+                  key: 'integrationName',
                   width: 200,
                   ellipsis: true,
-                  sorter: (a: any, b: any) => a.__KEEP_integrationName__.localeCompare(b.__KEEP_integrationName__),
+                  sorter: (a: any, b: any) => a.integrationName.localeCompare(b.integrationName),
                   render: (name: string, record: any) => (
                     <Button
                       type="link"

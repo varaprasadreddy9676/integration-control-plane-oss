@@ -17,6 +17,8 @@ import { getOrgSwitchDestination, shouldConfirmOrgSwitch, useNavigateWithParams 
 import { shortTenantName } from '../utils/tenant-display';
 import { useTenant } from './tenant-context';
 import { useThemeMode } from './theme-provider';
+import { useBranding } from './branding-provider';
+import { THEME_PACK_LIST, isThemePackId } from '../design-system/theme/packs';
 import { useAuth } from './auth-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageViewTracking } from '../hooks/useActivityTracker';
@@ -28,7 +30,9 @@ import { OrgContextGuard } from '../components/OrgContextGuard';
 import { cssVar, useDesignTokens, spacingToNumber } from '../design-system/utils';
 import { listAdminOrgSummaries, getLogStatsSummary } from '../services/api';
 import { isFeatureEnabled } from '../utils/featureFlags';
-import { CommandPalette } from '../components/layout/CommandPalette';
+const CommandPalette = lazy(() =>
+  import('../components/layout/CommandPalette').then((m) => ({ default: m.CommandPalette }))
+);
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { getActiveNavigationKey } from './navigation-state';
 import { AppShell } from '@astryxdesign/core/AppShell';
@@ -118,6 +122,7 @@ const LookupDetailRoute = lazy(() => n(import('../features/lookups/routes/Lookup
 const LookupStatsRoute = lazy(() => n(import('../features/lookups/routes/LookupStatsRoute'), 'LookupStatsRoute'));
 const VersionsRoute = lazy(() => n(import('../features/versions/routes/VersionsRoute'), 'VersionsRoute'));
 const SettingsRoute = lazy(() => n(import('../features/settings/SettingsRoute'), 'SettingsRoute'));
+const AppearanceRoute = lazy(() => n(import('../features/settings/AppearanceRoute'), 'AppearanceRoute'));
 const EventSourceSettingsRoute = lazy(() =>
   n(import('../features/settings/EventSourceSettingsRoute'), 'EventSourceSettingsRoute')
 );
@@ -170,7 +175,8 @@ export const App = () => {
       return [];
     }
   })();
-  const { mode, toggleMode } = useThemeMode();
+  const { mode, setMode, toggleMode, pack, setPack } = useThemeMode();
+  const { branding } = useBranding();
   const queryClient = useQueryClient();
 
   // -------- PORTAL EMBED LOGIC --------
@@ -385,6 +391,7 @@ export const App = () => {
             { key: '/settings', icon: <GatewayIcon name="SettingOutlined" />, label: 'Organization' },
             { key: '/settings/event-source', icon: <GatewayIcon name="CloudServerOutlined" />, label: 'Event Source' },
             { key: '/settings/providers', icon: <GatewayIcon name="AppstoreOutlined" />, label: 'Providers' },
+            { key: '/settings/appearance', icon: <GatewayIcon name="BgColorsOutlined" />, label: 'Appearance' },
             { key: '/help', icon: <GatewayIcon name="BookOutlined" />, label: 'Documentation' },
           ],
         });
@@ -576,6 +583,51 @@ export const App = () => {
     { type: 'divider' as const },
   ];
 
+  // Appearance menu — the packs plus the two modes, so a theme is one click away
+  // from anywhere. The full screen holds density and the contrast details.
+  const appearanceMenuItems = [
+    {
+      key: 'mode',
+      type: 'group' as const,
+      label: 'Mode',
+      children: [
+        {
+          key: 'mode-light',
+          icon: mode === 'light' ? <GatewayIcon name="CheckOutlined" /> : <span className="global-menu-spacer" />,
+          label: 'Light',
+        },
+        {
+          key: 'mode-dark',
+          icon: mode === 'dark' ? <GatewayIcon name="CheckOutlined" /> : <span className="global-menu-spacer" />,
+          label: 'Dark',
+        },
+      ],
+    },
+    { type: 'divider' as const },
+    {
+      key: 'packs',
+      type: 'group' as const,
+      label: 'Theme',
+      children: THEME_PACK_LIST.map((entry) => ({
+        key: `pack-${entry.id}`,
+        icon: pack === entry.id ? <GatewayIcon name="CheckOutlined" /> : <span className="global-menu-spacer" />,
+        label: entry.name,
+      })),
+    },
+    { type: 'divider' as const },
+    { key: 'appearance-settings', label: 'All appearance settings…' },
+  ];
+
+  const onAppearanceMenuClick = ({ key }: { key: string }) => {
+    if (key === 'mode-light') return setMode('light');
+    if (key === 'mode-dark') return setMode('dark');
+    if (key === 'appearance-settings') return navigate('/settings/appearance');
+    if (key.startsWith('pack-')) {
+      const next = key.slice('pack-'.length);
+      if (isThemePackId(next)) setPack(next);
+    }
+  };
+
   // User profile dropdown items
   const userMenuItems = [
     {
@@ -639,12 +691,16 @@ export const App = () => {
   const renderShell = () => (
     <div className="app-shell">
       <ToastHost />
-      <CommandPalette
-        open={cmdPaletteOpen}
-        onClose={() => setCmdPaletteOpen(false)}
-        navGroups={navGroups}
-        failedCount={failedCount}
-      />
+      {cmdPaletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={cmdPaletteOpen}
+            onClose={() => setCmdPaletteOpen(false)}
+            navGroups={navGroups}
+            failedCount={failedCount}
+          />
+        </Suspense>
+      )}
 
       <AppShell
         className="product-app-shell"
@@ -653,7 +709,7 @@ export const App = () => {
         contentPadding={0}
         mobileNav={{
           content: (
-            <MobileNav header="Integration Gateway" label="Integration Gateway navigation">
+            <MobileNav className="product-mobile-nav" header="Integration Gateway" label="Integration Gateway navigation">
               <SideNavRenderContext value="drawer-content">
                 <AppSidebar {...sidebarProps} />
               </SideNavRenderContext>
@@ -722,6 +778,7 @@ export const App = () => {
                         placeholder="Switch org"
                         value={orgId && orgId > 0 ? orgId : undefined}
                         className="global-org-switcher"
+                        aria-label="Organization context"
                         style={isMobile ? { flex: 1, minWidth: 0 } : undefined}
                         allowClear
                         options={adminOrgs.map((org) => ({
@@ -752,7 +809,7 @@ export const App = () => {
                       <Dropdown trigger={['click']} menu={{ items: createMenuItems }}>
                         <Button
                           className="global-create-trigger"
-                          type="default"
+                          type="primary"
                           icon={<GatewayIcon name="PlusOutlined" />}
                           aria-label="Create"
                         >
@@ -780,14 +837,20 @@ export const App = () => {
                       </Tooltip>
                     )}
 
-                    {/* Theme toggle */}
-                    <Button
-                      type="text"
-                      onClick={toggleMode}
-                      icon={mode === 'dark' ? <GatewayIcon name="SunOutlined" /> : <GatewayIcon name="MoonOutlined" />}
-                      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                      className="global-header-icon-button"
-                    />
+                    {/* Appearance: packs and mode */}
+                    <Dropdown
+                      trigger={['click']}
+                      placement="bottomRight"
+                      menu={{ items: appearanceMenuItems, onClick: onAppearanceMenuClick }}
+                    >
+                      <Button
+                        type="text"
+                        icon={mode === 'dark' ? <GatewayIcon name="SunOutlined" /> : <GatewayIcon name="MoonOutlined" />}
+                        aria-label="Appearance and theme"
+                        title="Appearance"
+                        className="global-header-icon-button"
+                      />
+                    </Dropdown>
 
                     {/* User profile dropdown */}
                     <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
@@ -795,7 +858,8 @@ export const App = () => {
                         <Avatar
                           size={28}
                           style={{
-                            background: token.colorPrimary,
+                            background: 'var(--color-accent)',
+                            color: 'var(--color-on-accent)',
                             fontSize: 'var(--console-type-caption)',
                             fontWeight: 600,
                             flexShrink: 0,
@@ -817,6 +881,7 @@ export const App = () => {
                             {user?.email?.split('@')[0]}
                           </Typography.Text>
                         )}
+                        <GatewayIcon name="DownOutlined" aria-hidden="true" />
                       </Button>
                     </Dropdown>
                     <Tooltip title="Log out">
@@ -961,8 +1026,9 @@ export const App = () => {
                     <Route path="/templates/new" element={<TemplateDetailRoute />} />
                     <Route path="/templates/:id" element={<TemplateDetailRoute />} />
                     <Route path="/bulk" element={<BulkOperationsRoute />} />
-                    <Route path="/versions/:__KEEP_integrationName__" element={<VersionsRoute />} />
+                    <Route path="/versions/:integrationName" element={<VersionsRoute />} />
                     <Route path="/settings" element={<SettingsRoute />} />
+                    <Route path="/settings/appearance" element={<AppearanceRoute />} />
                     <Route path="/settings/event-source" element={<EventSourceSettingsRoute />} />
                     <Route path="/settings/mysql-pool" element={<MysqlPoolSettingsRoute />} />
                     <Route path="/settings/sender-profiles" element={<SenderProfilesRoute />} />

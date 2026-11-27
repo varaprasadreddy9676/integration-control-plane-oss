@@ -35,7 +35,7 @@ describe('dashboard outbound typography', () => {
           performanceAnalytics={{ distribution: { buckets: [] } }}
           errorAnalytics={{ summary: { errorCategories: {} }, integrationBreakdown: [] }}
           timeseriesDaily={{ data: [] }}
-          integrationPerformance={[{ id: 'int-1', __KEEP___KEEP_integrationConfig__Id__: 'int-1', __KEEP_integrationName__: 'Partner API', total: 12, failed: 1, successRate: '91.7', avgResponseTime: 42 }]}
+          integrationPerformance={[{ id: 'int-1', integrationConfigId: 'int-1', integrationName: 'Partner API', total: 12, failed: 1, successRate: '91.7', avgResponseTime: 42 }]}
           onNavigate={onNavigate}
           getIntegrationPath={() => '/integrations/int-1'}
           noDataHint="No data"

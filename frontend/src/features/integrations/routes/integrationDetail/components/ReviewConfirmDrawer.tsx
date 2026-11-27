@@ -7,8 +7,9 @@ import { cssVar, useDesignTokens, spacingToNumber } from '../../../../../design-
 import { getDeliveryModeLabel, getDeliveryModeSummaryText } from '../utils/deliveryMode';
 import { Button } from '../../../../../components/common/LegacyButton';
 import { InlineNotice as Notice } from '../../../../../components/common';
+import { Text as AstryxText } from '@astryxdesign/core/Text';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 interface ReviewItem {
   label: string;
@@ -165,27 +166,14 @@ export const ReviewConfirmDrawer = ({
         </div>
 
         {/* Impact Summary */}
-        <Notice
-          type="info"
-          icon={<GatewayIcon name="ThunderboltOutlined" />}
-          className="console-margin-bottom-5"
-          message={
-            <div>
-              <Text strong className="console-type-control">
-                {isCreating ? 'You are about to create this rule:' : 'This rule will:'}
-              </Text>
-              <Paragraph className="console-margin-top-2-reset-bottom console-type-body">
-                Automatically send <Text strong>{httpMethod}</Text> requests to{' '}
-                <Text code className="console-type-caption">
-                  {targetUrl}
-                </Text>{' '}
-                when <Text strong>{eventType}</Text> events occur{' '}
-                {scope === 'ALL' ? 'across all entities' : 'in the current tenant'}.
-                {deliveryMode && ` ${getDeliveryModeSummaryText(deliveryMode)}`}
-              </Paragraph>
-            </div>
-          }
-        />
+        <AstryxText as="p" display="block" type="supporting" className="console-margin-bottom-5">
+          {isCreating ? 'You are about to create this rule:' : 'This rule will:'} Automatically send{' '}
+          <AstryxText weight="semibold">{httpMethod}</AstryxText> requests to{' '}
+          <AstryxText type="code">{targetUrl}</AstryxText> when{' '}
+          <AstryxText weight="semibold">{eventType}</AstryxText> events occur{' '}
+          {scope === 'ALL' ? 'across all entities' : 'in the current tenant'}.
+          {deliveryMode && ` ${getDeliveryModeSummaryText(deliveryMode)}`}
+        </AstryxText>
 
         {/* Configuration Details */}
         <div className="console-margin-bottom-5">

@@ -1,8 +1,9 @@
-import { Badge, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Tooltip } from "@/components/common/LegacyAntdControls";
 import { Icon as GatewayIcon } from '../common/Icon';
 import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from '@astryxdesign/core/SideNav';
 import { useEffect, useMemo, useState } from 'react';
 import { Button as AstryxButton } from '@astryxdesign/core/Button';
+import { useBranding } from '../../app/branding-provider';
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -49,6 +50,7 @@ export const AppSidebar = ({
   onToggle,
   failedCount,
 }: AppSidebarProps) => {
+  const { branding } = useBranding();
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     const initial = readCollapsedGroups();
     const activeGroup = navGroups.find((group) => isRouteInGroup(activeKey, group.items));
@@ -83,9 +85,20 @@ export const AppSidebar = ({
       collapsible={isMobile ? false : collapseConfig}
       header={
         <SideNavHeading
-          icon={<GatewayIcon name="DeploymentUnitOutlined" />}
-          superheading="MEDICS"
-          heading="Integration Gateway"
+          icon={
+            branding.logoUrl ? (
+              <img
+                className="app-sidebar__brand-mark app-sidebar__brand-logo"
+                src={branding.logoUrl}
+                alt=""
+                aria-hidden="true"
+              />
+            ) : (
+              <GatewayIcon className="app-sidebar__brand-mark" name="PlusOutlined" />
+            )
+          }
+          heading={branding.workspaceName ?? branding.productName}
+          subheading={branding.workspaceName ? branding.productName : undefined}
           headerEndContent={
             !isMobile && !isCollapsed ? (
               <Tooltip title="Collapse sidebar" placement="right">
@@ -157,7 +170,14 @@ export const AppSidebar = ({
                   isSelected={activeKey === item.key}
                   onClick={() => onNavigate(item.key)}
                   endContent={
-                    item.key === '/logs' && failedCount ? <Badge count={failedCount} size="small" /> : undefined
+                    item.key === '/logs' && failedCount ? (
+                      <span
+                        className="app-sidebar__count"
+                        aria-label={`${failedCount} failed ${failedCount === 1 ? 'delivery' : 'deliveries'}`}
+                      >
+                        {failedCount > 99 ? '99+' : failedCount}
+                      </span>
+                    ) : undefined
                   }
                 />
               ))}

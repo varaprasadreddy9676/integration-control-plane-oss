@@ -199,7 +199,7 @@ describe('Inbound Integration edit — tab gating on an already-complete record'
     expect(panel?.parentElement).not.toHaveClass('ant-card');
   });
 
-  it('wraps the bottom action bar instead of letting Save Changes overflow the viewport', async () => {
+  it('keeps Save Changes and testing tools in the shared action bar', async () => {
     const { InboundIntegrationDetailRoute } = await import(
       '../features/inbound-integrations/routes/InboundIntegrationDetailRoute'
     );
@@ -222,20 +222,9 @@ describe('Inbound Integration edit — tab gating on an already-complete record'
       expect(screen.getByDisplayValue('PartnerHub - Link Records')).toBeInTheDocument();
     });
 
-    const saveButton = screen.getByText('Save Changes');
-    // The bottom bar is: Card > flex row (flexWrap) > [left Space, right Space]. Walk up to
-    // the flex row and confirm it wraps, rather than assuming a fixed number of ancestor hops.
-    let node: HTMLElement | null = saveButton;
-    let flexRow: HTMLElement | null = null;
-    while (node) {
-      if (node.style.display === 'flex') {
-        flexRow = node;
-        break;
-      }
-      node = node.parentElement;
-    }
-    expect(flexRow).not.toBeNull();
-    expect(flexRow!.style.flexWrap).toBe('wrap');
+    const bar = screen.getByRole('button', { name: 'Save Changes' }).closest('footer.configuration-action-bar');
+    expect(bar).toContainElement(screen.getByRole('button', { name: 'Test tools' }));
+    expect(bar).toContainElement(screen.getByRole('button', { name: 'Cancel' }));
   });
 
   it('opens the configuration summary without a redundant review instruction', async () => {

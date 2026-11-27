@@ -58,7 +58,7 @@ export const LogDetailRoute = () => {
   };
 
   // Use integration configuration from the log response (no separate API call needed)
-  const integration = data?.__KEEP_integrationConfig__;
+  const integration = data?.integrationConfig;
   const responseStatus = data?.responseStatus;
   const hasResponseStatus = typeof responseStatus === 'number';
   const responseOk = hasResponseStatus && responseStatus >= 200 && responseStatus < 300;
@@ -233,9 +233,9 @@ export const LogDetailRoute = () => {
     }
   };
 
-  const generateCurlCommandForAttempt = (attempt: DeliveryAttempt, __KEEP_integrationConfig__?: any) => {
-    const targetUrl = attempt.targetUrl || __KEEP_integrationConfig__?.targetUrl;
-    const httpMethod = attempt.httpMethod || __KEEP_integrationConfig__?.httpMethod || 'POST';
+  const generateCurlCommandForAttempt = (attempt: DeliveryAttempt, integrationConfig?: any) => {
+    const targetUrl = attempt.targetUrl || integrationConfig?.targetUrl;
+    const httpMethod = attempt.httpMethod || integrationConfig?.httpMethod || 'POST';
 
     if (!targetUrl || !attempt.requestPayload) return '';
 
@@ -244,7 +244,7 @@ export const LogDetailRoute = () => {
     // Headers as sent, with credentials masked — this gets copied into tickets.
     if (attempt.requestHeaders && typeof attempt.requestHeaders === 'object') {
       Object.entries(attempt.requestHeaders).forEach(([key, value]) => {
-        const customAuthHeader = __KEEP_integrationConfig__?.outgoingAuthConfig?.headerName;
+        const customAuthHeader = integrationConfig?.outgoingAuthConfig?.headerName;
         const isCustomAuth =
           typeof customAuthHeader === 'string' && key.toLowerCase() === customAuthHeader.toLowerCase();
         const shown = isCredentialField(key) || isCustomAuth ? '[REDACTED]' : value;
@@ -254,17 +254,17 @@ export const LogDetailRoute = () => {
       // Fallback: Reconstruct from integration config (redacted for security)
       curl += ` \\\n  -H "Content-Type: application/json"`;
 
-      if (__KEEP_integrationConfig__?.outgoingAuthType === 'API_KEY' && __KEEP_integrationConfig__.outgoingAuthConfig) {
-        const headerName = __KEEP_integrationConfig__.outgoingAuthConfig.headerName || 'X-API-Key';
+      if (integrationConfig?.outgoingAuthType === 'API_KEY' && integrationConfig.outgoingAuthConfig) {
+        const headerName = integrationConfig.outgoingAuthConfig.headerName || 'X-API-Key';
         curl += ` \\\n  -H "${headerName}: [REDACTED]"`;
       } else if (
-        __KEEP_integrationConfig__?.outgoingAuthType === 'BEARER' &&
-        __KEEP_integrationConfig__.outgoingAuthConfig
+        integrationConfig?.outgoingAuthType === 'BEARER' &&
+        integrationConfig.outgoingAuthConfig
       ) {
         curl += ` \\\n  -H "Authorization: Bearer [REDACTED]"`;
       } else if (
-        __KEEP_integrationConfig__?.outgoingAuthType === 'BASIC' &&
-        __KEEP_integrationConfig__.outgoingAuthConfig
+        integrationConfig?.outgoingAuthType === 'BASIC' &&
+        integrationConfig.outgoingAuthConfig
       ) {
         curl += ` \\\n  -H "Authorization: Basic [REDACTED]"`;
       }
@@ -277,10 +277,10 @@ export const LogDetailRoute = () => {
 
   const AttemptTimelineItem = ({
     attempt,
-    __KEEP_integrationConfig__,
+    integrationConfig,
   }: {
     attempt: DeliveryAttempt;
-    __KEEP_integrationConfig__?: any;
+    integrationConfig?: any;
   }) => (
     <Timeline.Item
       dot={getAttemptIcon(attempt)}
@@ -303,7 +303,7 @@ export const LogDetailRoute = () => {
           </Text>
         )}
 
-        <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3, lg: 3, xl: 3, xxl: 3 }} bordered>
+        <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3, lg: 3, xl: 3, xxl: 3 }}>
           {attempt.responseStatus && (
             <Descriptions.Item label="HTTP Status">{renderHttpStatus(attempt.responseStatus)}</Descriptions.Item>
           )}
@@ -338,7 +338,7 @@ export const LogDetailRoute = () => {
                   icon={<GatewayIcon name="CopyOutlined" />}
                   onClick={(e) => {
                     e.stopPropagation();
-                    copyToClipboard(generateCurlCommandForAttempt(attempt, __KEEP_integrationConfig__));
+                    copyToClipboard(generateCurlCommandForAttempt(attempt, integrationConfig));
                   }}
                 >
                   Copy cURL
@@ -354,11 +354,11 @@ export const LogDetailRoute = () => {
                   <Button
                     size="small"
                     icon={<GatewayIcon name="CopyOutlined" />}
-                    onClick={() => copyToClipboard(generateCurlCommandForAttempt(attempt, __KEEP_integrationConfig__))}
+                    onClick={() => copyToClipboard(generateCurlCommandForAttempt(attempt, integrationConfig))}
                     className="console-position-absolute-inset-1"
                   />
                   <pre className="log-detail-code-preview log-detail-code-preview--curl log-detail-code-preview--compact">
-                    {generateCurlCommandForAttempt(attempt, __KEEP_integrationConfig__)}
+                    {generateCurlCommandForAttempt(attempt, integrationConfig)}
                   </pre>
                 </div>
               </div>
@@ -442,7 +442,7 @@ export const LogDetailRoute = () => {
           title="Delivery log"
           breadcrumb={[
             { label: 'Logs', path: '/logs' },
-            { label: integration?.name || data?.__KEEP_integrationName__ || data?.eventType || 'Delivery log' },
+            { label: integration?.name || data?.integrationName || data?.eventType || 'Delivery log' },
           ]}
           compact
           actions={<Link to="/logs">Back to logs</Link>}
@@ -483,8 +483,8 @@ export const LogDetailRoute = () => {
         <Space direction="vertical" className="console-width-full" size={spacingToNumber(spacing[3])}>
           {/* Overview Card */}
           <Card title="Overview" size="small">
-            <Descriptions column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} bordered size="small">
-              <Descriptions.Item label="Integration">{data.__KEEP_integrationName__}</Descriptions.Item>
+            <Descriptions column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} size="small">
+              <Descriptions.Item label="Integration">{data.integrationName}</Descriptions.Item>
               <Descriptions.Item label="Event type">{data.eventType}</Descriptions.Item>
               <Descriptions.Item label="Flow">
                 {data.direction === 'OUTBOUND' && data.triggerType === 'SCHEDULED'
@@ -533,7 +533,7 @@ export const LogDetailRoute = () => {
                 </Button>
               }
             >
-              <Descriptions column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} bordered size="small">
+              <Descriptions column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} size="small">
                 <Descriptions.Item label="Target URL">{integration.targetUrl}</Descriptions.Item>
                 <Descriptions.Item label="HTTP Method">
                   <Text code>{integration.httpMethod}</Text>
@@ -728,7 +728,7 @@ export const LogDetailRoute = () => {
                       <Text strong className="console-type-control">
                         Step 3: HTTP Request Sent
                       </Text>
-                      <Descriptions size="small" column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} bordered>
+                      <Descriptions size="small" column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}>
                         <Descriptions.Item label="Method">
                           <Text code>{metadata.httpRequest.method}</Text>
                         </Descriptions.Item>
@@ -1055,7 +1055,7 @@ export const LogDetailRoute = () => {
               key="response"
             >
               <Space direction="vertical" className="console-width-full" size="middle">
-                <Descriptions column={1} bordered size="small">
+                <Descriptions column={1} size="small">
                   {hasResponseStatus && (
                     <Descriptions.Item label="HTTP Status">{renderHttpStatus(responseStatus)}</Descriptions.Item>
                   )}
@@ -1132,7 +1132,7 @@ export const LogDetailRoute = () => {
                   className="console-margin-top-3"
                   items={data.retryAttempts.map((attempt, index) => ({
                     key: attempt.attemptNumber,
-                    children: <AttemptTimelineItem attempt={attempt} __KEEP_integrationConfig__={integration} />,
+                    children: <AttemptTimelineItem attempt={attempt} integrationConfig={integration} />,
                   }))}
                 />
               </Panel>
@@ -1152,7 +1152,7 @@ export const LogDetailRoute = () => {
                 }
                 key="retries"
               >
-                <Descriptions column={1} bordered size="small">
+                <Descriptions column={1} size="small">
                   <Descriptions.Item label="Total Attempts">
                     <Text>{data.attemptCount}</Text>
                   </Descriptions.Item>

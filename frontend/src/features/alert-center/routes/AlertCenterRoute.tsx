@@ -22,6 +22,7 @@ import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { PageTemplate } from '../../../components/common/PageTemplate';
 import { FilterBar } from '../../../components/common/FilterBar';
+import { Metric, MetricStrip } from '../../../design-system/primitives';
 import { SearchInput } from '../../../components/common/ListControls';
 import { ModernTable } from '../../../components/common/ModernTable';
 import {
@@ -427,29 +428,13 @@ export const AlertCenterRoute = () => {
         </Space>
       }
     >
-      <Card
-        style={{ ...cardStyle, marginBottom: spacing[2], padding: `${spacing['1.5']} ${spacing[3]}` }}
-        styles={{ body: { padding: 'var(--spacing-0)' } }}
-      >
-        <div className="alert-center-summary">
-          <dl className="alert-center-metrics" aria-label="Alert totals">
-            <div>
-              <dt>Total alerts</dt>
-              <dd>{stats.total}</dd>
-            </div>
-            <div>
-              <dt>Delivered</dt>
-              <dd>{stats.sent}</dd>
-            </div>
-            <div>
-              <dt>Failed</dt>
-              <dd>{stats.failed}</dd>
-            </div>
-            <div>
-              <dt>Skipped</dt>
-              <dd>{stats.skipped}</dd>
-            </div>
-          </dl>
+      <section className="alert-center-summary" aria-label="Alert totals">
+        <MetricStrip className="ds-metrics--four">
+          <Metric label="Total alerts" value={stats.total} />
+          <Metric label="Delivered" value={stats.sent} />
+          <Metric label="Failed" value={stats.failed} tone={stats.failed > 0 ? 'bad' : 'neutral'} />
+          <Metric label="Skipped" value={stats.skipped} />
+        </MetricStrip>
           <dl className="alert-center-metadata" aria-label="Alert configuration status">
             <div>
               <dt>Next run</dt>
@@ -479,9 +464,8 @@ export const AlertCenterRoute = () => {
                 {uiConfig?.notifications?.failureEmailReports?.email || tenantInfo?.tenantEmail || 'Not configured'}
               </dd>
             </div>
-          </dl>
-        </div>
-      </Card>
+        </dl>
+      </section>
 
       <FilterBar>
         <SearchInput
@@ -495,6 +479,7 @@ export const AlertCenterRoute = () => {
         <Select
           allowClear
           placeholder="Status"
+          aria-label="Filter by status"
           value={statusFilter}
           onChange={(value) => setStatusFilter(value || undefined)}
           options={STATUS_OPTIONS}
@@ -504,6 +489,7 @@ export const AlertCenterRoute = () => {
         <Select
           allowClear
           placeholder="Channel"
+          aria-label="Filter by channel"
           value={channelFilter}
           onChange={(value) => setChannelFilter(value || undefined)}
           options={CHANNEL_OPTIONS}
@@ -513,6 +499,7 @@ export const AlertCenterRoute = () => {
         <Select
           allowClear
           placeholder="Type"
+          aria-label="Filter by type"
           value={typeFilter}
           onChange={(value) => setTypeFilter(value || undefined)}
           options={typeOptions}

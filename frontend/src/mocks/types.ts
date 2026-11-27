@@ -74,10 +74,8 @@ export interface SchedulingConfig {
 
 export interface ScheduledIntegration {
   id: string;
-  __KEEP___KEEP_integrationConfig__Id__: string;
-  __KEEP_integrationName__: string;
-  integrationConfigId?: string; // Mapped field for convenience
-  integrationName?: string; // Mapped field for convenience
+  integrationConfigId: string;
+  integrationName: string;
   tenantId: number;
   orgId?: number;
   originalEventId: string;
@@ -322,8 +320,6 @@ export interface DeliveryFollowUp {
 export interface DeliveryLog {
   id: string;
   integrationConfigId?: string | null;
-  __KEEP___KEEP_integrationConfig__Id__: string;
-  __KEEP_integrationName__: string; // legacy alias — API returns integrationName
   integrationName?: string | null;
   eventType: string;
   messageId?: string | null; // id of the source event (Event Audit eventId); replay_* for replays
@@ -354,7 +350,7 @@ export interface DeliveryLog {
   followUp?: DeliveryFollowUp | null;
   /** The latest status of each pipeline stage, by stage id (bodies are fetched with the details). */
   stageSummary?: Record<string, { status?: string | null; done?: boolean; outcome?: string; seq?: number; name?: string; hook?: string | null }> | null;
-  __KEEP_integrationConfig__?: IntegrationConfig; // Enhanced with integration configuration details
+  integrationConfig?: IntegrationConfig; // Enhanced with integration configuration details
   retryAttempts?: DeliveryAttempt[]; // Detailed retry attempts for enhanced UI
   metadata?: {
     recordsFetched?: number;

@@ -1,12 +1,12 @@
-import { Form, Switch } from '@/components/common/LegacyAntdControls';
-import { Text } from '@astryxdesign/core/Text';
+import { Dropdown, Form, Switch } from '@/components/common/LegacyAntdControls';
+import { Button } from '../../../../../components/common/LegacyButton';
+import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { IntegrationConfig } from '../../../../../mocks/types';
 import { PageHeader } from '../../../../../components/common/PageHeader';
 import { FormActions } from '../../../components/common';
 import { formatDateTime } from '../../../../../utils/format';
-import { cssVar } from '../../../../../design-system/utils';
 import { getDeliveryModeChipLabel } from '../utils/deliveryMode';
 import { StatusBadge } from '../../../../../components/common/StatusBadge';
 
@@ -87,7 +87,7 @@ export const IntegrationPageHeader = ({
               className={isActiveValue === false ? undefined : 'integration-active-status'}
             />
             <Form.Item name="isActive" valuePropName="checked" noStyle>
-              <Switch size="small" disabled={isPortalSession} />
+              <Switch size="small" disabled={isPortalSession} aria-label="Integration active" />
             </Form.Item>
           </div>
         ) : undefined
@@ -95,20 +95,16 @@ export const IntegrationPageHeader = ({
       summary={summary}
       actions={
         !isCreate && !isEditMode ? (
-          <div
-            className="integration-page-header-actions"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              flexWrap: 'wrap',
-              gap: spacing[2],
-              width: '100%',
-              maxWidth: '100%',
-              minWidth: 0,
-            }}
-          >
+          <section className="integration-page-header-actions" aria-label="Integration actions">
             {extraActions && <div className="integration-page-header-secondary-actions">{extraActions}</div>}
+            <Dropdown trigger={['click']} menu={{ items: [
+              { key: 'export', label: 'Export configuration', icon: <GatewayIcon name="DownloadOutlined" />, onClick: onExport },
+              ...(!isPortalSession ? [
+                { key: 'duplicate', label: 'Duplicate integration', icon: <GatewayIcon name="CopyOutlined" />, onClick: onDuplicate },
+              ] : []),
+            ] }}>
+              <Button icon={<GatewayIcon name="MoreOutlined" />} aria-label="More integration actions" />
+            </Dropdown>
             <div className="integration-page-header-primary-actions ui-extracted-55a6f49ed2">
               <FormActions
                 mode="view"
@@ -117,8 +113,8 @@ export const IntegrationPageHeader = ({
                 isActive={isActiveValue}
                 canTest={!isCreate}
                 canSave={false}
-                canDuplicate={!isCreate && !isEditMode}
-                canExport={!isCreate && !isEditMode}
+                canDuplicate={false}
+                canExport={false}
                 canImport={false}
                 onSave={onSave}
                 onTest={onTest}
@@ -138,7 +134,7 @@ export const IntegrationPageHeader = ({
                 isPortalSession={isPortalSession}
               />
             </div>
-          </div>
+          </section>
         ) : (
           extraActions
         )

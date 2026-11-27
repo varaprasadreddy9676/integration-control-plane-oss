@@ -15,7 +15,7 @@ export const DeliveryModeSelector = ({ value, onChange }: DeliveryModeSelectorPr
   };
 
   return (
-    <div className="console-row-wrap">
+    <div className="configuration-view-control">
       <Space size={6}>
         <Text weight="semibold">Delivery mode</Text>
         <Tooltip title="Choose single delivery for one target endpoint, or multi-action for sequential requests.">

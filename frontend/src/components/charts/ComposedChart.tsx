@@ -11,14 +11,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import {
-  chartColors,
-  chartAxisConfig,
-  chartGridConfig,
-  chartTooltipStyle,
-  chartLegendConfig,
-  chartCursor,
   chartMargins,
   chartAnimationConfig,
+  useChartTheme,
   ChartMargin,
 } from '../../design-system/theme/chart-theme';
 
@@ -69,12 +64,13 @@ export function ComposedChart({
   hiddenLegends = new Set(),
   onLegendClick,
 }: ComposedChartProps) {
+  const { chartColors, chartAxisConfig, chartGridConfig, chartTooltipStyle, chartLegendConfig, chartCursor } = useChartTheme();
   const coloredBars = useMemo(() => {
     return bars.map((bar, index) => ({
       ...bar,
       color: bar.color || chartColors.categorical[index % chartColors.categorical.length],
     }));
-  }, [bars]);
+  }, [bars, chartColors]);
 
   const coloredLines = useMemo(() => {
     return lines.map((line, index) => ({
@@ -82,7 +78,7 @@ export function ComposedChart({
       color: line.color || chartColors.categorical[(bars.length + index) % chartColors.categorical.length],
       strokeWidth: line.strokeWidth || 2,
     }));
-  }, [lines, bars.length]);
+  }, [lines, bars.length, chartColors]);
 
   return (
     <ResponsiveContainer width="100%" height={height}>

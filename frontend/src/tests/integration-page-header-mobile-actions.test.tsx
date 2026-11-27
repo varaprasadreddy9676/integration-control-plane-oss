@@ -1,5 +1,5 @@
 import { Form } from 'antd';
-import { render } from '@testing-library/react';
+import { render, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { ThemeProvider } from '../app/theme-provider';
@@ -7,7 +7,7 @@ import { spacing } from '../design-system/tokens/spacing';
 import { IntegrationPageHeader } from '../features/integrations/routes/integrationDetail/components/IntegrationPageHeader';
 
 describe('IntegrationPageHeader mobile actions', () => {
-  it('wraps secondary actions and primary actions within the available width', () => {
+  it('keeps primary actions visible and groups secondary actions behind a named menu', () => {
     const { container } = render(
       <ThemeProvider>
         <MemoryRouter>
@@ -34,15 +34,14 @@ describe('IntegrationPageHeader mobile actions', () => {
       </ThemeProvider>
     );
 
-    const actionGroups = container.querySelector('.integration-page-header-actions');
-    expect(actionGroups).not.toBeNull();
-    expect(actionGroups).toHaveStyle({ display: 'flex', flexWrap: 'wrap', maxWidth: '100%' });
+    const actions = within(container).getByRole('region', { name: 'Integration actions' });
     expect(container.querySelector('.integration-page-header-primary-actions')).toHaveClass(
       'integration-page-header-primary-actions'
     );
-    expect(actionGroups?.textContent).toContain('Test Event Rule');
-    expect(actionGroups?.textContent).toContain('Edit Integration');
-    expect(actionGroups?.textContent).toContain('Reveal credentials');
+    for (const name of ['Test Event Rule', 'Edit Integration', 'Reveal credentials', 'More integration actions']) {
+      expect(within(actions).getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(within(actions).queryByRole('button', { name: 'Duplicate' })).not.toBeInTheDocument();
     expect(container.querySelector('.ant-typography')).toBeNull();
   });
 });

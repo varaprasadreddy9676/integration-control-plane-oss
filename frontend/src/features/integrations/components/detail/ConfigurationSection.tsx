@@ -5,7 +5,7 @@ import { Icon as GatewayIcon } from '../../../../components/common/Icon';
 import type { FormInstance } from "@/components/common/LegacyAntdControls";
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { cssVar, withAlpha } from '../../../../design-system/utils';
+import { cssVar, spacingToNumber, withAlpha } from '../../../../design-system/utils';
 import { HelpPopover, UrlRequirementsHelp, DataSecurityHelp } from './shared';
 import { listProviders } from '../../../../services/api';
 import { buildUrlWithOrgId } from '../../../../utils/navigation';
@@ -23,12 +23,6 @@ interface ConfigurationSectionProps {
   token: any;
   colors: any;
 }
-
-const spacingToNumber = (value: any): number => {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') return parseInt(value, 10) || 0;
-  return 0;
-};
 
 /**
  * ConfigurationSection - Basic integration configuration fields

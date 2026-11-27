@@ -8,10 +8,13 @@ import { ThemeProvider } from '../app/theme-provider';
 
 // Regression test: QUEUED is a real, commonly-emitted backend delivery status (see
 // backend/src/routes/events.js, alert-center.js, system-logs.js, admin.js, logs.js), but it
-// was missing from both the top "Status" filter Select and the Status column's filter
-// dropdown on the Delivery Logs list — so a QUEUED log could never be filtered to/from the
-// list. Also covers the companion copy fix: the page said "Click a row to inspect..." even
-// though only the "+" expand icon actually does anything; clicking the row itself is a no-op.
+// was missing from the Delivery Logs status filter.
+
+const { useBreakpoint } = vi.hoisted(() => ({ useBreakpoint: vi.fn() }));
+vi.mock('../components/common/LegacyAntdControls', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../components/common/LegacyAntdControls')>();
+  return { ...actual, Grid: { ...actual.Grid, useBreakpoint } };
+});
 
 vi.mock('../app/auth-context', () => ({
   useAuth: () => ({ user: { role: 'ORG_ADMIN' } }),
@@ -67,6 +70,7 @@ const LocationProbe = () => {
 describe('Delivery Logs list — QUEUED status filter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useBreakpoint.mockReturnValue({ md: true, lg: true, xl: true });
     mockApi.getUIConfig.mockResolvedValue({});
     mockApi.getUIConfigOverride.mockResolvedValue({});
     mockApi.getLogs.mockResolvedValue({ data: [], pagination: { total: 0, page: 1, limit: 15, totalPages: 0 } });
@@ -162,5 +166,13 @@ describe('Delivery Logs list — QUEUED status filter', () => {
       expect(params.get('startDate')).toBe(query.dateRange[0]);
       expect(params.get('endDate')).toBe(query.dateRange[1]);
     });
+  });
+
+  it('discloses only the compact delivery summary columns on phones', async () => {
+    useBreakpoint.mockReturnValue({ md: false, lg: false, xl: false });
+    await renderRoute();
+
+    const columns = JSON.parse(screen.getByTestId('modern-table-columns').getAttribute('data-columns') || '[]');
+    expect(columns.map(({ key }: { key: string }) => key)).toEqual(['createdAt', 'integrationName', 'status', 'actions']);
   });
 });

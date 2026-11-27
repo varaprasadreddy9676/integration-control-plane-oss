@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useBranding } from '../../app/branding-provider';
 import { Form, Input } from "@/components/common/LegacyAntdControls";
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
@@ -30,14 +31,17 @@ const PILLARS = [
   },
 ] as const;
 
-const HeroPanel = () => (
-  <aside className="login-hero" aria-label="About Integration Gateway">
+const HeroPanel = () => {
+  const { branding } = useBranding();
+
+  return (
+  <aside className="login-hero" aria-label={`About ${branding.productName}`}>
     <div className="login-hero-inner">
       <div className="login-logo">
         <span className="login-logo-mark" aria-hidden="true">
           <GatewayIcon name="ThunderboltOutlined" />
         </span>
-        <span className="login-logo-name">Integration Gateway</span>
+        <span className="login-logo-name">{branding.productName}</span>
       </div>
 
       <div className="login-hero-copy">
@@ -75,9 +79,11 @@ const HeroPanel = () => (
       <div aria-hidden="true" />
     </div>
   </aside>
-);
+  );
+};
 
 export const LoginRoute = () => {
+  const { branding } = useBranding();
   const { login } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);

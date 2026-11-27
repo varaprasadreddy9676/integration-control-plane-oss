@@ -493,7 +493,17 @@ export function ModernTable<T extends object>({
           columns={mergedColumns as ColumnType<T>[]}
           dataSource={isLoading ? (skeletonRows as T[]) : tableProps.dataSource}
           rowKey={effectiveRowKey as any}
-          rowSelection={isLoading ? undefined : tableProps.rowSelection}
+          rowSelection={
+            isLoading
+              ? undefined
+              : tableProps.rowSelection && {
+                  ...tableProps.rowSelection,
+                  getCheckboxProps: (record: any) => ({
+                    ...(tableProps.rowSelection?.getCheckboxProps?.(record) ?? {}),
+                    'aria-label': `Select ${record?.name ?? record?.eventType ?? record?.id ?? 'row'}`,
+                  }),
+                }
+          }
           expandable={isLoading ? undefined : tableProps.expandable}
           scroll={isMobile ? undefined : { x: 'max-content', ...tableProps.scroll }}
           locale={mergedLocale}

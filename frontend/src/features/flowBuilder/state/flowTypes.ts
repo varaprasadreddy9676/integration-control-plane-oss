@@ -268,7 +268,7 @@ export interface ResponseNodeData extends BaseNodeData {
  */
 export interface IntegrationNodeData extends BaseNodeData {
   nodeType: 'integration';
-  __KEEP_integrationName__?: string; // Optional name for this integration
+  integrationName?: string; // Optional name for this integration
   url: string;
   method: HttpMethod;
   headers?: Record<string, string>;

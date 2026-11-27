@@ -1,9 +1,9 @@
 import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
-import { Card, Col, Form, Row, Select, Tooltip } from "@/components/common/LegacyAntdControls";
+import { Col, Form, Row, Select, Space } from '@/components/common/LegacyAntdControls';
 import { useEffect } from 'react';
-import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { SingleEventTypeSelectField } from './SingleEventTypeSelectField';
 import { Button } from '../../../../../components/common/LegacyButton';
+import { Row as ItemRow } from '../../../../../design-system/primitives';
 
 const ACTION_OPTIONS = [
   { label: 'Cancel pending delivery', value: 'CANCEL_PENDING' },
@@ -12,14 +12,18 @@ const ACTION_OPTIONS = [
   { label: 'Ignore it', value: 'IGNORE' },
 ];
 
-interface LifecycleRuleCardProps extends LifecyclePanelSurfaceProps {
+interface LifecycleRuleCardProps {
   field: { key: React.Key; name: number };
+  index?: number;
   eventTypeOptions: Array<{ label: string; value: string }>;
   onRemove: (index: number) => void;
+  token?: unknown;
+  colors?: unknown;
 }
 
-export const LifecycleRuleCard = ({ field, eventTypeOptions, onRemove, token, colors }: LifecycleRuleCardProps) => {
+export const LifecycleRuleCard = ({ field, index, eventTypeOptions, onRemove }: LifecycleRuleCardProps) => {
   const form = Form.useFormInstance();
+  const ruleNumber = (index ?? field.name) + 1;
 
   useEffect(() => {
     if (!form.getFieldValue(['lifecycleRules', field.name, 'action'])) {
@@ -28,7 +32,23 @@ export const LifecycleRuleCard = ({ field, eventTypeOptions, onRemove, token, co
   }, [field.name, form]);
 
   return (
-    <Card size="small" style={{ borderRadius: token.borderRadiusLG, borderColor: colors.neutral[200] }}>
+    <ItemRow
+      title={
+        <Space>
+          <GatewayIcon name="ClockCircleOutlined" />
+          <span>Lifecycle rule {ruleNumber}</span>
+        </Space>
+      }
+      actions={
+        <Button
+          danger
+          title="Remove"
+          aria-label="Remove lifecycle rule"
+          icon={<GatewayIcon name="DeleteOutlined" />}
+          onClick={() => onRemove(field.name)}
+        />
+      }
+    >
       <Row gutter={[12, 12]}>
         <Col xs={24} lg={12}>
           <SingleEventTypeSelectField
@@ -48,23 +68,13 @@ export const LifecycleRuleCard = ({ field, eventTypeOptions, onRemove, token, co
             name={[field.name, 'action']}
             label="Then"
             initialValue="CANCEL_PENDING"
-            rules={[{ required: true, message: 'Action is required' }]} className="console-margin-bottom-none"
+            rules={[{ required: true, message: 'Action is required' }]}
+            className="console-margin-bottom-none"
           >
             <Select options={ACTION_OPTIONS} />
           </Form.Item>
         </Col>
-        <Col xs={24} lg={2}>
-          <Tooltip title="Remove">
-            <Button
-              danger
-              title="Remove"
-              aria-label="Remove lifecycle rule"
-              icon={<GatewayIcon name="DeleteOutlined" />}
-              onClick={() => onRemove(field.name)}
-            />
-          </Tooltip>
-        </Col>
       </Row>
-    </Card>
+    </ItemRow>
   );
 };

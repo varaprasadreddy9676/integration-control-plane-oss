@@ -4,8 +4,6 @@ module.exports = {
   // Only scan landing page files to keep build fast
   content: [
     './src/features/landing/**/*.{js,ts,jsx,tsx}',
-    './src/components/ui/**/*.{js,ts,jsx,tsx}',
-    './src/lib/utils.ts',
   ],
   // Scope all Tailwind utilities under .landing-page to avoid clashing with Ant Design
   important: '.landing-page',

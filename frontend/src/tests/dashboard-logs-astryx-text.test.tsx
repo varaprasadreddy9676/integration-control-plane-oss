@@ -11,7 +11,7 @@ describe('dashboard logs typography', () => {
       <ThemeProvider>
         <DashboardLogsTab
           logsLoading={false}
-          logs={[{ id: 'log-1', __KEEP_integrationName__: 'Partner API', errorMessage: 'Upstream timeout', createdAt: '2026-11-24T10:00:00Z' }]}
+          logs={[{ id: 'log-1', integrationName: 'Partner API', errorMessage: 'Upstream timeout', createdAt: '2026-11-24T10:00:00Z' }]}
           noDataHint="No failures"
           onViewAll={onViewAll}
         />

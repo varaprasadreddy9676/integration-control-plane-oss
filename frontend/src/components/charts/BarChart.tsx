@@ -13,13 +13,9 @@ import {
   Cell,
 } from 'recharts';
 import {
-  chartColors,
-  chartAxisConfig,
-  chartGridConfig,
-  chartTooltipStyle,
-  chartLegendConfig,
   chartMargins,
   chartAnimationConfig,
+  useChartTheme,
   type ChartMargin,
 } from '../../design-system/theme/chart-theme';
 
@@ -94,6 +90,7 @@ export function BarChart({
   hiddenLegends = new Set(),
   onLegendClick,
 }: BarChartProps) {
+  const { chartColors, chartAxisConfig, chartGridConfig, chartTooltipStyle, chartLegendConfig } = useChartTheme();
   const isVertical = layout === 'vertical';
   const fontSize = typeof chartAxisConfig.style?.fontSize === 'number'
     ? chartAxisConfig.style.fontSize
@@ -204,7 +201,7 @@ export function BarChart({
       color: bar.color || chartColors.categorical[index % chartColors.categorical.length],
       radius: bar.radius || [4, 4, 0, 0] as [number, number, number, number],
     }));
-  }, [bars]);
+  }, [bars, chartColors]);
 
   return (
     <ResponsiveContainer width="100%" height={height}>

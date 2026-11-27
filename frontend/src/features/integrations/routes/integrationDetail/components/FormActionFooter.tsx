@@ -3,6 +3,7 @@ import { Icon as GatewayIcon } from "../../../../../components/common/Icon";
 import { FormActions } from '../../../components/common';
 import { spacingToNumber, cssVar } from '../../../../../design-system/utils';
 import { Button } from '../../../../../components/common/LegacyButton';
+import { useIsMobile } from '../../../../../hooks/use-mobile';
 
 interface FormActionFooterProps {
   visible: boolean;
@@ -42,11 +43,13 @@ export const FormActionFooter = ({
   onActivate,
   showActivate = false,
 }: FormActionFooterProps) => {
+  const isMobile = useIsMobile();
   if (!visible) return null;
   const colors = cssVar.legacy;
 
   return (
     <div
+      className="configuration-action-bar configuration-action-bar--outbound"
       style={{
         position: 'sticky',
         bottom: 0,
@@ -73,7 +76,7 @@ export const FormActionFooter = ({
           onTest={onTest}
           onCancel={onCancel}
           saveText={saveText}
-          testText={testText}
+          testText={isMobile ? 'Test' : testText}
           testDisabledTooltip={testDisabledTooltip}
           testEnabledTooltip={testEnabledTooltip}
           spacing={spacing}

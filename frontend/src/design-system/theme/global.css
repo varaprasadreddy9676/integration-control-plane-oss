@@ -315,7 +315,22 @@ html[data-theme="dark"] .content-stack {
 }
 
 .dashboard-empty-range-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   margin-block-start: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  background: var(--color-background-surface);
+}
+
+.dashboard-empty-range-notice__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .dashboard-metric-tone {
@@ -385,9 +400,11 @@ html[data-theme="dark"] .dashboard-title {
   font-size: 0.75rem !important;
   font-weight: 600 !important;
   border-radius: var(--radius-control) !important;
-  background: rgba(37, 99, 235, 0.08) !important;
-  border: 1px solid rgba(37, 99, 235, 0.2) !important;
-  color: #2563eb !important;
+  /* Accent text on an 8% accent tint measured 4.43:1 in cobalt; the border
+     keeps the affordance without the tint. */
+  background: transparent !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  color: var(--color-text-accent) !important;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -395,15 +412,15 @@ html[data-theme="dark"] .dashboard-title {
 }
 
 .dashboard-manage-link:hover {
-  background: rgba(37, 99, 235, 0.14) !important;
-  border-color: rgba(37, 99, 235, 0.35) !important;
-  color: #1d4ed8 !important;
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent) !important;
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent) !important;
+  color: var(--color-text-accent) !important;
 }
 
 html[data-theme="dark"] .dashboard-manage-link {
-  background: rgba(59, 130, 246, 0.15) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
-  color: #60a5fa !important;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
+  color: var(--color-text-accent) !important;
 }
 
 .dashboard-actions {
@@ -425,18 +442,11 @@ html[data-theme="dark"] .dashboard-manage-link {
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  background: var(--color-background-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
   font-size: 0.75rem;
-  color: #475569;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-}
-
-html[data-theme="dark"] .dashboard-auto-refresh-pill {
-  background: #1e293b;
-  border-color: #334155;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
 }
 
 .dashboard-toolbar {
@@ -486,7 +496,9 @@ html[data-theme="dark"] .dashboard-status {
 .dashboard-section-title {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-neutral-500);
+  /* Section titles are headings, not captions: primary ink so they survive the
+     Contrast pack's dark mode, where secondary ink is near-black. */
+  color: var(--color-text-primary);
   letter-spacing: 0;
   min-width: 0;
   flex: 1 1 auto;
@@ -508,7 +520,7 @@ html[data-theme="dark"] .dashboard-status {
 }
 
 html[data-theme="dark"] .dashboard-section-title {
-  color: var(--color-neutral-400);
+  color: var(--color-text-primary);
 }
 
 .dashboard-kpis {
@@ -520,9 +532,9 @@ html[data-theme="dark"] .dashboard-section-title {
 .alert-center-summary {
   display: grid;
   gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
-.alert-center-metrics,
 .alert-center-metadata {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -530,7 +542,6 @@ html[data-theme="dark"] .dashboard-section-title {
   margin: 0;
 }
 
-.alert-center-metrics > div,
 .alert-center-metadata > div {
   display: grid;
   align-content: start;
@@ -538,13 +549,11 @@ html[data-theme="dark"] .dashboard-section-title {
   min-width: 0;
 }
 
-.alert-center-metrics dt,
 .alert-center-metadata dt {
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
 }
 
-.alert-center-metrics dd,
 .alert-center-metadata dd {
   margin: 0;
   min-width: 0;
@@ -554,18 +563,12 @@ html[data-theme="dark"] .dashboard-section-title {
   font-variant-numeric: tabular-nums;
 }
 
-.alert-center-metrics dd {
-  font-size: var(--font-size-numeral);
-  font-weight: 600;
-}
-
 .alert-center-metadata {
   padding-top: var(--space-3);
   border-top: var(--border-subtle);
 }
 
 @media (max-width: 720px) {
-  .alert-center-metrics,
   .alert-center-metadata {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1161,19 +1164,7 @@ html[data-theme="dark"] .ant-drawer-header {
   height: 3px;
 }
 
-.integration-sections-tab-list {
-  position: sticky;
-  top: var(--_app-shell-header-height, 0px);
-  z-index: 12;
-  margin-bottom: var(--space-3);
-  background: var(--color-bg-base);
-}
-
 @media (max-width: 768px) {
-  .integration-sections-tab-list > .astryx-tab-strip {
-    flex-wrap: wrap;
-  }
-
   .system-status-tab-list > .astryx-tab-strip {
     flex-wrap: wrap;
   }
@@ -1856,15 +1847,6 @@ html[data-theme="dark"] .ant-pagination-item-active a {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-.stat-pill:hover:not([aria-pressed='true']) {
-  border-color: var(--stat-pill-tone) !important;
-}
-
-.stat-pill:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
 }
 
 /* Keep stacked mobile rows on the same semantic surfaces as desktop rows. */

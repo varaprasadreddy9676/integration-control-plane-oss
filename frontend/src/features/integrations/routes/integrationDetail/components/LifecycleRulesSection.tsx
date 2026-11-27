@@ -1,6 +1,7 @@
 import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { useEffect } from 'react';
 import { Card, Form, Space } from '@/components/common/LegacyAntdControls';
+import { RowList } from '../../../../../design-system/primitives';
 import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { LifecycleRuleCard } from './LifecycleRuleCard';
 import { StatePanel } from '../../../../../components/common/StatePanel';
@@ -11,12 +12,7 @@ interface LifecycleRulesSectionProps extends LifecyclePanelSurfaceProps {
   defaultMatchKeys: string[];
 }
 
-export const LifecycleRulesSection = ({
-  eventTypeOptions,
-  defaultMatchKeys,
-  token,
-  colors,
-}: LifecycleRulesSectionProps) => {
+export const LifecycleRulesSection = ({ eventTypeOptions, defaultMatchKeys }: LifecycleRulesSectionProps) => {
   const form = Form.useFormInstance();
   const lifecycleRules = Form.useWatch('lifecycleRules') || [];
 
@@ -55,18 +51,17 @@ export const LifecycleRulesSection = ({
                 description="Add a rule to manage held deliveries."
               />
             )}
-            {fields.map((field) => {
-              return (
+            <RowList label="Lifecycle rules">
+              {fields.map((field, index) => (
                 <LifecycleRuleCard
                   key={field.key}
                   field={field}
+                  index={index}
                   eventTypeOptions={eventTypeOptions}
                   onRemove={remove}
-                  token={token}
-                  colors={colors}
                 />
-              );
-            })}
+              ))}
+            </RowList>
             <Button
               type="dashed"
               icon={<GatewayIcon name="PlusOutlined" />}

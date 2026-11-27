@@ -8,10 +8,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import {
-  chartColors,
-  chartTooltipStyle,
-  chartLegendConfig,
   chartAnimationConfig,
+  useChartTheme,
 } from '../../design-system/theme/chart-theme';
 
 export interface PieChartProps {
@@ -47,9 +45,10 @@ export function PieChart({
   hiddenLegends = new Set(),
   onLegendClick,
 }: PieChartProps) {
+  const { chartColors, chartTooltipStyle, chartLegendConfig } = useChartTheme();
   const pieColors = useMemo(() => {
     return colors || chartColors.categorical;
-  }, [colors]);
+  }, [colors, chartColors]);
 
   const filteredData = useMemo(() => {
     return data.filter(entry => !hiddenLegends.has(entry.name));

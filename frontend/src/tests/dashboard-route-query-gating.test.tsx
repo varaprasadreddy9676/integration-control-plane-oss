@@ -62,7 +62,20 @@ vi.mock('../design-system/utils', async () => ({
 
 vi.mock('../features/dashboard/components', () => ({
   DashboardHeader: ({ onRefresh }: { onRefresh: () => void }) => <button onClick={onRefresh}>Refresh</button>,
-  DashboardToolbar: ({ statusText }: { statusText?: string }) => <div>{statusText}</div>,
+  DashboardToolbar: ({
+    statusText,
+    setDirection,
+  }: {
+    statusText?: string;
+    setDirection?: (value: string) => void;
+  }) => (
+    <div>
+      <div>{statusText}</div>
+      {/* Direction is a filter; the stub exposes it the way the real toolbar does. */}
+      <button onClick={() => setDirection?.('INBOUND')}>Inbound</button>
+      <button onClick={() => setDirection?.('SCHEDULED')}>Scheduled</button>
+    </div>
+  ),
   DashboardKpiSection: () => <div>KPI</div>,
   DashboardDetailsTabs: ({
     activeKey,
@@ -233,24 +246,27 @@ describe('DashboardRoute query gating', () => {
     await waitFor(() => expect(screen.getByText('Active: overview')).toBeInTheDocument());
   });
 
-  it('does not fetch scoped analytics for empty inbound or scheduled tabs', async () => {
+  it('does not fetch scoped analytics for directions with nothing configured', async () => {
     await renderRoute();
 
     await waitFor(() => {
       expect(mockApi.getAnalyticsOverview).toHaveBeenCalledTimes(1);
     });
 
+    // Direction is a filter now; it must not mount the performance view by itself.
     fireEvent.click(screen.getByRole('button', { name: 'Inbound' }));
     fireEvent.click(screen.getByRole('button', { name: 'Scheduled' }));
 
+    // The filter changes the scope; the view stays on the overview.
     await waitFor(() => {
-      expect(screen.getByText('Active: scheduled')).toBeInTheDocument();
+      expect(screen.getByText('Active: overview')).toBeInTheDocument();
     });
 
     expect(mockApi.getAnalyticsOverview).toHaveBeenCalledTimes(1);
     expect(mockApi.getAnalyticsPerformance).not.toHaveBeenCalled();
     expect(mockApi.getAnalyticsErrors).not.toHaveBeenCalled();
     expect(mockApi.getAnalyticsTimeseries).toHaveBeenCalledTimes(2);
+    // The integration-options query always loads scheduled jobs to label them.
     expect(mockApi.getAllScheduledJobs).toHaveBeenCalledTimes(1);
   });
 
@@ -291,6 +307,11 @@ describe('DashboardRoute query gating', () => {
 
     await waitFor(() => {
       expect(mockApi.getAnalyticsOverview).toHaveBeenCalledTimes(2);
+    });
+    // The performance data is fetched by the view that shows it, not by the filter.
+    expect(mockApi.getAnalyticsPerformance).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Inbound performance' }));
+    await waitFor(() => {
       expect(mockApi.getAnalyticsPerformance).toHaveBeenCalledTimes(1);
     });
 

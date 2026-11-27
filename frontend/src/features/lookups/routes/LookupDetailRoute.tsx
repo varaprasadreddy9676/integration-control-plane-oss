@@ -12,6 +12,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { PageTemplate } from '../../../components/common/PageTemplate';
 import { ConfigSection } from '../../../components/common/ConfigSection';
 import { StatePanel } from '../../../components/common/StatePanel';
+import { FormItemSelect } from '../../../shared/forms/FormItemControls';
 import { Button } from '../../../components/common/LegacyButton';
 
 export const LookupDetailRoute = () => {
@@ -166,7 +167,7 @@ export const LookupDetailRoute = () => {
               label="Type"
               rules={[{ required: true, message: 'Enter a mapping type' }]}
             >
-              <Select
+              <FormItemSelect
                 placeholder="Select or enter a type"
                 showSearch
                 mode="tags"
@@ -226,7 +227,7 @@ export const LookupDetailRoute = () => {
                 label="Applies to"
                 rules={[{ required: true, message: 'Choose where this mapping applies' }]}
               >
-                <Select
+                <FormItemSelect
                   options={[
                     { label: 'Parent organization (default)', value: 'parent' },
                     ...(tenant?.childEntities || []).map((entity) => ({

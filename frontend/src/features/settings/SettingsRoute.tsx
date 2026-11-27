@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Typography } from '@/components/common/LegacyTypography';
 import {
-  Card,
   Col,
   Collapse,
   Divider,
@@ -44,6 +43,7 @@ import { StatePanel } from '../../components/common/StatePanel';
 import { Button } from '../../components/common/LegacyButton';
 import { InlineHint } from '../../components/common/InlineHint';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { Panel } from '../../design-system/primitives';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -226,7 +226,6 @@ export const SettingsRoute = () => {
     return 'http';
   })();
 
-  const cardStyle = { borderRadius: token.borderRadius };
   const mt = { marginTop: spacingToNumber(spacing[4]) };
 
   // ---- save helpers ----
@@ -288,10 +287,9 @@ export const SettingsRoute = () => {
             ================================================================ */}
         <Col xs={24} lg={14}>
           {/* ---- 1. Notifications & Alerts ---- */}
-          <Card
+          <Panel
             title="Notifications & Alerts"
-            style={cardStyle}
-            extra={
+            actions={
               hasOverrides && (
                 <Tooltip title="Reset all alert settings back to platform defaults">
                   <Button
@@ -341,6 +339,7 @@ export const SettingsRoute = () => {
                     </Paragraph>
                   </div>
                   <Switch
+                    aria-label="Enable failure email reports"
                     checked={reportEnabled}
                     loading={savingAlert}
                     onChange={async (checked) => {
@@ -377,6 +376,7 @@ export const SettingsRoute = () => {
                           </Tooltip>
                         </Text>
                         <InputNumber
+                          aria-label="Failure scan interval in minutes"
                           min={1}
                           max={120}
                           value={intervalMinutes}
@@ -393,6 +393,7 @@ export const SettingsRoute = () => {
                           </Tooltip>
                         </Text>
                         <InputNumber
+                          aria-label="Failure scan window in minutes"
                           min={15}
                           max={720}
                           value={lookbackMinutes}
@@ -409,6 +410,7 @@ export const SettingsRoute = () => {
                           </Tooltip>
                         </Text>
                         <InputNumber
+                          aria-label="Failure alert threshold"
                           min={1}
                           max={100}
                           value={minFailures}
@@ -442,12 +444,12 @@ export const SettingsRoute = () => {
                 )}
               </Space>
             )}
-          </Card>
+          </Panel>
 
-          <AlertChannelsCard style={{ ...cardStyle, ...mt }} />
+          <AlertChannelsCard style={mt} />
 
           {/* ---- 2. Display & Behavior ---- */}
-          <Card title="Display & Behavior" style={{ ...cardStyle, ...mt }}>
+          <Panel title="Display & Behavior" style={mt}>
             {uiConfigLoading || uiOverrideLoading ? (
               <StatePanel glyph="connecting" tone="busy" title="Loading display settings" size="compact" />
             ) : (
@@ -460,6 +462,7 @@ export const SettingsRoute = () => {
                   </Paragraph>
                   <div className="console-settings-input-actions">
                     <InputNumber
+                      aria-label="Dashboard auto-refresh seconds"
                       min={0}
                       max={3600}
                       value={dashboardRefreshSeconds}
@@ -501,6 +504,7 @@ export const SettingsRoute = () => {
                   </Paragraph>
                   <div className="console-settings-input-actions">
                     <InputNumber
+                      aria-label="Delay between integration actions in milliseconds"
                       min={0}
                       max={600000}
                       value={multiActionDelayMs}
@@ -533,7 +537,7 @@ export const SettingsRoute = () => {
                 </div>
               </Space>
             )}
-          </Card>
+          </Panel>
 
           {/* ---- 3. Event Processing (advanced, collapsed by default) ---- */}
           <Collapse
@@ -738,10 +742,9 @@ export const SettingsRoute = () => {
             ================================================================ */}
         <Col xs={24} lg={10}>
           {/* ---- Organization info ---- */}
-          <Card
+          <Panel
             title="Organization"
-            style={cardStyle}
-            extra={
+            actions={
               <div
                 className="settings-organization-icon"
               >
@@ -779,11 +782,11 @@ export const SettingsRoute = () => {
                 <Text strong>{childBranches.length}</Text>
               </div>
             </Space>
-          </Card>
+          </Panel>
 
           {/* ---- Child Branches ---- */}
           {childBranches.length > 0 && (
-            <Card
+            <Panel
               title={
                 <Space>
                   <GatewayIcon name="ApartmentOutlined" />
@@ -791,7 +794,7 @@ export const SettingsRoute = () => {
                   <Text type="secondary">{childBranches.length}</Text>
                 </Space>
               }
-              style={{ ...cardStyle, ...mt }}
+              style={mt}
             >
               <ModernTable
                 dataSource={paginatedBranches}
@@ -830,18 +833,18 @@ export const SettingsRoute = () => {
                   />
                 </div>
               )}
-            </Card>
+            </Panel>
           )}
 
           {/* ---- Quick links ---- */}
-          <Card
+          <Panel
             title={
               <Space>
                 <GatewayIcon name="SettingOutlined" />
                 <span>Related Settings</span>
               </Space>
             }
-            style={{ ...cardStyle, ...mt }}
+            style={mt}
           >
             <Space direction="vertical" className="console-width-full" size={spacingToNumber(spacing[2])}>
               <Button
@@ -897,7 +900,7 @@ export const SettingsRoute = () => {
                 </Button>
               )}
             </Space>
-          </Card>
+          </Panel>
         </Col>
       </Row>
 
@@ -915,7 +918,7 @@ export const SettingsRoute = () => {
 
           <Row gutter={spacingToNumber(spacing[5])}>
             <Col xs={24} lg={12}>
-              <Card title="Organization Scope" style={cardStyle}>
+              <Panel title="Organization Scope">
                 <Space direction="vertical" size={spacingToNumber(spacing[3])} className="console-width-full">
                   <Text type="secondary">
                     Switch the data view context to any organization, or start an impersonation session as that org's
@@ -930,6 +933,7 @@ export const SettingsRoute = () => {
                     </div>
                   </div>
                   <Select
+                    aria-label="Select organization for settings"
                     placeholder="Select organization"
                     value={adminImpersonateOrgId ?? undefined}
                     onChange={(v) => setAdminImpersonateOrgId(Number(v))}
@@ -989,13 +993,14 @@ export const SettingsRoute = () => {
                     </Button>
                   </Space>
                 </Space>
-              </Card>
+              </Panel>
 
-              <Card title="Global UI Config" style={{ ...cardStyle, ...mt }}>
+              <Panel title="Global UI Config" style={mt}>
                 <Paragraph type="secondary" className="console-margin-bottom-2">
                   Changes apply to all organizations. Must be valid JSON.
                 </Paragraph>
                 <Input.TextArea
+                  aria-label="Global UI configuration JSON"
                   value={adminUiConfigText}
                   onChange={(e) => setAdminUiConfigText(e.target.value)}
                   rows={12}
@@ -1055,20 +1060,20 @@ export const SettingsRoute = () => {
                     Save
                   </Button>
                 </Space>
-              </Card>
+              </Panel>
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card
+              <Panel
                 title="System Config"
-                style={cardStyle}
-                extra={<StatusBadge label="Requires restart" variant="warning" />}
+                actions={<StatusBadge label="Requires restart" variant="warning" />}
               >
                 <Paragraph type="secondary" className="console-margin-bottom-2">
                   Only safe fields are exposed here. Changes are written to <Text code>config.json</Text> and take
                   effect after a backend restart.
                 </Paragraph>
                 <Input.TextArea
+                  aria-label="System configuration JSON"
                   value={adminSystemConfigText}
                   onChange={(e) => setAdminSystemConfigText(e.target.value)}
                   rows={10}
@@ -1128,7 +1133,7 @@ export const SettingsRoute = () => {
                     Save
                   </Button>
                 </Space>
-              </Card>
+              </Panel>
             </Col>
           </Row>
         </div>

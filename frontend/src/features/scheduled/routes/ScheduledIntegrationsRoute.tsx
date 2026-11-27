@@ -23,6 +23,7 @@ import { PageTemplate } from '../../../components/common/PageTemplate';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { StatPillRow } from '../../../components/common/StatPillRow';
 import { StatePanel } from '../../../components/common/StatePanel';
+import { Panel } from '../../../design-system/primitives';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { InlineHint } from '../../../components/common/InlineHint';
 import {
@@ -429,7 +430,7 @@ export const ScheduledIntegrationsRoute = () => {
       result = result.filter((sw) => {
         const searchableFields = [
           sw.integrationName,
-          sw.__KEEP_integrationName__,
+          sw.integrationName,
           sw.eventType,
           sw.targetUrl,
           sw.status,
@@ -857,6 +858,7 @@ export const ScheduledIntegrationsRoute = () => {
           ) : (
             <>
               <Select
+                aria-label="Filter scheduled deliveries by status"
                 placeholder="Filter by status"
                 allowClear
                 value={statusFilter}
@@ -875,6 +877,7 @@ export const ScheduledIntegrationsRoute = () => {
                 ]}
               />
               <Select
+                aria-label="Filter scheduled deliveries by integration"
                 placeholder="Filter by integration"
                 allowClear
                 showSearch
@@ -885,6 +888,7 @@ export const ScheduledIntegrationsRoute = () => {
                 options={integrations.map((w) => ({ value: w.id, label: w.name }))}
               />
               <Select
+                aria-label="Filter scheduled deliveries by event type"
                 placeholder="Filter by event type"
                 allowClear
                 showSearch
@@ -966,14 +970,14 @@ export const ScheduledIntegrationsRoute = () => {
       >
         {/* Empty state for failures tab */}
         {activeTab === 'failures' && filtered.length === 0 && !scheduledFetching && (
-          <Card className="scheduled-panel">
+          <Panel className="scheduled-panel">
             <div className="console-empty-centered">
               <GatewayIcon name="CheckCircleOutlined" className="console-icon-empty-success" />
               <Text type="secondary" className="console-display-block">
                 No failed or overdue deliveries — all clear.
               </Text>
             </div>
-          </Card>
+          </Panel>
         )}
 
         {/* Table */}

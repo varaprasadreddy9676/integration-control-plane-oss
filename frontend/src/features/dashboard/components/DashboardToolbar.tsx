@@ -35,6 +35,7 @@ export const DashboardToolbar = ({
         <Select
           value={days}
           onChange={setDays}
+          aria-label="Time range"
           options={[
             { label: 'Today', value: 1 },
             { label: '7 days', value: 7 },
@@ -55,6 +56,7 @@ export const DashboardToolbar = ({
         />
         <Select
           placeholder="Provider"
+          aria-label="Filter by provider"
           allowClear
           value={provider}
           onChange={setProvider}
@@ -66,6 +68,7 @@ export const DashboardToolbar = ({
         />
         <Select
           placeholder="Integration"
+          aria-label="Filter by integration"
           allowClear
           value={integrationId}
           onChange={(value, option: any) => {

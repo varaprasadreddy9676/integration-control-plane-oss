@@ -1,120 +1,109 @@
+/* Sign-in. One product, one surface: the hero is paper with hairline
+   structure, not a dark marketing panel. Colour stays reserved for status, so
+   the brand mark is the only filled element. */
+
 .login-root {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   min-height: 100vh;
   background: var(--color-bg-base);
-  color: var(--color-text-primary);
 }
 
-/* Left hero panel: always dark, independent of the app theme */
 .login-hero {
-  position: relative;
   display: flex;
-  flex: 0 0 58%;
   flex-direction: column;
-  min-height: 100vh;
-  padding: 44px 60px;
-  overflow: hidden;
-  background: #09090b;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.login-hero::before {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  content: '';
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-  background-size: 36px 36px;
-}
-
-.login-hero::after {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  content: '';
-  background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, #09090b 100%);
+  padding: 44px 56px;
+  border-right: 1px solid var(--color-border-default);
+  /* A 2.5% ink wash guarantees the two halves read as two surfaces even in the
+     Contrast pack, where body and surface are both white (or both black). */
+  background: color-mix(in srgb, var(--color-text-primary) 2.5%, var(--color-bg-surface));
 }
 
 .login-hero-inner {
-  position: relative;
-  z-index: 1;
   display: flex;
   flex: 1;
   flex-direction: column;
   justify-content: space-between;
+  gap: var(--space-8);
+  max-width: 620px;
 }
 
 .login-logo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .login-logo-mark {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  place-items: center;
-  color: #ffffff;
-  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-  border-radius: 7px;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .login-logo-name {
-  color: #fafafa;
   font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
 }
 
 .login-hero-copy {
-  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .login-headline {
-  margin: 0 0 14px;
-  color: #fafafa;
-  font-size: 34px;
-  font-weight: 700;
-  line-height: 1.18;
-  letter-spacing: -0.7px;
+  margin: 0;
+  font-size: clamp(30px, 3.1vw, 42px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
 }
 
 .login-subhead {
-  margin: 0 0 26px;
-  color: #a1a1aa;
-  font-size: 15px;
-  line-height: 1.65;
+  max-width: 46ch;
+  margin: 0;
+  font-size: var(--console-type-section);
+  line-height: 1.55;
+  color: var(--color-text-secondary);
 }
 
+/* Capability tags as one hairline row, not chips. */
 .login-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
-  margin: 0 0 40px;
+  margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .login-chip {
-  padding: 3px 9px;
-  color: #a1a1aa;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  padding: 8px var(--space-3);
+  border-left: 1px solid var(--color-border-default);
+  font-family: var(--font-mono);
+  font-size: var(--console-type-caption);
+  letter-spacing: 0.01em;
+  color: var(--color-text-secondary);
+}
+
+.login-chip:first-child {
+  border-left: 0;
+  padding-left: 0;
 }
 
 .login-pillars {
   display: flex;
   flex-direction: column;
-  gap: 22px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -122,132 +111,114 @@
 
 .login-pillar {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.login-pillar:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .login-pillar-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  place-items: center;
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.07);
-  border: 1px solid rgba(59, 130, 246, 0.14);
-  border-radius: 8px;
+  display: inline-flex;
+  flex: none;
+  width: 20px;
+  margin-top: 2px;
+  color: var(--color-text-muted);
 }
 
 .login-pillar-title {
-  margin: 0;
-  color: #e4e4e7;
-  font-size: 14px;
+  margin: 0 0 2px;
+  font-size: var(--console-type-body);
   font-weight: 600;
-  line-height: 1.3;
+  color: var(--color-text-primary);
 }
 
 .login-pillar-text {
-  margin: 3px 0 0;
-  color: #a1a1aa;
-  font-size: 13px;
-  line-height: 1.45;
+  margin: 0;
+  font-size: var(--console-type-caption);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 
-/* Right sign-in panel follows the app theme */
+/* Sign-in panel */
 .login-panel {
   display: grid;
-  flex: 1;
-  min-height: 100vh;
-  padding: 32px 24px;
   place-items: center;
+  padding: var(--space-6);
   background: var(--color-bg-base);
 }
 
 .login-content {
   width: 100%;
-  max-width: 360px;
-  padding: 28px;
-  background: var(--color-bg-surface);
+  max-width: 372px;
+  padding: var(--space-6);
   border: 1px solid var(--color-border-default);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-surface);
+  background: var(--color-bg-surface);
 }
 
 .login-mobile-brand {
   display: none;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
 }
 
 .login-mobile-brand .login-logo-mark {
-  width: 26px;
-  height: 26px;
-  flex-basis: 26px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
 }
 
 .login-mobile-brand-name {
-  color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: var(--console-type-body);
   font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .login-heading {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-4);
 }
 
 .login-title {
-  margin: 0 0 4px !important;
-  color: var(--color-text-primary) !important;
-  font-size: 20px !important;
-  font-weight: 700 !important;
-  line-height: 1.3;
+  margin: 0;
+  font-size: var(--console-type-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
 }
 
 .login-description {
-  color: var(--color-text-secondary);
-  font-size: 13px;
+  margin: var(--space-1) 0 0;
+  font-size: var(--console-type-body);
   line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 
 .login-form .ant-form-item {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-3);
 }
 
 .login-form .ant-form-item-label > label {
+  font-size: var(--console-type-caption);
   color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.login-form .ant-input-affix-wrapper {
-  min-height: 40px;
-  border-radius: 8px;
-}
-
-.login-form .ant-input-prefix {
-  margin-inline-end: 8px;
-  color: var(--color-text-muted);
-}
-
-.login-submit.ant-btn {
-  height: 40px;
-  margin-top: 4px;
-  font-weight: 600;
-  border-radius: 8px;
 }
 
 .login-access-note {
-  display: block;
-  margin-top: 20px;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-default);
+  font-size: var(--console-type-caption);
+  color: var(--color-text-secondary);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 960px) {
+  .login-root {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .login-hero {
     display: none;
   }
@@ -256,7 +227,7 @@
     display: flex;
   }
 
-  .login-content {
-    padding: 24px 20px;
+  .login-panel {
+    padding: var(--space-4);
   }
 }

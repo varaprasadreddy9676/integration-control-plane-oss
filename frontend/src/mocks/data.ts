@@ -98,8 +98,8 @@ export const mockDeliveryLogs: DeliveryLog[] = Array.from({ length: 12 }).map((_
   const status = statuses[index % statuses.length];
   return {
     id: `log_${index + 1}`,
-    __KEEP___KEEP_integrationConfig__Id__: mockIntegrations[index % mockIntegrations.length].id,
-    __KEEP_integrationName__: mockIntegrations[index % mockIntegrations.length].name,
+    integrationConfigId: mockIntegrations[index % mockIntegrations.length].id,
+    integrationName: mockIntegrations[index % mockIntegrations.length].name,
     eventType: mockIntegrations[index % mockIntegrations.length].eventType,
     status,
     responseStatus: status === 'SUCCESS' ? 200 : status === 'RETRYING' ? 504 : 500,

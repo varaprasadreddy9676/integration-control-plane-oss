@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import type { CSSProperties } from 'react';
-import { Text } from '@astryxdesign/core/Text';
-import { cssVar, useDesignTokens, withAlpha } from '../../design-system/utils';
 import { AnimatedNumber } from '../motion/AnimatedNumber';
+import './stat-pill-row.css';
 
 export interface StatPillItem {
   title: string;
   value: number | null | undefined;
-  icon: ReactNode;
+  /** Kept for call sites that pass a glyph; the row communicates status with a dot. */
+  icon?: ReactNode;
+  /** A CSS colour string for the status dot. */
   tone: string;
-  /** null marks the "all"/total pill — clicking it clears the filter. */
+  /** null marks the "all"/total item — clicking it clears the filter. */
   filterValue: string | null;
 }
 
@@ -20,15 +20,11 @@ interface StatPillRowProps {
 }
 
 /**
- * Clickable, color-coded stat pills — the pattern Delivery Logs already used for its
- * Total/Success/Failed/Skipped/Pending row. Extracted so other screens summarizing
- * the same kind of counts (e.g. Event Audit) render them the same way instead of a
- * plain-text list, which read as a different, less scannable pattern on a sibling
- * screen covering the same underlying data.
+ * Status counts as one compact filter row, not a row of coloured pills.
+ * Only the dot carries colour; the label and the figure stay neutral, so a
+ * failure count is noticeable without turning the toolbar into a traffic light.
  */
 export const StatPillRow = ({ items, activeFilter, onFilterChange }: StatPillRowProps) => {
-  const { spacing, borderRadius } = useDesignTokens();
-
   const toggle = (filterValue: string | null) => {
     if (filterValue === null) {
       onFilterChange(undefined);
@@ -38,47 +34,29 @@ export const StatPillRow = ({ items, activeFilter, onFilterChange }: StatPillRow
   };
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2], alignItems: 'center' }}>
+    <div className="stat-filters" role="group" aria-label="Filter by status">
       {items.map((item) => {
         const isActive = item.filterValue === null ? !activeFilter : activeFilter === item.filterValue;
         return (
           <button
             key={item.title}
             type="button"
-            className="stat-pill"
+            className="stat-filters__item"
             onClick={() => toggle(item.filterValue)}
             aria-label={`Filter by ${item.title}: ${item.value?.toLocaleString() ?? 0}${isActive ? ', currently selected' : ', click to filter'}`}
             aria-pressed={isActive}
-            style={
-              {
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: spacing[1],
-                padding: `${spacing[1]} ${spacing[3]}`,
-                background: isActive ? withAlpha(item.tone, 0.15) : cssVar.bg.surface,
-                border: `1px solid ${isActive ? item.tone : cssVar.border.default}`,
-                borderRadius: borderRadius.full,
-                cursor: 'pointer',
-                font: 'inherit',
-                transition: 'background-color 150ms ease, border-color 150ms ease',
-                '--stat-pill-tone': item.tone,
-              } as CSSProperties
-            }
           >
-            <span className="stat-pill__icon" style={{ color: item.tone }}>{item.icon}</span>
-            <Text
-              as="span"
-              type="supporting"
-              className="console-caption-secondary"
-            >
-              {item.title}:
-            </Text>
-            <Text
-              as="span"
-              className="stat-pill__value"
-            >
+            {item.filterValue !== null && (
+              <span
+                className="stat-filters__dot"
+                aria-hidden="true"
+                style={{ background: item.tone }}
+              />
+            )}
+            <span className="stat-filters__label">{item.title}</span>
+            <span className="stat-filters__value">
               <AnimatedNumber value={item.value ?? 0} />
-            </Text>
+            </span>
           </button>
         );
       })}

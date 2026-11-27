@@ -31,8 +31,8 @@ const baseProps = () => ({
   integrationPerformance: [
     {
       id: 'integration-1',
-      __KEEP___KEEP_integrationConfig__Id__: 'integration-1',
-      __KEEP_integrationName__: 'Orders API',
+      integrationConfigId: 'integration-1',
+      integrationName: 'Orders API',
       total: 120,
       successful: 116,
       failed: 3,

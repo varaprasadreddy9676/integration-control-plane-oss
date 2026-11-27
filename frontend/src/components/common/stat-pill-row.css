@@ -1,0 +1,53 @@
+/* Status counts as a filter row. */
+.stat-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.stat-filters__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--console-type-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stat-filters__item:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+
+.stat-filters__item[aria-pressed='true'] {
+  background: var(--color-background-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.stat-filters__item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.stat-filters__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.stat-filters__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--console-type-caption);
+}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import {
   App,
   Card,
@@ -21,6 +21,7 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { PageTemplate } from '../../../components/common/PageTemplate';
 import { RetainedTabs, type RetainedTabItem } from '../../../components/common/RetainedTabs';
 import { ModernTable } from '../../../components/common/ModernTable';
+import type { ComponentProps } from 'react';
 import { getStatusLabel, StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { StatPillRow } from '../../../components/common/StatPillRow';
@@ -32,7 +33,6 @@ import { LiveRunNotice } from '../../../components/common/LiveRunNotice';
 import { getDeliveryStages, type StageRun, type StageState } from '../../../services/stages-api';
 import { DeliveryFollowUpSummary } from '../components/DeliveryFollowUpSummary';
 import { FollowUpChecks } from '../components/FollowUpChecks';
-import { RefreshCountdown } from '../../../components/common/RefreshCountdown';
 import { StatePanel } from '../../../components/common/StatePanel';
 import { SearchInput } from '../../../components/common/ListControls';
 import {
@@ -71,6 +71,7 @@ import { useAuth } from '../../../app/auth-context';
 import { useTenant } from '../../../app/tenant-context';
 import { Hl7LogPanel, isHl7LogLike } from '../components/Hl7LogPanel';
 import { LogCodeViewer } from '../components/LogCodeViewer';
+import { ReplayPayloadModal } from '../components/ReplayPayloadModal';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Button } from '../../../components/common/LegacyButton';
 import { Text } from '@astryxdesign/core/Text';
@@ -120,7 +121,7 @@ const SCHEDULED_TRIGGER_TYPES = new Set(['SCHEDULE', 'SCHEDULED']);
 
 const isScriptJobLogLike = (log: Partial<DeliveryLog> | null | undefined): boolean => {
   if (!log) return false;
-  const config = (log as any).__KEEP_integrationConfig__ || {};
+  const config = (log as any).integrationConfig || {};
   return (
     String(log.direction || '').toUpperCase() === 'SCRIPT_JOB' ||
     String(log.httpMethod || '').toUpperCase() === 'SCRIPT_JOB' ||
@@ -365,6 +366,7 @@ export const LogsRoute = () => {
   const isPortalSession = !!(user as any)?.isPortalSession;
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
+  const [topNavHeight, setTopNavHeight] = useState(64);
   const isNarrow = !screens.md;
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -400,7 +402,16 @@ export const LogsRoute = () => {
     if (derived) return derived;
     return getTodayDateRange();
   });
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const updateSearch = (value: string) => {
+    setSearchInput(value);
+    if (!value.trim()) setSearch('');
+  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
   const [expandedLogDetails, setExpandedLogDetails] = useState<Record<string, DeliveryLog>>({});
   // What each delivery's pipeline stages did (runs with their requests), fetched with the details.
   const [stageDetails, setStageDetails] = useState<Record<string, { states: StageState[]; runs: StageRun[] }>>({});
@@ -607,6 +618,7 @@ export const LogsRoute = () => {
     data: logsResponse,
     refetch: refetchLogs,
     isFetching: logsFetching,
+    isError: logsError,
     dataUpdatedAt: logsUpdatedAt,
   } = useQuery<PaginatedResponse<DeliveryLog>>({
     queryKey: [
@@ -653,7 +665,7 @@ export const LogsRoute = () => {
   const pagination = logsResponse?.pagination;
   const isInitialLogsLoading = logsFetching && !logsResponse;
 
-  const { data: stats } = useQuery({
+  const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: [
       'logs-stats-summary',
       orgId,
@@ -734,7 +746,19 @@ export const LogsRoute = () => {
     queryFn: getEventTypes,
     staleTime: 5 * 60 * 1000, // event types are static — re-fetch at most every 5 minutes
   });
-  const latestRefreshAt = logsUpdatedAt || 0;
+
+  useLayoutEffect(() => {
+    const topNav = document.querySelector('.product-top-nav');
+    if (!topNav) return;
+
+    const measure = () => setTopNavHeight(Math.ceil(topNav.getBoundingClientRect().height));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(topNav);
+    return () => observer.disconnect();
+  }, []);
 
   const showCallsFromIp = (ip: string) => {
     setClientIpFilter(ip);
@@ -775,7 +799,7 @@ export const LogsRoute = () => {
         setDateRangeWithUrl(null);
         break;
       case 'search':
-        setSearch('');
+        updateSearch('');
         break;
       default:
         break;
@@ -813,11 +837,11 @@ export const LogsRoute = () => {
       });
     }
     if (integrationFilter) {
-      const __KEEP_integrationName__ =
+      const integrationName =
         integrations.find((wh) => wh.id === integrationFilter)?.name || integrationFilter;
       chips.push({
         key: 'integration',
-        label: `Integration: ${__KEEP_integrationName__}`,
+        label: `Integration: ${integrationName}`,
         onClear: () => clearExportFilter('integration'),
       });
     }
@@ -965,6 +989,18 @@ export const LogsRoute = () => {
   // made comparing two deliveries a collapse-scroll-expand loop; the drawer
   // keeps the list in view so you can walk down a failure run.
   const [detailRecord, setDetailRecord] = useState<DeliveryLog | null>(null);
+  const [correction, setCorrection] = useState<{ record: DeliveryLog; payload: unknown } | null>(null);
+  const [inspectorWidth, setInspectorWidth] = useState(50);
+  const inspectorRef = useRef<HTMLElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const splitInspector = Boolean(screens.xl);
+  const closeDetail = () => {
+    setDetailRecord(null);
+    requestAnimationFrame(() => openerRef.current?.focus());
+  };
+  useEffect(() => {
+    if (detailRecord && splitInspector) inspectorRef.current?.focus();
+  }, [Boolean(detailRecord), splitInspector]);
   // Revealed credentials belong to one integration: hide them when another log opens.
   useEffect(() => {
     setRevealCredentials(false);
@@ -998,6 +1034,7 @@ export const LogsRoute = () => {
   }, [detailRecord?.id, followingLiveRun]);
 
   const openDeliveryDetail = async (record: DeliveryLog) => {
+    if (!detailRecord) openerRef.current = document.activeElement as HTMLElement | null;
     setDetailRecord(record);
     if (!expandedLogDetails[record.id]) {
       await handleRowExpand(true, record);
@@ -1015,8 +1052,13 @@ export const LogsRoute = () => {
     if (!detailRecord) return;
     const onKey = (event: KeyboardEvent) => {
       const el = event.target as HTMLElement | null;
-      if (el && (el.closest('input, textarea, [contenteditable="true"]') || el.isContentEditable)) return;
+      if (event.defaultPrevented || correction || !el?.closest('.logs-inspector, .logs-detail-drawer')) return;
+      if (el.closest('input, textarea, select, [role="tablist"], [role="slider"], [contenteditable="true"]')) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === 'Escape' && splitInspector) {
+        closeDetail();
+        return;
+      }
       if (event.key === 'j' || event.key === 'ArrowDown') {
         event.preventDefault();
         stepDetail(1);
@@ -1324,15 +1366,17 @@ export const LogsRoute = () => {
     }
   };
 
-  // Quick status filter handler
-  const handleQuickStatusFilter = (status: string) => {
-    setStatusFilter(statusFilter === status ? undefined : status);
-  };
+  const confirmRetry = (record: DeliveryLog) => modal.confirm({
+    title: 'Retry this delivery?',
+    content: 'This sends a live request using the current integration configuration.',
+    okText: 'Retry live',
+    onOk: () => handleRetry(record),
+  });
 
   const handleManualRefresh = async () => {
     setManualRefreshPending(true);
     try {
-      await refetchLogs();
+      await Promise.all([refetchLogs(), refetchStats()]);
     } finally {
       setManualRefreshPending(false);
     }
@@ -1344,7 +1388,7 @@ export const LogsRoute = () => {
   const renderDeliveryDetail = (record: DeliveryLog) => {
     const fullLog = expandedLogDetails[record.id] || record;
     const isLoading = loadingDetails[record.id];
-    const integrationConfig = fullLog.__KEEP_integrationConfig__;
+    const integrationConfig = fullLog.integrationConfig;
     const isScriptJobLog = isScriptJobLogLike(fullLog);
     const scriptLogs = getScriptLogs(fullLog);
     const hasScriptLogs = Array.isArray(scriptLogs) && scriptLogs.length > 0;
@@ -1361,7 +1405,7 @@ export const LogsRoute = () => {
     // targetUrl/payload, so generateCurlCommand would just produce a
     // meaningless `curl -X POST "" -d '{}'`. Show the script's actual
     // console output instead (see 'script-logs' tab below).
-    const curlConfig = revealCredentials && revealedConfig ? revealedConfig : fullLog.__KEEP_integrationConfig__;
+    const curlConfig = revealCredentials && revealedConfig ? revealedConfig : fullLog.integrationConfig;
     const curlCommand =
       !isScriptJobLog && !isSkippedLog && curlConfig
         ? generateCurlCommand(curlConfig, fullLog.requestPayload, fullLog.requestHeaders, {
@@ -1381,7 +1425,7 @@ export const LogsRoute = () => {
       const mergedHeaders: Record<string, unknown> = {
         ...(fullLog.requestHeaders as Record<string, unknown>),
       };
-      const customHdrs = (fullLog.__KEEP_integrationConfig__ as any)?.customHeaders || {};
+      const customHdrs = (fullLog.integrationConfig as any)?.customHeaders || {};
       const callerHdrs = ((fullLog as any).inboundRequestHeaders || {}) as Record<string, unknown>;
       const lowerCaller: Record<string, string> = {};
       Object.entries(callerHdrs).forEach(([k, v]) => {
@@ -1497,7 +1541,7 @@ export const LogsRoute = () => {
                             reference material — the operator opened this row to
                             find out what went wrong, and previously had to scroll
                             past hundreds of lines of body to reach it. */}
-            {fullLog.errorMessage && (
+            {(fullLog.errorMessage || fullLog.status === 'FAILED' || fullLog.status === 'ABANDONED') && (
               <div className={`logs-error-summary${isSkippedLog ? ' logs-error-summary--warning' : ''}`}>
                 <div className="console-flex-baseline-wrap">
                   <Text
@@ -1524,7 +1568,7 @@ export const LogsRoute = () => {
                   type="code"
                   className={`${isSkippedLog ? 'console-text-warning' : 'console-text-error'} console-code-wrap`}
                 >
-                  {fullLog.errorMessage}
+                  {fullLog.errorMessage || 'No failure message was recorded.'}
                 </Text>
 
                 <div className="logs-error-metadata">
@@ -1561,6 +1605,8 @@ export const LogsRoute = () => {
             {isLiveRun && <LiveRunNotice startedAt={fullLog.createdAt} lines={scriptLogs.length} />}
 
             {(curlCommand ||
+              hasResponseBody ||
+              fullLog.errorMessage ||
               isCommunicationLog ||
               isHl7Log ||
               showScriptTab ||
@@ -1577,6 +1623,9 @@ export const LogsRoute = () => {
                     ? 'source-event'
                     : isHl7Log
                       ? 'hl7'
+                      : ['FAILED', 'ABANDONED'].includes(fullLog.status) &&
+                          (fullLog as any).traceId && !(isInboundLog && (fullLog as any).executionTrace?.length)
+                        ? 'timeline'
                       : isCommunicationLog
                         ? 'provider'
                         : showScriptTab
@@ -1587,7 +1636,7 @@ export const LogsRoute = () => {
                               ? 'follow-up'
                               : stageTabs.length > 0
                                 ? stageTabs[0].key
-                                : 'source-event'
+                                : 'response'
                 }
                 items={
                   [
@@ -1679,8 +1728,8 @@ export const LogsRoute = () => {
                                 originalPayload={(fullLog as any).originalPayload}
                                 requestPayload={fullLog.requestPayload}
                                 responseBody={fullLog.responseBody}
-                                canReplay={['FAILED', 'ABANDONED'].includes(fullLog.status)}
-                                onReplayPayload={(options) => handleReplayWithPayload(fullLog, options)}
+                                canReplay={!isPortalSession && ['FAILED', 'ABANDONED'].includes(fullLog.status)}
+                                onReplayPayload={isPortalSession ? undefined : (options) => handleReplayWithPayload(fullLog, options)}
                               />
                             ),
                           },
@@ -1985,16 +2034,54 @@ export const LogsRoute = () => {
     );
   };
 
+  const detailTitle = detailRecord && (
+    <section className="logs-drawer-title">
+      <Text weight="semibold" className="logs-drawer-title-name">{detailRecord.integrationName || 'Delivery'}</Text>
+      <StatusBadge status={detailRecord.status as any} size="default" />
+      <Text type="supporting" size="sm" color="secondary" textWrap="nowrap">
+        {formatDateTimeWithSeconds(detailRecord.createdAt)}
+      </Text>
+    </section>
+  );
+  const originalEvent = detailRecord && expandedLogDetails[detailRecord.id]?.originalPayload;
+  const canRetryDetail = detailRecord && ['FAILED', 'ABANDONED'].includes(detailRecord.status) &&
+    !isScriptJobLogLike(detailRecord) && !isPortalSession;
+  const detailActions = detailRecord && (
+    <Space className="logs-inspector-actions" size={spacingToNumber(spacing[1])} wrap>
+      {detailIndex >= 0 && (
+        <>
+          <Text size="sm" color="secondary">{detailIndex + 1} of {filtered.length}</Text>
+          <Button size="small" icon={<GatewayIcon name="LeftOutlined" />} aria-label="Previous delivery"
+            disabled={detailIndex === 0} onClick={() => stepDetail(-1)} />
+          <Button size="small" icon={<GatewayIcon name="RightOutlined" />} aria-label="Next delivery"
+            disabled={detailIndex >= filtered.length - 1} onClick={() => stepDetail(1)} />
+        </>
+      )}
+      {canRetryDetail && detailRecord.direction === 'OUTBOUND' && originalEvent && typeof originalEvent === 'object' ? (
+        <Button size="small" onClick={() => setCorrection({ record: detailRecord, payload: originalEvent })}>
+          Edit payload
+        </Button>
+      ) : null}
+      {canRetryDetail && (
+        <Button size="small" icon={<GatewayIcon name="ReloadOutlined" />}
+          loading={retryingLogs[detailRecord.id]}
+          onClick={() => confirmRetry(detailRecord)}>
+          Retry
+        </Button>
+      )}
+    </Space>
+  );
+
   return (
     <PageTemplate
+      className="delivery-logs-workspace"
       title="Delivery logs"
       description={
         <>
           {pagination?.total && pagination.total > filtered.length
             ? `Showing ${filtered.length} of ${pagination.total}`
             : `${filtered.length} record${filtered.length === 1 ? '' : 's'}`}
-          {stats?.total != null &&
-            ` · Last updated ${formatDateTimeWithSeconds(stats.refreshedAt ?? new Date().toISOString())}`}
+          {logsUpdatedAt > 0 && ` · Updated ${formatDateTimeWithSeconds(new Date(logsUpdatedAt).toISOString())}`}
         </>
       }
       actions={
@@ -2162,11 +2249,11 @@ export const LogsRoute = () => {
         </>
       )}
       {/* Always visible so users can apply the first filter. */}
-      <div className="console-filter-toolbar">
-        <Text type="label" size="sm" color="secondary">
-          Filters
-        </Text>
+      <section className="logs-query-toolbar" aria-label="Delivery log filters">
+        <SearchInput value={searchInput} onChange={updateSearch} label="Search delivery logs"
+          placeholder="Search delivery logs" width="100%" />
         <Select
+          aria-label="Delivery status"
           placeholder="Status"
           className="console-filter-field-narrow"
           allowClear
@@ -2179,7 +2266,7 @@ export const LogsRoute = () => {
             // label says so rather than letting the result look wrong.
             label:
               status === 'FAILED'
-                ? 'Failed (including abandoned)'
+                ? 'Failed'
                 : status === 'QUEUED'
                   ? 'Pending (queued)'
                   : getStatusLabel(status),
@@ -2205,6 +2292,19 @@ export const LogsRoute = () => {
             }
           }}
         />
+        <Button size="small" icon={<GatewayIcon name="FilterOutlined" />}
+          aria-expanded={showMoreFilters} aria-controls="logs-secondary-filters"
+          onClick={() => setShowMoreFilters((prev) => !prev)}>
+          Filters
+        </Button>
+        <Tooltip title={manualRefreshPending ? 'Refreshing' : 'Refresh delivery logs'}>
+          <Button size="small" aria-label="Refresh delivery logs"
+            icon={<GatewayIcon name="ReloadOutlined" spin={manualRefreshPending} />}
+            disabled={manualRefreshPending} onClick={handleManualRefresh} />
+        </Tooltip>
+      </section>
+      {showMoreFilters && (
+        <section id="logs-secondary-filters" className="console-filter-toolbar" aria-label="Additional filters">
         <Select
           placeholder="Integration"
           className="console-filter-field"
@@ -2240,40 +2340,6 @@ export const LogsRoute = () => {
             { value: 'COMMUNICATION', label: 'Communication' },
           ]}
         />
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          isNarrow={isNarrow}
-          label="Search delivery logs"
-          placeholder="Search message, target URL, or error"
-          width={220}
-        />
-        <Button
-          type="text"
-          size="small"
-          onClick={() => setShowMoreFilters((prev) => !prev)}
-          className="console-text-secondary"
-        >
-          {showMoreFilters ? 'Less filters' : 'More filters'}
-        </Button>
-        <div className={`logs-refresh-controls${isNarrow ? ' logs-refresh-controls--narrow' : ''}`}>
-          <RefreshCountdown intervalMs={refreshInterval} lastRefreshAt={latestRefreshAt} />
-          <Button
-            type="default"
-            icon={<GatewayIcon name="ReloadOutlined" spin={manualRefreshPending} />}
-            loading={false}
-            onClick={handleManualRefresh}
-            size="small"
-          >
-            {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
-          </Button>
-        </div>
-      </div>
-      {showMoreFilters && (
-        <div className="console-filter-toolbar">
-          <Text type="label" size="sm" color="secondary">
-            More filters
-          </Text>
           <Select
             placeholder="Event Type"
             className="console-filter-field"
@@ -2323,7 +2389,7 @@ export const LogsRoute = () => {
               label: `${String(hour).padStart(2, '0')}:00`,
             }))}
           />
-        </div>
+        </section>
       )}
       {visibleFilterChips.length > 0 && (
         <div className="logs-active-filters">
@@ -2353,6 +2419,7 @@ export const LogsRoute = () => {
                 clearExportFilter('provider');
                 clearExportFilter('eventType');
                 clearExportFilter('errorCategory');
+                clearExportFilter('clientIp');
                 clearExportFilter('hour');
                 clearExportFilter('dayOfWeek');
                 clearExportFilter('date');
@@ -2366,9 +2433,15 @@ export const LogsRoute = () => {
           </Space>
         </div>
       )}
+      <section className="logs-results-layout" data-split={splitInspector && Boolean(detailRecord)}
+        style={{ '--logs-inspector-width': `${inspectorWidth}%` } as React.CSSProperties}>
       <div className="logs-table-wrapper">
         <div className="logs-table-surface">
-          {!isInitialLogsLoading && filtered.length === 0 ? (
+          {logsError && !logsResponse ? (
+            <StatePanel title="Could not load delivery logs" actions={
+              <Button onClick={handleManualRefresh}>Try again</Button>
+            } />
+          ) : !isInitialLogsLoading && filtered.length === 0 ? (
             <div className="logs-empty-surface">
               <StatePanel
                 title={isNarrowedToSingleDay ? 'No deliveries on this date' : 'No matching deliveries'}
@@ -2382,12 +2455,14 @@ export const LogsRoute = () => {
                       onClick={() => {
                         setStatusFilter(undefined);
                         setIntegrationFilter(undefined);
+                        setProviderFilter(undefined);
+                        setClientIpFilter(undefined);
                         setEventTypeFilter(undefined);
                         setFlowFilter(undefined);
                         setErrorCategoryFilter(undefined);
                         setHourFilter(undefined);
                         setDayOfWeekFilter(undefined);
-                        setSearch('');
+                        updateSearch('');
                         setDateRangeWithUrl(getTodayDateRange());
                       }}
                     >
@@ -2412,6 +2487,8 @@ export const LogsRoute = () => {
                 showQuickJumper: pagination && pagination.totalPages > 10,
               }}
               onRow={(record) => ({
+                'data-inspected': record.id === detailRecord?.id,
+                'data-delivery-status': record.status,
                 onClick: (event) => {
                   // Leave the checkbox, links and action buttons alone.
                   const target = event.target as HTMLElement;
@@ -2420,17 +2497,18 @@ export const LogsRoute = () => {
                 },
                 style: { cursor: 'pointer' },
               })}
-              columns={[
+              columns={([
                 {
                   title: 'Time',
                   dataIndex: 'createdAt',
                   key: 'createdAt',
+                  className: 'logs-cell-time',
                   width: 160,
                   sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
                   defaultSortOrder: 'descend',
                   render: (date: string) => (
-                    <Text type="supporting" size="base" color="secondary">
-                      {formatDateTimeWithSeconds(date)}
+                    <Text type="supporting" size={isNarrow ? 'sm' : 'base'} color="secondary">
+                      {isNarrow ? dayjs(date).format('MMM D, HH:mm:ss') : formatDateTimeWithSeconds(date)}
                     </Text>
                   ),
                 },
@@ -2438,6 +2516,7 @@ export const LogsRoute = () => {
                   title: 'Integration',
                   dataIndex: 'integrationName',
                   key: 'integrationName',
+                  className: 'logs-cell-integration',
                   width: 180,
                   ellipsis: true,
                   sorter: (a, b) => (a.integrationName || '').localeCompare(b.integrationName || ''),
@@ -2445,9 +2524,8 @@ export const LogsRoute = () => {
                     const resolved =
                       name || integrations.find((i: any) => i.id === record.integrationConfigId)?.name || null;
                     return resolved ? (
-                      <Text size="base" weight="semibold" maxLines={1} hasTruncateTooltip>
-                        {resolved}
-                      </Text>
+                      <Button type="link" className="logs-open-delivery"
+                        onClick={() => void openDeliveryDetail(record)}>{resolved}</Button>
                     ) : (
                       <Text size="base" color="secondary">
                         Unknown Integration
@@ -2497,18 +2575,9 @@ export const LogsRoute = () => {
                   title: 'Status',
                   dataIndex: 'status',
                   key: 'status',
+                  className: 'logs-cell-status',
                   width: 124,
                   sorter: (a, b) => a.status.localeCompare(b.status),
-                  filters: [
-                    { text: 'Delivered', value: 'SUCCESS' },
-                    { text: 'Failed', value: 'FAILED' },
-                    { text: 'Retrying', value: 'RETRYING' },
-                    { text: 'Pending', value: 'PENDING' },
-                    { text: 'Pending (queued)', value: 'QUEUED' },
-                    { text: 'Skipped', value: 'SKIPPED' },
-                    { text: 'Abandoned', value: 'ABANDONED' },
-                  ],
-                  onFilter: (value, record) => record.status === value,
                   render: (status: string, record: any) => (
                     // ABANDONED under a "Failed" filter looks like a contradiction.
                     // It is not: the backend treats FAILED as {$in: [FAILED, ABANDONED]}
@@ -2523,11 +2592,11 @@ export const LogsRoute = () => {
                             : undefined
                       }
                     >
-                      <div onClick={() => handleQuickStatusFilter(status)} className="console-cursor-pointer">
+                      <section>
                         <StatusBadge status={status as any} size="default" />
                         <FollowUpTag followUp={record?.followUp} />
                         <StageSummaryTags summary={record?.stageSummary} />
-                      </div>
+                      </section>
                     </Tooltip>
                   ),
                 },
@@ -2596,6 +2665,7 @@ export const LogsRoute = () => {
                 {
                   title: 'Actions',
                   key: 'actions',
+                  className: 'logs-cell-actions',
                   width: 112,
                   align: 'center',
                   resizable: false,
@@ -2636,7 +2706,7 @@ export const LogsRoute = () => {
                           disabled={!canRetry || isRetrying}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleRetry(record);
+                            confirmRetry(record);
                           }}
                           className={canRetry ? 'console-text-link logs-retry-action' : 'console-text-secondary'}
                         >
@@ -2672,80 +2742,61 @@ export const LogsRoute = () => {
                     );
                   },
                 },
-              ]}
+              ] satisfies NonNullable<ComponentProps<typeof ModernTable<DeliveryLog>>['columns']>).filter((column) => {
+                if (isNarrow) return ['createdAt', 'integrationName', 'status', 'actions'].includes(String(column.key));
+                if (splitInspector && detailRecord) return ['createdAt', 'integrationName', 'status'].includes(String(column.key));
+                return true;
+              })}
             />
           )}
         </div>
       </div>
+      {splitInspector && detailRecord && (
+          <aside className="logs-inspector" aria-label="Delivery inspector" tabIndex={-1} ref={inspectorRef}>
+            <header className="logs-inspector-header">
+              <Button size="small" type="text" aria-label="Close delivery inspector"
+                icon={<GatewayIcon name="CloseOutlined" />} onClick={closeDetail} />
+              {detailTitle}
+              {detailActions}
+            </header>
+            <label className="logs-split-resize">
+              <Text size="sm" color="secondary">Inspector width</Text>
+              <input type="range" min={40} max={65} value={inspectorWidth} aria-valuetext={`${inspectorWidth} percent`}
+                onChange={(event) => setInspectorWidth(Number(event.target.value))} />
+            </label>
+            <section className="logs-inspector-body" key={detailRecord.id}>
+              {renderDeliveryDetail(detailRecord)}
+            </section>
+          </aside>
+      )}
+      </section>
 
-      <Drawer
-        title={
-          detailRecord ? (
-            <div className="logs-drawer-title">
-              <StatusBadge status={detailRecord.status as any} size="default" />
-              <span className="logs-drawer-title-name">{detailRecord.integrationName || 'Delivery'}</span>
-              <Text type="supporting" size="sm" color="secondary" textWrap="nowrap">
-                {formatDateTimeWithSeconds(detailRecord.createdAt)}
-              </Text>
-            </div>
-          ) : (
-            'Delivery'
-          )
-        }
+      {!splitInspector && <Drawer
+        className="logs-detail-drawer"
+        title={detailTitle || 'Delivery'}
         placement="right"
-        width={screens.xxl ? 920 : screens.lg ? 720 : '100%'}
+        width={screens.lg ? 640 : '100%'}
         mask={false}
         open={Boolean(detailRecord)}
-        onClose={() => setDetailRecord(null)}
+        onClose={closeDetail}
+        afterOpenChange={(open) => { if (!open) openerRef.current?.focus(); }}
         destroyOnClose
-        styles={{ body: { padding: spacing[3] } }}
-        extra={
-          detailRecord ? (
-            <Space size={spacingToNumber(spacing[1])}>
-              {detailIndex >= 0 && (
-                <>
-                  <Text type="supporting" size="sm" color="secondary" textWrap="nowrap">
-                    {detailIndex + 1} of {filtered.length}
-                  </Text>
-                  <Tooltip title="Previous delivery (k)">
-                    <Button
-                      size="small"
-                      icon={<GatewayIcon name="LeftOutlined" />}
-                      aria-label="Previous delivery"
-                      disabled={detailIndex <= 0}
-                      onClick={() => stepDetail(-1)}
-                    />
-                  </Tooltip>
-                  <Tooltip title="Next delivery (j)">
-                    <Button
-                      size="small"
-                      icon={<GatewayIcon name="RightOutlined" />}
-                      aria-label="Next delivery"
-                      disabled={detailIndex >= filtered.length - 1}
-                      onClick={() => stepDetail(1)}
-                    />
-                  </Tooltip>
-                </>
-              )}
-              {['FAILED', 'ABANDONED'].includes(detailRecord.status) &&
-                !isScriptJobLogLike(detailRecord) &&
-                !isPortalSession && (
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={<GatewayIcon name="ReloadOutlined" />}
-                    loading={retryingLogs[detailRecord.id]}
-                    onClick={() => handleRetry(detailRecord)}
-                  >
-                    Retry
-                  </Button>
-                )}
-            </Space>
-          ) : null
-        }
+        styles={{
+          wrapper: { top: `${topNavHeight}px`, height: `calc(100dvh - ${topNavHeight}px)` },
+          body: { padding: spacing[3] },
+        }}
+        extra={detailActions}
       >
         {detailRecord && renderDeliveryDetail(detailRecord)}
-      </Drawer>
+      </Drawer>}
+      {correction && (
+        <ReplayPayloadModal open validateFirst initialPayload={correction.payload}
+          submitting={retryingLogs[correction.record.id]} onCancel={() => setCorrection(null)}
+          onSubmit={async (options) => {
+            await handleReplayWithPayload(correction.record, options);
+            setCorrection(null);
+          }} />
+      )}
     </PageTemplate>
   );
 };

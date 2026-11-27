@@ -1,7 +1,7 @@
 import { defineTheme } from '@astryxdesign/core/theme';
 import { neutralTheme } from '@astryxdesign/theme-neutral';
 
-const legacyColorAliases = {
+export const legacyColorAliases = {
   '--color-bg-base': 'var(--color-background-body)',
   '--color-bg-subtle': 'var(--color-background-muted)',
   '--color-bg-surface': 'var(--color-background-surface)',
@@ -103,7 +103,16 @@ const legacyColorAliases = {
   '--color-info-900': 'var(--color-text-info)',
 };
 
-const foundationTokens: Record<string, string | [string, string]> = {
+export const foundationTokens: Record<string, string | [string, string]> = {
+  // The console type scale. These were referenced across the stylesheets but
+  // never defined, so every page title and section heading silently inherited
+  // its parent size. Defining them restores the documented scale.
+  '--console-type-caption': '12px',
+  '--console-type-body': '13px',
+  '--console-type-control': '14px',
+  '--console-type-section': '16px',
+  '--console-type-title': '20px',
+  '--console-type-numeral': '24px',
   '--font-size-caption': '12px',
   '--font-size-body': '13px',
   '--font-size-control': '14px',
@@ -131,15 +140,21 @@ const foundationTokens: Record<string, string | [string, string]> = {
   '--space-10': '40px',
   '--space-12': '48px',
   '--color-background-sidebar': ['#171B22', '#0B1220'],
+  '--color-app-rail': ['#171638', '#14132D'],
+  '--color-app-rail-deep': ['#111129', '#100F23'],
+  '--color-app-chrome-accent': ['#5141CE', '#6656E1'],
+  '--color-app-chrome-accent-hover': ['#4233B2', '#5949CD'],
   '--color-background-row-hover': 'color-mix(in srgb, var(--color-text-primary) 4%, var(--color-background-surface))',
   '--color-background-row-active': 'color-mix(in srgb, var(--color-accent) 12%, var(--color-background-surface))',
-  '--color-text-sidebar': 'color-mix(in srgb, var(--color-on-dark) 70%, transparent)',
+  '--color-text-sidebar': 'color-mix(in srgb, var(--color-on-dark) 85%, transparent)',
   '--color-background-sidebar-hover': 'color-mix(in srgb, var(--color-background-sidebar) 92%, var(--color-on-dark))',
   '--color-background-sidebar-active': 'color-mix(in srgb, var(--color-background-sidebar) 92%, var(--color-on-dark))',
   '--color-text-sidebar-active': 'var(--color-on-dark)',
 };
 
-const paletteTokens: Record<string, string | [string, string]> = {
+export const paletteTokens: Record<string, string | [string, string]> = {
+  // Warning fills are dark amber in light mode; the label must be light.
+  '--color-on-warning': ['#FFFFFF', '#111111'],
   '--color-background-body': ['#F8FAFC', '#0D1118'],
   '--color-background-surface': ['#FFFFFF', '#181C22'],
   '--color-background-card': 'var(--color-background-surface)',
@@ -152,7 +167,9 @@ const paletteTokens: Record<string, string | [string, string]> = {
   '--color-success': ['#15803D', '#64af4c'],
   '--color-success-muted': 'color-mix(in srgb, var(--color-success) 14%, transparent)',
   '--color-border-success': 'color-mix(in srgb, var(--color-success) 36%, var(--color-background-surface))',
-  '--color-text-success': 'var(--color-success)',
+  // Success badges sit on a 14% success tint. Use a deeper light-mode text
+  // value so normal-sized labels clear WCAG AA while status fills stay vivid.
+  '--color-text-success': ['#0B5D3B', '#6ECF9D'],
   '--color-error-muted': 'color-mix(in srgb, var(--color-error) 12%, transparent)',
   '--color-border-error': 'color-mix(in srgb, var(--color-error) 38%, var(--color-background-surface))',
   '--color-text-error': 'var(--color-error)',

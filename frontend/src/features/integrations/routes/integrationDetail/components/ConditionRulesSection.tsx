@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon as GatewayIcon } from '../../../../../components/common/Icon';
 import { Card, Form, InputNumber, Space } from '@/components/common/LegacyAntdControls';
+import { RowList } from '../../../../../design-system/primitives';
 import type { LifecyclePanelSurfaceProps } from './LifecyclePanel.types';
 import { ConditionRuleCard } from './ConditionRuleCard';
 import { StatePanel } from '../../../../../components/common/StatePanel';
@@ -11,12 +12,7 @@ interface ConditionRulesSectionProps extends LifecyclePanelSurfaceProps {
   defaultMatchKeys: string[];
 }
 
-export const ConditionRulesSection = ({
-  eventTypeOptions,
-  defaultMatchKeys,
-  token,
-  colors,
-}: ConditionRulesSectionProps) => {
+export const ConditionRulesSection = ({ eventTypeOptions, defaultMatchKeys }: ConditionRulesSectionProps) => {
   const form = Form.useFormInstance();
   const expiresAfterHours = Form.useWatch('conditionExpiresAfterHours');
   const [showExpiry, setShowExpiry] = useState(Boolean(expiresAfterHours));
@@ -53,18 +49,17 @@ export const ConditionRulesSection = ({
                 description="Add a release condition below."
               />
             )}
-            {fields.map((field) => {
-              return (
+            <RowList label="Condition rules">
+              {fields.map((field, index) => (
                 <ConditionRuleCard
                   key={field.name}
                   field={field}
+                  index={index}
                   eventTypeOptions={eventTypeOptions}
                   onRemove={remove}
-                  token={token}
-                  colors={colors}
                 />
-              );
-            })}
+              ))}
+            </RowList>
             <Space wrap size={12}>
               {fields.length === 0 && (
                 <Button

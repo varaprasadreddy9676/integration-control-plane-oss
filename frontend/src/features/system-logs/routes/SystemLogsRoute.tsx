@@ -12,8 +12,6 @@ import {
 } from '@/components/common/LegacyAntdControls';
 import { Tab, TabList } from '@astryxdesign/core';
 import { Text } from '@astryxdesign/core/Text';
-import { Heading } from '@astryxdesign/core/Heading';
-import { Stack } from '@astryxdesign/core/Stack';
 import { Icon as GatewayIcon } from '../../../components/common/Icon';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { PageTemplate } from '../../../components/common/PageTemplate';
@@ -30,12 +28,13 @@ import {
 } from '../../../services/api';
 import { formatDateTime } from '../../../utils/format';
 import { createExportProgress } from '../../../utils/export-progress';
-import { cssVar, spacingToNumber, useDesignTokens, withAlpha } from '../../../design-system/utils';
+import { cssVar, spacingToNumber, useDesignTokens } from '../../../design-system/utils';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
 import { Button } from '../../../components/common/LegacyButton';
 import { StatusBadge, type StatusBadgeVariant } from '../../../components/common/StatusBadge';
 import { InlineHint } from '../../../components/common/InlineHint';
 import { StatePanel } from '../../../components/common/StatePanel';
+import { Metric, MetricStrip } from '../../../design-system/primitives';
 
 type LogRecord = SystemLog & {
   meta?: Record<string, any>;
@@ -100,8 +99,7 @@ const filterLogsByStatus = (logs: LogRecord[], statusFilter: string) => {
 };
 
 export default function SystemLogsRoute() {
-  const { spacing, token, borderRadius, transitions } = useDesignTokens();
-  const colors = cssVar.legacy;
+  const { spacing, token, borderRadius } = useDesignTokens();
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
@@ -800,7 +798,11 @@ export default function SystemLogsRoute() {
                 Auto-refresh off
               </Text>
             )}
-            <Switch checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} />
+            <Switch
+              aria-label="Enable automatic system log refresh"
+              checked={autoRefresh}
+              onChange={() => setAutoRefresh(!autoRefresh)}
+            />
             <Divider type="vertical" className="console-margin-none" />
             <Button
               type={autoRefresh ? 'primary' : 'default'}
@@ -832,6 +834,7 @@ export default function SystemLogsRoute() {
           <div className="system-logs-process-toolbar">
             <Select
               placeholder="Lines"
+              aria-label="Process output line count"
               size="small"
               value={processLineLimit}
               onChange={(value) => setProcessLineLimit(value)}
@@ -904,125 +907,76 @@ export default function SystemLogsRoute() {
         </>
       ) : (
         <>
-          <div
-            className="system-logs-summary-grid"
-            data-narrow={isNarrow}
-          >
-            {(activeTab === 'app'
+          <section aria-label="Log summary">
+            <MetricStrip className="ds-metrics--four system-logs-summary-grid">
+              {(activeTab === 'app'
               ? [
                   {
-                    title: 'Poll Cycles',
+                    label: 'Poll Cycles',
                     value: pollStats.total,
-                    subtitle: `${rawStats.total} raw logs in window`,
-                    tone: cssVar.text.secondary,
-                    icon: <GatewayIcon name="SearchOutlined" className="console-text-secondary" />,
+                    detail: `${rawStats.total} raw logs in window`,
                     filter: '' as const,
                   },
                   {
-                    title: 'With Errors',
+                    label: 'With Errors',
                     value: pollStats.withErrors,
-                    subtitle: `${rawStats.error} error-level log lines`,
-                    tone: colors.error[600],
-                    icon: <GatewayIcon name="BugOutlined" className="console-text-error" />,
+                    detail: `${rawStats.error} error-level log lines`,
                     filter: 'error' as const,
+                    tone: pollStats.withErrors > 0 ? ('bad' as const) : ('neutral' as const),
                   },
                   {
-                    title: 'With Warnings',
+                    label: 'With Warnings',
                     value: pollStats.withWarnings,
-                    subtitle: `${rawStats.warn} warning logs`,
-                    tone: colors.warning[600],
-                    icon: <GatewayIcon name="WarningOutlined" className="console-text-warning" />,
+                    detail: `${rawStats.warn} warning logs`,
                     filter: 'warn' as const,
                   },
                   {
-                    title: 'Healthy',
+                    label: 'Healthy',
                     value: pollStats.healthy,
-                    subtitle: 'No issues',
-                    tone: colors.success[600],
-                    icon: <GatewayIcon name="InfoCircleOutlined" className="console-text-success" />,
+                    detail: 'No issues',
                     filter: 'ok' as const,
                   },
                 ]
               : [
                   {
-                    title: 'Access Entries',
+                    label: 'Access Entries',
                     value: accessLogs.length,
-                    subtitle: `${serverStats?.byStream?.access ?? accessLogs.length} in period`,
-                    tone: cssVar.text.secondary,
-                    icon: <GatewayIcon name="SearchOutlined" className="console-text-secondary" />,
+                    detail: `${serverStats?.byStream?.access ?? accessLogs.length} in period`,
                     filter: '' as const,
                   },
                   {
-                    title: '5xx / Errors',
+                    label: '5xx / Errors',
                     value: rawStats.error,
-                    subtitle: 'Server-side request failures',
-                    tone: colors.error[600],
-                    icon: <GatewayIcon name="BugOutlined" className="console-text-error" />,
+                    detail: 'Server-side request failures',
                     filter: 'error' as const,
+                    tone: rawStats.error > 0 ? ('bad' as const) : ('neutral' as const),
                   },
                   {
-                    title: '4xx / Warnings',
+                    label: '4xx / Warnings',
                     value: rawStats.warn,
-                    subtitle: 'Client/request warnings',
-                    tone: colors.warning[600],
-                    icon: <GatewayIcon name="WarningOutlined" className="console-text-warning" />,
+                    detail: 'Client/request warnings',
                     filter: 'warn' as const,
                   },
                   {
-                    title: 'Informational',
+                    label: 'Informational',
                     value: rawStats.info,
-                    subtitle: '2xx/3xx and normal traffic',
-                    tone: colors.success[600],
-                    icon: <GatewayIcon name="InfoCircleOutlined" className="console-text-success" />,
+                    detail: '2xx/3xx and normal traffic',
                     filter: 'ok' as const,
                   },
                 ]
-            ).map((item) => (
-              <Card
-                key={item.title}
-                variant="outlined"
-                hoverable={item.filter !== ''}
-                onClick={() => item.filter && handleQuickStatusFilter(item.filter)}
-                style={{
-                  padding: spacing[3],
-                  borderRadius: token.borderRadiusLG,
-                  border: `1px solid ${withAlpha(item.tone, statusFilter === item.filter && item.filter ? 0.5 : 0.15)}`,
-                  boxShadow: 'none',
-                  cursor: item.filter ? 'pointer' : 'default',
-                  transition: transitions.all,
-                  background:
-                    statusFilter === item.filter && item.filter ? withAlpha(item.tone, 0.05) : cssVar.bg.surface,
-                }}
-                styles={{ body: { padding: 'var(--spacing-0)' } }}
-              >
-                <div className="system-logs-summary-card-content">
-                  <Stack gap={1}>
-                    <Text type="supporting" className="console-caption-secondary">
-                      {item.title}
-                    </Text>
-                    <Heading level={3} style={{ margin: 'var(--spacing-0)', color: item.tone }}>
-                      {item.value}
-                    </Heading>
-                    <Text type="supporting" color="secondary" className="console-caption-secondary">
-                      {item.subtitle}
-                    </Text>
-                  </Stack>
-                  <div
-                    style={{
-                      width: spacing[7],
-                      height: spacing[7],
-                      borderRadius: token.borderRadiusLG,
-                      background: withAlpha(item.tone, 0.1),
-                      display: 'grid',
-                      placeItems: 'center',
-                    }}
-                  >
-                    {item.icon}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+              ).map((item) => (
+                <Metric
+                  key={item.label}
+                  label={item.label}
+                  value={item.value}
+                  detail={item.detail}
+                  tone={'tone' in item ? item.tone : 'neutral'}
+                  onClick={item.filter ? () => handleQuickStatusFilter(item.filter) : undefined}
+                  ariaLabel={item.filter ? `Filter logs by ${item.label}: ${item.value}` : undefined}
+                />
+              ))}
+            </MetricStrip>
+          </section>
 
           {activeTab === 'app' && selectedRowKeys.length > 0 && (
             <Card
@@ -1053,6 +1007,7 @@ export default function SystemLogsRoute() {
           <div className="system-logs-filter-toolbar">
             <Select
               placeholder="Status"
+              aria-label="Filter logs by status"
               className="system-logs-filter-status"
               allowClear
               size="small"
@@ -1066,6 +1021,7 @@ export default function SystemLogsRoute() {
             />
             <Select
               placeholder="Log Level"
+              aria-label="Filter logs by level"
               className="system-logs-filter-level"
               allowClear
               size="small"
@@ -1080,6 +1036,7 @@ export default function SystemLogsRoute() {
             />
             <Select
               placeholder="Error Category"
+              aria-label="Filter logs by error category"
               className="system-logs-filter-category"
               allowClear
               size="small"
@@ -1093,6 +1050,7 @@ export default function SystemLogsRoute() {
             {activeTab === 'app' && (
               <Input
                 placeholder="Poll ID (e.g., 1252)"
+                aria-label="Filter logs by poll ID"
                 allowClear
                 size="small"
                 value={pollIdFilter}
@@ -1103,6 +1061,7 @@ export default function SystemLogsRoute() {
             )}
             <Input
               placeholder={activeTab === 'app' ? 'Search messages...' : 'Search URL, method, or message...'}
+              aria-label={activeTab === 'app' ? 'Search log messages' : 'Search access log URL, method, or message'}
               allowClear
               size="small"
               value={searchFilter}

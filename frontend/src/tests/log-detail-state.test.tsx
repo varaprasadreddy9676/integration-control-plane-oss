@@ -56,8 +56,8 @@ describe('LogDetailRoute states', () => {
   it('uses a human breadcrumb and shared delivery/HTTP status semantics', async () => {
     getLogByIdMock.mockResolvedValueOnce({
       id: 'record-1',
-      __KEEP___KEEP_integrationConfig__Id__: 'integration-1',
-      __KEEP_integrationName__: 'Appointment Created to Scheduling',
+      integrationConfigId: 'integration-1',
+      integrationName: 'Appointment Created to Scheduling',
       eventType: 'APPOINTMENT_CREATED',
       direction: 'OUTBOUND',
       status: 'SUCCESS',
@@ -82,8 +82,8 @@ describe('LogDetailRoute states', () => {
   it('uses a single description column at phone widths', async () => {
     getLogByIdMock.mockResolvedValueOnce({
       id: 'record-1',
-      __KEEP___KEEP_integrationConfig__Id__: 'integration-1',
-      __KEEP_integrationName__: 'Appointment Created to Scheduling',
+      integrationConfigId: 'integration-1',
+      integrationName: 'Appointment Created to Scheduling',
       eventType: 'APPOINTMENT_CREATED',
       direction: 'OUTBOUND',
       status: 'SUCCESS',
@@ -108,15 +108,17 @@ describe('LogDetailRoute states', () => {
 
     expect((await screen.findAllByText('Appointment Created to Scheduling')).length).toBeGreaterThan(0);
     const integrationLabel = screen.getByText('Integration');
-    expect(integrationLabel.closest('tr')?.children).toHaveLength(2);
+    // Unbordered descriptions render one cell per column: a single column at
+    // phone width means one cell in the row.
+    expect(integrationLabel.closest('tr')?.children).toHaveLength(1);
     media.mockRestore();
   });
 
   it('keeps the overview to two description columns at desktop breakpoints', async () => {
     getLogByIdMock.mockResolvedValueOnce({
       id: 'record-1',
-      __KEEP___KEEP_integrationConfig__Id__: 'integration-1',
-      __KEEP_integrationName__: 'Appointment Created to Scheduling',
+      integrationConfigId: 'integration-1',
+      integrationName: 'Appointment Created to Scheduling',
       eventType: 'APPOINTMENT_CREATED',
       direction: 'OUTBOUND',
       status: 'SUCCESS',
@@ -141,7 +143,8 @@ describe('LogDetailRoute states', () => {
 
     expect((await screen.findAllByText('Appointment Created to Scheduling')).length).toBeGreaterThan(0);
     const integrationLabel = screen.getByText('Integration');
-    expect(integrationLabel.closest('tr')?.children).toHaveLength(4);
+    // Two columns at desktop: two label/value cells per row.
+    expect(integrationLabel.closest('tr')?.children).toHaveLength(2);
     media.mockRestore();
   });
 });

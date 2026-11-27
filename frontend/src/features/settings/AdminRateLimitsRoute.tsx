@@ -402,6 +402,7 @@ export const AdminRateLimitsRoute = () => {
                   className="ui-extracted-cc9de6e32c"
                 />
                 <Select
+                  aria-label="Filter rate limits by direction"
                   placeholder="Direction"
                   allowClear
                   value={filterDirection}
@@ -416,6 +417,7 @@ export const AdminRateLimitsRoute = () => {
                   className="ui-extracted-3292a37181"
                 />
                 <Select
+                  aria-label="Filter rate limits by enabled status"
                   value={filterEnabled}
                   onChange={(value) => {
                     setFilterEnabled(value);

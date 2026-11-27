@@ -1,6 +1,7 @@
 import { Space } from "@/components/common/LegacyAntdControls";
 import { Banner } from '@astryxdesign/core/Banner';
 import type { CSSProperties } from 'react';
+import { InlineHint } from '../../../../components/common/InlineHint';
 
 export interface FormAlertsProps {
   /**
@@ -83,7 +84,6 @@ export const FormAlerts = ({
   style,
   onDismissDisabled,
   onDismissValidation,
-  onDismissEventType,
 }: FormAlertsProps) => {
   const alerts = [];
   const spacingValue = typeof spacing === 'object' && spacing[4] ? spacing[4] : spacing || '16px';
@@ -121,17 +121,12 @@ export const FormAlerts = ({
     );
   }
 
-  // Event type required banner
+  // Event type required hint
   if (requiresEventType) {
     alerts.push(
-      <Banner
-        key="event-type-required"
-        status="info"
-        title="Select event type first"
-        description={eventTypeHelpText}
-        isDismissable={!!onDismissEventType}
-        onDismiss={onDismissEventType}
-      />
+      <InlineHint key="event-type-required">
+        Select event type first — {eventTypeHelpText}
+      </InlineHint>
     );
   }
 

@@ -7,8 +7,11 @@ export interface NavigationGroup {
 }
 
 export function getActiveNavigationKey(pathname: string, groups: NavigationGroup[]): string | undefined {
+  const sectionPath = pathname === '/inbound-integrations' || pathname.startsWith('/inbound-integrations/')
+    ? '/integrations'
+    : pathname;
   return groups
     .flatMap((group) => group.items)
-    .filter((item) => pathname === item.key || pathname.startsWith(`${item.key}/`))
+    .filter((item) => sectionPath === item.key || sectionPath.startsWith(`${item.key}/`))
     .sort((left, right) => right.key.length - left.key.length)[0]?.key;
 }

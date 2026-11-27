@@ -23,10 +23,10 @@ describe('Dashboard metric tone thresholds', () => {
 
 describe('Dashboard integration row keys', () => {
   it.each([
-    [{ __KEEP___KEEP_integrationConfig__Id__: 'legacy-id' }, 'legacy-id'],
+    [{ integrationConfigId: 'legacy-id' }, 'legacy-id'],
     [{ integrationConfigId: 'config-id' }, 'config-id'],
     [{ id: 'api-id' }, 'api-id'],
-    [{ __KEEP_integrationName__: 'normalized name' }, 'normalized name'],
+    [{ integrationName: 'normalized name' }, 'normalized name'],
     [{ integrationName: 'API name' }, 'API name'],
     [{}, '{}'],
   ])('uses a stable identifier when API fields vary', (record, expected) => {

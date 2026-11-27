@@ -116,6 +116,7 @@
       "features/settings/AdminAuditLogsRoute.tsx": 2,
       "features/settings/AdminRateLimitsRoute.tsx": 4,
       "features/settings/ApiKeysRoute.tsx": 3,
+      "features/settings/AppearanceRoute.tsx": 1,
       "features/settings/EventSourceSettingsRoute.tsx": 6,
       "features/settings/SettingsRoute.tsx": 7,
       "features/settings/UserManagementRoute.tsx": 1,
@@ -229,7 +230,9 @@
       "components/SplitText.tsx": 1
     },
     "hexColorLiterals": {
-      "design-system/theme/medics-theme.ts": 16,
+      "design-system/theme/accents.ts": 10,
+      "design-system/theme/medics-theme.ts": 27,
+      "design-system/theme/packs.ts": 199,
       "design-system/tokens/colors.ts": 146,
       "design-system/utils/cssVar.ts": 10,
       "features/dashboard/hooks/useDashboardExport.ts": 2

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Checkbox, Input, Modal, Space, message } from "@/components/common/LegacyAntdControls";
 import type { MenuProps } from "@/components/common/LegacyAntdControls";
-import { Banner } from '@astryxdesign/core/Banner';
 import { Text } from '@astryxdesign/core/Text';
 import { Icon as GatewayIcon } from "../../components/common/Icon";
 import { useQuery } from '@tanstack/react-query';
@@ -51,15 +50,7 @@ type DashboardDetailsTab =
   | 'latency'
   | 'deliveries'
   | 'logs'
-  | 'outbound'
-  | 'inbound'
-  | 'scheduled';
-
-const TAB_SCOPE_OVERRIDES: Partial<Record<DashboardDetailsTab, DashboardScope>> = {
-  outbound: 'OUTBOUND',
-  inbound: 'INBOUND',
-  scheduled: 'SCHEDULED',
-};
+  | 'performance';
 
 const EMPTY_ANALYTICS_OVERVIEW = {
   summary: { total: 0, successful: 0, failed: 0, skipped: 0, retrying: 0, successRate: 0 },
@@ -156,7 +147,7 @@ export const DashboardRoute = () => {
         value: String(
           integration.id ||
             integration._id ||
-            integration.__KEEP___KEEP_integrationConfig__Id__ ||
+            integration.integrationConfigId ||
             integration.type ||
             ''
         ),
@@ -253,9 +244,9 @@ export const DashboardRoute = () => {
     return counts;
   }, [filteredIntegrationOptions]);
 
-  const effectiveScope = useMemo<DashboardScope>(() => {
-    return TAB_SCOPE_OVERRIDES[detailsTab] || resolvedScope;
-  }, [detailsTab, resolvedScope]);
+  // Direction belongs to the filter. A tab must never silently change the scope
+  // of the numbers above it.
+  const effectiveScope = resolvedScope;
 
   const hasConfiguredEntitiesInScope = useMemo(() => {
     if (effectiveScope === 'ALL') return !providerFilter || filteredIntegrationOptions.length > 0;
@@ -333,11 +324,10 @@ export const DashboardRoute = () => {
 
   const analyticsDirection = effectiveScope === 'ALL' || effectiveScope === 'SCHEDULED' ? undefined : effectiveScope;
   const analyticsTriggerType = effectiveScope === 'SCHEDULED' ? 'SCHEDULED' : undefined;
-  const needsHourlyTimeseries = detailsTab === 'overview' || detailsTab === 'inbound';
-  const needsErrorAnalytics =
-    detailsTab === 'errors' || detailsTab === 'outbound' || detailsTab === 'inbound' || detailsTab === 'scheduled';
-  const needsPerformanceAnalytics =
-    detailsTab === 'latency' || detailsTab === 'outbound' || detailsTab === 'inbound' || detailsTab === 'scheduled';
+  const needsHourlyTimeseries =
+    detailsTab === 'overview' || (detailsTab === 'performance' && effectiveScope === 'INBOUND');
+  const needsErrorAnalytics = detailsTab === 'errors' || detailsTab === 'performance';
+  const needsPerformanceAnalytics = detailsTab === 'latency' || detailsTab === 'performance';
   const needsEventAuditStats =
     detailsTab === 'deliveries' && effectiveScope !== 'SCHEDULED' && hasConfiguredEntitiesInScope;
   const needsRecentLogs = detailsTab === 'logs';
@@ -505,7 +495,7 @@ export const DashboardRoute = () => {
   const { data: scheduledJobs } = useQuery({
     queryKey: ['dashboard-scheduled-jobs', orgId],
     queryFn: () => getAllScheduledJobs(),
-    enabled: detailsTab === 'scheduled' && hasConfiguredEntitiesInScope,
+    enabled: detailsTab === 'performance' && effectiveScope === 'SCHEDULED' && hasConfiguredEntitiesInScope,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -561,7 +551,7 @@ export const DashboardRoute = () => {
         )
         .slice(0, 200);
     },
-    enabled: detailsTab === 'scheduled' && scheduledJobIds.length > 0,
+    enabled: detailsTab === 'performance' && effectiveScope === 'SCHEDULED' && scheduledJobIds.length > 0,
     refetchInterval: refreshInterval,
   });
 
@@ -624,7 +614,7 @@ export const DashboardRoute = () => {
         ...(needsPerformanceAnalytics && hasConfiguredEntitiesInScope ? [refetchPerformance()] : []),
         ...(needsEventAuditStats ? [refetchEventAuditStats()] : []),
         ...(needsRecentLogs && hasConfiguredEntitiesInScope ? [refetchRecentLogs()] : []),
-        ...(detailsTab === 'scheduled' && hasConfiguredEntitiesInScope && scheduledJobIds.length > 0
+        ...(detailsTab === 'performance' && effectiveScope === 'SCHEDULED' && hasConfiguredEntitiesInScope && scheduledJobIds.length > 0
           ? [refetchScheduledLogs()]
           : []),
       ]);
@@ -848,10 +838,10 @@ export const DashboardRoute = () => {
   const integrationPerformance = useMemo(() => {
     return (analyticsData?.integrationPerformance || []).map((integration: any) => {
       const integrationKey = String(
-        integration.__KEEP___KEEP_integrationConfig__Id__ || integration.integrationConfigId || integration.id || ''
+        integration.integrationConfigId || integration.integrationConfigId || integration.id || ''
       );
       const resolvedName =
-        integration.__KEEP_integrationName__ ||
+        integration.integrationName ||
         integration.integrationName ||
         (integrationKey ? integrationNameMap.get(integrationKey) : undefined) ||
         integrationKey ||
@@ -859,7 +849,6 @@ export const DashboardRoute = () => {
 
       return {
         ...integration,
-        __KEEP_integrationName__: resolvedName,
         integrationName: integration.integrationName || resolvedName,
       };
     });
@@ -870,9 +859,9 @@ export const DashboardRoute = () => {
     return integrationPerformance
       .map((integration: any) => {
         const displayName =
-          integration.__KEEP_integrationName__ ||
           integration.integrationName ||
-          integration.__KEEP___KEEP_integrationConfig__Id__ ||
+          integration.integrationName ||
+          integration.integrationConfigId ||
           'Unknown';
         const successful = integration.successful || 0;
         const failed = integration.failed || 0;
@@ -892,7 +881,7 @@ export const DashboardRoute = () => {
           skippedCount: skipped,
           total,
           skipped,
-          integrationId: integration.__KEEP___KEEP_integrationConfig__Id__,
+          integrationId: integration.integrationConfigId,
         };
       })
       .map((integration: any) => ({
@@ -967,15 +956,30 @@ export const DashboardRoute = () => {
   }, [performanceAnalyticsData]);
 
   const overviewMetrics = metrics;
+  // The performance view only exists for a chosen direction.
+  useEffect(() => {
+    if (detailsTab === 'performance' && effectiveScope === 'ALL') setDetailsTab('overview');
+  }, [detailsTab, effectiveScope]);
+
   const detailsTabs = [
     { key: 'overview', label: 'Overview' },
+    ...(effectiveScope === 'ALL'
+      ? []
+      : [
+          {
+            key: 'performance',
+            label:
+              effectiveScope === 'INBOUND'
+                ? 'Inbound performance'
+                : effectiveScope === 'SCHEDULED'
+                  ? 'Scheduled performance'
+                  : 'Outbound performance',
+          },
+        ]),
     { key: 'errors', label: 'Errors' },
     { key: 'latency', label: 'Latency' },
     { key: 'deliveries', label: 'Deliveries' },
     { key: 'logs', label: 'Logs' },
-    { key: 'outbound', label: 'Outbound' },
-    { key: 'inbound', label: 'Inbound' },
-    { key: 'scheduled', label: 'Scheduled' },
   ];
 
   const scopeMeta = useMemo(() => {
@@ -1040,7 +1044,7 @@ export const DashboardRoute = () => {
   const recentLogs = recentLogsData;
 
   const getIntegrationPath = (record: any) => {
-    const id = record?.__KEEP___KEEP_integrationConfig__Id__ || record?.integrationConfigId || record?.id;
+    const id = record?.integrationConfigId || record?.integrationConfigId || record?.id;
     if (!id) return scopeMeta.managePath;
     const mappedDirection = integrationDirectionMap.get(String(id));
     const recordDirection =
@@ -1187,21 +1191,22 @@ export const DashboardRoute = () => {
 
       {showEmptyRangeNotice && (
         <div className="dashboard-empty-range-notice">
-          <Banner
-            status="info"
-            title="No deliveries in this period"
-            description="Widen the date range to see recent delivery activity."
-            endContent={
-              <Space wrap>
+          <div className="dashboard-empty-range-notice__body">
+            <Text as="p" display="block" weight="semibold">
+              No deliveries in this period
+            </Text>
+            <Text as="p" display="block" type="supporting">
+              Widen the date range to see recent delivery activity.
+            </Text>
+          </div>
+          <Space wrap className="dashboard-empty-range-notice__actions">
               <Button size="small" onClick={() => setDays(7)}>
                 Last 7 days
               </Button>
               <Button size="small" onClick={() => setDays(30)}>
                 Last 30 days
               </Button>
-              </Space>
-            }
-          />
+          </Space>
         </div>
       )}
 
@@ -1319,7 +1324,7 @@ export const DashboardRoute = () => {
         />
       )}
 
-      {detailsTab === 'outbound' && (
+      {detailsTab === 'performance' && effectiveScope === 'OUTBOUND' && (
         <DashboardOutboundTab
           days={days}
           timeLabel={timeLabel}
@@ -1339,8 +1344,9 @@ export const DashboardRoute = () => {
         />
       )}
 
-      {detailsTab === 'inbound' && (
+      {detailsTab === 'performance' && effectiveScope === 'INBOUND' && (
         <DashboardInboundTab
+          showKpis={false}
           days={days}
           timeLabel={timeLabel}
           analyticsLoading={analyticsLoadingState}
@@ -1356,8 +1362,9 @@ export const DashboardRoute = () => {
         />
       )}
 
-      {detailsTab === 'scheduled' && (
+      {detailsTab === 'performance' && effectiveScope === 'SCHEDULED' && (
         <DashboardScheduledTab
+          showKpis={false}
           days={days}
           timeLabel={timeLabel}
           analyticsLoading={analyticsLoadingState}

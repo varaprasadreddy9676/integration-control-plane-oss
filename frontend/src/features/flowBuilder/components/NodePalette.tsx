@@ -224,13 +224,13 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ mode, onAddNode, exist
                           <div className="flow-builder-palette-item-icon">{node.icon}</div>
 
                           <div className="console-flex-min-width-0">
-                            <div className="flow-builder-palette-item-label" data-disabled={disabled}>
+                            <div className="flow-builder-palette-item-label console-type-body" data-disabled={disabled}>
                               {node.label}
                               {alreadyExists && node.type === 'trigger' && (
                                 <Badge count={1} className="flow-builder-palette-existing-badge" />
                               )}
                             </div>
-                            <div className="flow-builder-palette-item-description">{node.description}</div>
+                            <div className="flow-builder-palette-item-description console-type-caption">{node.description}</div>
                           </div>
                         </div>
                       </Card>
@@ -245,8 +245,8 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ mode, onAddNode, exist
 
       {/* Help text */}
       <div className="flow-builder-palette-help">
-        <AstryxText className="console-type-caption console-text-info">
-          <strong>Tip:</strong> Drag nodes onto the canvas or click to add them
+        <AstryxText type="supporting" className="console-type-caption">
+          Drag a node onto the canvas, or click it to append.
         </AstryxText>
       </div>
     </div>

@@ -58,9 +58,9 @@ export const DashboardLogsTab = ({ logsLoading, logs, noDataHint, onViewAll }: D
                   >
                     <div className="console-min-width-0">
                       <Text weight="semibold">
-                        {log.__KEEP_integrationName__ ||
+                        {log.integrationName ||
                           log.integrationName ||
-                          log.__KEEP___KEEP_integrationConfig__Id__ ||
+                          log.integrationConfigId ||
                           'Unknown integration'}
                       </Text>
                       <Text type="supporting" color="secondary" display="block">

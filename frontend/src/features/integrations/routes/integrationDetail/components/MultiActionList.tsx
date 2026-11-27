@@ -10,7 +10,6 @@ import { FormAlerts } from '../../../components/common';
 import { SectionCard } from './SectionCard';
 import { getLookupTypes } from '../../../../../services/api';
 import { Button } from '../../../../../components/common/LegacyButton';
-import { InlineNotice as Notice } from '../../../../../components/common';
 
 interface MultiActionListProps {
   form: FormInstance;
@@ -84,30 +83,19 @@ export const MultiActionList = ({
             children: (
               <Row gutter={[spacingToNumber(spacing[4]), 0]}>
                 <Col xs={24}>
-                  <Notice
-                    type="info"
-                    closable
-                    message="Multi-Action Mode"
-                    description={
-                      <div className="console-type-caption">
-                        Execute multiple HTTP or HL7 MLLP deliveries per event. Actions run sequentially.
-                        <div className="console-margin-top-2">
-                          <Button
-                            type="primary"
-                            size="small"
-                            onClick={loadCleverTapTemplate}
-                            className="console-margin-right-2"
-                          >
-                            Load CleverTap Template
-                          </Button>
-                          <Text type="supporting" size="sm" color="secondary">
-                            Pre-configured example
-                          </Text>
-                        </div>
-                      </div>
-                    }
-                    className="multi-action-notice multi-action-notice--info"
-                  />
+                  <Space direction="vertical" size="small">
+                    <Text type="supporting" size="sm" color="secondary" display="block">
+                      Multi-Action Mode: Execute multiple HTTP or HL7 MLLP deliveries per event. Actions run sequentially.
+                    </Text>
+                    <Space size="small">
+                      <Button type="primary" size="small" onClick={loadCleverTapTemplate}>
+                        Load CleverTap Template
+                      </Button>
+                      <Text type="supporting" size="sm" color="secondary">
+                        Pre-configured example
+                      </Text>
+                    </Space>
+                  </Space>
                 </Col>
 
                 <Col xs={24}>
@@ -115,24 +103,22 @@ export const MultiActionList = ({
                     {(fields, { add, remove, move }) => (
                       <>
                         {fields.length === 0 && (
-                          <Notice
-                            type="info"
-                            message="No actions configured yet"
-                            description="Add your first action to define the target URL, method, and transformation."
-                            className="multi-action-notice multi-action-notice--info"
-                            action={
-                              <Button
-                                type="primary"
-                                size="small"
-                                icon={<GatewayIcon name="PlusOutlined" />}
-                                onClick={() =>
-                                  add({ kind: 'HTTP', name: '', httpMethod: 'POST', transformationMode: 'SCRIPT' })
-                                }
-                              >
-                                Add Action
-                              </Button>
-                            }
-                          />
+                          <Space direction="vertical" size="small">
+                            <Text type="supporting" size="sm" color="secondary" display="block">
+                              No actions configured yet. Add your first action to define the target URL, method, and
+                              transformation.
+                            </Text>
+                            <Button
+                              type="primary"
+                              size="small"
+                              icon={<GatewayIcon name="PlusOutlined" />}
+                              onClick={() =>
+                                add({ kind: 'HTTP', name: '', httpMethod: 'POST', transformationMode: 'SCRIPT' })
+                              }
+                            >
+                              Add Action
+                            </Button>
+                          </Space>
                         )}
                         {fields.map(({ key, name, ...restField }, index) => (
                           <div
@@ -338,12 +324,11 @@ export const MultiActionList = ({
                                           </Form.Item>
                                         </Col>
                                         <Col xs={24}>
-                                          <Notice
-                                            type="info"
-                                            message="HL7 MLLP delivery"
-                                            description="The transformation script should return an HL7 string or use hl7.ormO01(), hl7.oruR01(), or hl7.adtA08(). Delivery succeeds only when the receiver returns an accepting ACK."
-                                            className="multi-action-notice multi-action-notice--info"
-                                          />
+                                          <Text type="supporting" size="sm" color="secondary" display="block">
+                                            HL7 MLLP delivery: The transformation script should return an HL7 string or use
+                                            hl7.ormO01(), hl7.oruR01(), or hl7.adtA08(). Delivery succeeds only when the
+                                            receiver returns an accepting ACK.
+                                          </Text>
                                         </Col>
                                       </>
                                     );
@@ -424,12 +409,11 @@ export const MultiActionList = ({
                                             </Form.Item>
                                           </Col>
                                           <Col xs={24}>
-                                            <Notice
-                                              type="info"
-                                              message="Template resolution"
-                                              description="At delivery time the platform looks up the template, fills placeholder tokens, and merges the result with any fields you override here (e.g. targetUrl, timeoutMs)."
-                                              className="multi-action-notice multi-action-notice--info"
-                                            />
+                                            <Text type="supporting" size="sm" color="secondary" display="block">
+                                              Template resolution: At delivery time the platform looks up the template, fills
+                                              placeholder tokens, and merges the result with any fields you override here
+                                              (e.g. targetUrl, timeoutMs).
+                                            </Text>
                                           </Col>
                                         </>
                                       ) : (
@@ -462,12 +446,10 @@ export const MultiActionList = ({
                                             </Form.Item>
                                           </Col>
                                           <Col xs={24}>
-                                            <Notice
-                                              type="warning"
-                                              message="No localhost/private IPs"
-                                              description="Localhost and private IP addresses are blocked for HTTP actions. Use publicly accessible URLs only."
-                                              className="multi-action-notice multi-action-notice--warning"
-                                            />
+                                            <Text type="supporting" size="sm" color="secondary" display="block">
+                                              No localhost/private IPs: Localhost and private IP addresses are blocked for
+                                              HTTP actions. Use publicly accessible URLs only.
+                                            </Text>
                                           </Col>
                                         </>
                                       )}

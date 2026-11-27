@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
 import { resolveThemeTokens } from '@astryxdesign/core/theme/tokens';
 import { useThemeMode } from '../../app/theme-provider';
-import { medicsTheme } from '../theme/medics-theme';
 import { resolveThemeToken } from '../theme/resolve-theme-token';
 
 export const useThemeColors = () => {
-  const { mode } = useThemeMode();
+  const { mode, theme } = useThemeMode();
 
   return useMemo(() => {
-    const tokens = resolveThemeTokens(medicsTheme, { mode }) as Record<string, string>;
-    const localTokens = medicsTheme.localTokens as Record<string, string | [string, string]>;
+    const tokens = resolveThemeTokens(theme, { mode }) as Record<string, string>;
+    const localTokens = (theme.localTokens ?? {}) as Record<string, string | [string, string]>;
     const color = (name: string) => resolveThemeToken(tokens[name] || localTokens[name], mode) || '';
 
     return {
